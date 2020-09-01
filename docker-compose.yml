@@ -80,7 +80,7 @@ services:
 
   watcher:
     container_name: watcher
-    build: ./Watcher
+    image: felix83000/watcher:latest
     depends_on:
       - db_watcher
       - searx

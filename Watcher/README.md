@@ -7,11 +7,9 @@ Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/
 - Installed Docker
 - Installed docker-compose
 
-## Launch watcher
+Configure Watcher settings using the `.env` file ([Static configuration](#Static-configuration)).
 
-    docker-compose build
-    
-That should build the images defined in the `docker-compose.yml` file.
+## Launch watcher
     
     docker-compose up
 
@@ -174,75 +172,6 @@ In fact, if you are using an outdated TheHive/MISP instance, the client API vers
 TheHive/MISP instance version:
 
 - Update MISP or Thehive
-
-# Development 
-If you want to modify the project, you will need to setup your development environment.
-
-**CERT Team** : I will provide to you a **VirtualBox Image** (.ova) already setup for development.
-
-### Install Mysql
-
-You will need to install a proper mysql database. 
-
-### Install Python dependencies 
-Install `python3.6` (this is the dev version, the production version is the latest).
-   
-    pip install pipenv
-
-From the project `/`:
-
-    pipenv shell 
-    pipenv install
-
-### Install React Dependencies
-From the project `/`:
-
-    npm install
-
-After modifying some Frontend ReactJs files you will need to run the command below.
-
-    npm run dev
-    
-You just need to run it one time and it will watch your files and compile them.
-
-For a production release you may use this one:
-
-    npm run build
-    
-### Build documentation
-After modifying some comments you may want to rebluid the documentation:
-
-    pipenv shell
-
-Please comment **line 2** of `/Watcher/threats_watcher/core.py`:
-
-    # from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber
-
-Please comment **line 2** of `/Watcher/data_leak/core.py`:
-
-    # from .models import Keyword, Alert, PastId, Subscriber
-
-Please comment **line 13** of `/Watcher/site_monitoring/core.py`:
-
-    # from .models import Site, Alert
-
-Please comment **line 4** of `/Watcher/site_monitoring/misp.py`:
-
-    # from .models import Site
-
-Please comment **line 3** of `/Watcher/site_monitoring/thehive.py`:
-
-    # from .models import Site
-
-Please comment **line 10** of `/Watcher/dns_finder/core.py`:
-
-    # from .models import Alert, DnsMonitored, DnsTwisted, Subscriber
-
-Go to `/docs`:
-   
-    make html 
-
-Please uncomment after the documentation build.
 
 ---
 Developed by Thales Group CERT.
