@@ -52,6 +52,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret! You can set DJANGO_SECRET_KEY environment variable to change it within the .env file.
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_9-qu(onjic((jfca$z(!')
+if SECRET_KEY == '':
+    SECRET_KEY = '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_9-qu(onjic((jfca$z(!'
 
 # SECURITY WARNING: In production please put DJANGO_DEBUG environment variable to False in the .env file!
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
