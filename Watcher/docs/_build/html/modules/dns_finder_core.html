@@ -1,0 +1,269 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>DNS Finder - Core Algorithm &mdash; Watcher 1.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Site Monitoring - TheHive API Functions" href="site_monitoring_thehive.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> Watcher
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Watcher Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html#development">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_leak_core.html">Data Leak - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="site_monitoring_misp.html">Site Monitoring - MISP API Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="site_monitoring_thehive.html">Site Monitoring - TheHive API Functions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">DNS Finder - Core Algorithm</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Watcher</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>DNS Finder - Core Algorithm</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/modules/dns_finder_core.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-Watcher.dns_finder.core">
+<span id="dns-finder-core-algorithm"></span><h1>DNS Finder - Core Algorithm<a class="headerlink" href="#module-Watcher.dns_finder.core" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.check_dnstwist">
+<code class="sig-prename descclassname">Watcher.dns_finder.core.</code><code class="sig-name descname">check_dnstwist</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dns_monitored</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.check_dnstwist" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div><p>Runs dnstwist.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dns_monitored</strong> – DnsMonitored Object.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.send_email">
+<code class="sig-prename descclassname">Watcher.dns_finder.core.</code><code class="sig-name descname">send_email</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">alert</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.send_email" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send e-mail alert.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>alert</strong> – Alert Object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.send_group_email">
+<code class="sig-prename descclassname">Watcher.dns_finder.core.</code><code class="sig-name descname">send_group_email</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dns_monitored</span></em>, <em class="sig-param"><span class="n">alerts_number</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.send_group_email" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send group e-mail for a specific dns_monitored.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dns_monitored</strong> – DnsMonitored Object.</p></li>
+<li><p><strong>alerts_number</strong> – Number of alerts.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.start_scheduler">
+<code class="sig-prename descclassname">Watcher.dns_finder.core.</code><code class="sig-name descname">start_scheduler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.start_scheduler" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
+<li><p>Fire main_dns_twist from Monday to Sunday : Every 2 hours.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="site_monitoring_thehive.html" class="btn btn-neutral float-left" title="Site Monitoring - TheHive API Functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

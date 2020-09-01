@@ -1,0 +1,132 @@
+version: "3.3"
+
+services:
+
+  searx:
+    container_name: searx
+    image: searx/searx:latest
+    hostname: searx
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.3
+    command: ${SEARX_COMMAND:-}
+    volumes:
+      - ./Searx/searx:/etc/searx:rw
+    environment:
+      - TZ=${TZ}
+      - BIND_ADDRESS=10.10.10.3:8080
+      - BASE_URL=https://${SEARX_HOSTNAME}/
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+
+  searx-checker:
+    container_name: searx-checker
+    image: searx/searx-checker
+    hostname: searx-checker
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.4
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      no_proxy: "10.10.10.3"
+    command: -cron -o html/data/status.json http://searx:8080
+    volumes:
+      - searx-checker:/usr/local/searx-checker/html/data:rw
+
+  rss-bridge:
+    container_name: rss-bridge
+    image: rssbridge/rss-bridge:latest
+    hostname: rss-bridge
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.7
+    volumes:
+      - ./Rss-bridge/whitelist.txt:/app/whitelist.txt
+    environment:
+      - TZ=${TZ}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+
+  db_watcher:
+    container_name: db_watcher
+    image: mysql:latest
+    command: mysqld --default-authentication-plugin=mysql_native_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - db_log:/var/log/mysql
+    ports:
+      - '3307:3306'
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.5
+    environment:
+      TZ: ${TZ}
+      MYSQL_DATABASE: 'db_watcher'
+      MYSQL_USER: 'watcher'
+      MYSQL_PASSWORD: 'Ee5kZm4fWWAmE9hs'
+      MYSQL_ROOT_PASSWORD: 'Ee5kZm4fWWAmE9hsroot'
+
+  watcher:
+    container_name: watcher
+    build: ./Watcher
+    depends_on:
+      - db_watcher
+      - searx
+      - rss-bridge
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.6
+    tty: true
+    environment:
+      TZ: ${TZ}
+      DJANGO_DEBUG: ${DJANGO_DEBUG}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_TO: ${EMAIL_TO}
+      SMTP_SERVER: ${SMTP_SERVER}
+      WATCHER_URL: ${WATCHER_URL}
+      THE_HIVE_URL: ${THE_HIVE_URL}
+      THE_HIVE_KEY: ${THE_HIVE_KEY}
+      THE_HIVE_CASE_ASSIGNEE: ${THE_HIVE_CASE_ASSIGNEE}
+      MISP_URL: ${MISP_URL}
+      MISP_VERIFY_SSL: ${MISP_VERIFY_SSL}
+      MISP_KEY: ${MISP_KEY}
+      MISP_TICKETING_URL: ${MISP_TICKETING_URL}
+      AUTH_LDAP_SERVER_URI: ${AUTH_LDAP_SERVER_URI}
+      AUTH_LDAP_BIND_DN: ${AUTH_LDAP_BIND_DN}
+      AUTH_LDAP_BIND_PASSWORD: ${AUTH_LDAP_BIND_PASSWORD}
+      AUTH_LDAP_BASE_DN: ${AUTH_LDAP_BASE_DN}
+      AUTH_LDAP_FILTER: ${AUTH_LDAP_FILTER}
+      DATA_LEAK_SEARX_URL: ${SEARX_PROTOCOL}${SEARX_HOSTNAME}/
+      ALLOWED_HOST: ${ALLOWED_HOST}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.7"
+    ports:
+      - "9002:9002"
+    command: sh -c '/tmp/wait-for-mysql.sh db_watcher 3306 watcher Ee5kZm4fWWAmE9hs db_watcher -- python manage.py runserver 0.0.0.0:9002'
+
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.10.10.0/24
+
+volumes:
+  db_data: {}
+  db_log: {}
+  searx-checker:
