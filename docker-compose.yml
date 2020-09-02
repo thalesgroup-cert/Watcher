@@ -39,7 +39,7 @@ services:
       HTTP_PROXY: ${HTTP_PROXY}
       HTTPS_PROXY: ${HTTPS_PROXY}
       no_proxy: "10.10.10.3"
-    command: -cron -o html/data/status.json http://searx:8080
+    command: -cron -o html/data/status.json http://10.10.10.3:8080
     volumes:
       - searx-checker:/usr/local/searx-checker/html/data:rw
 
