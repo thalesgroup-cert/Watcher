@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Alert, Site
+from .models import Alert, Site, Subscriber
 
 
 def custom_titled_filter(title):
@@ -50,3 +50,10 @@ class Site(admin.ModelAdmin):
                     'the_hive_case_id', 'created_at', 'expiry']
     list_filter = ['created_at', 'expiry', 'monitored', 'web_status']
     search_fields = ['rtir', 'domain_name', 'ip', 'ip_second', 'the_hive_case_id', 'misp_event_id']
+
+
+@admin.register(Subscriber)
+class Subscriber(admin.ModelAdmin):
+    list_display = ['user_rec', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['user_rec']

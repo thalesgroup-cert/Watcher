@@ -77,10 +77,9 @@ WORDS_OCCURRENCE = 10
 
 # Email Configuration
 EMAIL_FROM = os.environ.get('EMAIL_FROM', '')
-EMAIL_TO = os.environ.get('EMAIL_TO', '')
 SMTP_SERVER = os.environ.get('SMTP_SERVER', '')
 # Display at the end of the email notification
-EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', '')
+EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
 WATCHER_URL = os.environ.get('WATCHER_URL', '')
 # Watcher Logo

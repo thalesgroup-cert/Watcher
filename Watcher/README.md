@@ -10,8 +10,10 @@ Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/
 Configure Watcher settings using the `.env` file ([Static configuration](#Static-configuration)).
 
 ## Launch watcher
+
+- Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (Keep directory structure).
     
-    docker-compose up
+- `docker-compose up`
 
 That should run the Docker Container (Use `docker-compose up -d` if you want to run it in Background).
 
@@ -82,7 +84,6 @@ Example for a Monday morning watch : `POSTS_DEPTH = 50` and `WORDS_OCCURRENCE = 
 In the `.env` file:
 
     EMAIL_FROM=watcher@example.com
-    EMAIL_TO=CERT@example.com
     SMTP_SERVER=smtp.example.com
     
 Website url, link in the email notifications body:

@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-from .models import Site, Alert
+from .models import Site, Alert, Subscriber
 import tlsh
 import requests
 import socket
@@ -455,25 +455,35 @@ def send_email(message, rtir, alert_id):
     :param rtir: Identification number of RTIR.
     :return:
     """
-    # RTIR Ticket
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = settings.EMAIL_FROM
-        msg['To'] = settings.EMAIL_TO
-        msg['Subject'] = "[INCIDENT #" + str(rtir) + "] " + message
-        body = message
-        body += u"""\
-        Alert ID: """ + str(alert_id)
-        body += u"""\
-        Link: """ + settings.WATCHER_URL + "/#/website_monitoring"
-        msg.attach(MIMEText(body))
-        text = msg.as_string()
-        smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-        smtp_server.sendmail(settings.EMAIL_FROM, settings.EMAIL_TO, text)
-        smtp_server.quit()
+    emails_to = list()
+    # Get all subscribers email
+    for subscriber in Subscriber.objects.all():
+        emails_to.append(subscriber.user_rec.email)
 
-    except Exception as e:
-        # Print any error messages to stdout
-        print(str(timezone.now()) + " - Email Error : ", e)
-    finally:
-        print(str(timezone.now()) + " - Email sent to ", settings.EMAIL_TO)
+    # If there is at least one subscriber
+    if len(emails_to) > 0:
+        # RTIR Ticket
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = settings.EMAIL_FROM
+            msg['To'] = ','.join(emails_to)
+            msg['Subject'] = "[INCIDENT #" + str(rtir) + "] " + message
+            body = message
+            body += u"""\
+            Alert ID: """ + str(alert_id)
+            body += u"""\
+            Link: """ + settings.WATCHER_URL + "/#/website_monitoring"
+            msg.attach(MIMEText(body))
+            text = msg.as_string()
+            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
+            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
+            smtp_server.quit()
+
+        except Exception as e:
+            # Print any error messages to stdout
+            print(str(timezone.now()) + " - Email Error : ", e)
+        finally:
+            for email in emails_to:
+                print(str(timezone.now()) + " - Email sent to ", email)
+    else:
+        print(str(timezone.now()) + " - No subscriber, no email sent.")

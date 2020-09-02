@@ -142,21 +142,6 @@ class ThehiveSerializer(serializers.Serializer):
                 # Save the case id in database
                 Site.objects.filter(pk=site.pk).update(the_hive_case_id=case_id)
 
-                # Add a new task to the created case
-                print(str(timezone.now()) + " - " + 'Add a task {}'.format(case_id))
-                print('-----------------------------')
-                response = hive_api.create_case_task(case_id, CaseTask(
-                    title='Push IOCs to a MISP event',
-                    status='Waiting',
-                    flag=True))
-
-                if response.status_code == 201:
-                    print(str(timezone.now()) + " - " + "OK")
-                else:
-                    print(str(timezone.now()) + " - " + 'ko: {}/{}'.format(response.status_code, response.text))
-                    data = {'detail': response.json()['type'] + ": " + response.json()['message']}
-                    raise serializers.ValidationError(data)
-
                 # Create all IOCs observables
                 create_observables(hive_api, case_id, site)
             else:

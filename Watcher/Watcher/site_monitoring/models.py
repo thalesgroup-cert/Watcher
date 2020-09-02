@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils import timezone
 from django_mysql.models import ListCharField
+from django.contrib.auth.models import User
 
 
 class Site(models.Model):
@@ -56,3 +57,11 @@ class Alert(models.Model):
 
     def __str__(self):
         return self.site.domain_name
+
+
+class Subscriber(models.Model):
+    """
+    List of the email alert subscriber(s).
+    """
+    user_rec = models.ForeignKey(User, on_delete=models.CASCADE, related_name='site_monitoring')
+    created_at = models.DateTimeField(default=timezone.now)
