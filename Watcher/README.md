@@ -96,7 +96,7 @@ You will need to fill the IP of your TheHive instance and an API key generated.
 In the `.env` file:
 
     # THE HIVE SETUP
-    THE_HIVE_URL=http://10.10.10.10:9000
+    THE_HIVE_URL=
     THE_HIVE_KEY=
     THE_HIVE_CASE_ASSIGNEE=watcher
 
@@ -106,7 +106,7 @@ You will need to fill the IP of your MISP instance and an API key generated.
 In the `.env` file:
 
     # MISP Setup
-    MISP_URL=https://localhost
+    MISP_URL=
     MISP_VERIFY_SSL=False
     MISP_KEY=
 
