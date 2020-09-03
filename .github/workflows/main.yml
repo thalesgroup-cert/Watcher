@@ -1,20 +1,20 @@
 name: Deploy to GitHub Pages
 on:
-  push:	
-    branches:	
+  push:
+    branches:
       - master
 
 jobs:
   deploy:
     name: Deploy to GitHub Pages
-    runs-on: ubuntu-latest    
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
+      - uses: actions/checkout@master
 
-    - name: Deploy
-      uses: s0/git-publish-subdir-action@develop
-      env:
-        REPO: self
-        BRANCH: gh-pages
-        FOLDER: /Watcher/docs/_build/html
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy
+        uses: s0/git-publish-subdir-action@develop
+        env:
+          REPO: self
+          BRANCH: gh-pages
+          FOLDER: Watcher/Watcher/docs/_build/html
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
