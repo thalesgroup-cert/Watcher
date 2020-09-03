@@ -16,5 +16,5 @@ jobs:
         env:
           REPO: self
           BRANCH: gh-pages
-          FOLDER: Watcher/Watcher/docs/_build/html
+          FOLDER: ./Watcher/docs/_build/html
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
