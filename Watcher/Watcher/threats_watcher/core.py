@@ -208,48 +208,48 @@ def focus_on_top(words_occurrence):
     for word, occurrences in posts_five_letters.items():
         if occurrences >= words_occurrence:
 
-            # Si le word est dans TrendyWord on update le nombre d'occurences
+            # If word is already created, update occurences number
             if TrendyWord.objects.filter(name=word):
                 print(str(timezone.now()) + " - " + word + " : ", occurrences, " (in database)")
                 try:
                     for posturl in wordurl[word + "_url"].split(', '):
                         for url_, date in posts_published.items():
                             if posturl == url_:
-                                # Si le mot est apparu dans un nouveau post
+                                # If word is in a new post
                                 if not PostUrl.objects.filter(url=posturl):
                                     print(str(timezone.now()) + " - " + word, " appeared in a new post!")
-                                    # On augmente le nombre d'occurence de 1
+                                    # Increase occurences number of 1
                                     TrendyWord.objects.filter(name=word).update(
                                         occurrences=(TrendyWord.objects.get(name=word).occurrences + 1))
 
                                     if date != "no-date":
-                                        # On ajoute le nouveau post
+                                        # Add new post
                                         PostUrl.objects.create(url=posturl, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=posturl)
 
-                                    # On créé le lien entre le nouveau post et le mot existant
+                                    # Link created word with new posts
                                     TrendyWord.objects.get(name=word).posturls.add(PostUrl.objects.get(url=posturl))
                                     new_posts[word] = new_posts.get(word, 0) + 1
                 except KeyError:
                     pass
             else:
                 print(str(timezone.now()) + " - " + word + " : ", occurrences)
-                # Ajout des url dans la DB
+                # Add urls in DB
                 try:
                     for url in wordurl[word + "_url"].split(', '):
                         for url_, date in posts_published.items():
                             if url == url_:
                                 if not PostUrl.objects.filter(url=url):
                                     if date != "no-date":
-                                        # On ajoute le nouveau post
+                                        # Add new post
                                         PostUrl.objects.create(url=url, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=url)
 
                     word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
 
-                    # On associe chaque mots avec plusieurs url de posts
+                    # Link created words with new posts
                     for url in wordurl[word + "_url"].split(', '):
                         word_db.posturls.add(PostUrl.objects.get(url=url))
 

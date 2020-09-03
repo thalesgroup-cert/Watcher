@@ -98,6 +98,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#static-configuration">Static configuration</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#feed-parser-settings">Feed Parser Settings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#email-alerts-settings">Email Alerts Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#thehive-settings">TheHive Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#misp-settings">MISP Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ldap-settings">LDAP Settings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#production-settings-important">Production Settings [Important]</a></li>
 </ul>
 </li>
@@ -106,13 +109,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#remove-the-database">Remove the database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#useful-commands">Useful commands</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#thehive-misp-export">Thehive &amp; MISP Export</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#development">Development</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#install-mysql">Install Mysql</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#install-python-dependencies">Install Python dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#install-react-dependencies">Install React Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#build-documentation">Build documentation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
@@ -186,7 +182,9 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="watcher-installation">
+  <p>Thanks to <a class="reference external" href="https://www.isen-mediterranee.fr/"><strong>ISEN-Toulon Engineering School</strong></a> and to <a class="reference external" href="https://www.thalesgroup.com/"><strong>Thales Group</strong></a> CERT (THA-CERT) for allowing me to carry out this project.</p>
+<hr class="docutils" />
+<div class="section" id="watcher-installation">
 <h1>Watcher Installation<a class="headerlink" href="#watcher-installation" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
@@ -194,16 +192,14 @@
 <li><p>Installed Docker</p></li>
 <li><p>Installed docker-compose</p></li>
 </ul>
+<p>Configure Watcher settings using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#Static-configuration">Static configuration</a>).</p>
 </div>
 <div class="section" id="launch-watcher">
 <h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">build</span>
-</pre></div>
-</div>
-<p>That should build the images defined in the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code> file.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
-</pre></div>
-</div>
+<ul class="simple">
+<li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (Keep directory structure).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
+</ul>
 <p>That should run the Docker Container (Use <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code> if you want to run it in Background).</p>
 <p>Please use <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code> to stop all containers.</p>
 <div class="section" id="migrate">
@@ -280,10 +276,48 @@ feel free to use <code class="docutils literal notranslate"><span class="pre">po
 </div>
 <div class="section" id="email-alerts-settings">
 <h4>Email Alerts Settings<a class="headerlink" href="#email-alerts-settings" title="Permalink to this headline">¶</a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">EMAIL_FROM</span> <span class="o">=</span> <span class="s2">&quot;watcher@gemalto.com&quot;</span>
-<span class="n">SMTP_SERVER</span> <span class="o">=</span> <span class="s2">&quot;smtp.gemalto.com&quot;</span>
-<span class="c1"># Website url, link in e-mails body</span>
-<span class="n">WATCHER_URL</span> <span class="o">=</span> <span class="s2">&quot;https://watch.gemalto.com&quot;</span>
+<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">EMAIL_FROM</span><span class="o">=</span><span class="n">watcher</span><span class="nd">@example</span><span class="o">.</span><span class="n">com</span>
+<span class="n">SMTP_SERVER</span><span class="o">=</span><span class="n">smtp</span><span class="o">.</span><span class="n">example</span><span class="o">.</span><span class="n">com</span>
+</pre></div>
+</div>
+<p>Website url, link in the email notifications body:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WATCHER_URL</span><span class="o">=</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="o">.</span><span class="n">watcher</span><span class="o">.</span><span class="n">local</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="thehive-settings">
+<h4>TheHive Settings<a class="headerlink" href="#thehive-settings" title="Permalink to this headline">¶</a></h4>
+<p>You will need to fill the IP of your TheHive instance and an API key generated.</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># THE HIVE SETUP</span>
+<span class="n">THE_HIVE_URL</span><span class="o">=</span>
+<span class="n">THE_HIVE_KEY</span><span class="o">=</span>
+<span class="n">THE_HIVE_CASE_ASSIGNEE</span><span class="o">=</span><span class="n">watcher</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="misp-settings">
+<h4>MISP Settings<a class="headerlink" href="#misp-settings" title="Permalink to this headline">¶</a></h4>
+<p>You will need to fill the IP of your MISP instance and an API key generated.</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># MISP Setup</span>
+<span class="n">MISP_URL</span><span class="o">=</span>
+<span class="n">MISP_VERIFY_SSL</span><span class="o">=</span><span class="kc">False</span>
+<span class="n">MISP_KEY</span><span class="o">=</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="ldap-settings">
+<h4>LDAP Settings<a class="headerlink" href="#ldap-settings" title="Permalink to this headline">¶</a></h4>
+<p>You can configure an LDAP authentication within Watcher:</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># LDAP Setup</span>
+<span class="n">AUTH_LDAP_SERVER_URI</span><span class="o">=</span>
+<span class="n">AUTH_LDAP_BIND_DN</span><span class="o">=</span>
+<span class="n">AUTH_LDAP_BIND_PASSWORD</span><span class="o">=</span>
+<span class="n">AUTH_LDAP_BASE_DN</span><span class="o">=</span>
+<span class="n">AUTH_LDAP_FILTER</span><span class="o">=</span><span class="p">(</span><span class="n">uid</span><span class="o">=%</span><span class="p">(</span><span class="n">user</span><span class="p">)</span><span class="n">s</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -336,90 +370,15 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="thehive-misp-export">
 <h2>Thehive &amp; MISP Export<a class="headerlink" href="#thehive-misp-export" title="Permalink to this headline">¶</a></h2>
-<p>// Todo: Expliquer les solutions possible si
-// l’API Client ne marche pas comme espéré:
-https://github.com/MISP/PyMISP/issues/523</p>
-<p>You have two options there:</p>
-<ol class="simple">
+<p>If the export do not work as expected, this may be related with
+the version of your TheHive or MISP instance.</p>
+<p>In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your
+TheHive/MISP instance version:</p>
+<ul class="simple">
 <li><p>Update MISP or Thehive</p></li>
-<li><p>Use an older version of PyMISP (https://pypi.org/project/pymisp/#history) or thehive4py</p></li>
-</ol>
-<p>Changer la version dans le requirements.tkt si en open source on peut le faire.</p>
-</div>
-</div>
-<div class="section" id="development">
-<h1>Development<a class="headerlink" href="#development" title="Permalink to this headline">¶</a></h1>
-<p>If you want to modify the project, you will need to setup your development environment.</p>
-<p><strong>CERT Team</strong> : I will provide to you a <strong>VirtualBox Image</strong> (.ova) already setup for development.</p>
-<div class="section" id="install-mysql">
-<h2>Install Mysql<a class="headerlink" href="#install-mysql" title="Permalink to this headline">¶</a></h2>
-<p>You will need to install a proper mysql database.</p>
-</div>
-<div class="section" id="install-python-dependencies">
-<h2>Install Python dependencies<a class="headerlink" href="#install-python-dependencies" title="Permalink to this headline">¶</a></h2>
-<p>Install <code class="docutils literal notranslate"><span class="pre">python3.6</span></code> (this is the dev version, the production version is the latest).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">pipenv</span>
-</pre></div>
-</div>
-<p>From the project <code class="docutils literal notranslate"><span class="pre">/</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pipenv</span> <span class="n">shell</span> 
-<span class="n">pipenv</span> <span class="n">install</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="install-react-dependencies">
-<h2>Install React Dependencies<a class="headerlink" href="#install-react-dependencies" title="Permalink to this headline">¶</a></h2>
-<p>From the project <code class="docutils literal notranslate"><span class="pre">/</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">install</span>
-</pre></div>
-</div>
-<p>After modifying some Frontend ReactJs files you will need to run the command below.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">run</span> <span class="n">dev</span>
-</pre></div>
-</div>
-<p>You just need to run it one time and it will watch your files and compile them.</p>
-<p>For a production release you may use this one:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">run</span> <span class="n">build</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="build-documentation">
-<h2>Build documentation<a class="headerlink" href="#build-documentation" title="Permalink to this headline">¶</a></h2>
-<p>After modifying some comments you may want to rebluid the documentation:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pipenv</span> <span class="n">shell</span>
-</pre></div>
-</div>
-<p>Please comment <strong>line 2</strong> of <code class="docutils literal notranslate"><span class="pre">/Watcher/threats_watcher/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber</span>
-</pre></div>
-</div>
-<p>Please comment <strong>line 2</strong> of <code class="docutils literal notranslate"><span class="pre">/Watcher/data_leak/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Keyword, Alert, PastId, Subscriber</span>
-</pre></div>
-</div>
-<p>Please comment <strong>line 13</strong> of <code class="docutils literal notranslate"><span class="pre">/Watcher/site_monitoring/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site, Alert</span>
-</pre></div>
-</div>
-<p>Please comment <strong>line 4</strong> of <code class="docutils literal notranslate"><span class="pre">/Watcher/site_monitoring/misp.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site</span>
-</pre></div>
-</div>
-<p>Please comment <strong>line 3</strong> of <code class="docutils literal notranslate"><span class="pre">/Watcher/site_monitoring/thehive.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site</span>
-</pre></div>
-</div>
-<p>Please comment <strong>line 10</strong> of <code class="docutils literal notranslate"><span class="pre">/Watcher/dns_finder/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Alert, DnsMonitored, DnsTwisted, Subscriber</span>
-</pre></div>
-</div>
-<p>Go to <code class="docutils literal notranslate"><span class="pre">/docs</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">html</span> 
-</pre></div>
-</div>
-<p>Please uncomment after the documentation build.</p>
+</ul>
 <hr class="docutils" />
-<p>Developed by Thales CERT.</p>
+<p>Developed by Thales Group CERT.</p>
 </div>
 </div>
 

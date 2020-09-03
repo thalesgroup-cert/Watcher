@@ -1,16 +1,19 @@
+Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/) and to [**Thales Group**](https://www.thalesgroup.com/) CERT (THA-CERT) for allowing me to carry out this project.
+
+---
 # Watcher Installation
 
 ## Prerequisites
 - Installed Docker
 - Installed docker-compose
 
+Configure Watcher settings using the `.env` file ([Static configuration](#Static-configuration)).
+
 ## Launch watcher
 
-    docker-compose build
+- Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (Keep directory structure).
     
-That should build the images defined in the `docker-compose.yml` file.
-    
-    docker-compose up
+- `docker-compose up`
 
 That should run the Docker Container (Use `docker-compose up -d` if you want to run it in Background).
 
@@ -78,11 +81,46 @@ Example for a continuous watch : `POSTS_DEPTH = 3` and `WORDS_OCCURRENCE = 8`
 Example for a Monday morning watch : `POSTS_DEPTH = 50` and `WORDS_OCCURRENCE = 0`
 
 ##### Email Alerts Settings
+In the `.env` file:
 
-    EMAIL_FROM = "watcher@gemalto.com"
-    SMTP_SERVER = "smtp.gemalto.com"
-    # Website url, link in e-mails body
-    WATCHER_URL = "https://watch.gemalto.com"
+    EMAIL_FROM=watcher@example.com
+    SMTP_SERVER=smtp.example.com
+    
+Website url, link in the email notifications body:
+
+    WATCHER_URL=https://example.watcher.local
+
+##### TheHive Settings
+You will need to fill the IP of your TheHive instance and an API key generated.
+
+In the `.env` file:
+
+    # THE HIVE SETUP
+    THE_HIVE_URL=
+    THE_HIVE_KEY=
+    THE_HIVE_CASE_ASSIGNEE=watcher
+
+##### MISP Settings
+You will need to fill the IP of your MISP instance and an API key generated.
+
+In the `.env` file:
+
+    # MISP Setup
+    MISP_URL=
+    MISP_VERIFY_SSL=False
+    MISP_KEY=
+
+##### LDAP Settings
+You can configure an LDAP authentication within Watcher:
+
+In the `.env` file:
+
+    # LDAP Setup
+    AUTH_LDAP_SERVER_URI=
+    AUTH_LDAP_BIND_DN=
+    AUTH_LDAP_BIND_PASSWORD=
+    AUTH_LDAP_BASE_DN=
+    AUTH_LDAP_FILTER=(uid=%(user)s)
 
 ##### Production Settings [Important]
 
@@ -128,85 +166,13 @@ Run interactive shell session on the Watcher container:
     docker-compose run watcher bash 
 
 ## Thehive & MISP Export
-// Todo: Expliquer les solutions possible si 
-// l'API Client ne marche pas comme espéré:
-https://github.com/MISP/PyMISP/issues/523
+If the export do not work as expected, this may be related with 
+the version of your TheHive or MISP instance.
 
-You have two options there:
+In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your 
+TheHive/MISP instance version:
 
-1. Update MISP or Thehive
-2. Use an older version of PyMISP (https://pypi.org/project/pymisp/#history) or thehive4py 
-
-Changer la version dans le requirements.tkt si en open source on peut le faire.
-
-# Development 
-If you want to modify the project, you will need to setup your development environment.
-
-**CERT Team** : I will provide to you a **VirtualBox Image** (.ova) already setup for development.
-
-### Install Mysql
-
-You will need to install a proper mysql database. 
-
-### Install Python dependencies 
-Install `python3.6` (this is the dev version, the production version is the latest).
-   
-    pip install pipenv
-
-From the project `/`:
-
-    pipenv shell 
-    pipenv install
-
-### Install React Dependencies
-From the project `/`:
-
-    npm install
-
-After modifying some Frontend ReactJs files you will need to run the command below.
-
-    npm run dev
-    
-You just need to run it one time and it will watch your files and compile them.
-
-For a production release you may use this one:
-
-    npm run build
-    
-### Build documentation
-After modifying some comments you may want to rebluid the documentation:
-
-    pipenv shell
-
-Please comment **line 2** of `/Watcher/threats_watcher/core.py`:
-
-    # from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber
-
-Please comment **line 2** of `/Watcher/data_leak/core.py`:
-
-    # from .models import Keyword, Alert, PastId, Subscriber
-
-Please comment **line 13** of `/Watcher/site_monitoring/core.py`:
-
-    # from .models import Site, Alert
-
-Please comment **line 4** of `/Watcher/site_monitoring/misp.py`:
-
-    # from .models import Site
-
-Please comment **line 3** of `/Watcher/site_monitoring/thehive.py`:
-
-    # from .models import Site
-
-Please comment **line 10** of `/Watcher/dns_finder/core.py`:
-
-    # from .models import Alert, DnsMonitored, DnsTwisted, Subscriber
-
-Go to `/docs`:
-   
-    make html 
-
-Please uncomment after the documentation build.
+- Update MISP or Thehive
 
 ---
-Developed by Thales CERT.
+Developed by Thales Group CERT.
