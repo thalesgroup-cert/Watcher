@@ -1,0 +1,298 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Threats Watcher - Core Algorithm &mdash; Watcher 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Watcher Installation" href="../README.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Watcher
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Watcher Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html#development">Development</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Threats Watcher - Core Algorithm</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Watcher</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>Threats Watcher - Core Algorithm</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/modules/core.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-Watcher.threats_watcher.core">
+<span id="threats-watcher-core-algorithm"></span><h1>Threats Watcher - Core Algorithm<a class="headerlink" href="#module-Watcher.threats_watcher.core" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.cleanup">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">cleanup</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.cleanup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove words with a creation date greater than 30 days.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.fetch_last_posts">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">fetch_last_posts</code><span class="sig-paren">(</span><em>nb_max_post</em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.fetch_last_posts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fetch the nb last posts for each feed.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>nb_max_post</strong> – The deepness of the search on each feed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.focus_five_letters">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">focus_five_letters</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_five_letters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Focus on 5 letters long words.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.focus_on_top">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">focus_on_top</code><span class="sig-paren">(</span><em>words_occurrence</em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_on_top" title="Permalink to this definition">¶</a></dt>
+<dd><p>Focus on top words.
+Populated the database with only words with a minimum occurrence of  “words_occurence” in feeds.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>words_occurrence</strong> – Word occurence in feeds.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.load_feeds">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">load_feeds</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.load_feeds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load feeds.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.main_watch">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">main_watch</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.main_watch" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>Main function:</dt><dd><ul class="simple">
+<li>close_old_connections()</li>
+<li>load_feeds()</li>
+<li>fetch_last_posts(settings.POSTS_DEPTH)</li>
+<li>tokenize_count_urls()</li>
+<li>remove_banned_words()</li>
+<li>focus_five_letters()</li>
+<li>focus_on_top(settings.WORDS_OCCURRENCE)</li>
+<li>send_email()</li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.remove_banned_words">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">remove_banned_words</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.remove_banned_words" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clean the posts for specific patterns: BannedWord, then english + french common words.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.send_email">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">send_email</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_email" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send e-mail alert.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.start_scheduler">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">start_scheduler</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.start_scheduler" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
+<li>Fire main_watch every 30 minutes from Monday to Friday (daylight only)</li>
+<li>Fire main_watch at 18h00 on Saturday</li>
+<li>Fire cleanup every day at 8 am</li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="Watcher.threats_watcher.core.tokenize_count_urls">
+<code class="descclassname">Watcher.threats_watcher.core.</code><code class="descname">tokenize_count_urls</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.tokenize_count_urls" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tokenize phrases to words, Count word occurences and keep the word post source urls.</p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../README.html" class="btn btn-neutral float-left" title="Watcher Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

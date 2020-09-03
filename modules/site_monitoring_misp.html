@@ -1,0 +1,294 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Site Monitoring - MISP API Functions &mdash; Watcher 1.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Site Monitoring - TheHive API Functions" href="site_monitoring_thehive.html" />
+    <link rel="prev" title="Site Monitoring - Core Algorithm" href="site_monitoring_core.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> Watcher
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Watcher Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html#development">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_leak_core.html">Data Leak - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Site Monitoring - MISP API Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="site_monitoring_thehive.html">Site Monitoring - TheHive API Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Watcher</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Site Monitoring - MISP API Functions</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/modules/site_monitoring_misp.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-Watcher.site_monitoring.misp">
+<span id="site-monitoring-misp-api-functions"></span><h1>Site Monitoring - MISP API Functions<a class="headerlink" href="#module-Watcher.site_monitoring.misp" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="Watcher.site_monitoring.misp.create_attributes">
+<code class="sig-prename descclassname">Watcher.site_monitoring.misp.</code><code class="sig-name descname">create_attributes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">misp_api</span></em>, <em class="sig-param"><span class="n">event_id</span></em>, <em class="sig-param"><span class="n">site</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.create_attributes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create MISP IOCs attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>misp_api</strong> – MISP Object API.</p></li>
+<li><p><strong>event_id</strong> – MISP Event ID.</p></li>
+<li><p><strong>site</strong> – Site Object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.site_monitoring.misp.create_misp_tags">
+<code class="sig-prename descclassname">Watcher.site_monitoring.misp.</code><code class="sig-name descname">create_misp_tags</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">misp_api</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.create_misp_tags" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if all tags exist in the MISP instance and if one is not, create it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>misp_api</strong> – MISP Object API.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tags created.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.site_monitoring.misp.search_attributes">
+<code class="sig-prename descclassname">Watcher.site_monitoring.misp.</code><code class="sig-name descname">search_attributes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">misp_api</span></em>, <em class="sig-param"><span class="n">event_id</span></em>, <em class="sig-param"><span class="n">attribute_value</span></em>, <em class="sig-param"><span class="n">site_id</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.search_attributes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Search MISP Event Attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>site_id</strong> – Site Object ID.</p></li>
+<li><p><strong>misp_api</strong> – MISP Object API.</p></li>
+<li><p><strong>event_id</strong> – MISP Event ID.</p></li>
+<li><p><strong>attribute_value</strong> – Attribute Value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>True if there is MISP Event Attributes.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.site_monitoring.misp.update_attributes">
+<code class="sig-prename descclassname">Watcher.site_monitoring.misp.</code><code class="sig-name descname">update_attributes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">misp_api</span></em>, <em class="sig-param"><span class="n">site</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.update_attributes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update MISP IOCs attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>misp_api</strong> – MISP Object API.</p></li>
+<li><p><strong>site</strong> – Site Object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="site_monitoring_thehive.html" class="btn btn-neutral float-right" title="Site Monitoring - TheHive API Functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="site_monitoring_core.html" class="btn btn-neutral float-left" title="Site Monitoring - Core Algorithm" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
