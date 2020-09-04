@@ -1,1 +1,3 @@
-<img alt="Watcher Logo" src="/Watcher/static/watcher-logo-readme.png" style="display: block; margin: 0 auto" height="300" width="300" >
+<span style="display:block;text-align:center">
+<img align="center" alt="Watcher Logo" src="/Watcher/static/watcher-logo-readme.png" height="300" width="300" >
+</span>
