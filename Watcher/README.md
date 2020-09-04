@@ -4,8 +4,8 @@ Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/
 # Watcher Installation
 
 ## Prerequisites
-- Installed Docker
-- Installed docker-compose
+- [Install docker](https://docs.docker.com/install/)
+- [Install docker-compose](https://docs.docker.com/compose/install/)
 
 Configure Watcher settings using the `.env` file ([Static configuration](#Static-configuration)).
 
