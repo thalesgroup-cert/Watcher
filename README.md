@@ -2,7 +2,7 @@
     <img alt="Watcher Logo" src="/Watcher/static/watcher-logo-readme.png" height="250" width="250">
 </p>
 
-===
+---
 
 [![Documentation](/Watcher/static/documentation-Yes-brightgreen.svg)](https://felix83000.github.io/Watcher/)
 [![LICENSE](https://img.shields.io/github/license/Felix83000/Watcher?logo=github&style=flat-square)](/LICENSE)
@@ -56,6 +56,12 @@ Watcher provides a powerful user interface for data visualization and analysis. 
 
 <p align="center">
     <img alt="Watcher Logo" src="/Watcher/static/Watcher-malicious-domain-names-monitoring.png">
+</p>
+
+**IOCs export to TheHive & MISP**
+
+<p align="center">
+    <img alt="Watcher Logo" src="/Watcher/static/Watcher-iocs-export.png">
 </p>
 
 **Potentially malicious domain names detection**
