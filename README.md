@@ -14,7 +14,7 @@ It should be used on webservers and available on Docker.
 
 ## Watcher capabilities
 
-- Detect emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...). 
+- Detect emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...). 
 - Detect Keywords in pastebin & other it exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
 - Monitor malicious domain names (IP, mail/MX record, html content using [TLSH](https://github.com/trendmicro/tlsh)).
 - Detect potentially malicious domain names targeting your organisation, using [dnstwist](https://github.com/elceef/dnstwist). 
@@ -52,6 +52,10 @@ Watcher provides a powerful user interface for data visualization and analysis. 
 
 **Keywords detection**
 
+<p align="center">
+    <img alt="Watcher Logo" src="/Watcher/static/Watcher-keywords-detection.png">
+</p>
+
 **Malicious domain names monitoring**
 
 <p align="center">
@@ -65,6 +69,10 @@ Watcher provides a powerful user interface for data visualization and analysis. 
 </p>
 
 **Potentially malicious domain names detection**
+
+<p align="center">
+    <img alt="Watcher Logo" src="/Watcher/static/Watcher-malicious-domain-names-detection.png">
+</p>
 
 Django provides a ready-to-use user interface for administrative activities. We all know how an admin interface is important for a web project: Users management, user group management, Watcher configuration, usage logs...  
 
