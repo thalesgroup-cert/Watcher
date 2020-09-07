@@ -23,6 +23,7 @@ Useful as a bundle regrouping threat hunting/intelligence automated features.
 
 ## Additional features
 
+- Create cases on [TheHive](https://thehive-project.org/) and events on [MISP](https://www.misp-project.org/).
 - Integrated IOCs export to [TheHive](https://thehive-project.org/) and [MISP](https://www.misp-project.org/).
 - LDAP & Local Authentication.
 - Email notifications.
@@ -85,6 +86,15 @@ Django provides a ready-to-use user interface for administrative activities. We 
 ## Installation
 
 Create a new Watcher instance in ten minutes using Docker (see [Installation Guide](https://felix83000.github.io/Watcher/README.html))
+
+## Get involved
+There are many ways to getting involved with Watcher:
+
+- Report [bugs](/.github/ISSUE_TEMPLATE/bug_report.md) by opening [Issues](/issues) on GitHub
+- Request [new features](/.github/ISSUE_TEMPLATE/feature_request.md) or suggest ideas (via [Issues](/issues))
+- Make pull-requests
+- Discuss bugs, features, ideas or issues
+- Share Watcher to your community (Twitter, Facebook...)
 
 ## Pastebin compliant
 In order to use Watcher pastebin API feature, you need to subscribe to a pastebin pro account and whitelist Watcher public IP (see https://pastebin.com/doc_scraping_api).

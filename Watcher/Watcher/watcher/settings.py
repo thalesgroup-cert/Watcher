@@ -83,7 +83,7 @@ EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
 WATCHER_URL = os.environ.get('WATCHER_URL', '')
 # Watcher Logo
-WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
+WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://avatars1.githubusercontent.com/u/16541780?s=460&u=094c6c425cd10e246a0d657a29efc10cec819fd3&v=4')
 
 # Link to Searx Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')

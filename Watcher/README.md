@@ -19,6 +19,8 @@ That should run the Docker Container (Use `docker-compose up -d` if you want to 
 
 Please use `docker-compose down` to stop all containers.
 
+Access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
+
 ### Migrate
 Updates the state of the database in accordance with all current models and migrations. Migrations, their relationships 
 with applications...
