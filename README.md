@@ -90,8 +90,8 @@ Create a new Watcher instance in ten minutes using Docker (see [Installation Gui
 ## Get involved
 There are many ways to getting involved with Watcher:
 
-- Report [bugs](/.github/ISSUE_TEMPLATE/bug_report.md) by opening [Issues](https://github.com/Felix83000/Watcher/issues) on GitHub
-- Request [new features](/.github/ISSUE_TEMPLATE/feature_request.md) or suggest ideas (via [Issues](https://github.com/Felix83000/Watcher/issues))
+- Report bugs by opening [Issues](https://github.com/Felix83000/Watcher/issues) on GitHub
+- Request new features or suggest ideas (via [Issues](https://github.com/Felix83000/Watcher/issues))
 - Make pull-requests
 - Discuss bugs, features, ideas or issues
 - Share Watcher to your community (Twitter, Facebook...)
