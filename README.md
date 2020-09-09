@@ -1,5 +1,5 @@
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/watcher-logo-readme.png" height="250" width="250">
+    <img alt="Watcher Logo" src="/Watcher/static/watcher-logo-resize.png" height="270" width="270">
 </p>
 
 ---
@@ -15,7 +15,7 @@ It should be used on webservers and available on Docker.
 ## Watcher capabilities
 
 - Detect emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...). 
-- Detect Keywords in pastebin & other it exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
+- Detect Keywords in pastebin & in other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
 - Monitor malicious domain names (IP, mail/MX record, html content using [TLSH](https://github.com/trendmicro/tlsh)).
 - Detect potentially malicious domain names targeting your organisation, using [dnstwist](https://github.com/elceef/dnstwist). 
 
@@ -48,31 +48,31 @@ Watcher provides a powerful user interface for data visualization and analysis. 
 **Threats detection**
 
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/Watcher-threats-detection.png">
+    <img alt="Threats detection" src="/Watcher/static/Watcher-threats-detection.png">
 </p>
 
 **Keywords detection**
 
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/Watcher-keywords-detection.png">
+    <img alt="Keywords detection" src="/Watcher/static/Watcher-keywords-detection.png">
 </p>
 
 **Malicious domain names monitoring**
 
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/Watcher-malicious-domain-names-monitoring.png">
+    <img alt="Malicious domain names monitoring" src="/Watcher/static/Watcher-malicious-domain-names-monitoring.png">
 </p>
 
 **IOCs export to TheHive & MISP**
 
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/Watcher-iocs-export.png">
+    <img alt="IOCs export to TheHive & MISP" src="/Watcher/static/Watcher-iocs-export.png">
 </p>
 
 **Potentially malicious domain names detection**
 
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/Watcher-malicious-domain-names-detection.png">
+    <img alt="Potentially malicious domain names detection" src="/Watcher/static/Watcher-malicious-domain-names-detection.png">
 </p>
 
 Django provides a ready-to-use user interface for administrative activities. We all know how an admin interface is important for a web project: Users management, user group management, Watcher configuration, usage logs...  
@@ -80,7 +80,7 @@ Django provides a ready-to-use user interface for administrative activities. We 
 **Admin interface**
 
 <p align="center">
-    <img alt="Watcher Logo" src="/Watcher/static/Watcher-admin-interface.png">
+    <img alt="Admin interface" src="/Watcher/static/Watcher-admin-interface.png">
 </p>
 
 ## Installation
