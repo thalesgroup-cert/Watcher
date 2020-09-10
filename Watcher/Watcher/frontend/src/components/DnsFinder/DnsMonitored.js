@@ -141,7 +141,7 @@ export class DnsMonitored extends Component {
                                                           onChange={handleOnChange}/>
                                         </Col>
                                     </Form.Group>
-                                    <Col md={{span: 5, offset: 8}}>
+                                    <Col md={{span: 6, offset: 7}}>
                                         <Button variant="secondary" className="mr-2" onClick={handleClose}>
                                             Close
                                         </Button>
