@@ -14,10 +14,10 @@ def custom_titled_filter(title):
 
 @admin.register(Alert)
 class Alert(admin.ModelAdmin):
-    list_display = ['id', 'type', 'site', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score',
+    list_display = ['id', 'type', 'site', 'new_ip', 'new_ip_second', 'new_MX_records', 'new_mail_A_record_ip', 'old_ip', 'old_ip_second', 'old_MX_records', 'old_mail_A_record_ip', 'difference_score',
                     'status', 'created_at']
     list_filter = ('site', ('status', custom_titled_filter('Active Status')))
-    search_fields = ['id', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score']
+    search_fields = ['id', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records', 'new_mail_A_record_ip', 'old_MX_records', 'old_mail_A_record_ip']
 
     def make_disable(self, request, queryset):
         rows_updated = queryset.update(status=False)

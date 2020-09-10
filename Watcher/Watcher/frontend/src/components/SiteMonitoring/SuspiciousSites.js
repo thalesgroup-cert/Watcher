@@ -27,6 +27,7 @@ export class SuspiciousSites extends Component {
             expiry: null,
             ipMonitoring: null,
             webContentMonitoring: null,
+            emailMonitoring: null,
             theHiveCaseId: null,
             mispEventId: null,
             addLoading: false,
@@ -36,6 +37,7 @@ export class SuspiciousSites extends Component {
         this.inputRtirRef = React.createRef();
         this.ipMonitoringRef = React.createRef();
         this.webContentMonitoringRef = React.createRef();
+        this.emailMonitoringRef = React.createRef();
     }
 
     static propTypes = {
@@ -129,7 +131,8 @@ export class SuspiciousSites extends Component {
             rtir: site.rtir,
             expiry: site.expiry,
             ipMonitoring: site.ip_monitoring,
-            webContentMonitoring: site.content_monitoring
+            webContentMonitoring: site.content_monitoring,
+            emailMonitoring: site.mail_monitoring
         });
     };
 
@@ -149,8 +152,9 @@ export class SuspiciousSites extends Component {
             const expiry = this.state.expiry ? this.state.expiry : null;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
+            const mail_monitoring = this.emailMonitoringRef.current.checked;
 
-            const site = {domain_name, rtir, expiry, ip_monitoring, content_monitoring};
+            const site = {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring};
 
             this.props.patchSite(this.state.id, site);
             this.setState({
@@ -208,8 +212,8 @@ export class SuspiciousSites extends Component {
                                                 value={this.state.expiry}
                                                 onDayChange={expiry => this.setState({expiry})}/>
                                         </Col>
-                                        <Form.Label column sm="5">Ip Monitoring</Form.Label>
-                                        <Col sm="7">
+                                        <Form.Label column sm="6">Ip Monitoring</Form.Label>
+                                        <Col sm="6">
                                             <Form.Check
                                                 ref={this.ipMonitoringRef}
                                                 defaultChecked={this.state.ipMonitoring}
@@ -219,14 +223,25 @@ export class SuspiciousSites extends Component {
                                                 label=""
                                             />
                                         </Col>
-                                        <Form.Label column sm="5">Web Content Monitoring</Form.Label>
-                                        <Col sm="7">
+                                        <Form.Label column sm="6">Web Content Monitoring</Form.Label>
+                                        <Col sm="6">
                                             <Form.Check
                                                 ref={this.webContentMonitoringRef}
                                                 defaultChecked={this.state.webContentMonitoring}
                                                 className="mt-2"
                                                 type="switch"
                                                 id="custom-switch-2"
+                                                label=""
+                                            />
+                                        </Col>
+                                        <Form.Label column sm="6">Email Monitoring</Form.Label>
+                                        <Col sm="6">
+                                            <Form.Check
+                                                ref={this.emailMonitoringRef}
+                                                defaultChecked={this.state.emailMonitoring}
+                                                className="mt-2"
+                                                type="switch"
+                                                id="custom-switch-3"
                                                 label=""
                                             />
                                         </Col>

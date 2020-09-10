@@ -47,6 +47,7 @@ export default function (state = initialState, action) {
                     site.expiry = action.payload.expiry;
                     site.ip_monitoring = action.payload.ip_monitoring;
                     site.content_monitoring = action.payload.content_monitoring;
+                    site.mail_monitoring = action.payload.mail_monitoring;
                 }
             });
             return {

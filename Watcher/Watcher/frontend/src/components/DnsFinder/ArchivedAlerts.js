@@ -6,7 +6,7 @@ import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 
 
-export class Alerts extends Component {
+export class ArchivedAlerts extends Component {
 
     constructor(props) {
         super(props);
@@ -134,4 +134,4 @@ const mapStateToProps = state => ({
     auth: state.auth
 });
 
-export default connect(mapStateToProps, {getAlerts, updateAlertStatus})(Alerts);
+export default connect(mapStateToProps, {getAlerts, updateAlertStatus})(ArchivedAlerts);

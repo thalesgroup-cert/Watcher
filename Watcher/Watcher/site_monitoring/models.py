@@ -22,6 +22,7 @@ class Site(models.Model):
         blank=True,
         null=True
     )
+    mail_monitoring = models.BooleanField(default=True)
     content_fuzzy_hash = models.CharField(max_length=100, blank=True, null=True)
     content_monitoring = models.BooleanField(default=True)
     monitored = models.BooleanField(default=False, blank=True, null=True)
@@ -47,8 +48,24 @@ class Alert(models.Model):
     difference_score = models.IntegerField(blank=True, null=True)
     new_ip = models.GenericIPAddressField(blank=True, null=True)
     new_ip_second = models.GenericIPAddressField(blank=True, null=True)
+    new_MX_records = ListCharField(
+        base_field=models.CharField(max_length=100),
+        size=10,
+        max_length=(10 * 101),  # 6 * 100 character nominals, plus commas
+        blank=True,
+        null=True
+    )
+    new_mail_A_record_ip = models.GenericIPAddressField(blank=True, null=True)
     old_ip = models.GenericIPAddressField(blank=True, null=True)
     old_ip_second = models.GenericIPAddressField(blank=True, null=True)
+    old_MX_records = ListCharField(
+        base_field=models.CharField(max_length=100),
+        size=10,
+        max_length=(10 * 101),  # 6 * 100 character nominals, plus commas
+        blank=True,
+        null=True
+    )
+    old_mail_A_record_ip = models.GenericIPAddressField(blank=True, null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
 
