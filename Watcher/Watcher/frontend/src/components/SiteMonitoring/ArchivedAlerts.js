@@ -168,7 +168,7 @@ export class ArchivedAlerts extends Component {
                 <div className="row">
                     <div className="col-lg-12">
                         <div className="float-left" style={{marginBottom: 12}}>
-                            <h4>Alerts</h4>
+                            <h4>Archived Alerts</h4>
                         </div>
                     </div>
                 </div>
