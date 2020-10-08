@@ -7,7 +7,8 @@
 [![Install](/Watcher/static/Install-informational.svg)](https://felix83000.github.io/Watcher/README.html)
 [![Documentation](/Watcher/static/Documentation-informational.svg)](https://felix83000.github.io/Watcher/)
 [![LICENSE](https://img.shields.io/github/license/Felix83000/Watcher?logo=github&style=flat-square)](/LICENSE)
-[![Docker Build Status](https://img.shields.io/docker/build/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/repository/docker/felix83000/watcher)
+[![Docker Build Status](https://img.shields.io/docker/cloud/build/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
+[![Docker Automated Status](https://img.shields.io/docker/cloud/automated/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
 
 Watcher is a Django & React JS automated platform for discovering new potentially cybersecurity threats targeting your organisation. 
 
