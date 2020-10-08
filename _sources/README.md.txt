@@ -15,7 +15,7 @@ Configure Watcher settings using the `.env` file ([Static configuration](#Static
     
 - `docker-compose up`
 
-That should run the Docker Container.
+This should run Docker containers.
 
 Please wait until you can see:
 
