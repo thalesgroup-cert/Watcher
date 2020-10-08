@@ -106,6 +106,7 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#update-watcher">Update Watcher</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#remove-the-database">Remove the database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#useful-commands">Useful commands</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#thehive-misp-export">Thehive &amp; MISP Export</a></li>
@@ -362,6 +363,15 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 </div>
 </div>
+</div>
+<div class="section" id="update-watcher">
+<h2>Update Watcher<a class="headerlink" href="#update-watcher" title="Permalink to this headline">¶</a></h2>
+<p>To update Watcher image please follow the instructions below:</p>
+<ul class="simple">
+<li><p>Stop all containers: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code></p></li>
+<li><p>Remove the old image: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher:latest</span></code></p></li>
+<li><p>Pull the newer image: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
+</ul>
 </div>
 <div class="section" id="remove-the-database">
 <h2>Remove the database<a class="headerlink" href="#remove-the-database" title="Permalink to this headline">¶</a></h2>
