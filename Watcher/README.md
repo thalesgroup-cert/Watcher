@@ -158,7 +158,14 @@ If you have modified some of these parameters, don't forget to restart all conta
 
     docker-compose down
     docker-compose up
-    
+
+## Update Watcher
+To update Watcher image please follow the instructions below:
+
+- Stop all containers: `docker-compose down`
+- Remove the old image: `docker rmi felix83000/watcher:latest`
+- Pull the newer image: `docker-compose up`
+
 ## Remove the database
 
 You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and re-build the image:
