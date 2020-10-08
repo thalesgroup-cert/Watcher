@@ -89,6 +89,12 @@ Django provides a ready-to-use user interface for administrative activities. We 
 
 Create a new Watcher instance in ten minutes using Docker (see [Installation Guide](https://felix83000.github.io/Watcher/README.html))
 
+## Platform architecture
+
+<p align="center">
+    <img alt="Platform architecture" src="/Watcher/static/Platform-architecture.png">
+</p>
+
 ## Get involved
 There are many ways to getting involved with Watcher:
 

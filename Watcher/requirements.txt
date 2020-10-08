@@ -16,6 +16,6 @@ ipaddress==1.0.23
 dnspython==2.0.0
 shadow-useragent==0.0.17
 thehive4py==1.7.2
-pymisp==2.4.130
+pymisp==2.4.131
 django-auth-ldap==2.2.0
 dnstwist==20200707

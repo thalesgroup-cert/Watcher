@@ -48,8 +48,9 @@ You will need to create the first superuser to access `/admin` page.
     python manage.py createsuperuser
 
 ### Populate your database
-If you want to populate your database with some banned words and sources related to Cybersecurity, 
-feel free to use `populate_db` script:
+Populate your database with hundred of banned words and RSS sources related to Cybersecurity.
+
+Use `populate_db` script:
 
     docker-compose down
     docker-compose run watcher bash
@@ -80,29 +81,58 @@ Connect to the `/admin` page:
    - Click on **Subscribers**.
    - Click on **ADD SUBSCRIBER**.
    - Select the **User** and Click on **SAVE**.
-   
+
+### Add your RSS source to Threats Detection
+As you know this feature allow the detection of emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+
+Watcher currently provides hundreds of RSS cybersecurity sources ([Add default RSS sources](#Populate-your-database)).
+
+However, you can add your RSS Cybersecurity source to your Watcher instance:
+
+- First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0). 
+- Your RSS file must be composed of several articles.
+- Please prefer to use https instead of http. 
+
+Connect to the `/admin` page:
+
+- Click on **Sources** in **THREATS_WATCHER** part.
+- Click on **ADD SOURCE**.
+- Fill **Url** text input.
+- Click on **SAVE**.
+
 ### Static configuration
 Most of the settings can be modify from the `/admin` page.
 
-There are other settings located in `Watcher/watcher/settings.py` that you can configure:     
+There are other settings located in the `.env` file that you can configure:     
 
-##### Feed Parser Settings
-    POSTS_DEPTH = 30
-    WORDS_OCCURRENCE = 10
+##### Production Settings [Important]
 
-Example for daily watch : `POSTS_DEPTH = 30` and `WORDS_OCCURRENCE = 5`
+In production please put DJANGO_DEBUG environment variable to **False** in the `.env` file:
 
-Example for a continuous watch : `POSTS_DEPTH = 3` and `WORDS_OCCURRENCE = 8`
+    DJANGO_DEBUG=False
+    
+Also, the **Django secret key** must be a **large random value** and it must be kept secret.
+There is one by default but consider to change it in the `.env` file:
 
-Example for a Monday morning watch : `POSTS_DEPTH = 50` and `WORDS_OCCURRENCE = 0`
+    DJANGO_SECRET_KEY=[large random value]
+    
+Time Zone settings in the `.env` file:
 
-##### Email Alerts Settings
+    # Time Zone
+    TZ=Europe/Paris
+
+If you have modified some of these parameters, don't forget to restart all containers:
+
+    docker-compose down
+    docker-compose up
+
+##### SMTP Server Settings (Email Notifications) 
 In the `.env` file:
 
     EMAIL_FROM=watcher@example.com
     SMTP_SERVER=smtp.example.com
     
-Website url, link in the email notifications body:
+Website url, which will be the link in the email notifications body:
 
     WATCHER_URL=https://example.watcher.local
 
@@ -137,27 +167,6 @@ In the `.env` file:
     AUTH_LDAP_BIND_PASSWORD=
     AUTH_LDAP_BASE_DN=
     AUTH_LDAP_FILTER=(uid=%(user)s)
-
-##### Production Settings [Important]
-
-In production please put DJANGO_DEBUG environment variable to False in the `.env` file:
-
-    DJANGO_DEBUG=False
-    
-Also, the **Django secret key** must be a **large random value** and it must be kept secret.
-There is one by default but consider to change it in the `.env` file:
-
-    DJANGO_SECRET_KEY=[large random value]
-    
-Time Zone settings in the `.env` file:
-
-    # Time Zone
-    TZ=Europe/Paris
-
-If you have modified some of these parameters, don't forget to restart all containers:
-
-    docker-compose down
-    docker-compose up
 
 ## Update Watcher
 To update Watcher image please follow the instructions below:
