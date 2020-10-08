@@ -15,22 +15,35 @@ Configure Watcher settings using the `.env` file ([Static configuration](#Static
     
 - `docker-compose up`
 
-That should run the Docker Container (Use `docker-compose up -d` if you want to run it in Background).
+That should run the Docker Container.
 
-Please use `docker-compose down` to stop all containers.
+Please wait until you can see:
 
-Access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
+    watcher          | db_watcher is up, starting Watcher.
+    watcher          | Performing system checks...
+    watcher          | 
+    watcher          | System check identified no issues (0 silenced).
+    watcher          | October 08, 2020 - 10:28:02
+    watcher          | Django version 3.1.1, using settings 'watcher.settings'
+    watcher          | Starting development server at http://0.0.0.0:9002/
+    watcher          | Quit the server with CONTROL-C.
+
+- Try Access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
+- `CONTROL-C`
+- `docker-compose down` to stop all containers.
 
 ### Migrate
 Updates the state of the database in accordance with all current models and migrations. Migrations, their relationships 
 with applications...
 
+    docker-compose down
     docker-compose run watcher bash
     python manage.py migrate
     
 ### Create admin user
 You will need to create the first superuser to access `/admin` page.
 
+    docker-compose down
     docker-compose run watcher bash
     python manage.py createsuperuser
 
@@ -38,6 +51,7 @@ You will need to create the first superuser to access `/admin` page.
 If you want to populate your database with some banned words and sources related to Cybersecurity, 
 feel free to use `populate_db` script:
 
+    docker-compose down
     docker-compose run watcher bash
     python manage.py populate_db
 
@@ -163,6 +177,9 @@ Now, you can rebuild the image and the parameters will be taken into account:
 Don't forget to [migrate](#migrate).
 
 ## Useful commands
+
+Use `docker-compose up -d` if you want to run it in Background.
+
 Run interactive shell session on the Watcher container:
 
     docker-compose run watcher bash 
