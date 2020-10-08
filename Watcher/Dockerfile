@@ -1,4 +1,4 @@
-FROM nikolaik/python-nodejs:latest
+FROM nikolaik/python-nodejs:python3.8-nodejs14
 MAINTAINER Félix HERRENSCHMIDT <felix@herrenschmidt.pro>
 
 # Adding backend directory to make absolute filepaths consistent across services
