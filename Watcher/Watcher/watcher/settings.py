@@ -20,12 +20,6 @@ AUTH_LDAP_SERVER_URI = os.environ.get('AUTH_LDAP_SERVER_URI', "")
 # Disable Certificate Verification
 AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER}
 
-# AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_DEMAND}
-# AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_CACERTFILE: '/media/felix/externalMedia/Documents/ThalesRootCAV3.pem', ldap.OPT_X_TLS_NEWCTX: 0}
-# AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_CACERTFILE: '/media/felix/externalMedia/Documents/ThalesInternalCAV3.pem', ldap.OPT_X_TLS_NEWCTX: 0}
-# AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_CACERTFILE: '/media/felix/externalMedia/Documents/ThalesExternalCAV3.pem', ldap.OPT_X_TLS_NEWCTX: 0}
-# AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_CACERTFILE: '/media/felix/externalMedia/Documents/ThalesDevicesCAV3.pem', ldap.OPT_X_TLS_NEWCTX: 0}
-
 AUTH_LDAP_BIND_DN = os.environ.get('AUTH_LDAP_BIND_DN', "")
 AUTH_LDAP_BIND_PASSWORD = os.environ.get('AUTH_LDAP_BIND_PASSWORD', "")
 
