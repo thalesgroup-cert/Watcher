@@ -7,17 +7,15 @@ Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/
 - [Install docker](https://docs.docker.com/install/)
 - [Install docker-compose](https://docs.docker.com/compose/install/)
 
-Configure Watcher settings using the `.env` file ([Static configuration](#static-configuration)).
-
 ## Launch watcher
 
 - Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (Keep directory structure).
-    
+- Configure Watcher settings using the `.env` file ([Static configuration](#static-configuration)). 
 - `docker-compose up`
 
 This should run Docker containers.
 
-Please wait until you can see:
+Please wait until you see:
 
     watcher          | db_watcher is up, starting Watcher.
     watcher          | Performing system checks...
@@ -137,7 +135,7 @@ Website url, which will be the link in the email notifications body:
     WATCHER_URL=https://example.watcher.local
 
 ##### TheHive Settings
-You will need to fill the IP of your TheHive instance and an API key generated.
+If you want to use **TheHive export**, please fill the **IP** of your TheHive instance and an **API key generated**.
 
 In the `.env` file:
 
@@ -147,7 +145,7 @@ In the `.env` file:
     THE_HIVE_CASE_ASSIGNEE=watcher
 
 ##### MISP Settings
-You will need to fill the IP of your MISP instance and an API key generated.
+If you want to use **MISP export**, please fill the **IP** of your MISP instance and an **API key**.
 
 In the `.env` file:
 

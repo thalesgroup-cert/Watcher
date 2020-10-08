@@ -193,16 +193,16 @@
 <li><p><a class="reference external" href="https://docs.docker.com/install/">Install docker</a></p></li>
 <li><p><a class="reference external" href="https://docs.docker.com/compose/install/">Install docker-compose</a></p></li>
 </ul>
-<p>Configure Watcher settings using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p>
 </div>
 <div class="section" id="launch-watcher">
 <h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (Keep directory structure).</p></li>
+<li><p>Configure Watcher settings using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
 <p>This should run Docker containers.</p>
-<p>Please wait until you can see:</p>
+<p>Please wait until you see:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">watcher</span>          <span class="o">|</span> <span class="n">db_watcher</span> <span class="ow">is</span> <span class="n">up</span><span class="p">,</span> <span class="n">starting</span> <span class="n">Watcher</span><span class="o">.</span>
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">Performing</span> <span class="n">system</span> <span class="n">checks</span><span class="o">...</span>
 <span class="n">watcher</span>          <span class="o">|</span> 
@@ -337,7 +337,7 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="thehive-settings">
 <h4>TheHive Settings<a class="headerlink" href="#thehive-settings" title="Permalink to this headline">¶</a></h4>
-<p>You will need to fill the IP of your TheHive instance and an API key generated.</p>
+<p>If you want to use <strong>TheHive export</strong>, please fill the <strong>IP</strong> of your TheHive instance and an <strong>API key generated</strong>.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># THE HIVE SETUP</span>
 <span class="n">THE_HIVE_URL</span><span class="o">=</span>
@@ -348,7 +348,7 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="misp-settings">
 <h4>MISP Settings<a class="headerlink" href="#misp-settings" title="Permalink to this headline">¶</a></h4>
-<p>You will need to fill the IP of your MISP instance and an API key generated.</p>
+<p>If you want to use <strong>MISP export</strong>, please fill the <strong>IP</strong> of your MISP instance and an <strong>API key</strong>.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># MISP Setup</span>
 <span class="n">MISP_URL</span><span class="o">=</span>
