@@ -7,7 +7,7 @@ Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/
 - [Install docker](https://docs.docker.com/install/)
 - [Install docker-compose](https://docs.docker.com/compose/install/)
 
-Configure Watcher settings using the `.env` file ([Static configuration](#Static-configuration)).
+Configure Watcher settings using the `.env` file ([Static configuration](#static-configuration)).
 
 ## Launch watcher
 
@@ -85,7 +85,7 @@ Connect to the `/admin` page:
 ### Add your RSS source to Threats Detection
 As you know this feature allow the detection of emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
 
-Watcher currently provides hundreds of RSS cybersecurity sources ([Add default RSS sources](#Populate-your-database)).
+Watcher currently provides hundreds of RSS cybersecurity sources ([Populate default RSS sources](#populate-your-database)).
 
 However, you can add your RSS Cybersecurity source to your Watcher instance:
 

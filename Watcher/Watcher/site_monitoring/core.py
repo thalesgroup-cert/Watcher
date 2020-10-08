@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
 from django.db import close_old_connections
 from django.conf import settings
 from django.utils import timezone
