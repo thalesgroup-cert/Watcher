@@ -95,13 +95,13 @@
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#user-enrollment">User enrollment</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#add-email-notifications-subscriber">Add email notifications subscriber</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#add-your-rss-source-to-threats-detection">Add your RSS source to Threats Detection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#static-configuration">Static configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#feed-parser-settings">Feed Parser Settings</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#email-alerts-settings">Email Alerts Settings</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#production-settings-important">Production Settings [Important]</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#smtp-server-settings-email-notifications">SMTP Server Settings (Email Notifications)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#thehive-settings">TheHive Settings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#misp-settings">MISP Settings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#ldap-settings">LDAP Settings</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#production-settings-important">Production Settings [Important]</a></li>
 </ul>
 </li>
 </ul>
@@ -239,8 +239,8 @@ with applications…</p>
 </div>
 <div class="section" id="populate-your-database">
 <h3>Populate your database<a class="headerlink" href="#populate-your-database" title="Permalink to this headline">¶</a></h3>
-<p>If you want to populate your database with some banned words and sources related to Cybersecurity,
-feel free to use <code class="docutils literal notranslate"><span class="pre">populate_db</span></code> script:</p>
+<p>Populate your database with hundred of banned words and RSS sources related to Cybersecurity.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">populate_db</span></code> script:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
 <span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">populate_db</span>
@@ -279,28 +279,58 @@ feel free to use <code class="docutils literal notranslate"><span class="pre">po
 <li><p>Select the <strong>User</strong> and Click on <strong>SAVE</strong>.</p></li>
 </ul>
 </div>
+<div class="section" id="add-your-rss-source-to-threats-detection">
+<h3>Add your RSS source to Threats Detection<a class="headerlink" href="#add-your-rss-source-to-threats-detection" title="Permalink to this headline">¶</a></h3>
+<p>As you know this feature allow the detection of emerging vulnerability, malware using social network &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…).</p>
+<p>Watcher currently provides hundreds of RSS cybersecurity sources (<a class="reference external" href="#Populate-your-database">Add default RSS sources</a>).</p>
+<p>However, you can add your RSS Cybersecurity source to your Watcher instance:</p>
+<ul class="simple">
+<li><p>First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0).</p></li>
+<li><p>Your RSS file must be composed of several articles.</p></li>
+<li><p>Please prefer to use https instead of http.</p></li>
+</ul>
+<p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
+<ul class="simple">
+<li><p>Click on <strong>Sources</strong> in <strong>THREATS_WATCHER</strong> part.</p></li>
+<li><p>Click on <strong>ADD SOURCE</strong>.</p></li>
+<li><p>Fill <strong>Url</strong> text input.</p></li>
+<li><p>Click on <strong>SAVE</strong>.</p></li>
+</ul>
+</div>
 <div class="section" id="static-configuration">
 <h3>Static configuration<a class="headerlink" href="#static-configuration" title="Permalink to this headline">¶</a></h3>
 <p>Most of the settings can be modify from the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
-<p>There are other settings located in <code class="docutils literal notranslate"><span class="pre">Watcher/watcher/settings.py</span></code> that you can configure:</p>
-<div class="section" id="feed-parser-settings">
-<h4>Feed Parser Settings<a class="headerlink" href="#feed-parser-settings" title="Permalink to this headline">¶</a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">POSTS_DEPTH</span> <span class="o">=</span> <span class="mi">30</span>
-<span class="n">WORDS_OCCURRENCE</span> <span class="o">=</span> <span class="mi">10</span>
+<p>There are other settings located in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file that you can configure:</p>
+<div class="section" id="production-settings-important">
+<h4>Production Settings [Important]<a class="headerlink" href="#production-settings-important" title="Permalink to this headline">¶</a></h4>
+<p>In production please put DJANGO_DEBUG environment variable to <strong>False</strong> in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">DJANGO_DEBUG</span><span class="o">=</span><span class="kc">False</span>
 </pre></div>
 </div>
-<p>Example for daily watch : <code class="docutils literal notranslate"><span class="pre">POSTS_DEPTH</span> <span class="pre">=</span> <span class="pre">30</span></code> and <code class="docutils literal notranslate"><span class="pre">WORDS_OCCURRENCE</span> <span class="pre">=</span> <span class="pre">5</span></code></p>
-<p>Example for a continuous watch : <code class="docutils literal notranslate"><span class="pre">POSTS_DEPTH</span> <span class="pre">=</span> <span class="pre">3</span></code> and <code class="docutils literal notranslate"><span class="pre">WORDS_OCCURRENCE</span> <span class="pre">=</span> <span class="pre">8</span></code></p>
-<p>Example for a Monday morning watch : <code class="docutils literal notranslate"><span class="pre">POSTS_DEPTH</span> <span class="pre">=</span> <span class="pre">50</span></code> and <code class="docutils literal notranslate"><span class="pre">WORDS_OCCURRENCE</span> <span class="pre">=</span> <span class="pre">0</span></code></p>
+<p>Also, the <strong>Django secret key</strong> must be a <strong>large random value</strong> and it must be kept secret.
+There is one by default but consider to change it in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">DJANGO_SECRET_KEY</span><span class="o">=</span><span class="p">[</span><span class="n">large</span> <span class="n">random</span> <span class="n">value</span><span class="p">]</span>
+</pre></div>
 </div>
-<div class="section" id="email-alerts-settings">
-<h4>Email Alerts Settings<a class="headerlink" href="#email-alerts-settings" title="Permalink to this headline">¶</a></h4>
+<p>Time Zone settings in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Time Zone</span>
+<span class="n">TZ</span><span class="o">=</span><span class="n">Europe</span><span class="o">/</span><span class="n">Paris</span>
+</pre></div>
+</div>
+<p>If you have modified some of these parameters, don’t forget to restart all containers:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="smtp-server-settings-email-notifications">
+<h4>SMTP Server Settings (Email Notifications)<a class="headerlink" href="#smtp-server-settings-email-notifications" title="Permalink to this headline">¶</a></h4>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">EMAIL_FROM</span><span class="o">=</span><span class="n">watcher</span><span class="nd">@example</span><span class="o">.</span><span class="n">com</span>
 <span class="n">SMTP_SERVER</span><span class="o">=</span><span class="n">smtp</span><span class="o">.</span><span class="n">example</span><span class="o">.</span><span class="n">com</span>
 </pre></div>
 </div>
-<p>Website url, link in the email notifications body:</p>
+<p>Website url, which will be the link in the email notifications body:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WATCHER_URL</span><span class="o">=</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="o">.</span><span class="n">watcher</span><span class="o">.</span><span class="n">local</span>
 </pre></div>
 </div>
@@ -337,28 +367,6 @@ feel free to use <code class="docutils literal notranslate"><span class="pre">po
 <span class="n">AUTH_LDAP_BIND_PASSWORD</span><span class="o">=</span>
 <span class="n">AUTH_LDAP_BASE_DN</span><span class="o">=</span>
 <span class="n">AUTH_LDAP_FILTER</span><span class="o">=</span><span class="p">(</span><span class="n">uid</span><span class="o">=%</span><span class="p">(</span><span class="n">user</span><span class="p">)</span><span class="n">s</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="production-settings-important">
-<h4>Production Settings [Important]<a class="headerlink" href="#production-settings-important" title="Permalink to this headline">¶</a></h4>
-<p>In production please put DJANGO_DEBUG environment variable to False in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">DJANGO_DEBUG</span><span class="o">=</span><span class="kc">False</span>
-</pre></div>
-</div>
-<p>Also, the <strong>Django secret key</strong> must be a <strong>large random value</strong> and it must be kept secret.
-There is one by default but consider to change it in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">DJANGO_SECRET_KEY</span><span class="o">=</span><span class="p">[</span><span class="n">large</span> <span class="n">random</span> <span class="n">value</span><span class="p">]</span>
-</pre></div>
-</div>
-<p>Time Zone settings in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Time Zone</span>
-<span class="n">TZ</span><span class="o">=</span><span class="n">Europe</span><span class="o">/</span><span class="n">Paris</span>
-</pre></div>
-</div>
-<p>If you have modified some of these parameters, don’t forget to restart all containers:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
-<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
 </div>
