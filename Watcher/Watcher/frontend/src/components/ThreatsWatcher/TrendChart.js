@@ -50,7 +50,8 @@ export class TrendChart extends Component {
                             fill: true,
                             borderColor: 'rgba(2,136,209,1)',
                             backgroundColor: 'rgba(2,136,209,0.4)',
-                            borderJoinStyle: 'miter'
+                            lineTension: 0.15,
+                            borderJoinStyle: 'round'
                         }
                     ]
                 },
@@ -66,7 +67,6 @@ export class TrendChart extends Component {
                         yAxes: [{
                             ticks: {
                                 stepSize: 1,
-                                //beginAtZero: true
                             }
                         }]
                     }
