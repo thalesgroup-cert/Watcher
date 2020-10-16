@@ -40,15 +40,17 @@ export class TwitterTweet extends Component {
                 </div>
                 <div className="row" style={{height: '438px', overflow: 'auto'}}>
                     {this.getIdList().map((id, index) => (
-                        <Tweet
-                            key={index}
-                            tweetId={id}
-                            options={{
-                                cards: 'hidden',
-                                conversation: 'none',
-                                width: '100%',
-                            }}
-                        />
+                        <div style={{marginLeft: '10px'}}>
+                            <Tweet
+                                key={index}
+                                tweetId={id}
+                                options={{
+                                    cards: 'hidden',
+                                    conversation: 'none',
+                                    width: '100%',
+                                }}
+                            />
+                        </div>
                     ))}
                 </div>
             </Fragment>
