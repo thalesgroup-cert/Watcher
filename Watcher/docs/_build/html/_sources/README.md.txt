@@ -10,7 +10,7 @@ Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/
 ## Launch watcher
 
 - Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (Keep directory structure).
-- Configure Watcher settings using the `.env` file ([Static configuration](#static-configuration)). 
+- According to your existent infrastructure you may configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)). 
 - `docker-compose up`
 
 This should run Docker containers.
@@ -124,6 +124,20 @@ If you have modified some of these parameters, don't forget to restart all conta
     docker-compose down
     docker-compose up
 
+##### Access Watcher remotely within your server instance
+In case of **"Bad Request" Error** when accessing Watcher web interface, fill `ALLOWED_HOST` variable (in `.env` file) with your Watcher Server Instance **IP** / or your **FQDN**.
+
+It is limited to a **single IP address** / **single FQDN**. 
+
+Please use this syntax: 
+
+    ALLOWED_HOST=X.X.X.X or ALLOWED_HOST=mywebsite.com
+    
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker-compose down
+    docker-compose up
+    
 ##### SMTP Server Settings (Email Notifications) 
 In the `.env` file:
 
@@ -133,7 +147,12 @@ In the `.env` file:
 Website url, which will be the link in the email notifications body:
 
     WATCHER_URL=https://example.watcher.local
+    
+Now, you can restart your instance and the parameters will be taken into account:
 
+    docker-compose down
+    docker-compose up
+    
 ##### TheHive Settings
 If you want to use **TheHive export**, please fill the **IP** of your TheHive instance and an **API key generated**.
 
@@ -143,7 +162,12 @@ In the `.env` file:
     THE_HIVE_URL=
     THE_HIVE_KEY=
     THE_HIVE_CASE_ASSIGNEE=watcher
+    
+Now, you can restart your instance and the parameters will be taken into account:
 
+    docker-compose down
+    docker-compose up
+    
 ##### MISP Settings
 If you want to use **MISP export**, please fill the **IP** of your MISP instance and an **API key**.
 
@@ -153,7 +177,12 @@ In the `.env` file:
     MISP_URL=
     MISP_VERIFY_SSL=False
     MISP_KEY=
+    
+Now, you can restart your instance and the parameters will be taken into account:
 
+    docker-compose down
+    docker-compose up
+    
 ##### LDAP Settings
 You can configure an LDAP authentication within Watcher:
 
@@ -165,17 +194,24 @@ In the `.env` file:
     AUTH_LDAP_BIND_PASSWORD=
     AUTH_LDAP_BASE_DN=
     AUTH_LDAP_FILTER=(uid=%(user)s)
+    
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker-compose down
+    docker-compose up
 
 ## Update Watcher
 To update Watcher image please follow the instructions below:
 
 - Stop all containers: `docker-compose down`
-- Remove the old image: `docker rmi felix83000/watcher:latest`
-- Pull the newer image: `docker-compose up`
+- Remove the old docker images: `docker rmi felix83000/watcher:latest searx/searx searx/searx-checker rssbridge/rss-bridge:latest`
+- Pull the newer docker images: `docker-compose up`
+
+This will update Watcher, Rss-bridge and Searx.
 
 ## Remove the database
 
-You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and re-build the image:
+You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:
 
     docker-compose down
     docker volume rm watcher-project_db_data
@@ -183,10 +219,7 @@ You may want to **reset** your database entirely, in case of troubleshooting or 
 
 Now, you can rebuild the image and the parameters will be taken into account:
 
-    docker-compose build
-    docker-compose up -d
-
-`-d` to launch the task in background.
+    docker-compose up
 
 Don't forget to [migrate](#migrate).
 

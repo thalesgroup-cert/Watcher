@@ -98,6 +98,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#add-your-rss-source-to-threats-detection">Add your RSS source to Threats Detection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#static-configuration">Static configuration</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#production-settings-important">Production Settings [Important]</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#access-watcher-remotely-within-your-server-instance">Access Watcher remotely within your server instance</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#smtp-server-settings-email-notifications">SMTP Server Settings (Email Notifications)</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#thehive-settings">TheHive Settings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#misp-settings">MISP Settings</a></li>
@@ -198,7 +199,7 @@
 <h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (Keep directory structure).</p></li>
-<li><p>Configure Watcher settings using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
+<li><p>According to your existent infrastructure you may configure <strong>Watcher settings</strong> using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
 <p>This should run Docker containers.</p>
@@ -323,6 +324,20 @@ There is one by default but consider to change it in the <code class="docutils l
 </pre></div>
 </div>
 </div>
+<div class="section" id="access-watcher-remotely-within-your-server-instance">
+<h4>Access Watcher remotely within your server instance<a class="headerlink" href="#access-watcher-remotely-within-your-server-instance" title="Permalink to this headline">¶</a></h4>
+<p>In case of <strong>“Bad Request” Error</strong> when accessing Watcher web interface, fill <code class="docutils literal notranslate"><span class="pre">ALLOWED_HOST</span></code> variable (in <code class="docutils literal notranslate"><span class="pre">.env</span></code> file) with your Watcher Server Instance <strong>IP</strong> / or your <strong>FQDN</strong>.</p>
+<p>It is limited to a <strong>single IP address</strong> / <strong>single FQDN</strong>.</p>
+<p>Please use this syntax:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ALLOWED_HOST</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">X</span> <span class="ow">or</span> <span class="n">ALLOWED_HOST</span><span class="o">=</span><span class="n">mywebsite</span><span class="o">.</span><span class="n">com</span>
+</pre></div>
+</div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
+</pre></div>
+</div>
+</div>
 <div class="section" id="smtp-server-settings-email-notifications">
 <h4>SMTP Server Settings (Email Notifications)<a class="headerlink" href="#smtp-server-settings-email-notifications" title="Permalink to this headline">¶</a></h4>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
@@ -332,6 +347,11 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <p>Website url, which will be the link in the email notifications body:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WATCHER_URL</span><span class="o">=</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="o">.</span><span class="n">watcher</span><span class="o">.</span><span class="n">local</span>
+</pre></div>
+</div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
 </div>
@@ -345,6 +365,11 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">THE_HIVE_CASE_ASSIGNEE</span><span class="o">=</span><span class="n">watcher</span>
 </pre></div>
 </div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
+</pre></div>
+</div>
 </div>
 <div class="section" id="misp-settings">
 <h4>MISP Settings<a class="headerlink" href="#misp-settings" title="Permalink to this headline">¶</a></h4>
@@ -354,6 +379,11 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">MISP_URL</span><span class="o">=</span>
 <span class="n">MISP_VERIFY_SSL</span><span class="o">=</span><span class="kc">False</span>
 <span class="n">MISP_KEY</span><span class="o">=</span>
+</pre></div>
+</div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
 </div>
@@ -369,6 +399,11 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">AUTH_LDAP_FILTER</span><span class="o">=</span><span class="p">(</span><span class="n">uid</span><span class="o">=%</span><span class="p">(</span><span class="n">user</span><span class="p">)</span><span class="n">s</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
+<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
+</pre></div>
+</div>
 </div>
 </div>
 </div>
@@ -377,24 +412,23 @@ There is one by default but consider to change it in the <code class="docutils l
 <p>To update Watcher image please follow the instructions below:</p>
 <ul class="simple">
 <li><p>Stop all containers: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code></p></li>
-<li><p>Remove the old image: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher:latest</span></code></p></li>
-<li><p>Pull the newer image: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
+<li><p>Remove the old docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher:latest</span> <span class="pre">searx/searx</span> <span class="pre">searx/searx-checker</span> <span class="pre">rssbridge/rss-bridge:latest</span></code></p></li>
+<li><p>Pull the newer docker images: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
+<p>This will update Watcher, Rss-bridge and Searx.</p>
 </div>
 <div class="section" id="remove-the-database">
 <h2>Remove the database<a class="headerlink" href="#remove-the-database" title="Permalink to this headline">¶</a></h2>
-<p>You may want to <strong>reset</strong> your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and re-build the image:</p>
+<p>You may want to <strong>reset</strong> your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span> <span class="n">volume</span> <span class="n">rm</span> <span class="n">watcher</span><span class="o">-</span><span class="n">project_db_data</span>
 <span class="n">docker</span> <span class="n">volume</span> <span class="n">rm</span> <span class="n">watcher</span><span class="o">-</span><span class="n">project_db_log</span>
 </pre></div>
 </div>
 <p>Now, you can rebuild the image and the parameters will be taken into account:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">build</span>
-<span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span> <span class="o">-</span><span class="n">d</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">-d</span></code> to launch the task in background.</p>
 <p>Don’t forget to <a class="reference external" href="#migrate">migrate</a>.</p>
 </div>
 <div class="section" id="useful-commands">
