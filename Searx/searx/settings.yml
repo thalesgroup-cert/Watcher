@@ -12,7 +12,7 @@ search:
 server:
     port : 8888
     bind_address : "127.0.0.1" # address to listen on
-    secret_key : "9e5a5fc4bd250ff2d4d6005581f5a3f805033aee13cb0d762931a619650dc5e3" # change this!
+    secret_key : "2b5120cbcbca7e97a59c031548eecd51798ca0a2c59d1da26a6923eed194898c" # change this!
     base_url : https://10.10.10.3:8080/ # Set custom base_url. Possible values: False or "https://your.custom.host/location/"
     image_proxy : False # Proxying image results through searx
     http_protocol_version : "1.0"  # 1.0 and 1.1 are supported
@@ -25,6 +25,7 @@ ui:
     default_locale : "" # Default interface locale - leave blank to detect from browser information or use codes from the 'locales' config section
     theme_args :
         oscar_style : logicodev # default style of oscar
+#   results_on_new_tab: False  # Open result links in a new tab by default
 #   categories_order :
 #     - general
 #     - files
@@ -59,11 +60,17 @@ outgoing: # communication with search engines
 #        - 1.1.1.2
 
 # External plugin configuration
-# See http://asciimoo.github.io/searx/dev/plugins.html for more details
+# See http://searx.github.io/searx/dev/plugins.html for more details
 #
 # plugins:
 #   - plugin1
 #   - plugin2
+#   - ...
+
+# uncomment below section if you want to configure which plugin is enabled by default
+#
+# enabled_plugins:
+#   - "HTTPS rewrite"
 #   - ...
 
 engines:
@@ -233,6 +240,12 @@ engines:
     first_page_num : 1
     shortcut : et
     disabled : True
+
+#  - name : ebay
+#    engine : ebay
+#    shortcut : eb
+#    disabled : True
+#    timeout: 5
 
   - name : 1x
     engine : www1x
@@ -450,11 +463,13 @@ engines:
     engine : xpath
     search_url : https://lobste.rs/search?utf8=%E2%9C%93&q={query}&what=stories&order=relevance
     results_xpath : //li[contains(@class, "story")]
-    url_xpath : .//span[@class="link"]/a/@href
-    title_xpath : .//span[@class="link"]/a
+    url_xpath : .//a[@class="u-url"]/@href
+    title_xpath : .//a[@class="u-url"]
     content_xpath : .//a[@class="domain"]
     categories : it
     shortcut : lo
+    timeout : 3.0
+    disabled: True
 
   - name : metager
     engine : xpath
@@ -598,6 +613,10 @@ engines:
 #    shortcut: scs
 #    engine : scanr_structures
 #    disabled : True
+
+  - name: sepiasearch
+    engine: sepiasearch
+    shortcut: sep
 
   - name : soundcloud
     engine : soundcloud
@@ -918,6 +937,77 @@ engines:
 #    engine : doku
 #    shortcut : uw
 #    base_url : 'http://doc.ubuntu-fr.org'
+
+# Be careful when enabling this engine if you are
+# running a public instance. Do not expose any sensitive
+# information. You can restrict access by configuring a list
+# of access tokens under tokens.
+#  - name: git grep
+#    engine: command
+#    command: ['git', 'grep', '{{QUERY}}']
+#    shortcut: gg
+#    tokens: []
+#    disabled: True
+#    delimiter:
+#        chars: ':'
+#        keys: ['filepath', 'code']
+
+# Be careful when enabling this engine if you are
+# running a public instance. Do not expose any sensitive
+# information. You can restrict access by configuring a list
+# of access tokens under tokens.
+#  - name: locate
+#    engine: command
+#    command: ['locate', '{{QUERY}}']
+#    shortcut: loc
+#    tokens: []
+#    disabled: True
+#    delimiter:
+#        chars: ' '
+#        keys: ['line']
+
+# Be careful when enabling this engine if you are
+# running a public instance. Do not expose any sensitive
+# information. You can restrict access by configuring a list
+# of access tokens under tokens.
+#  - name: find
+#    engine: command
+#    command: ['find', '.', '-name', '{{QUERY}}']
+#    query_type: path
+#    shortcut: fnd
+#    tokens: []
+#    disabled: True
+#    delimiter:
+#        chars: ' '
+#        keys: ['line']
+
+# Be careful when enabling this engine if you are
+# running a public instance. Do not expose any sensitive
+# information. You can restrict access by configuring a list
+# of access tokens under tokens.
+#  - name: pattern search in files
+#    engine: command
+#    command: ['fgrep', '{{QUERY}}']
+#    shortcut: fgr
+#    tokens: []
+#    disabled: True
+#    delimiter:
+#        chars: ' '
+#        keys: ['line']
+
+# Be careful when enabling this engine if you are
+# running a public instance. Do not expose any sensitive
+# information. You can restrict access by configuring a list
+# of access tokens under tokens.
+#  - name: regex search in files
+#    engine: command
+#    command: ['grep', '{{QUERY}}']
+#    shortcut: gr
+#    tokens: []
+#    disabled: True
+#    delimiter:
+#        chars: ' '
+#        keys: ['line']
 
 locales:
     en : English

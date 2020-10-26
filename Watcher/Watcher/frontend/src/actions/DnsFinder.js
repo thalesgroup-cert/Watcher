@@ -15,7 +15,7 @@ import {tokenConfig} from "./auth";
 
 // GET DNS MONITORED
 export const getDnsMonitored = () => (dispatch, getState) => {
-    axios.get('/api/dns_finder/dns_monitored', tokenConfig(getState))
+    axios.get('/api/dns_finder/dns_monitored/', tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_DNS_MONITORED,
@@ -77,7 +77,7 @@ export const patchDnsMonitored = (id, dns_monitored) => (dispatch, getState) => 
 
 // GET DNS FINDER ALERTS
 export const getAlerts = () => (dispatch, getState) => {
-    axios.get('/api/dns_finder/alert', tokenConfig(getState))
+    axios.get('/api/dns_finder/alert/', tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_DNS_FINDER_ALERTS,

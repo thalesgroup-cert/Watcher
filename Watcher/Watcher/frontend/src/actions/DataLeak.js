@@ -8,7 +8,7 @@ import {tokenConfig} from "./auth";
 
 // GET KEYWORDS
 export const getKeyWords = () => (dispatch, getState) => {
-    axios.get('/api/data_leak/keyword', tokenConfig(getState))
+    axios.get('/api/data_leak/keyword/', tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_KEYWORDS,
@@ -70,7 +70,7 @@ export const patchKeyWord = (id, patchedWord) => (dispatch, getState) => {
 
 // GET ALERTS
 export const getAlerts = () => (dispatch, getState) => {
-    axios.get('/api/data_leak/alert', tokenConfig(getState))
+    axios.get('/api/data_leak/alert/', tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_ALERTS,

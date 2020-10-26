@@ -17,7 +17,7 @@ import {tokenConfig} from "./auth";
 
 // GET SITES
 export const getSites = () => (dispatch, getState) => {
-    axios.get('/api/site_monitoring/site', tokenConfig(getState))
+    axios.get('/api/site_monitoring/site/', tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_SITES,
@@ -79,7 +79,7 @@ export const patchSite = (id, patchedSite) => (dispatch, getState) => {
 
 // GET ALERTS
 export const getSiteAlerts = () => (dispatch, getState) => {
-    axios.get('/api/site_monitoring/alert', tokenConfig(getState))
+    axios.get('/api/site_monitoring/alert/', tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_SITE_ALERTS,

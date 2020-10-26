@@ -8,7 +8,7 @@ import {tokenConfig} from "./auth";
 
 // GET LEADS
 export const getLeads = () => dispatch => {
-    axios.get('/api/threats_watcher/trendyword')
+    axios.get('/api/threats_watcher/trendyword/')
         .then(res => {
             dispatch({
                 type: GET_LEADS,
