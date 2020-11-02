@@ -74,6 +74,10 @@ class BannedWord(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = 'Blocklist'
+        verbose_name_plural = 'Blocklist'
+
 
 class Subscriber(models.Model):
     """

@@ -25,7 +25,10 @@ class TrendyWordAdmin(admin.ModelAdmin):
     list_filter = ['created_at']
     search_fields = ['name']
 
-    def make_delete_blacklist(self, request, queryset):
+    def has_add_permission(self, request):
+        return False
+
+    def make_delete_blocklist(self, request, queryset):
         rows_updated = 0
         for trendy_word in queryset:
             BannedWord.objects.create(name=trendy_word.name)
@@ -36,18 +39,17 @@ class TrendyWordAdmin(admin.ModelAdmin):
             message_bit = "1 trendy word was"
         else:
             message_bit = "%s trendy words were" % rows_updated
-        self.message_user(request, "%s successfully Deleted & Blacklisted." % message_bit)
+        self.message_user(request, "%s successfully Deleted & Blocklisted." % message_bit)
 
-    make_delete_blacklist.short_description = "Delete & Blacklist selected trendy words"
+    make_delete_blocklist.short_description = "Delete & Blocklist selected trendy words"
 
-    actions = [make_delete_blacklist]
+    actions = [make_delete_blocklist]
 
-
-@admin.register(PostUrl)
-class PostUrl(admin.ModelAdmin):
-    list_display = ('url', 'created_at')
-    list_filter = ['created_at']
-    search_fields = ['url']
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 
 @admin.register(Subscriber)

@@ -55,10 +55,3 @@ class Keyword(admin.ModelAdmin):
     list_display = ['name', 'created_at']
     list_filter = ['created_at']
     search_fields = ['name']
-
-
-@admin.register(PasteId)
-class PasteId(admin.ModelAdmin):
-    list_display = ['paste_id', 'created_at']
-    list_filter = ['created_at']
-    search_fields = ['paste_id']

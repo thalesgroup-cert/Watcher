@@ -67,7 +67,7 @@ export class WordList extends Component {
                 <Modal.Header closeButton>
                     <Modal.Title>Action Requested</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>Are you sure you want to <u>delete</u> and <u>blacklist</u>
+                <Modal.Body>Are you sure you want to <u>delete</u> and add to <u>blocklist</u>
                     <b> {this.state.word}</b> word?</Modal.Body>
                 <Modal.Footer>
                     <form onSubmit={onSubmit}>
@@ -90,7 +90,7 @@ export class WordList extends Component {
             <button onClick={() => {
                 this.displayModal(id, name)
             }}
-                    className="btn btn-outline-primary btn-sm">Delete & BlackList
+                    className="btn btn-outline-primary btn-sm">Delete & BlockList
             </button>
         );
 

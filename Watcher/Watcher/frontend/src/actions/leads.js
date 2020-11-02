@@ -41,7 +41,7 @@ export const addBannedWord = word => (dispatch, getState) => {
     axios
         .post("/api/threats_watcher/bannedword/", word, tokenConfig(getState))
         .then(res => {
-            dispatch(createMessage({add: `${word.name} added to the Blacklist`}));
+            dispatch(createMessage({add: `${word.name} added to the Blocklist`}));
             dispatch({
                 type: ADD_BANNED_WORD,
                 payload: res.data

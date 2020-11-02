@@ -107,10 +107,18 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#tips-and-tricks">Tips and Tricks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#thehive-misp-export">Thehive &amp; MISP Export</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#remove-add-to-blocklist">Remove &amp; Add to Blocklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#archived-alerts">Archived Alerts</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#update-watcher">Update Watcher</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#remove-the-database">Remove the database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#useful-commands">Useful commands</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#thehive-misp-export">Thehive &amp; MISP Export</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
@@ -407,6 +415,63 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 </div>
 </div>
+<div class="section" id="tips-and-tricks">
+<h2>Tips and Tricks<a class="headerlink" href="#tips-and-tricks" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="thehive-misp-export">
+<h3>Thehive &amp; MISP Export<a class="headerlink" href="#thehive-misp-export" title="Permalink to this headline">¶</a></h3>
+<p>You can export <strong>monitored DNS</strong> to <a class="reference external" href="https://thehive-project.org/">TheHive</a> or <a class="reference external" href="https://www.misp-project.org/">MISP</a>:</p>
+<ul class="simple">
+<li><p>Go to <strong>/website_monitoring</strong> page.</p></li>
+<li><p>Add new DNS to monitored.</p></li>
+<li><p>Click on the <strong>blue upload/cloud button</strong>.</p></li>
+<li><p>Choose which service you want to use.</p></li>
+</ul>
+<div class="section" id="troubleshooting">
+<h4>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h4>
+<p>If the export do not work as expected, this may be related with
+the version of your TheHive or MISP instance.</p>
+<p>In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your
+TheHive/MISP instance version:</p>
+<ul class="simple">
+<li><p>Update Thehive or MISP.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="remove-add-to-blocklist">
+<h3>Remove &amp; Add to Blocklist<a class="headerlink" href="#remove-add-to-blocklist" title="Permalink to this headline">¶</a></h3>
+<p>There is a <strong>blocklist</strong> to prevent a <strong>false positive trendy words</strong> from reappearing again.</p>
+<p>To add <strong>1</strong> word:</p>
+<ul class="simple">
+<li><p>Go to the landing page.</p></li>
+<li><p>Authenticate and Click on the “<strong>Delete &amp; Blocklist</strong>” <strong>button</strong>.</p></li>
+</ul>
+<p>To add <strong>several</strong> words:</p>
+<ul class="simple">
+<li><p>Go to <strong>/admin</strong> page.</p></li>
+<li><p>Click on <strong>Trendy words</strong>.</p></li>
+<li><p><strong>Check</strong> words that you want to remove &amp; blocklist.</p></li>
+<li><p>Click on <strong>Action</strong> dropdown.</p></li>
+<li><p>Select “<strong>Delete &amp; Blocklist selected trendy words</strong>”.</p></li>
+</ul>
+</div>
+<div class="section" id="archived-alerts">
+<h3>Archived Alerts<a class="headerlink" href="#archived-alerts" title="Permalink to this headline">¶</a></h3>
+<p>Once you have processed an alert, you can archive it.</p>
+<p>To archived <strong>1</strong> alert:</p>
+<ul class="simple">
+<li><p>Go to the alert that you want to archived.</p></li>
+<li><p>Select the “<strong>disable</strong>” <strong>button</strong>.</p></li>
+</ul>
+<p>To archived <strong>several</strong> alerts:</p>
+<ul class="simple">
+<li><p>Go to <strong>/admin</strong> page.</p></li>
+<li><p>Click on <strong>Alerts</strong>.</p></li>
+<li><p><strong>Check</strong> alerts that you want to archived.</p></li>
+<li><p>Click on <strong>Action</strong> dropdown.</p></li>
+<li><p>Select “<strong>Disable selected alerts</strong>”.</p></li>
+</ul>
+</div>
+</div>
 <div class="section" id="update-watcher">
 <h2>Update Watcher<a class="headerlink" href="#update-watcher" title="Permalink to this headline">¶</a></h2>
 <p>To update Watcher image please follow the instructions below:</p>
@@ -438,16 +503,6 @@ There is one by default but consider to change it in the <code class="docutils l
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span> 
 </pre></div>
 </div>
-</div>
-<div class="section" id="thehive-misp-export">
-<h2>Thehive &amp; MISP Export<a class="headerlink" href="#thehive-misp-export" title="Permalink to this headline">¶</a></h2>
-<p>If the export do not work as expected, this may be related with
-the version of your TheHive or MISP instance.</p>
-<p>In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your
-TheHive/MISP instance version:</p>
-<ul class="simple">
-<li><p>Update MISP or Thehive</p></li>
-</ul>
 <hr class="docutils" />
 <p>Developed by Thales Group CERT.</p>
 </div>

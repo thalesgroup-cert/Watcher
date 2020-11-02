@@ -200,6 +200,58 @@ Now, you can restart your instance and the parameters will be taken into account
     docker-compose down
     docker-compose up
 
+## Tips and Tricks
+
+### Thehive & MISP Export
+
+You can export **monitored DNS** to [TheHive](https://thehive-project.org/) or [MISP](https://www.misp-project.org/):
+
+  - Go to **/website_monitoring** page.
+  - Add new DNS to monitored.
+  - Click on the **blue upload/cloud button**.
+  - Choose which service you want to use.
+
+#### Troubleshooting
+If the export do not work as expected, this may be related with 
+the version of your TheHive or MISP instance.
+
+In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your 
+TheHive/MISP instance version:
+
+- Update Thehive or MISP.
+
+### Remove & Add to Blocklist
+There is a **blocklist** to prevent a **false positive trendy words** from reappearing again.
+
+To add **1** word:
+
+- Go to the landing page.
+- Authenticate and Click on the "**Delete & Blocklist**" **button**.
+
+To add **several** words:
+
+- Go to **/admin** page.
+- Click on **Trendy words**.
+- **Check** words that you want to remove & blocklist.
+- Click on **Action** dropdown.
+- Select "**Delete & Blocklist selected trendy words**".
+
+### Archived Alerts
+Once you have processed an alert, you can archive it.
+
+To archived **1** alert:
+
+- Go to the alert that you want to archived.
+- Select the "**disable**" **button**.
+
+To archived **several** alerts:
+
+- Go to **/admin** page.
+- Click on **Alerts**.
+- **Check** alerts that you want to archived.
+- Click on **Action** dropdown.
+- Select "**Disable selected alerts**".
+
 ## Update Watcher
 To update Watcher image please follow the instructions below:
 
@@ -230,15 +282,6 @@ Use `docker-compose up -d` if you want to run it in Background.
 Run interactive shell session on the Watcher container:
 
     docker-compose run watcher bash 
-
-## Thehive & MISP Export
-If the export do not work as expected, this may be related with 
-the version of your TheHive or MISP instance.
-
-In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your 
-TheHive/MISP instance version:
-
-- Update MISP or Thehive
 
 ---
 Developed by Thales Group CERT.
