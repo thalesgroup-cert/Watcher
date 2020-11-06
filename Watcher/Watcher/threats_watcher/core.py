@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from nltk.tokenize import word_tokenize
 from .mail_template.default_template import get_template
 import feedparser
+import requests
 import re
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -105,7 +106,11 @@ def fetch_last_posts(nb_max_post):
     tmp_posts = dict()
     posts_published = dict()
     for url in rss_urls:
-        feeds.append(feedparser.parse(url))
+        try:
+            feed_content = requests.get(url)
+            feeds.append(feedparser.parse(feed_content.text))
+        except requests.exceptions.RequestException as e:
+            print(str(timezone.now()) + " - ", e)
     for feed in feeds:
         count = 1
         for post in feed.entries:

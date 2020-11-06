@@ -24,7 +24,6 @@ http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=boolaz&no
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=CertSG&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=cert_ist&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
-http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=msftmmpc&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=CERT_Polska_en&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=teamcymru&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=OnexteC&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
@@ -83,8 +82,6 @@ https://isc.sans.edu/rssfeed.xml
 https://feeds.feedburner.com/TheHackersNews?format=xml
 https://www.theregister.co.uk/security/headlines.atom
 https://www.kb.cert.org/vuls/atomfeed
-https://www.cyberveille-sante.gouv.fr/cyberveille/rss.xml
-https://www.cyberveille-sante.gouv.fr/cyberveille-sante/rss.xml
 https://www.cyber.gov.au/rssfeed/2
 https://www.jpcert.or.jp/english/rss/jpcert-en.rdf
 "https://www.welivesecurity.com/category/malware,password,android-2,mobile-security,windows,mac,banking,linux/feed/"
