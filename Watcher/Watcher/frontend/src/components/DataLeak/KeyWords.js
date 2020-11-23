@@ -218,7 +218,7 @@ export class KeyWords extends Component {
                 <div className="row">
                     <div className="col-lg-12">
                         <div className="float-left">
-                            <h4>Keywords Monitoring</h4>
+                            <h4>Keywords Monitored</h4>
                         </div>
                         <div className="float-right mr-1 mb-2">
                             <button className="btn btn-success" onClick={() => {

@@ -59,7 +59,7 @@ def cascade_delete_branch(sender, instance, **kwargs):
     Also verified if the posts is not reference for another :model:`threats_watcher.TrendyWord`.
     """
     for posturl in instance.posturls.all():
-        # Si le posturl est associé seulement à 1 ou 0 trendyword on peut le supprimer
+        # If posturl is associated to 1 or 0 trendyword, we can remove it
         if TrendyWord.objects.filter(posturls=posturl).count() <= 1:
             PostUrl.objects.get(url=posturl).delete()
 
@@ -75,7 +75,7 @@ class BannedWord(models.Model):
         return self.name
 
     class Meta:
-        verbose_name = 'Blocklist'
+        verbose_name = 'block word'
         verbose_name_plural = 'Blocklist'
 
 

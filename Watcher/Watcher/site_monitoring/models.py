@@ -34,6 +34,8 @@ class Site(models.Model):
 
     class Meta:
         ordering = ["-rtir"]
+        verbose_name = 'Website'
+        verbose_name_plural = 'Suspicious Websites Monitored'
 
     def __str__(self):
         return self.domain_name

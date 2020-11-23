@@ -19,3 +19,4 @@ thehive4py==1.7.2
 pymisp==2.4.134
 django-auth-ldap==2.2.0
 dnstwist==20201022
+django-import-export==2.4.0

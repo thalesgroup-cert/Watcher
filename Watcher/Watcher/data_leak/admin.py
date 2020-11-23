@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Subscriber, Alert, Keyword, PasteId
+from .models import Subscriber, Alert, Keyword
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 
 def custom_titled_filter(title):
@@ -24,6 +26,9 @@ class Alert(admin.ModelAdmin):
     list_display = ['id', 'keyword', 'url', 'status', 'created_at']
     list_filter = ('keyword', ('status', custom_titled_filter('Active Status')))
     search_fields = ['id', 'url', 'keyword']
+
+    def has_add_permission(self, request):
+        return False
 
     def make_disable(self, request, queryset):
         rows_updated = queryset.update(status=False)
@@ -50,8 +55,15 @@ class Alert(admin.ModelAdmin):
     actions = [make_disable, make_enable]
 
 
+class KeywordResource(resources.ModelResource):
+    class Meta:
+        model = Keyword
+        exclude = ('created_at',)
+
+
 @admin.register(Keyword)
-class Keyword(admin.ModelAdmin):
+class Keyword(ImportExportModelAdmin):
     list_display = ['name', 'created_at']
     list_filter = ['created_at']
     search_fields = ['name']
+    resource_class = KeywordResource

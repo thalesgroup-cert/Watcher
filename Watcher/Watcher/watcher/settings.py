@@ -114,6 +114,7 @@ INSTALLED_APPS = [
     'knox',
     'django.contrib.admindocs',
     'accounts',
+    'import_export',
 ]
 
 REST_FRAMEWORK = {

@@ -12,7 +12,8 @@ class DnsMonitored(models.Model):
 
     class Meta:
         ordering = ["domain_name"]
-        verbose_name = 'Monitored DNS'
+        verbose_name = 'Corporate DNS'
+        verbose_name_plural = "Corporate DNS Assets Monitored"
 
     def __str__(self):
         return self.domain_name
@@ -30,6 +31,7 @@ class DnsTwisted(models.Model):
     class Meta:
         ordering = ["-created_at"]
         verbose_name = 'Twisted DNS'
+        verbose_name_plural = "Twisted DNS"
 
     def __str__(self):
         return self.domain_name

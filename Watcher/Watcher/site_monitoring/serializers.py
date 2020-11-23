@@ -8,7 +8,7 @@ from .core import monitoring_init
 from .models import Alert, Site
 
 from thehive4py.api import TheHiveApi
-from thehive4py.models import CaseTask, Case
+from thehive4py.models import Case
 from .thehive import create_observables, update_observables
 
 from pymisp import ExpandedPyMISP, MISPEvent

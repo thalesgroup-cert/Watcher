@@ -2,28 +2,51 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, PostUrl, Subscriber
+from .models import Source, TrendyWord, BannedWord, Subscriber
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin, ExportMixin
+
+
+class SourceResource(resources.ModelResource):
+    class Meta:
+        model = Source
+        exclude = ('created_at',)
 
 
 @admin.register(Source)
-class SourceAdmin(admin.ModelAdmin):
+class SourceAdmin(ImportExportModelAdmin):
     list_display = ['url', 'created_at']
     list_filter = ['created_at']
     search_fields = ['url']
+    resource_class = SourceResource
+
+
+class BannedWordResource(resources.ModelResource):
+    class Meta:
+        model = BannedWord
+        exclude = ('created_at',)
 
 
 @admin.register(BannedWord)
-class BannedWordAdmin(admin.ModelAdmin):
+class BannedWordAdmin(ImportExportModelAdmin):
     list_display = ['name', 'created_at']
     list_filter = ['created_at']
     search_fields = ['name']
+    resource_class = BannedWordResource
+
+
+class TrendyWordResource(resources.ModelResource):
+    class Meta:
+        model = TrendyWord
+        exclude = ('posturls',)
 
 
 @admin.register(TrendyWord)
-class TrendyWordAdmin(admin.ModelAdmin):
+class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ('name', 'occurrences', 'created_at')
     list_filter = ['created_at']
     search_fields = ['name']
+    resource_class = TrendyWordResource
 
     def has_add_permission(self, request):
         return False
