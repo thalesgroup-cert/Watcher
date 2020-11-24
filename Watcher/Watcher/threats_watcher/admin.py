@@ -56,7 +56,7 @@ class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
         for trendy_word in queryset:
             BannedWord.objects.create(name=trendy_word.name)
             rows_updated += 1
-        super().delete_queryset(request, queryset)
+        super(TrendyWordAdmin, self).delete_queryset(request, queryset)
 
         if rows_updated == 1:
             message_bit = "1 trendy word was"
@@ -69,7 +69,7 @@ class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
     actions = [make_delete_blocklist]
 
     def get_actions(self, request):
-        actions = super().get_actions(request)
+        actions = super(TrendyWordAdmin, self).get_actions(request)
         if 'delete_selected' in actions:
             del actions['delete_selected']
         return actions
