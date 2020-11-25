@@ -4,6 +4,8 @@ from django.utils import timezone
 import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
 
+from dns_finder.models import DnsTwisted
+
 from .core import monitoring_init
 from .models import Alert, Site
 
@@ -50,6 +52,14 @@ class MISPSerializer(serializers.Serializer):
         site_id = self.validated_data['id']
         site = Site.objects.get(pk=site_id)
 
+        # Check if there is already an Event
+        if DnsTwisted.objects.filter(domain_name=site.domain_name):
+            dns_twisted = DnsTwisted.objects.get(domain_name=site.domain_name)
+            if site.misp_event_id is None:
+                site.misp_event_id = dns_twisted.misp_event_id
+                # Save the case id in database
+                Site.objects.filter(pk=site.pk).update(misp_event_id=dns_twisted.misp_event_id)
+
         # Test MISP instance connection
         try:
             requests.get(settings.MISP_URL, verify=settings.MISP_VERIFY_SSL)
@@ -83,6 +93,8 @@ class MISPSerializer(serializers.Serializer):
 
             # Store Event Id in database
             Site.objects.filter(pk=site.pk).update(misp_event_id=event.id)
+            if DnsTwisted.objects.filter(domain_name=site.domain_name):
+                DnsTwisted.objects.filter(domain_name=site.domain_name).update(misp_event_id=event.id)
 
             # Create MISP Attributes
             create_attributes(misp_api, event.id, site)
@@ -101,6 +113,14 @@ class ThehiveSerializer(serializers.Serializer):
     def save(self):
         site_id = self.validated_data['id']
         site = Site.objects.get(pk=site_id)
+
+        # Check if there is already a Case
+        if DnsTwisted.objects.filter(domain_name=site.domain_name):
+            dns_twisted = DnsTwisted.objects.get(domain_name=site.domain_name)
+            if site.the_hive_case_id is None:
+                site.the_hive_case_id = dns_twisted.the_hive_case_id
+                # Save the case id in database
+                Site.objects.filter(pk=site.pk).update(the_hive_case_id=dns_twisted.the_hive_case_id)
 
         # Test The Hive instance connection
         try:
@@ -141,6 +161,8 @@ class ThehiveSerializer(serializers.Serializer):
 
                 # Save the case id in database
                 Site.objects.filter(pk=site.pk).update(the_hive_case_id=case_id)
+                if DnsTwisted.objects.filter(domain_name=site.domain_name):
+                    DnsTwisted.objects.filter(domain_name=site.domain_name).update(the_hive_case_id=case_id)
 
                 # Create all IOCs observables
                 create_observables(hive_api, case_id, site)

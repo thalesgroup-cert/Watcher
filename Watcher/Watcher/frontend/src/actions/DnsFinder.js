@@ -6,7 +6,9 @@ import {
     DELETE_DNS_MONITORED,
     ADD_DNS_MONITORED,
     PATCH_DNS_MONITORED,
-    UPDATE_DNS_FINDER_ALERT
+    UPDATE_DNS_FINDER_ALERT,
+    EXPORT_THE_HIVE_DNS_FINDER,
+    EXPORT_MISP_DNS_FINDER
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
@@ -97,6 +99,38 @@ export const updateAlertStatus = (id, status) => (dispatch, getState) => {
             dispatch(createMessage({add: `Alert Updated`}));
             dispatch({
                 type: UPDATE_DNS_FINDER_ALERT,
+                payload: res.data
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// EXPORT TO THE HIVE
+export const exportToTheHive = (site) => (dispatch, getState) => {
+    axios
+        .post(`/api/dns_finder/thehive/`, site, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({add: `Twisted DNS Exported to Thehive`}));
+            dispatch({
+                type: EXPORT_THE_HIVE_DNS_FINDER,
+                payload: res.data
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// EXPORT TO MISP
+export const exportToMISP = (site) => (dispatch, getState) => {
+    axios
+        .post(`/api/dns_finder/misp/`, site, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({add: `Twisted DNS Exported to MISP`}));
+            dispatch({
+                type: EXPORT_MISP_DNS_FINDER,
                 payload: res.data
             });
         })

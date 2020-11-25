@@ -1,7 +1,7 @@
 import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
-import {getAlerts, updateAlertStatus} from "../../actions/DnsFinder";
+import {getAlerts, updateAlertStatus, exportToTheHive, exportToMISP} from "../../actions/DnsFinder";
 import {addSite, getSites} from "../../actions/SiteMonitoring";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
@@ -19,8 +19,12 @@ export class Alerts extends Component {
         super(props);
         this.state = {
             show: false,
+            showExportModal: false,
             id: 0,
             exportLoading: false,
+            exportLoadingMISPTh: false,
+            theHiveCaseId: null,
+            mispEventId: null,
             domainName: ""
         };
         this.inputRtirRef = React.createRef();
@@ -33,6 +37,8 @@ export class Alerts extends Component {
         alerts: PropTypes.array.isRequired,
         getAlerts: PropTypes.func.isRequired,
         updateAlertStatus: PropTypes.func.isRequired,
+        exportToTheHive: PropTypes.func.isRequired,
+        exportToMISP: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
     };
@@ -48,10 +54,16 @@ export class Alerts extends Component {
                 exportLoading: false
             });
         }
+        if (this.props.alerts !== prevProps.alerts) {
+            this.setState({
+                exportLoadingMISPTh: false
+            });
+        }
         if (this.props.error !== prevProps.error) {
             if (this.props.error.status !== null) {
                 this.setState({
-                    exportLoading: false
+                    exportLoading: false,
+                    exportLoadingMISPTh: false
                 });
             }
         }
@@ -206,6 +218,106 @@ export class Alerts extends Component {
         return back;
     };
 
+    displayExportModal = (id, domainName, theHiveCaseId, mispEventId) => {
+        this.setState({
+            showExportModal: true,
+            id: id,
+            domainName: domainName,
+            theHiveCaseId: theHiveCaseId,
+            mispEventId: mispEventId
+        });
+    };
+
+    exportModal = () => {
+        let handleClose;
+        handleClose = () => {
+            this.setState({
+                showExportModal: false
+            });
+        };
+
+        let onSubmitTheHive;
+        onSubmitTheHive = e => {
+            e.preventDefault();
+            const id = this.state.id;
+            const site = {id};
+
+            this.props.exportToTheHive(site);
+            this.setState({
+                domainName: "",
+                id: 0,
+                exportLoadingMISPTh: id
+            });
+            handleClose();
+        };
+
+        let onSubmitMisp;
+        onSubmitMisp = e => {
+            e.preventDefault();
+            const id = this.state.id;
+            const site = {id};
+
+            this.props.exportToMISP(site);
+            this.setState({
+                domainName: "",
+                id: 0,
+                exportLoadingMISPTh: id
+            });
+            handleClose();
+        };
+
+        const theHiveExportButton = (
+            <Button type="submit" className="btn-thehive">
+                Export to TheHive
+            </Button>);
+        const theHiveUpdateButton = (
+            <Button type="submit" className="btn-thehive">
+                Update TheHive IOCs
+            </Button>);
+        const mispExportButton = (
+            <Button type="submit" className="btn-misp">
+                Export to MISP
+            </Button>);
+        const mispUpdateButton = (
+            <Button type="submit" className="btn-misp">
+                Update MISP IOCs
+            </Button>);
+
+        return (
+            <Modal show={this.state.showExportModal} onHide={handleClose} centered>
+                <Modal.Header closeButton>
+                    <Container fluid>
+                        <Row className="show-grid">
+                            <Col md={{span: 12}}>
+                                <Modal.Title>Action Requested</Modal.Title>
+                            </Col>
+                            <Col md={{span: 12}} style={{paddingTop: 12, marginLeft: 20}} className="my-auto">
+                                <img src="/static/img/thehive_misp_logo.png" style={{maxWidth: "60%", maxHeight: "60%"}}
+                                     className="mx-auto d-block"
+                                     alt="TheHive & MISP Logo"/>
+                            </Col>
+                        </Row>
+                    </Container>
+                </Modal.Header>
+                <Modal.Body>
+                    <p>Export <b>{this.state.domainName}</b> & <b>IOCs</b> to <b><u>TheHive</u></b> or <b><u>MISP</u></b>:
+                    </p>
+                </Modal.Body>
+                <Modal.Footer>
+                    <form onSubmit={onSubmitTheHive}>
+                        <Button variant="secondary" className="mr-2" onClick={handleClose}>
+                            Close
+                        </Button>
+                        {this.state.theHiveCaseId ? theHiveUpdateButton : theHiveExportButton}
+                    </form>
+                    <form onSubmit={onSubmitMisp}>
+                        {this.state.mispEventId ? mispUpdateButton : mispExportButton}
+                    </form>
+                </Modal.Footer>
+            </Modal>
+        );
+    };
+
     render() {
         const exportButton = alert => (
             this.isDisabled(alert.dns_twisted.domain_name, alert.id) ?
@@ -246,6 +358,22 @@ export class Alerts extends Component {
                                                                  }}>playlist_add</i>}
                 </button>)
         );
+        const exportButtonMISPTh = alert => (
+            <button className="btn btn-outline-primary btn-sm mr-2"
+                    data-toggle="tooltip"
+                    data-placement="top" title="Export" onClick={() => {
+                this.displayExportModal(alert.dns_twisted.id, alert.dns_twisted.domain_name, alert.dns_twisted.the_hive_case_id, alert.dns_twisted.misp_event_id)
+            }} disabled={this.state.exportLoadingMISPTh === alert.id}>
+
+                {this.state.exportLoadingMISPTh === alert.id && (
+                    <div className="loader">Loading...</div>
+                )}
+                {this.state.exportLoadingMISPTh !== alert.id && (
+                    <i className="material-icons"
+                       style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>cloud_upload</i>
+                )}
+            </button>
+        );
         return (
             <Fragment>
                 <div className="row">
@@ -285,6 +413,7 @@ export class Alerts extends Component {
                                                     }}
                                                             className="btn btn-outline-primary btn-sm mr-2">Disable
                                                     </button>
+                                                    {exportButtonMISPTh(alert)}
                                                     {exportButton(alert)}
                                                 </td>
                                             </tr>);
@@ -297,6 +426,7 @@ export class Alerts extends Component {
                 </div>
                 {this.modal()}
                 {this.addModal()}
+                {this.exportModal()}
             </Fragment>
         )
     }
@@ -309,4 +439,4 @@ const mapStateToProps = state => ({
     error: state.errors
 });
 
-export default connect(mapStateToProps, {getAlerts, updateAlertStatus, addSite, getSites})(Alerts);
+export default connect(mapStateToProps, {getAlerts, updateAlertStatus, addSite, getSites, exportToTheHive, exportToMISP})(Alerts);

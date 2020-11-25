@@ -1,6 +1,6 @@
 from .models import DnsMonitored, DnsTwisted, Alert
 from rest_framework import viewsets, permissions
-from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer
+from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, ThehiveSerializer, MISPSerializer
 
 
 # DnsMonitored Viewset
@@ -28,3 +28,19 @@ class AlertViewSet(viewsets.ModelViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = AlertSerializer
+
+
+# Thehive Viewset
+class ThehiveViewSet(viewsets.ModelViewSet):
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+    serializer_class = ThehiveSerializer
+
+
+# MISP Viewset
+class MISPViewSet(viewsets.ModelViewSet):
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+    serializer_class = MISPSerializer

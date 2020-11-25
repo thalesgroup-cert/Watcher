@@ -26,6 +26,8 @@ class DnsTwisted(models.Model):
     domain_name = models.CharField(max_length=100, unique=True)
     dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE)
     fuzzer = models.CharField(max_length=100, blank=True, null=True)
+    the_hive_case_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    misp_event_id = models.IntegerField(unique=True, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

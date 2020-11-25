@@ -4,7 +4,9 @@ import {
     DELETE_DNS_MONITORED,
     ADD_DNS_MONITORED,
     PATCH_DNS_MONITORED,
-    UPDATE_DNS_FINDER_ALERT
+    UPDATE_DNS_FINDER_ALERT,
+    EXPORT_THE_HIVE_DNS_FINDER,
+    EXPORT_MISP_DNS_FINDER
 } from '../actions/types.js';
 
 const initialState = {
@@ -52,6 +54,26 @@ export default function (state = initialState, action) {
             state.alerts.map(alert => {
                 if (alert.id === action.payload.id) {
                     alert.status = action.payload.status
+                }
+            });
+            return {
+                ...state,
+                alerts: [...state.alerts]
+            };
+        case EXPORT_THE_HIVE_DNS_FINDER:
+            state.alerts.map(alert => {
+                if (alert.id === action.payload.id) {
+                    alert.dns_twisted.the_hive_case_id = action.payload.the_hive_case_id;
+                }
+            });
+            return {
+                ...state,
+                alerts: [...state.alerts]
+            };
+        case EXPORT_MISP_DNS_FINDER:
+            state.alerts.map(alert => {
+                if (alert.id === action.payload.id) {
+                    alert.dns_twisted.misp_event_id = action.payload.misp_event_id;
                 }
             });
             return {

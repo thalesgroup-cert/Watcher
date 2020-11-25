@@ -25,7 +25,6 @@ export class DnsMonitored extends Component {
     }
 
     static propTypes = {
-        keywords: PropTypes.array.isRequired,
         getDnsMonitored: PropTypes.func.isRequired,
         deleteDnsMonitored: PropTypes.func.isRequired,
         addDnsMonitored: PropTypes.func.isRequired,
