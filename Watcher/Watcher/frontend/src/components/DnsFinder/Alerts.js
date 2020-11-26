@@ -28,6 +28,9 @@ export class Alerts extends Component {
             domainName: ""
         };
         this.inputRtirRef = React.createRef();
+        this.ipMonitoringRef = React.createRef();
+        this.webContentMonitoringRef = React.createRef();
+        this.emailMonitoringRef = React.createRef();
     }
 
     static propTypes = {
@@ -138,7 +141,10 @@ export class Alerts extends Component {
             const domain_name = this.state.domainName;
             const rtir = this.inputRtirRef.current.value;
             const expiry = this.state.day;
-            const site = expiry ? {domain_name, rtir, expiry} : {domain_name, rtir};
+            const ip_monitoring = this.ipMonitoringRef.current.checked;
+            const content_monitoring = this.webContentMonitoringRef.current.checked;
+            const mail_monitoring = this.emailMonitoringRef.current.checked;
+            const site = expiry ? {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, rtir, ip_monitoring, content_monitoring, mail_monitoring};
 
             this.props.addSite(site);
             this.setState({
@@ -184,6 +190,39 @@ export class Alerts extends Component {
                                                     showWeekNumbers: true
                                                 }}
                                                 onDayChange={day => this.setState({day})}/>
+                                        </Col>
+                                        <Form.Label column sm="6">Ip Monitoring</Form.Label>
+                                        <Col sm="6">
+                                            <Form.Check
+                                                ref={this.ipMonitoringRef}
+                                                defaultChecked={true}
+                                                className="mt-2"
+                                                type="switch"
+                                                id="custom-switch"
+                                                label=""
+                                            />
+                                        </Col>
+                                        <Form.Label column sm="6">Web Content Monitoring</Form.Label>
+                                        <Col sm="6">
+                                            <Form.Check
+                                                ref={this.webContentMonitoringRef}
+                                                defaultChecked={true}
+                                                className="mt-2"
+                                                type="switch"
+                                                id="custom-switch-2"
+                                                label=""
+                                            />
+                                        </Col>
+                                        <Form.Label column sm="6">Email Monitoring</Form.Label>
+                                        <Col sm="6">
+                                            <Form.Check
+                                                ref={this.emailMonitoringRef}
+                                                defaultChecked={true}
+                                                className="mt-2"
+                                                type="switch"
+                                                id="custom-switch-3"
+                                                label=""
+                                            />
                                         </Col>
                                     </Form.Group>
                                     <Col md={{span: 5, offset: 8}}>
