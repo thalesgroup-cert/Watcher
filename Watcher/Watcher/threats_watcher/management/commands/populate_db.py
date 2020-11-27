@@ -19,16 +19,15 @@ class Command(BaseCommand, ABC):
         with open('threats_watcher/datas/banned_words.csv') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                BannedWord.objects.create(name=row['name'])
+                if not BannedWord.objects.filter(name=row['name']):
+                    BannedWord.objects.create(name=row['name'])
 
         # Init Source DB with common sources from CSV File
         with open('threats_watcher/datas/sources.csv') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                Source.objects.create(url=row['source'])
-                pass
+                if not Source.objects.filter(url=row['source']):
+                    Source.objects.create(url=row['source'])
 
     def handle(self, *args, **options):
         self._init_db()
-
-    pass
