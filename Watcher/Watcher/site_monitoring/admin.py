@@ -14,14 +14,20 @@ def custom_titled_filter(title):
     return Wrapper
 
 
+class AlertResource(resources.ModelResource):
+    class Meta:
+        model = Alert
+
+
 @admin.register(Alert)
-class Alert(admin.ModelAdmin):
+class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'type', 'site', 'new_ip', 'new_ip_second', 'new_MX_records', 'new_mail_A_record_ip', 'old_ip',
                     'old_ip_second', 'old_MX_records', 'old_mail_A_record_ip', 'difference_score',
                     'status', 'created_at']
     list_filter = ('site', ('status', custom_titled_filter('Active Status')))
     search_fields = ['id', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records',
                      'new_mail_A_record_ip', 'old_MX_records', 'old_mail_A_record_ip']
+    resource_class = AlertResource
 
     def has_add_permission(self, request):
         return False
@@ -54,7 +60,9 @@ class Alert(admin.ModelAdmin):
 class SiteResource(resources.ModelResource):
     class Meta:
         model = Site
-        exclude = ('the_hive_case_id', 'misp_event_id', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring', 'ip_monitoring')
+        exclude = (
+        'the_hive_case_id', 'misp_event_id', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring',
+        'ip_monitoring')
 
 
 @admin.register(Site)

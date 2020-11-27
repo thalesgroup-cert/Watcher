@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import DnsMonitored, DnsTwisted, Alert, Subscriber
 from import_export import resources
-from import_export.admin import ImportExportModelAdmin
+from import_export.admin import ImportExportModelAdmin, ExportMixin
 
 
 def custom_titled_filter(title):
@@ -14,11 +14,17 @@ def custom_titled_filter(title):
     return Wrapper
 
 
+class AlertResource(resources.ModelResource):
+    class Meta:
+        model = Alert
+
+
 @admin.register(Alert)
-class Alert(admin.ModelAdmin):
+class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'dns_twisted', 'status', 'created_at']
     list_filter = ('created_at', ('status', custom_titled_filter('Active Status')))
     search_fields = ['id', 'dns_twisted']
+    resource_class = AlertResource
 
     def has_add_permission(self, request):
         return False

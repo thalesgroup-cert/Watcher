@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import Subscriber, Alert, Keyword
 from import_export import resources
-from import_export.admin import ImportExportModelAdmin
+from import_export.admin import ImportExportModelAdmin, ExportMixin
 
 
 def custom_titled_filter(title):
@@ -21,11 +21,17 @@ class Subscriber(admin.ModelAdmin):
     search_fields = ['user_rec']
 
 
+class AlertResource(resources.ModelResource):
+    class Meta:
+        model = Alert
+
+
 @admin.register(Alert)
-class Alert(admin.ModelAdmin):
+class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'keyword', 'url', 'status', 'created_at']
     list_filter = ('keyword', ('status', custom_titled_filter('Active Status')))
     search_fields = ['id', 'url', 'keyword']
+    resource_class = AlertResource
 
     def has_add_permission(self, request):
         return False
