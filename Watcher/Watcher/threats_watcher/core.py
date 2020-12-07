@@ -180,9 +180,11 @@ def remove_banned_words():
         word = re.sub(r"[^a-zA-Z0-9]+" + r'$', '', word)
         # Remove version numbers
         word = re.sub(r"^(\d+\.)?(\d+\.)?(\*|\d+)?(\.\d+)?(\.\d+)$" + r'$', '', word)
-        for c in word:
-            if c == '/':
-                word = ""
+        # Remove ' (sometimes regular expression don't catch this character)
+        word = word.replace("'", "")
+        # Remove '/' (sometimes regular expression don't catch this character)
+        word = word.replace("/", "")
+        
         if word:
             posts_without_banned[word] = count
 
