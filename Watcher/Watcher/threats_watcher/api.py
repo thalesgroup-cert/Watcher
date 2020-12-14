@@ -7,7 +7,7 @@ from .serializers import TrendyWordSerializer, BannedWordSerializer
 class TrendyWordViewSet(viewsets.ModelViewSet):
     queryset = TrendyWord.objects.all()
     permission_classes = [
-        permissions.IsAuthenticatedOrReadOnly
+        permissions.DjangoModelPermissionsOrAnonReadOnly
     ]
     serializer_class = TrendyWordSerializer
 
@@ -16,6 +16,6 @@ class TrendyWordViewSet(viewsets.ModelViewSet):
 class BannedWordViewSet(viewsets.ModelViewSet):
     queryset = BannedWord.objects.all()
     permission_classes = [
-        permissions.IsAuthenticated
+        permissions.DjangoModelPermissions
     ]
     serializer_class = BannedWordSerializer

@@ -1,13 +1,14 @@
 from .models import DnsMonitored, DnsTwisted, Alert
 from rest_framework import viewsets, permissions
-from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, ThehiveSerializer, MISPSerializer
+from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, ThehiveSerializer, \
+    MISPSerializer
 
 
 # DnsMonitored Viewset
 class DnsMonitoredViewSet(viewsets.ModelViewSet):
     queryset = DnsMonitored.objects.all()
     permission_classes = [
-        permissions.IsAuthenticated
+        permissions.DjangoModelPermissions
     ]
     serializer_class = DnsMonitoredSerializer
 
@@ -16,7 +17,7 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
 class DnsTwistedViewSet(viewsets.ModelViewSet):
     queryset = DnsTwisted.objects.all()
     permission_classes = [
-        permissions.IsAuthenticated
+        permissions.DjangoModelPermissions
     ]
     serializer_class = DnsTwistedSerializer
 
@@ -25,15 +26,28 @@ class DnsTwistedViewSet(viewsets.ModelViewSet):
 class AlertViewSet(viewsets.ModelViewSet):
     queryset = Alert.objects.all()
     permission_classes = [
-        permissions.IsAuthenticated
+        permissions.DjangoModelPermissions
     ]
     serializer_class = AlertSerializer
+
+
+class ExportPermission(permissions.DjangoModelPermissions):
+    """
+    Check for export permission.
+    """
+
+    def has_permission(self, request, view):
+        has_permission = False
+        # If User have permission to add website, then user have permission to export it
+        if request.user.has_perm('site_monitoring.add_site'):
+            has_permission = True
+        return has_permission
 
 
 # Thehive Viewset
 class ThehiveViewSet(viewsets.ModelViewSet):
     permission_classes = [
-        permissions.IsAuthenticated
+        ExportPermission
     ]
     serializer_class = ThehiveSerializer
 
@@ -41,6 +55,6 @@ class ThehiveViewSet(viewsets.ModelViewSet):
 # MISP Viewset
 class MISPViewSet(viewsets.ModelViewSet):
     permission_classes = [
-        permissions.IsAuthenticated
+        ExportPermission
     ]
     serializer_class = MISPSerializer

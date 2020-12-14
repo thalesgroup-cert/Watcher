@@ -7,7 +7,7 @@ from .serializers import KeywordSerializer, AlertSerializer
 class KeywordViewSet(viewsets.ModelViewSet):
     queryset = Keyword.objects.all()
     permission_classes = [
-        permissions.IsAuthenticated
+        permissions.DjangoModelPermissions
     ]
     serializer_class = KeywordSerializer
 
@@ -16,6 +16,6 @@ class KeywordViewSet(viewsets.ModelViewSet):
 class AlertViewSet(viewsets.ModelViewSet):
     queryset = Alert.objects.all()
     permission_classes = [
-        permissions.IsAuthenticated
+        permissions.DjangoModelPermissions
     ]
     serializer_class = AlertSerializer
