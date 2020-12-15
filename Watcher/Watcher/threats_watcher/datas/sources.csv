@@ -63,6 +63,8 @@ https://korben.info/feed
 https://www.lemonde.fr/pixels/rss_full.xml
 https://www.nextinpact.com/rss/news.xml
 https://www.cert.ssi.gouv.fr/alerte/feed/
+https://www.cert.ssi.gouv.fr/ioc/feed/
+https://www.cert.ssi.gouv.fr/cti/feed/
 https://www.us-cert.gov/ncas/alerts.xml
 https://cert.europa.eu/cert/Data/newsletter/reviewlatest-SecurityBulletins.xml
 https://feeds.feedburner.com/tenable/qaXL?format=xml
@@ -88,3 +90,8 @@ https://securityaffairs.co/wordpress/feed/
 https://www.mcafee.com/blogs/feed/
 https://nakedsecurity.sophos.com/feed/
 https://www.zdnet.com/blog/security/rss.xml
+http://mcafee.com/blogs/feed
+https://www.darkreading.com/rss_simple.asp
+https://www.schneier.com/feed/atom/
+https://www.incibe-cert.es/feed/avisos-seguridad/all
+https://www.ccn-cert.cni.es/component/obrss/rss-ultimas-vulnerabilidades.feed
