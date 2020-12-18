@@ -1,12 +1,9 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.utils import timezone
-
 from .models import Alert, DnsMonitored, DnsTwisted
-
 from site_monitoring.models import Site
 from site_monitoring.core import monitoring_init
-
 import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
 
@@ -61,6 +58,8 @@ class MISPSerializer(serializers.Serializer):
         if Site.objects.filter(domain_name=dns_twisted.domain_name):
             already_in_monitoring = True
             site = Site.objects.get(domain_name=dns_twisted.domain_name)
+            # Store Event Id in database
+            DnsTwisted.objects.filter(pk=dns_twisted.pk).update(misp_event_id=site.misp_event_id)
         else:
             already_in_monitoring = False
             site = Site.objects.create(domain_name=dns_twisted.domain_name, rtir=-999999999)
@@ -136,6 +135,8 @@ class ThehiveSerializer(serializers.Serializer):
         if Site.objects.filter(domain_name=dns_twisted.domain_name):
             already_in_monitoring = True
             site = Site.objects.get(domain_name=dns_twisted.domain_name)
+            # Save the case id in database
+            DnsTwisted.objects.filter(pk=dns_twisted.pk).update(the_hive_case_id=site.the_hive_case_id)
         else:
             already_in_monitoring = False
             site = Site.objects.create(domain_name=dns_twisted.domain_name, rtir=-999999999)
