@@ -15,23 +15,27 @@ import {
 
 // CHECK TOKEN & LOAD USER
 export const loadUser = () => (dispatch, getState) => {
-    // User Loading
-    dispatch({type: USER_LOADING});
+    const token = getState().auth.token;
+    // Check if User tried to connect
+    if (token){
+        // User Loading
+        dispatch({type: USER_LOADING});
 
-    axios
-        .get("/api/auth/user", tokenConfig(getState))
-        .then(res => {
-            dispatch({
-                type: USER_LOADED,
-                payload: res.data
+        axios
+            .get("/api/auth/user", tokenConfig(getState))
+            .then(res => {
+                dispatch({
+                    type: USER_LOADED,
+                    payload: res.data
+                });
+            })
+            .catch(err => {
+                dispatch(returnErrors(err.response.data, err.response.status));
+                dispatch({
+                    type: AUTH_ERROR
+                });
             });
-        })
-        .catch(err => {
-            dispatch(returnErrors(err.response.data, err.response.status));
-            dispatch({
-                type: AUTH_ERROR
-            });
-        });
+    }
 };
 
 // LOGIN USER
