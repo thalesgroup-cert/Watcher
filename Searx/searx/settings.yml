@@ -1,6 +1,16 @@
 general:
     debug : False # Debug mode, only for development
     instance_name : "searx" # displayed name
+    contact_url: False # mailto:contact@example.com
+
+brand:
+    git_url: https://github.com/searx/searx
+    git_branch: master
+    issue_url: https://github.com/searx/searx/issues
+    docs_url: https://searx.github.io/searx
+    public_instances: https://searx.space
+    wiki_url: https://github.com/searx/searx/wiki
+    twitter_url: https://twitter.com/Searx_engine
 
 search:
     safe_search : 0 # Filter results. 0: None, 1: Moderate, 2: Strict
@@ -12,11 +22,17 @@ search:
 server:
     port : 8888
     bind_address : "127.0.0.1" # address to listen on
-    secret_key : "2b5120cbcbca7e97a59c031548eecd51798ca0a2c59d1da26a6923eed194898c" # change this!
+    secret_key : "d5f697fc9a0430509271f3f9b9eb93af9ffa101015b74d8b73591f6ea05d5cf2" # change this!
     base_url : https://10.10.10.3:8080/ # Set custom base_url. Possible values: False or "https://your.custom.host/location/"
     image_proxy : False # Proxying image results through searx
     http_protocol_version : "1.0"  # 1.0 and 1.1 are supported
     method: "POST" # POST queries are more secure as they don't show up in history but may cause problems when using Firefox containers
+    default_http_headers:
+        X-Content-Type-Options : nosniff
+        X-XSS-Protection : 1; mode=block
+        X-Download-Options : noopen
+        X-Robots-Tag : noindex, nofollow
+        Referrer-Policy : no-referrer
 
 ui:
     static_path : "" # Custom static path - leave it blank if you didn't change
@@ -33,6 +49,15 @@ ui:
 #     - it
 #     - science
 
+# Lock arbitrary settings on the preferences page.
+# To find the ID of the user setting you want to lock, check
+# the ID of the form on the page "preferences".
+#preferences:
+#    lock:
+#      - language
+#      - autocomplete
+#      - method
+
 # searx supports result proxification using an external service: https://github.com/asciimoo/morty
 # uncomment below section if you have running morty proxy
 # the key is base64 encoded (keep the !!binary notation)
@@ -48,11 +73,15 @@ outgoing: # communication with search engines
     pool_connections : 100 # Number of different hosts
     pool_maxsize : 10 # Number of simultaneous requests by host
 # uncomment below section if you want to use a proxy
-# see http://docs.python-requests.org/en/latest/user/advanced/#proxies
-# SOCKS proxies are also supported: see http://requests.readthedocs.io/en/master/user/advanced/#socks
-#    proxies :
-#        http : http://127.0.0.1:8080
-#        https: http://127.0.0.1:8080
+# see https://2.python-requests.org/en/latest/user/advanced/#proxies
+# SOCKS proxies are also supported: see https://2.python-requests.org/en/latest/user/advanced/#socks
+#    proxies:
+#        http:
+#            - http://proxy1:8080
+#            - http://proxy2:8080
+#        https:
+#            - http://proxy1:8080
+#            - http://proxy2:8080
 # uncomment below section only if you have more than one network interface
 # which can be the source of outgoing search requests
 #    source_ips:
@@ -73,12 +102,64 @@ outgoing: # communication with search engines
 #   - "HTTPS rewrite"
 #   - ...
 
+checker:
+    # disable checker when in debug mode
+    off_when_debug: True
+
+    # scheduling: interval or int
+    # use "scheduling: False" to disable scheduling
+    # to activate the scheduler:
+    # * uncomment "scheduling" section
+    # * add "cache2 = name=searxcache,items=2000,blocks=2000,blocksize=4096,bitmap=1" to your uwsgi.ini
+
+    # scheduling:
+    #    start_after: [300, 1800]  # delay to start the first run of the checker
+    #    every: [86400, 90000]  # how often the checker runs
+
+    # additional tests: only for the YAML anchors (see the engines section)
+
+    additional_tests:
+      rosebud: &test_rosebud
+        matrix:
+          query: rosebud
+          lang: en
+        result_container:
+          - not_empty
+          - ['one_title_contains', 'citizen kane']
+        test:
+          - unique_results
+
+      android: &test_android
+        matrix:
+          query: ['android']
+          lang: ['en', 'de', 'fr', 'zh-CN']
+        result_container:
+          - not_empty
+          - ['one_title_contains', 'google']
+        test:
+          - unique_results
+
+    # tests: only for the YAML anchors (see the engines section)
+    tests:
+      infobox: &tests_infobox
+        infobox:
+          matrix:
+            query: ["linux", "new york", "bbc"]
+          result_container:
+            - has_infobox
+
 engines:
   - name: apk mirror
     engine: apkmirror
     timeout: 4.0
     shortcut: apkm
     disabled: True
+
+# Requires Tor
+  - name : ahmia
+    engine : ahmia
+    categories : onions
+    shortcut : ah
 
   - name : arch linux wiki
     engine : archlinux
@@ -94,6 +175,13 @@ engines:
     timeout : 7.0
     disabled : True
     shortcut : ai
+    about:
+      website: https://archive.is/
+      wikidata_id: Q13515725
+      official_api_documentation: http://mementoweb.org/depot/native/archiveis/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : arxiv
     engine : arxiv
@@ -138,6 +226,13 @@ engines:
     timeout : 4.0
     disabled : True
     shortcut : bb
+    about:
+      website: https://bitbucket.org/
+      wikidata_id: Q2493781
+      official_api_documentation: https://developer.atlassian.com/bitbucket
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : btdigg
     engine : btdigg
@@ -153,6 +248,13 @@ engines:
     categories : videos
     disabled : True
     shortcut : c3tv
+    about:
+      website: https://media.ccc.de/
+      wikidata_id: Q80729951
+      official_api_documentation: https://github.com/voc/voctoweb
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : crossref
     engine : json_engine
@@ -163,6 +265,13 @@ engines:
     content_query : fullCitation
     categories : science
     shortcut : cr
+    about:
+      website: https://www.crossref.org/
+      wikidata_id: Q5188229
+      official_api_documentation: https://github.com/CrossRef/rest-api-doc
+      use_official_api: false
+      require_api_key: false
+      results: JSON
 
   - name : currency
     engine : currency_convert
@@ -176,13 +285,14 @@ engines:
   - name : deviantart
     engine : deviantart
     shortcut : da
-    timeout: 3.0
+    timeout : 3.0
 
   - name : ddg definitions
     engine : duckduckgo_definitions
     shortcut : ddd
     weight : 2
     disabled : True
+    tests: *tests_infobox
 
 # cloudflare protected
 #  - name : digbt
@@ -207,12 +317,34 @@ engines:
     categories : general
     shortcut : ew
     disabled : True
+    about:
+      website: https://www.erowid.org/
+      wikidata_id: Q1430691
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
+
+#  - name : elasticsearch
+#    shortcut : es
+#    engine : elasticsearch
+#    base_url : http://localhost:9200
+#    username : elastic
+#    password : changeme
+#    index : my-index
+#    # available options: match, simple_query_string, term, terms, custom
+#    query_type : match
+#    # if query_type is set to custom, provide your query here
+#    #custom_query_json: {"query":{"match_all": {}}}
+#    #show_metadata: False
+#    disabled : True
 
   - name : wikidata
     engine : wikidata
     shortcut : wd
     timeout : 3.0
     weight : 2
+    tests: *tests_infobox
 
   - name : duckduckgo
     engine : duckduckgo
@@ -229,6 +361,8 @@ engines:
     engine : etools
     shortcut : eto
     disabled : True
+    additional_tests:
+      rosebud: *test_rosebud
 
   - name : etymonline
     engine : xpath
@@ -240,6 +374,13 @@ engines:
     first_page_num : 1
     shortcut : et
     disabled : True
+    about:
+      website: https://www.etymonline.com/
+      wikidata_id: Q1188617
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
 #  - name : ebay
 #    engine : ebay
@@ -250,6 +391,7 @@ engines:
   - name : 1x
     engine : www1x
     shortcut : 1x
+    timeout : 3.0
     disabled : True
 
   - name : fdroid
@@ -278,6 +420,9 @@ engines:
     search_type : title
     timeout : 5.0
     disabled : True
+    about:
+      website: https://directory.fsf.org/
+      wikidata_id: Q2470288
 
   - name : frinkiac
     engine : frinkiac
@@ -293,6 +438,8 @@ engines:
     shortcut : gb
     timeout : 3.0
     disabled: True
+    additional_tests:
+      rosebud: *test_rosebud
 
   - name : gentoo
     engine : gentoo
@@ -310,6 +457,13 @@ engines:
     shortcut : gl
     timeout : 10.0
     disabled : True
+    about:
+      website: https://about.gitlab.com/
+      wikidata_id: Q16639197
+      official_api_documentation: https://docs.gitlab.com/ee/api/
+      use_official_api: false
+      require_api_key: false
+      results: JSON
 
   - name : github
     engine : github
@@ -327,22 +481,43 @@ engines:
     categories : it
     shortcut : cb
     disabled : True
+    about:
+      website: https://codeberg.org/
+      wikidata_id:
+      official_api_documentation: https://try.gitea.io/api/swagger
+      use_official_api: false
+      require_api_key: false
+      results: JSON
 
   - name : google
     engine : google
     shortcut : go
+    # additional_tests:
+    #   android: *test_android
 
   - name : google images
     engine : google_images
     shortcut : goi
+    # additional_tests:
+    #   android: *test_android
+    #   dali:
+    #     matrix:
+    #       query: ['Dali Christ']
+    #       lang: ['en', 'de', 'fr', 'zh-CN']
+    #     result_container:
+    #       - ['one_title_contains', 'Salvador']
 
   - name : google news
     engine : google_news
     shortcut : gon
+    # additional_tests:
+    #   android: *test_android
 
   - name : google videos
     engine : google_videos
     shortcut : gov
+    # additional_tests:
+    #   android: *test_android
 
   - name : google scholar
     engine : xpath
@@ -357,6 +532,13 @@ engines:
     first_page_num : 0
     categories : science
     shortcut : gos
+    about:
+      website: https://scholar.google.com/
+      wikidata_id: Q494817
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : google play apps
     engine : xpath
@@ -369,6 +551,13 @@ engines:
     categories : files
     shortcut : gpa
     disabled : True
+    about:
+      website: https://play.google.com/
+      wikidata_id: Q79576
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : google play movies
     engine : xpath
@@ -381,6 +570,13 @@ engines:
     categories : videos
     shortcut : gpm
     disabled : True
+    about:
+      website: https://play.google.com/
+      wikidata_id: Q79576
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : google play music
     engine : xpath
@@ -393,6 +589,13 @@ engines:
     categories : music
     shortcut : gps
     disabled : True
+    about:
+      website: https://play.google.com/
+      wikidata_id: Q79576
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : geektimes
     engine : xpath
@@ -405,6 +608,13 @@ engines:
     timeout : 4.0
     disabled : True
     shortcut : gt
+    about:
+      website: https://geektimes.ru/
+      wikidata_id: Q50572423
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : habrahabr
     engine : xpath
@@ -417,6 +627,13 @@ engines:
     timeout : 4.0
     disabled : True
     shortcut : habr
+    about:
+      website: https://habr.com/
+      wikidata_id: Q4494434
+      official_api_documentation: https://habr.com/en/docs/help/api/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : hoogle
     engine : json_engine
@@ -429,6 +646,13 @@ engines:
     page_size : 20
     categories : it
     shortcut : ho
+    about:
+      website: https://www.haskell.org/
+      wikidata_id: Q34010
+      official_api_documentation: https://hackage.haskell.org/api
+      use_official_api: false
+      require_api_key: false
+      results: JSON
 
   - name : ina
     engine : ina
@@ -438,9 +662,12 @@ engines:
 
   - name : invidious
     engine : invidious
-    base_url : 'https://invidio.us/'
+    base_url :
+      - https://invidious.tube/
+      - https://invidious.snopyta.org/
     shortcut: iv
     timeout : 5.0
+    disabled : True
 
   - name: kickass
     engine : kickass
@@ -450,14 +677,21 @@ engines:
 
   - name : library genesis
     engine : xpath
-    search_url : https://libgen.is/search.php?req={query}
-    url_xpath : //a[contains(@href,"bookfi.net")]/@href
+    search_url : http://libgen.rs/search.php?req={query}
+    url_xpath : //a[contains(@href,"bookfi.net/md5")]/@href
     title_xpath : //a[contains(@href,"book/")]/text()[1]
     content_xpath : //td/a[1][contains(@href,"=author")]/text()
     categories : general
     timeout : 7.0
     disabled : True
     shortcut : lg
+    about:
+      website: http://libgen.rs/
+      wikidata_id: Q22017206
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : lobste.rs
     engine : xpath
@@ -470,6 +704,13 @@ engines:
     shortcut : lo
     timeout : 3.0
     disabled: True
+    about:
+      website: https://lobste.rs/
+      wikidata_id: Q60762874
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : metager
     engine : xpath
@@ -481,6 +722,13 @@ engines:
     categories : general
     shortcut : mg
     disabled : True
+    about:
+      website: https://metager.org/
+      wikidata_id: Q1924645
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : microsoft academic
     engine : microsoft_academic
@@ -504,6 +752,18 @@ engines:
     disabled: True
     timeout: 5.0
     shortcut : npm
+    about:
+      website: https://npms.io/
+      wikidata_id: Q7067518
+      official_api_documentation: https://api-docs.npms.io/
+      use_official_api: false
+      require_api_key: false
+      results: JSON
+
+# Requires Tor
+  - name : not evil
+    engine : not_evil
+    shortcut : ne
 
   - name : nyaa
     engine : nyaa
@@ -527,6 +787,13 @@ engines:
     categories : science
     shortcut : oad
     timeout: 5.0
+    about:
+      website: https://www.openaire.eu/
+      wikidata_id: Q25106053
+      official_api_documentation: https://api.openaire.eu/
+      use_official_api: false
+      require_api_key: false
+      results: JSON
 
   - name : openairepublications
     engine : json_engine
@@ -539,6 +806,18 @@ engines:
     categories : science
     shortcut : oap
     timeout: 5.0
+    about:
+      website: https://www.openaire.eu/
+      wikidata_id: Q25106053
+      official_api_documentation: https://api.openaire.eu/
+      use_official_api: false
+      require_api_key: false
+      results: JSON
+
+#  - name : opensemanticsearch
+#    engine : opensemantic
+#    shortcut : oss
+#    base_url : 'http://localhost:8983/solr/opensemanticsearch/'
 
   - name : openstreetmap
     engine : openstreetmap
@@ -555,6 +834,13 @@ engines:
     timeout : 4.0
     disabled : True
     shortcut : or
+    about:
+      website: https://openrepos.net/
+      wikidata_id:
+      official_api_documentation:
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : pdbe
     engine : pdbe
@@ -585,6 +871,8 @@ engines:
     shortcut : qw
     categories : general
     disabled : True
+    additional_tests:
+      rosebud: *test_rosebud
 
   - name : qwant images
     engine : qwant
@@ -596,10 +884,27 @@ engines:
     shortcut : qwn
     categories : news
 
-  - name : qwant social
-    engine : qwant
-    shortcut : qws
-    categories : social media
+#  - name: library
+#    engine: recoll
+#    shortcut: lib
+#    base_url: 'https://recoll.example.org/'
+#    search_dir: ''
+#    mount_prefix: /export
+#    dl_prefix: 'https://download.example.org'
+#    timeout: 30.0
+#    categories: files
+#    disabled: True
+
+#  - name: recoll library reference
+#    engine: recoll
+#    base_url: 'https://recoll.example.org/'
+#    search_dir: reference
+#    mount_prefix: /export
+#    dl_prefix: 'https://download.example.org'
+#    shortcut: libr
+#    timeout: 30.0
+#    categories: files
+#    disabled: True
 
   - name : reddit
     engine : reddit
@@ -625,10 +930,6 @@ engines:
   - name : stackoverflow
     engine : stackoverflow
     shortcut : st
-
-  - name : searchcode doc
-    engine : searchcode_doc
-    shortcut : scd
 
   - name : searchcode code
     engine : searchcode_code
@@ -658,6 +959,13 @@ engines:
     content_xpath : .//div[@class="search-result-abstract"]
     shortcut : se
     categories : science
+    about:
+      website: https://www.semanticscholar.org/
+      wikidata_id: Q22908627
+      official_api_documentation: https://api.semanticscholar.org/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
 # Spotify needs API credentials
 #  - name : spotify
@@ -671,6 +979,8 @@ engines:
     shortcut : sp
     timeout : 6.0
     disabled : True
+    additional_tests:
+      rosebud: *test_rosebud
 
   - name : tokyotoshokan
     engine : tokyotoshokan
@@ -684,9 +994,17 @@ engines:
     url: https://torrentz2.eu/
     timeout : 3.0
 
-  - name : twitter
-    engine : twitter
-    shortcut : tw
+# Requires Tor
+  - name : torch
+    engine : xpath
+    paging : True
+    search_url : http://xmh57jrknzkhv6y3ls3ubitzfqnkrwxhopf5aygthi7d6rplyvk3noyd.onion/cgi-bin/omega/omega?P={query}&DEFAULTOP=and
+    results_xpath : //table//tr
+    url_xpath : ./td[2]/a
+    title_xpath : ./td[2]/b
+    content_xpath : ./td[2]/small
+    categories : onions
+    shortcut : tch
 
 # maybe in a fun category
 #  - name : uncyclopedia
@@ -732,12 +1050,13 @@ engines:
     # Or you can use the html non-stable engine, activated by default
     engine : youtube_noapi
 
-  - name : yggtorrent
-    engine : yggtorrent
-    shortcut : ygg
-    url: https://www2.yggtorrent.si/
-    disabled : True
-    timeout : 4.0
+  # tmp suspended: Cloudflare CAPTCHA
+  #- name : yggtorrent
+  #  engine : yggtorrent
+  #  shortcut : ygg
+  #  url: https://www2.yggtorrent.si/
+  #  disabled : True
+  #  timeout : 4.0
 
   - name : dailymotion
     engine : dailymotion
@@ -747,6 +1066,16 @@ engines:
     engine : vimeo
     shortcut : vm
 
+  - name : wiby
+    engine : json_engine
+    search_url : https://wiby.me/json/?q={query}
+    url_query : URL
+    title_query : Title
+    content_query : Snippet
+    categories : general
+    shortcut : wib
+    disabled : True
+
   - name : wikibooks
     engine : mediawiki
     shortcut : wb
@@ -755,6 +1084,9 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    about:
+      website: https://www.wikibooks.org/
+      wikidata_id: Q367
 
   - name : wikinews
     engine : mediawiki
@@ -764,6 +1096,9 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    about:
+      website: https://www.wikinews.org/
+      wikidata_id: Q964
 
   - name : wikiquote
     engine : mediawiki
@@ -773,6 +1108,11 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    additional_tests:
+      rosebud: *test_rosebud
+    about:
+      website: https://www.wikiquote.org/
+      wikidata_id: Q369
 
   - name : wikisource
     engine : mediawiki
@@ -782,6 +1122,9 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    about:
+      website: https://www.wikisource.org/
+      wikidata_id: Q263
 
   - name : wiktionary
     engine : mediawiki
@@ -791,6 +1134,9 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    about:
+      website: https://www.wiktionary.org/
+      wikidata_id: Q151
 
   - name : wikiversity
     engine : mediawiki
@@ -800,6 +1146,9 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    about:
+      website: https://www.wikiversity.org/
+      wikidata_id: Q370
 
   - name : wikivoyage
     engine : mediawiki
@@ -809,6 +1158,9 @@ engines:
     number_of_results : 5
     search_type : text
     disabled : True
+    about:
+      website: https://www.wikivoyage.org/
+      wikidata_id: Q373
 
   - name : wolframalpha
     shortcut : wa
@@ -833,17 +1185,6 @@ engines:
     # See : http://mymemory.translated.net/doc/usagelimits.php
     # api_key : ''
 
-  - name : voat
-    engine: xpath
-    shortcut: vo
-    categories: social media
-    search_url : https://searchvoat.co/?t={query}
-    url_xpath : //div[@class="entry"]//p[@class="title"]/a/@href
-    title_xpath : //div[@class="entry"]//p[@class="title"]/a/text()
-    content_xpath : //div[@class="entry"]//span[@class="domain"]/a/text()
-    timeout : 10.0
-    disabled : True
-
   - name : 1337x
     engine : 1337x
     shortcut : 1337x
@@ -867,6 +1208,13 @@ engines:
     first_page_num : 0
     page_size : 10
     disabled : True
+    about:
+      website: https://www.seznam.cz/
+      wikidata_id: Q3490485
+      official_api_documentation: https://api.sklik.cz/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : mojeek
     shortcut: mjk
@@ -881,12 +1229,13 @@ engines:
     first_page_num : 0
     page_size : 10
     disabled : True
-
-  - name : seedpeer
-    shortcut : speu
-    engine : seedpeer
-    categories: files, music, videos
-
+    about:
+      website: https://www.mojeek.com/
+      wikidata_id: Q60747299
+      official_api_documentation: https://www.mojeek.com/services/api.html/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : naver
     shortcut: nvr
@@ -901,6 +1250,13 @@ engines:
     first_page_num : 1
     page_size : 10
     disabled : True
+    about:
+      website: https://www.naver.com/
+      wikidata_id: Q485639
+      official_api_documentation: https://developers.naver.com/docs/nmt/examples/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : rubygems
     shortcut: rbg
@@ -915,6 +1271,13 @@ engines:
     first_page_num : 1
     categories: it
     disabled : True
+    about:
+      website: https://rubygems.org/
+      wikidata_id: Q1853420
+      official_api_documentation: https://guides.rubygems.org/rubygems-org-api/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name : peertube
     engine: peertube
