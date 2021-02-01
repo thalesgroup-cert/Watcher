@@ -3,9 +3,9 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Watcher Installation &mdash; Watcher 1.0.0 documentation</title>
   
@@ -16,7 +16,10 @@
 
   
   
+
   
+  
+
   
 
   
@@ -29,7 +32,6 @@
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -51,7 +53,7 @@
           
 
           
-            <a href="index.html" class="icon icon-home" alt="Documentation Home"> Watcher
+            <a href="index.html" class="icon icon-home"> Watcher
           
 
           
@@ -90,12 +92,16 @@
 <li class="toctree-l3"><a class="reference internal" href="#migrate">Migrate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#create-admin-user">Create admin user</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#populate-your-database">Populate your database</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#important">Important</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#user-enrollment">User enrollment</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#add-email-notifications-subscriber">Add email notifications subscriber</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#add-your-rss-source-to-threats-detection">Add your RSS source to Threats Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#add-your-rss-source-to-threats-detection">Add your RSS source to Threats Detection</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube">How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#static-configuration">Static configuration</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#production-settings-important">Production Settings [Important]</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#access-watcher-remotely-within-your-server-instance">Access Watcher remotely within your server instance</a></li>
@@ -116,7 +122,10 @@
 <li class="toctree-l3"><a class="reference internal" href="#archived-alerts">Archived Alerts</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#update-watcher">Update Watcher</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#update-watcher">Update Watcher</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#maintain-automatically-your-docker-images-up-to-date">Maintain automatically your Docker images up-to-date</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#remove-the-database">Remove the database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#useful-commands">Useful commands</a></li>
 </ul>
@@ -167,6 +176,8 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
@@ -178,7 +189,7 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
             <a href="_sources/README.md.txt" rel="nofollow"> View page source</a>
           
         
@@ -256,6 +267,12 @@ with applications…</p>
 </pre></div>
 </div>
 </div>
+<div class="section" id="important">
+<h3>Important<a class="headerlink" href="#important" title="Permalink to this headline">¶</a></h3>
+<p>The first time you run Watcher, you will not have any new threats on the homepage, this is normal.</p>
+<p>You just have to wait for Watcher to crawl the Internet.
+This will happen every 30 minutes.</p>
+</div>
 </div>
 <div class="section" id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
@@ -305,6 +322,22 @@ with applications…</p>
 <li><p>Fill <strong>Url</strong> text input.</p></li>
 <li><p>Click on <strong>SAVE</strong>.</p></li>
 </ul>
+<div class="section" id="how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube">
+<h4>How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…<a class="headerlink" href="#how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/RSS-Bridge/rss-bridge">RSS-Bridge</a> is, by default, configured with Twitter only, but users can use it for all <a class="reference external" href="https://github.com/RSS-Bridge/rss-bridge/tree/master/bridges">other sources</a> like: <strong>Facebook</strong>, <strong>DuckDuckGo</strong>, <strong>GoogleSearch</strong>…</p>
+<ul>
+<li><p>To do such you need to add the new bridge needed in the <code class="docutils literal notranslate"><span class="pre">Watcher/Rss-bridge/whitelist.txt</span></code> file.</p></li>
+</ul>
+</li>
+</ul>
+<p>An RSS-Bridge source URL looks like this: <code class="docutils literal notranslate"><span class="pre">http://10.10.10.7/?action=display&amp;bridge=Twitter&amp;context=By+username&amp;u=tomchop_&amp;norep=on&amp;nopic=on&amp;noimg=on&amp;noimgscaling=on&amp;format=Mrss</span></code></p>
+<p>To add your own custom url, simply change the <code class="docutils literal notranslate"><span class="pre">bridge</span></code>, if necessary, with the associated parameters (just keep <code class="docutils literal notranslate"><span class="pre">http://10.10.10.7/</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">format=Mrss</span></code>).</p>
+<p>You can test RSS-Bridge API with a public instance like this one: https://wtf.roflcopter.fr/rss-bridge/</p>
+<ul class="simple">
+<li><p>Example: https://wtf.roflcopter.fr/rss-bridge/?action=display&amp;bridge=Twitter&amp;context=By+username&amp;u=tomchop_&amp;norep=on&amp;nopic=on&amp;noimg=on&amp;noimgscaling=on&amp;format=Mrss</p></li>
+</ul>
+</div>
 </div>
 <div class="section" id="static-configuration">
 <h3>Static configuration<a class="headerlink" href="#static-configuration" title="Permalink to this headline">¶</a></h3>
@@ -481,6 +514,10 @@ TheHive/MISP instance version:</p>
 <li><p>Pull the newer docker images: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
 <p>This will update Watcher, Rss-bridge and Searx.</p>
+<div class="section" id="maintain-automatically-your-docker-images-up-to-date">
+<h3>Maintain automatically your Docker images up-to-date<a class="headerlink" href="#maintain-automatically-your-docker-images-up-to-date" title="Permalink to this headline">¶</a></h3>
+<p>To get the latest features automatically, we <strong>strongly recommend</strong> that you keep all your images up-to-date, using a tool like <a class="reference external" href="https://github.com/pyouroboros/ouroboros">Ouroboros</a>.</p>
+</div>
 </div>
 <div class="section" id="remove-the-database">
 <h2>Remove the database<a class="headerlink" href="#remove-the-database" title="Permalink to this headline">¶</a></h2>
@@ -513,37 +550,29 @@ TheHive/MISP instance version:</p>
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="modules/threats_watcher_core.html" class="btn btn-neutral float-right" title="Threats Watcher - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to Watcher’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="modules/threats_watcher_core.html" class="btn btn-neutral float-right" title="Threats Watcher - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to Watcher’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 
+        &#169; Copyright .
 
     </p>
   </div>
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
