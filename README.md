@@ -16,10 +16,10 @@ It should be used on webservers and available on Docker.
 
 ## Watcher capabilities
 
-- Detect emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...). 
-- Detect Keywords in pastebin & in other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
-- Monitor malicious domain names (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
-- Detect suspicious domain names targeting your organisation, using [dnstwist](https://github.com/elceef/dnstwist). 
+- Detecting emerging cybersecurity trends like new vulnerabilities, malwares... Via social networks & other RSS feeds (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+- Monitor for information leaks, for example in Pastebin & other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
+- Monitor malicious domain names for changes (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
+- Detecting suspicious domain names targeting your organisation, using [dnstwist](https://github.com/elceef/dnstwist). 
 
 Useful as a bundle regrouping threat hunting/intelligence automated features.
 
