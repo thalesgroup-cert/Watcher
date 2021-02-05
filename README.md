@@ -53,7 +53,7 @@ Watcher provides a powerful user interface for data visualization and analysis. 
     <img alt="Threats detection" src="/Watcher/static/Watcher-threats-detection.png">
 </p>
 
-**Keywords detection**
+**Data leaks**
 
 <p align="center">
     <img alt="Keywords detection" src="/Watcher/static/Watcher-keywords-detection.png">
@@ -71,7 +71,7 @@ Watcher provides a powerful user interface for data visualization and analysis. 
     <img alt="IOCs export to TheHive & MISP" src="/Watcher/static/Watcher-iocs-export.png">
 </p>
 
-**Potentially malicious domain names detection**
+**Suspicious domain names detection**
 
 <p align="center">
     <img alt="Potentially malicious domain names detection" src="/Watcher/static/Watcher-malicious-domain-names-detection.png">
