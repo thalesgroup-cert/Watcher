@@ -6,7 +6,7 @@
 
 [![Install](/Watcher/static/Install-informational.svg)](https://thalesgroup-cert.github.io/Watcher/README.html)
 [![Documentation](/Watcher/static/Documentation-informational.svg)](https://thalesgroup-cert.github.io/Watcher/)
-[![LICENSE](https://img.shields.io/github/license/Felix83000/Watcher?logo=github&style=flat-square)](/LICENSE)
+[![LICENSE](https://img.shields.io/github/license/thalesgroup-cert/Watcher?logo=github&style=flat-square)](/LICENSE)
 [![Docker Build Status](https://img.shields.io/docker/cloud/build/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
 [![Docker Automated Status](https://img.shields.io/docker/cloud/automated/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
 
