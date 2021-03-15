@@ -4,8 +4,8 @@
 
 ---
 
-[![Install](/Watcher/static/Install-informational.svg)](https://felix83000.github.io/Watcher/README.html)
-[![Documentation](/Watcher/static/Documentation-informational.svg)](https://felix83000.github.io/Watcher/)
+[![Install](/Watcher/static/Install-informational.svg)](https://thalesgroup-cert.github.io/Watcher/README.html)
+[![Documentation](/Watcher/static/Documentation-informational.svg)](https://thalesgroup-cert.github.io/Watcher/)
 [![LICENSE](https://img.shields.io/github/license/Felix83000/Watcher?logo=github&style=flat-square)](/LICENSE)
 [![Docker Build Status](https://img.shields.io/docker/cloud/build/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
 [![Docker Automated Status](https://img.shields.io/docker/cloud/automated/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
@@ -87,7 +87,7 @@ Django provides a ready-to-use user interface for administrative activities. We 
 
 ## Installation
 
-Create a new Watcher instance in ten minutes using Docker (see [Installation Guide](https://felix83000.github.io/Watcher/README.html)).
+Create a new Watcher instance in ten minutes using Docker (see [Installation Guide](https://thalesgroup-cert.github.io/Watcher/README.html)).
 
 ## Platform architecture
 
@@ -98,8 +98,8 @@ Create a new Watcher instance in ten minutes using Docker (see [Installation Gui
 ## Get involved
 There are many ways to getting involved with Watcher:
 
-- Report bugs by opening [Issues](https://github.com/Felix83000/Watcher/issues) on GitHub.
-- Request new features or suggest ideas (via [Issues](https://github.com/Felix83000/Watcher/issues)).
+- Report bugs by opening [Issues](https://github.com/thalesgroup-cert/Watcher/issues) on GitHub.
+- Request new features or suggest ideas (via [Issues](https://github.com/thalesgroup-cert/Watcher/issues)).
 - Make pull-requests.
 - Discuss bugs, features, ideas or issues.
 - Share Watcher to your community (Twitter, Facebook...).
@@ -107,6 +107,3 @@ There are many ways to getting involved with Watcher:
 ## Pastebin compliant
 In order to use Watcher pastebin API feature, you need to subscribe to a pastebin pro account and whitelist Watcher public IP (see https://pastebin.com/doc_scraping_api).
 
-
----
-Thanks to [**Thales Group CERT**](https://www.thalesgroup.com/en/cert) (THA-CERT) and [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/) for allowing me to carry out this project.
