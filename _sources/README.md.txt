@@ -1,4 +1,4 @@
-Thanks to [**ISEN-Toulon Engineering School**](https://www.isen-mediterranee.fr/) and to [**Thales Group**](https://www.thalesgroup.com/) CERT (THA-CERT) for allowing me to carry out this project.
+Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 
 ---
 # Watcher Installation
@@ -54,11 +54,10 @@ Use `populate_db` script:
     docker-compose run watcher bash
     python manage.py populate_db
 
-### Important
+### Good to know
 The first time you run Watcher, you will not have any new threats on the homepage, this is normal.
 
-You just have to wait for Watcher to crawl the Internet.
-This will happen every 30 minutes.
+You just have to wait for Watcher to crawl the Internet. This will happen every 30 minutes.
 
 ## Configuration
 
@@ -104,16 +103,18 @@ Connect to the `/admin` page:
 - Fill **Url** text input.
 - Click on **SAVE**.
 
-#### How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube...
-- [RSS-Bridge](https://github.com/RSS-Bridge/rss-bridge) is, by default, configured with Twitter only, but users can use it for all [other sources](https://github.com/RSS-Bridge/rss-bridge/tree/master/bridges) like: **Facebook**, **DuckDuckGo**, **GoogleSearch**...
-     - To do such you need to add the new bridge needed in the `Watcher/Rss-bridge/whitelist.txt` file.
+### How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…
+RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like: Facebook, DuckDuckGo, GoogleSearch…
+
+To do such you need to add the new bridge needed in the `Watcher/Rss-bridge/whitelist.txt` file.
 
 An RSS-Bridge source URL looks like this: `http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss`
 
-To add your own custom url, simply change the `bridge`, if necessary, with the associated parameters (just keep `http://10.10.10.7/` & `format=Mrss`).
+To add your own custom url, simply change the bridge, if necessary, with the associated parameters (just keep `http://10.10.10.7/` & `format=Mrss`).
 
-You can test RSS-Bridge API with a public instance like this one: https://wtf.roflcopter.fr/rss-bridge/
-- Example: https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+You can test RSS-Bridge API with a public instance like this one: [https://wtf.roflcopter.fr/rss-bridge/](https://wtf.roflcopter.fr/rss-bridge/)
+
+RSS API request example: [https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss](https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss)
 
 ### Static configuration
 Most of the settings can be modify from the `/admin` page.
@@ -278,9 +279,6 @@ To update Watcher image please follow the instructions below:
 
 This will update Watcher, Rss-bridge and Searx.
 
-### Maintain automatically your Docker images up-to-date
-To get the latest features automatically, we **strongly recommend** that you keep all your images up-to-date, using a tool like [Ouroboros](https://github.com/pyouroboros/ouroboros).
-
 ## Remove the database
 
 You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:
@@ -301,7 +299,4 @@ Use `docker-compose up -d` if you want to run it in Background.
 
 Run interactive shell session on the Watcher container:
 
-    docker-compose run watcher bash 
-
----
-Developed by Thales Group CERT.
+    docker-compose run watcher bash
