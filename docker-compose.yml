@@ -4,7 +4,7 @@ services:
 
   searx:
     container_name: searx
-    image: searx/searx:latest
+    image: searx/searx:0.18.0-341-ae0b621e
     hostname: searx
     restart: always
     networks:
