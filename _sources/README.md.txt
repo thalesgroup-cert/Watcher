@@ -301,7 +301,6 @@ This will update Watcher, Rss-bridge and Searx.
 
 # Developers
 If you want to modify the project and PR your work, you will need to setup your development environment.
-test
 ## Setup Watcher environment
 Use a Linux server, we recommend the usage of a Virtual Machine. 
 Ubuntu 20.04 LTS in our case.
