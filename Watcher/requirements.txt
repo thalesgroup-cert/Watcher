@@ -1,14 +1,14 @@
 mysqlclient==2.0.3
-django==3.1.8
+django==3.2
 django-mysql==3.11.1
-djangorestframework==3.12.2
+djangorestframework==3.12.4
 django-rest-knox==4.1.0
 apscheduler==3.7.0
-nltk==3.5
+nltk==3.6.2
 feedparser==6.0.2
 docutils==0.16
-sphinx==3.4.3
-sphinx-rtd-theme==0.5.1
+sphinx==3.5.4
+sphinx-rtd-theme==0.5.2
 recommonmark==0.7.1
 whitenoise==5.2.0
 python-tlsh==3.17.0
@@ -17,6 +17,6 @@ dnspython==2.1.0
 shadow-useragent==0.0.17
 thehive4py==1.8.1
 pymisp==2.4.134
-django-auth-ldap==2.2.0
+django-auth-ldap==2.4.0
 dnstwist==20201228
 django-import-export==2.5.0

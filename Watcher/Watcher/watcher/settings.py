@@ -77,7 +77,8 @@ EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
 WATCHER_URL = os.environ.get('WATCHER_URL', '')
 # Watcher Logo
-WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com/thalesgroup-cert/Watcher/master/Watcher/static/Watcher-logo-simple.png')
+WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com/thalesgroup-cert/Watcher/master'
+                                              '/Watcher/static/Watcher-logo-simple.png')
 
 # Link to Searx Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')
@@ -116,6 +117,8 @@ INSTALLED_APPS = [
     'accounts',
     'import_export',
 ]
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES':
