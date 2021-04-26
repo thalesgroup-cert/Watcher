@@ -1,7 +1,7 @@
 Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 
 ---
-# Watcher Installation
+# Install Watcher
 
 ## Prerequisites
 - [Install docker](https://docs.docker.com/install/)
@@ -59,64 +59,7 @@ The first time you run Watcher, you will not have any new threats on the homepag
 
 You just have to wait for Watcher to crawl the Internet. This will happen every 30 minutes.
 
-## Configuration
-
-### User enrollment 
-To create simple user, staff user or admin user:
-
-Connect to the `/admin` page:
-
-   - Click on **Users**.
-   - Click on **ADD USER**.
-   - Enter the **Username** and **Password** and Click on **SAVE**.
-   - Choose the permissions:
-        * **Active** &rarr; Is the default one, site access for users
-        * **Staff status** &rarr; Designates whether the user can log into this admin site.
-        * **Superuser status** &rarr; Designates that this user has all permissions without explicitly assigning them.
-   - You may enter an **Email address** for email notifications.
-   - Click on **SAVE**.
-   
-### Add email notifications subscriber
-Receive email notifications when subscribing to a topic.
-
-Connect to the `/admin` page:
-
-   - Click on **Subscribers**.
-   - Click on **ADD SUBSCRIBER**.
-   - Select the **User** and Click on **SAVE**.
-
-### Add your RSS source to Threats Detection
-As you know this feature allow the detection of emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
-
-Watcher currently provides hundreds of RSS cybersecurity sources ([Populate default RSS sources](#populate-your-database)).
-
-However, you can add your RSS Cybersecurity source to your Watcher instance:
-
-- First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0). 
-- Your RSS file must be composed of several articles.
-- Please prefer to use https instead of http. 
-
-Connect to the `/admin` page:
-
-- Click on **Sources** in **THREATS_WATCHER** part.
-- Click on **ADD SOURCE**.
-- Fill **Url** text input.
-- Click on **SAVE**.
-
-### How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…
-RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like: Facebook, DuckDuckGo, GoogleSearch…
-
-To do such you need to add the new bridge needed in the `Watcher/Rss-bridge/whitelist.txt` file.
-
-An RSS-Bridge source URL looks like this: `http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss`
-
-To add your own custom url, simply change the bridge, if necessary, with the associated parameters (just keep `http://10.10.10.7/` & `format=Mrss`).
-
-You can test RSS-Bridge API with a public instance like this one: [https://wtf.roflcopter.fr/rss-bridge/](https://wtf.roflcopter.fr/rss-bridge/)
-
-RSS API request example: [https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss](https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss)
-
-### Static configuration
+## Static configuration
 Most of the settings can be modify from the `/admin` page.
 
 There are other settings located in the `.env` file that you can configure:     
@@ -218,9 +161,86 @@ Now, you can restart your instance and the parameters will be taken into account
     docker-compose down
     docker-compose up
 
-## Tips and Tricks
+## Troubleshooting
+### Remove the database
 
-### Thehive & MISP Export
+You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:
+
+    docker-compose down
+    docker volume rm watcher-project_db_data
+    docker volume rm watcher-project_db_log
+
+Now, you can rebuild the image and the parameters will be taken into account:
+
+    docker-compose up
+
+Don't forget to [migrate](#migrate).
+
+### Useful commands
+
+Use `docker-compose up -d` if you want to run it in Background.
+
+Run interactive shell session on the Watcher container:
+
+    docker-compose run watcher bash
+
+# Use Watcher
+## User enrollment 
+To create simple user, staff user or admin user:
+
+Connect to the `/admin` page:
+
+   - Click on **Users**.
+   - Click on **ADD USER**.
+   - Enter the **Username** and **Password** and Click on **SAVE**.
+   - Choose the permissions:
+        * **Active** &rarr; Is the default one, site access for users
+        * **Staff status** &rarr; Designates whether the user can log into this admin site.
+        * **Superuser status** &rarr; Designates that this user has all permissions without explicitly assigning them.
+   - You may enter an **Email address** for email notifications.
+   - Click on **SAVE**.
+   
+## Add email notifications subscriber
+Receive email notifications when subscribing to a topic.
+
+Connect to the `/admin` page:
+
+   - Click on **Subscribers**.
+   - Click on **ADD SUBSCRIBER**.
+   - Select the **User** and Click on **SAVE**.
+
+## Add your RSS source to Threats Detection
+As you know this feature allow the detection of emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+
+Watcher currently provides hundreds of RSS cybersecurity sources ([Populate default RSS sources](#populate-your-database)).
+
+However, you can add your RSS Cybersecurity source to your Watcher instance:
+
+- First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0). 
+- Your RSS file must be composed of several articles.
+- Please prefer to use https instead of http. 
+
+Connect to the `/admin` page:
+
+- Click on **Sources** in **THREATS_WATCHER** part.
+- Click on **ADD SOURCE**.
+- Fill **Url** text input.
+- Click on **SAVE**.
+
+## How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…
+RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like: Facebook, DuckDuckGo, GoogleSearch…
+
+To do such you need to add the new bridge needed in the `Watcher/Rss-bridge/whitelist.txt` file.
+
+An RSS-Bridge source URL looks like this: `http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss`
+
+To add your own custom url, simply change the bridge, if necessary, with the associated parameters (just keep `http://10.10.10.7/` & `format=Mrss`).
+
+You can test RSS-Bridge API with a public instance like this one: [https://wtf.roflcopter.fr/rss-bridge/](https://wtf.roflcopter.fr/rss-bridge/)
+
+RSS API request example: [https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss](https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss)
+
+## Thehive & MISP Export
 
 You can export **monitored DNS** to [TheHive](https://thehive-project.org/) or [MISP](https://www.misp-project.org/):
 
@@ -229,7 +249,7 @@ You can export **monitored DNS** to [TheHive](https://thehive-project.org/) or [
   - Click on the **blue upload/cloud button**.
   - Choose which service you want to use.
 
-#### Troubleshooting
+### Troubleshooting
 If the export do not work as expected, this may be related with 
 the version of your TheHive or MISP instance.
 
@@ -238,7 +258,7 @@ TheHive/MISP instance version:
 
 - Update Thehive or MISP.
 
-### Remove & Add to Blocklist
+## Remove & Add to Blocklist
 There is a **blocklist** to prevent a **false positive trendy words** from reappearing again.
 
 To add **1** word:
@@ -254,7 +274,7 @@ To add **several** words:
 - Click on **Action** dropdown.
 - Select "**Delete & Blocklist selected trendy words**".
 
-### Archived Alerts
+## Archived Alerts
 Once you have processed an alert, you can archive it.
 
 To archived **1** alert:
@@ -270,7 +290,7 @@ To archived **several** alerts:
 - Click on **Action** dropdown.
 - Select "**Disable selected alerts**".
 
-## Update Watcher
+# Update Watcher
 To update Watcher image please follow the instructions below:
 
 - Stop all containers: `docker-compose down`
@@ -279,24 +299,114 @@ To update Watcher image please follow the instructions below:
 
 This will update Watcher, Rss-bridge and Searx.
 
-## Remove the database
+# Developers
+If you want to modify the project and PR your work, you will need to setup your development environment.
+test
+## Setup Watcher environment
+Use a Linux server, we recommend the usage of a Virtual Machine. 
+Ubuntu 20.04 LTS in our case.
 
-You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:
+Then, follow the steps below:
 
-    docker-compose down
-    docker volume rm watcher-project_db_data
-    docker volume rm watcher-project_db_log
+- **Install** `Python 3.8` **&** `Node.js 14`
+- **Install** `Git`
+- **Pull Watcher code:** `git clone https://github.com/thalesgroup-cert/Watcher.git`
+- `cd Watcher/Watcher`
+- **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev libldap2-dev libssl-dev`
+- **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
+- **Install Python dependencies:**`pip install -r requirements.txt`
+- **Install NLTK/punkt dependency:**`python3 ./nltk_dependencies.py`
+     - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
+- **Install Node.js dependencies:**
+     - `sudo apt install npm`
+     - `npm install`
+- **Install MySQL:**
+     - `sudo apt install mysql-server`
+     - `sudo mysql_secure_installation`
+          - Enter root password.
+          - You may now enter `Y` and `ENTER`. Accept all fields. This will remove some anonymous users and the test database, 
+    disable remote root logins, and load these new rules so that MySQL immediately respects any changes made.
 
-Now, you can rebuild the image and the parameters will be taken into account:
+**Create & Configure Watcher database:**
 
-    docker-compose up
+    sudo mysql 
+    CREATE USER 'watcher'@'localhost' IDENTIFIED BY 'Ee5kZm4fWWAmE9hs';
+    GRANT ALL PRIVILEGES ON *.* TO 'watcher'@'localhost' WITH GRANT OPTION;
+    CREATE DATABASE db_watcher;
+    use db_watcher;
+    exit
+    systemctl status mysql.service
+    cd watcher
 
-Don't forget to [migrate](#migrate).
+In `settings.py` change `HOST` variable to `localhost`:
 
-## Useful commands
+    DATABASES = {
+       'default': {
+           'ENGINE': 'django.db.backends.mysql',
+           'CONN_MAX_AGE': 3600,
+           'NAME': 'db_watcher',
+           'USER': 'watcher',
+           'PASSWORD': 'Ee5kZm4fWWAmE9hs',
+           'HOST': 'localhost',
+           'PORT': '3306',
+           'OPTIONS': {
+               'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+           },
+       }
+    }
 
-Use `docker-compose up -d` if you want to run it in Background.
+- <span style="color:red">**[IMPORTANT]** When **commit** put `HOST` variable back to `db_watcher`</span>
+- `cd ..`
+- **[Migrate](#migrate) the database:** `python3 manage.py migrate`
+- **Run Watcher:** `python3 manage.py runserver`
 
-Run interactive shell session on the Watcher container:
+## Modify the frontend
+If you need to modify the frontend `/Watcher/Watcher/frontend`:
 
-    docker-compose run watcher bash
+From `/Watcher/Watcher/`, run the command below:
+
+    npm run dev
+
+Let this command in background. 
+Now, when modifying some frontend ReactJs files it will automatically build them into one file (`/Watcher/Watcher/frontend/static/frontend/main.js`).
+
+<span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the command below:</span>
+
+    npm run build
+    
+## Build the documentation
+After modifying some comments you may want to rebluid the documentation:
+
+Please comment the line below of `/Watcher/Watcher/threats_watcher/core.py`:
+
+    # from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber
+
+Please comment the line below of `/Watcher/Watcher/data_leak/core.py`:
+
+    # from .models import Keyword, Alert, PastId, Subscriber
+
+Please comment the line below of `/Watcher/Watcher/site_monitoring/core.py`:
+
+    # from .models import Site, Alert, Subscriber
+
+Please comment the line below of `/Watcher/Watcher/site_monitoring/misp.py`:
+
+    # from .models import Site
+
+Please comment the line below of `/Watcher/Watcher/site_monitoring/thehive.py`:
+
+    # from .models import Site
+
+Please comment the line below of `/Watcher/Watcher/dns_finder/core.py`:
+
+    # from .models import Alert, DnsMonitored, DnsTwisted, Subscriber
+
+Go to `/Watcher/docs`:
+   
+    make html 
+
+**Please uncomment after the documentation build.**
+
+When commit please add the all `/Watcher/docs` folder:
+
+    git add /Watcher/docs

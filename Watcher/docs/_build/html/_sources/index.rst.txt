@@ -11,11 +11,11 @@ Welcome to Watcher's documentation!
    :caption: Contents:
 
    /README.md
+   modules/site_monitoring_misp
+   modules/site_monitoring_thehive
    modules/threats_watcher_core
    modules/data_leak_core
    modules/site_monitoring_core
-   modules/site_monitoring_misp
-   modules/site_monitoring_thehive
    modules/dns_finder_core
 
 

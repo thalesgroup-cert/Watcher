@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>Site Monitoring - TheHive API Functions &mdash; Watcher 1.0.0 documentation</title>
+  <title>TheHive API &mdash; Watcher 1.0.0 documentation</title>
   
 
   
@@ -38,8 +38,8 @@
     
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="DNS Finder - Core Algorithm" href="dns_finder_core.html" />
-    <link rel="prev" title="Site Monitoring - MISP API Functions" href="site_monitoring_misp.html" /> 
+    <link rel="next" title="Threats Watcher - Core Algorithm" href="threats_watcher_core.html" />
+    <link rel="prev" title="MISP API" href="site_monitoring_misp.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -86,12 +86,15 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../README.html">Watcher Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Install Watcher</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html#use-watcher">Use Watcher</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html#update-watcher">Update Watcher</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="site_monitoring_misp.html">MISP API</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">TheHive API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
-<li class="toctree-l1"><a class="reference internal" href="site_monitoring_misp.html">Site Monitoring - MISP API Functions</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Site Monitoring - TheHive API Functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
 </ul>
 
@@ -141,7 +144,7 @@
     
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
         
-      <li>Site Monitoring - TheHive API Functions</li>
+      <li>TheHive API</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -161,10 +164,10 @@
            <div itemprop="articleBody">
             
   <div class="section" id="module-Watcher.site_monitoring.thehive">
-<span id="site-monitoring-thehive-api-functions"></span><h1>Site Monitoring - TheHive API Functions<a class="headerlink" href="#module-Watcher.site_monitoring.thehive" title="Permalink to this headline">¶</a></h1>
+<span id="thehive-api"></span><h1>TheHive API<a class="headerlink" href="#module-Watcher.site_monitoring.thehive" title="Permalink to this headline">¶</a></h1>
 <dl class="py function">
 <dt id="Watcher.site_monitoring.thehive.create_observables">
-<code class="sig-prename descclassname">Watcher.site_monitoring.thehive.</code><code class="sig-name descname">create_observables</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">hive_api</span></em>, <em class="sig-param"><span class="n">case_id</span></em>, <em class="sig-param"><span class="n">site</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.thehive.create_observables" title="Permalink to this definition">¶</a></dt>
+<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.thehive.</span></code><code class="sig-name descname"><span class="pre">create_observables</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hive_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.thehive.create_observables" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create IOCs observables.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -182,7 +185,7 @@
 
 <dl class="py function">
 <dt id="Watcher.site_monitoring.thehive.search_observables">
-<code class="sig-prename descclassname">Watcher.site_monitoring.thehive.</code><code class="sig-name descname">search_observables</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">hive_api</span></em>, <em class="sig-param"><span class="n">case_id</span></em>, <em class="sig-param"><span class="n">keyword</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.thehive.search_observables" title="Permalink to this definition">¶</a></dt>
+<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.thehive.</span></code><code class="sig-name descname"><span class="pre">search_observables</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hive_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.thehive.search_observables" title="Permalink to this definition">¶</a></dt>
 <dd><p>Search observables containing the keyword provided.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -203,7 +206,7 @@
 
 <dl class="py function">
 <dt id="Watcher.site_monitoring.thehive.update_observables">
-<code class="sig-prename descclassname">Watcher.site_monitoring.thehive.</code><code class="sig-name descname">update_observables</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">hive_api</span></em>, <em class="sig-param"><span class="n">site</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.thehive.update_observables" title="Permalink to this definition">¶</a></dt>
+<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.thehive.</span></code><code class="sig-name descname"><span class="pre">update_observables</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hive_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.thehive.update_observables" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update IOCs observables.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -226,8 +229,8 @@
           </div>
           <footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="dns_finder_core.html" class="btn btn-neutral float-right" title="DNS Finder - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-        <a href="site_monitoring_misp.html" class="btn btn-neutral float-left" title="Site Monitoring - MISP API Functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="threats_watcher_core.html" class="btn btn-neutral float-right" title="Threats Watcher - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="site_monitoring_misp.html" class="btn btn-neutral float-left" title="MISP API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>

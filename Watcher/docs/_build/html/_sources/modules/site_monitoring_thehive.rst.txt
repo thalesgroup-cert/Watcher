@@ -1,4 +1,4 @@
-Site Monitoring - TheHive API Functions
-=======================================
+TheHive API
+===========
 .. automodule:: Watcher.site_monitoring.thehive
     :members:
