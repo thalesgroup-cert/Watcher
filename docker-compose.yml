@@ -74,9 +74,9 @@ services:
     environment:
       TZ: ${TZ}
       MYSQL_DATABASE: 'db_watcher'
-      MYSQL_USER: 'watcher'
-      MYSQL_PASSWORD: 'Ee5kZm4fWWAmE9hs'
-      MYSQL_ROOT_PASSWORD: 'Ee5kZm4fWWAmE9hsroot'
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
 
   watcher:
     container_name: watcher
@@ -94,6 +94,8 @@ services:
       TZ: ${TZ}
       DJANGO_DEBUG: ${DJANGO_DEBUG}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       EMAIL_FROM: ${EMAIL_FROM}
       SMTP_SERVER: ${SMTP_SERVER}
       WATCHER_URL: ${WATCHER_URL}
