@@ -18,13 +18,28 @@ class DnsMonitored(models.Model):
     def __str__(self):
         return self.domain_name
 
+class KeywordMonitored(models.Model):
+    """
+    Keyword stored in order to find new certificates issued matching these keywords
+    """
+    name = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = 'Corporate Keyword'
+        verbose_name_plural = 'Corporate Keywords Monitored'
+
+    def __str__(self):
+        return self.name
 
 class DnsTwisted(models.Model):
     """
     Twisted dns: typosquatting, phishing attacks, fraud, and brand impersonation.
     """
     domain_name = models.CharField(max_length=100, unique=True)
-    dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE)
+    dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE, blank=True, null=True)
+    keyword_monitored = models.ForeignKey(KeywordMonitored, on_delete=models.CASCADE, blank=True, null=True)
     fuzzer = models.CharField(max_length=100, blank=True, null=True)
     the_hive_case_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
     misp_event_id = models.IntegerField(unique=True, blank=True, null=True)

@@ -70,8 +70,8 @@ WORDS_OCCURRENCE = 10
 # Example for a Monday morning watch : PostsDepth = 50 et WordsOccurrence = 0
 
 # Email Configuration
-EMAIL_FROM = os.environ.get('EMAIL_FROM', '')
-SMTP_SERVER = os.environ.get('SMTP_SERVER', '')
+EMAIL_FROM = os.environ.get('EMAIL_FROM', 'from@from.com')
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'localhost')
 # Display at the end of the email notification
 EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
@@ -79,6 +79,19 @@ WATCHER_URL = os.environ.get('WATCHER_URL', '')
 # Watcher Logo
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com/thalesgroup-cert/Watcher/master'
                                               '/Watcher/static/Watcher-logo-simple.png')
+
+#Settings for CertStream proxy setup
+HTTP_PROXY_HOST = os.environ.get('HTTP_PROXY_HOST', '')
+HTTP_PROXY_PORT = os.environ.get('HTTP_PROXY_PORT', '')
+HTTP_PROXY_USER = os.environ.get('HTTP_PROXY_USER', '')
+HTTP_PROXY_PASS = os.environ.get('HTTP_PROXY_PASS', '')
+
+#Settings for proxy setup
+HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
+HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
+
+#URL to connect to CertStream
+URL = os.environ.get('URL', 'wss://certstream.calidog.io')
 
 # Link to Searx Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')
@@ -166,7 +179,7 @@ DATABASES = {
         'NAME': 'db_watcher',
         'USER': 'watcher',
         'PASSWORD': 'Ee5kZm4fWWAmE9hs',
-        'HOST': 'db_watcher',
+        'HOST': 'localhost',
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
