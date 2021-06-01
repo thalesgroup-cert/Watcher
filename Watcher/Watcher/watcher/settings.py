@@ -171,7 +171,7 @@ WSGI_APPLICATION = 'watcher.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
-
+# SECURITY WARNING: In production please set DB_USER and DB_PASSWORD environment variables in the .env file.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
