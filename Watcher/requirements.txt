@@ -20,3 +20,4 @@ pymisp==2.4.134
 django-auth-ldap==2.4.0
 dnstwist==20201228
 django-import-export==2.5.0
+certstream==1.12
