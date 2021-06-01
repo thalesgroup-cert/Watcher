@@ -70,8 +70,8 @@ WORDS_OCCURRENCE = 10
 # Example for a Monday morning watch : PostsDepth = 50 et WordsOccurrence = 0
 
 # Email Configuration
-EMAIL_FROM = os.environ.get('EMAIL_FROM', 'from@from.com')
-SMTP_SERVER = os.environ.get('SMTP_SERVER', 'localhost')
+EMAIL_FROM = os.environ.get('EMAIL_FROM', '')
+SMTP_SERVER = os.environ.get('SMTP_SERVER', '')
 # Display at the end of the email notification
 EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
