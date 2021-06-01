@@ -14,6 +14,7 @@ from email.mime.text import MIMEText
 import smtplib
 import certstream
 
+
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
@@ -29,6 +30,7 @@ def start_scheduler():
                       replace_existing=True)
     scheduler.start()
 
+    
 def on_open(instance):
     """
         Connection successfully established.
@@ -37,6 +39,7 @@ def on_open(instance):
     """
     print(str(timezone.now()) + " - " + "Keyword monitoring: connection successfully established!")
 
+    
 def on_error(instance, exception):
     """
         An error occured.
@@ -45,6 +48,7 @@ def on_error(instance, exception):
     :param exception: error message from CertStream.
     """
     print(str(timezone.now()) + " - " + "Keyword monitoring: exception in CertStream -> {}".format(exception))
+
 
 def print_callback(message, context):
     """
@@ -61,6 +65,7 @@ def print_callback(message, context):
             alert = Alert.objects.create(dns_twisted=dns_twisted)
             send_email_cert_transparency(alert)
 
+            
 def main_certificate_transparency():
     """
     Launch CertStream scan.
@@ -71,6 +76,9 @@ def main_certificate_transparency():
         certstream.listen_for_events(print_callback, on_open=on_open, on_error=on_error, url=settings.URL, http_proxy_host=settings.HTTP_PROXY_HOST, http_proxy_port=settings.HTTP_PROXY_PORT, http_proxy_auth=(settings.HTTP_PROXY_USER, settings.HTTP.PROXY.PASS))
 
 def main_dns_twist():
+    """
+    Launch dnstwist algorithm.
+    """
     for dns_monitored in DnsMonitored.objects.all():
         check_dnstwist(dns_monitored)
 
