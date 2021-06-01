@@ -179,7 +179,7 @@ DATABASES = {
         'NAME': 'db_watcher',
         'USER': 'watcher',
         'PASSWORD': 'Ee5kZm4fWWAmE9hs',
-        'HOST': 'localhost',
+        'HOST': 'db_watcher',
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
