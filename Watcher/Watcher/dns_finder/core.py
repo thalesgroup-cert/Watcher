@@ -25,8 +25,8 @@ def start_scheduler():
     scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='weekend_job',
                       max_instances=10,
                       replace_existing=True)
-    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', minute='*/10', id='cerstream_job',
-                      max_instances=10,
+    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1', id='cerstream_job',
+                      max_instances=1,
                       replace_existing=True)
     scheduler.start()
 
