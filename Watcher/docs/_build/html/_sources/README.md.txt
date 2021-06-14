@@ -9,8 +9,8 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 
 ## Launch watcher
 
-- Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (Keep directory structure).
-- According to your existent infrastructure you may configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)). 
+- Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (keep the directory structure).
+- According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)). 
 - `docker-compose up`
 
 This should run Docker containers.
@@ -26,7 +26,7 @@ Please wait until you see:
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
-- Try Access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
+- Try to access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
 - `CONTROL-C`
 - `docker-compose down` to stop all containers.
 
@@ -39,14 +39,14 @@ with applications...
     python manage.py migrate
     
 ### Create admin user
-You will need to create the first superuser to access `/admin` page.
+You will need to create the first superuser to access the `/admin` page.
 
     docker-compose down
     docker-compose run watcher bash
     python manage.py createsuperuser
 
 ### Populate your database
-Populate your database with hundred of banned words and RSS sources related to Cybersecurity.
+Populate your database with hundred of banned words and RSS sources related to cybersecurity.
 
 Use `populate_db` script:
 
@@ -60,9 +60,9 @@ The first time you run Watcher, you will not have any new threats on the homepag
 You just have to wait for Watcher to crawl the Internet. This will happen every 30 minutes.
 
 ## Static configuration
-Most of the settings can be modify from the `/admin` page.
+Most of the settings can be modified from the `/admin` page.
 
-There are other settings located in the `.env` file that you can configure:     
+There are other settings located in the `.env` file that you can configure. 
 
 ##### Production Settings [Important]
 
@@ -113,9 +113,9 @@ Now, you can restart your instance and the parameters will be taken into account
 
     docker-compose down
     docker-compose up
-    
+ 
 ##### TheHive Settings
-If you want to use **TheHive export**, please fill the **IP** of your TheHive instance and an **API key generated**.
+If you want to use **TheHive export**, please fill the **IP** of your TheHive instance and a **generated API key**.
 
 In the `.env` file:
 
@@ -123,12 +123,12 @@ In the `.env` file:
     THE_HIVE_URL=
     THE_HIVE_KEY=
     THE_HIVE_CASE_ASSIGNEE=watcher
-    
+ 
 Now, you can restart your instance and the parameters will be taken into account:
 
     docker-compose down
     docker-compose up
-    
+ 
 ##### MISP Settings
 If you want to use **MISP export**, please fill the **IP** of your MISP instance and an **API key**.
 
@@ -138,12 +138,12 @@ In the `.env` file:
     MISP_URL=
     MISP_VERIFY_SSL=False
     MISP_KEY=
-    
+ 
 Now, you can restart your instance and the parameters will be taken into account:
 
     docker-compose down
     docker-compose up
-    
+ 
 ##### LDAP Settings
 You can configure an LDAP authentication within Watcher:
 
@@ -155,7 +155,7 @@ In the `.env` file:
     AUTH_LDAP_BIND_PASSWORD=
     AUTH_LDAP_BASE_DN=
     AUTH_LDAP_FILTER=(uid=%(user)s)
-    
+ 
 Now, you can restart your instance and the parameters will be taken into account:
 
     docker-compose down
@@ -164,7 +164,7 @@ Now, you can restart your instance and the parameters will be taken into account
 ## Troubleshooting
 ### Remove the database
 
-You may want to **reset** your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:
+You may want to **reset** your database entirely, in case of troubleshooting or other. To do this, you need to remove the database stored in your host system and restart the instance:
 
     docker-compose down
     docker volume rm watcher-project_db_data
@@ -178,7 +178,7 @@ Don't forget to [migrate](#migrate).
 
 ### Useful commands
 
-Use `docker-compose up -d` if you want to run it in Background.
+Use `docker-compose up -d` if you want to run it in background.
 
 Run interactive shell session on the Watcher container:
 
@@ -186,7 +186,7 @@ Run interactive shell session on the Watcher container:
 
 # Use Watcher
 ## User enrollment 
-To create simple user, staff user or admin user:
+To create a simple user, staff user or admin user:
 
 Connect to the `/admin` page:
 
@@ -199,7 +199,7 @@ Connect to the `/admin` page:
         * **Superuser status** &rarr; Designates that this user has all permissions without explicitly assigning them.
    - You may enter an **Email address** for email notifications.
    - Click on **SAVE**.
-   
+ 
 ## Add email notifications subscriber
 Receive email notifications when subscribing to a topic.
 
@@ -210,7 +210,7 @@ Connect to the `/admin` page:
    - Select the **User** and Click on **SAVE**.
 
 ## Add your RSS source to Threats Detection
-As you know this feature allow the detection of emerging vulnerability, malware using social network & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
 
 Watcher currently provides hundreds of RSS cybersecurity sources ([Populate default RSS sources](#populate-your-database)).
 
@@ -218,7 +218,7 @@ However, you can add your RSS Cybersecurity source to your Watcher instance:
 
 - First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0). 
 - Your RSS file must be composed of several articles.
-- Please prefer to use https instead of http. 
+- Please consider the use of https over http. 
 
 Connect to the `/admin` page:
 
@@ -228,9 +228,9 @@ Connect to the `/admin` page:
 - Click on **SAVE**.
 
 ## How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…
-RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like: Facebook, DuckDuckGo, GoogleSearch…
+RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like Facebook, DuckDuckGo, GoogleSearch…
 
-To do such you need to add the new bridge needed in the `Watcher/Rss-bridge/whitelist.txt` file.
+To do so, you need to add the new bridge needed in the `Watcher/Rss-bridge/whitelist.txt` file.
 
 An RSS-Bridge source URL looks like this: `http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss`
 
@@ -300,10 +300,9 @@ To update Watcher image please follow the instructions below:
 This will update Watcher, Rss-bridge and Searx.
 
 # Developers
-If you want to modify the project and PR your work, you will need to setup your development environment.
+If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.
 ## Setup Watcher environment
-Use a Linux server, we recommend the usage of a Virtual Machine. 
-Ubuntu 20.04 LTS in our case.
+Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).
 
 Then, follow the steps below:
 
@@ -359,6 +358,28 @@ In `settings.py` change `HOST` variable to `localhost`:
 - **[Migrate](#migrate) the database:** `python3 manage.py migrate`
 - **Run Watcher:** `python3 manage.py runserver`
 
+## Open a Pull Request (PR) to contribute to this project
+- Fork the official Watcher repository
+- Open a terminal: `git clone <your_forked_repository.git>`
+- Switch to the dev branch: `git checkout dev`
+- Make your changes on the working files and then: `git add *`
+- Add a commit message and description: `git commit -m "Title" -m "Description"`
+- Publish the changes: `git push origin dev`
+- Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
+- Done! Your work will be reviewed by the team! 
+
+
+## Deploy a simple SMTP server to test the mail notifications
+If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.
+- Grab the docker-compose file: `https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml`
+- Run the command: `docker-compose up`
+- The mails will be available here by default: `localhost:5000`
+- Modify the mail settings in the environment variables: `nano Watcher/.env`
+    - `EMAIL_FROM=from@from.com`
+    - `SMTP_SERVER=localhost`
+- Launch Watcher: `python3 Watcher/Watcher/manage.py runserver` 
+
+
 ## Modify the frontend
 If you need to modify the frontend `/Watcher/Watcher/frontend`:
 
@@ -366,7 +387,7 @@ From `/Watcher/Watcher/`, run the command below:
 
     npm run dev
 
-Let this command in background. 
+Let this command run in background. 
 Now, when modifying some frontend ReactJs files it will automatically build them into one file (`/Watcher/Watcher/frontend/static/frontend/main.js`).
 
 <span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the command below:</span>

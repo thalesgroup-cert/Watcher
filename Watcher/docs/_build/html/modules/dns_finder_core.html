@@ -181,8 +181,76 @@
 </dd></dl>
 
 <dl class="py function">
+<dt id="Watcher.dns_finder.core.main_certificate_transparency">
+<code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">main_certificate_transparency</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.main_certificate_transparency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Launch CertStream scan.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.main_dns_twist">
+<code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">main_dns_twist</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.main_dns_twist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Launch dnstwist algorithm.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.on_error">
+<code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">on_error</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">instance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exception</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.on_error" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div><p>An error occured.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>instance</strong> – CertStreamClient instance opened.</p></li>
+<li><p><strong>exception</strong> – error message from CertStream.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.on_open">
+<code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">on_open</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">instance</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.on_open" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div><p>Connection successfully established.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>instance</strong> – CertStreamClient instance opened.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.print_callback">
+<code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">print_callback</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">context</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.print_callback" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div><p>Runs CertStream scan</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>message</strong> – event from CertStream.</p></li>
+<li><p><strong>context</strong> – parameter from CertStream.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt id="Watcher.dns_finder.core.send_email">
 <code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">send_email</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.send_email" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send e-mail alert.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>alert</strong> – Alert Object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="Watcher.dns_finder.core.send_email_cert_transparency">
+<code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">send_email_cert_transparency</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.send_email_cert_transparency" title="Permalink to this definition">¶</a></dt>
 <dd><p>Send e-mail alert.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -210,7 +278,8 @@
 <code class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></code><code class="sig-name descname"><span class="pre">start_scheduler</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.start_scheduler" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="simple">
 <dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
-<li><p>Fire main_dns_twist from Monday to Sunday : Every 2 hours.</p></li>
+<li><p>Fire main_dns_twist from Monday to Sunday: every 2 hours.</p></li>
+<li><p>Fire main_certificate_transparency from Monday to Sunday: every hour.</p></li>
 </ul>
 </dd>
 </dl>

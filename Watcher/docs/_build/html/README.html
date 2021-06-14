@@ -127,6 +127,8 @@
 <li class="toctree-l1"><a class="reference internal" href="#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="#developers">Developers</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#setup-watcher-environment">Setup Watcher environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#open-a-pull-request-pr-to-contribute-to-this-project">Open a Pull Request (PR) to contribute to this project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#deploy-a-simple-smtp-server-to-test-the-mail-notifications">Deploy a simple SMTP server to test the mail notifications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#build-the-documentation">Build the documentation</a></li>
 </ul>
@@ -218,8 +220,8 @@
 <div class="section" id="launch-watcher">
 <h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (Keep directory structure).</p></li>
-<li><p>According to your existent infrastructure you may configure <strong>Watcher settings</strong> using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
+<li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (keep the directory structure).</p></li>
+<li><p>According to your existing infrastructure you may need to configure <strong>Watcher settings</strong> using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
 <p>This should run Docker containers.</p>
@@ -229,13 +231,13 @@
 <span class="n">watcher</span>          <span class="o">|</span> 
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">System</span> <span class="n">check</span> <span class="n">identified</span> <span class="n">no</span> <span class="n">issues</span> <span class="p">(</span><span class="mi">0</span> <span class="n">silenced</span><span class="p">)</span><span class="o">.</span>
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">October</span> <span class="mi">08</span><span class="p">,</span> <span class="mi">2020</span> <span class="o">-</span> <span class="mi">10</span><span class="p">:</span><span class="mi">28</span><span class="p">:</span><span class="mi">02</span>
-<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Django</span> <span class="n">version</span> <span class="mf">3.1</span><span class="o">.</span><span class="mi">1</span><span class="p">,</span> <span class="n">using</span> <span class="n">settings</span> <span class="s1">&#39;watcher.settings&#39;</span>
-<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Starting</span> <span class="n">development</span> <span class="n">server</span> <span class="n">at</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">9002</span><span class="o">/</span>
+<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Django</span> <span class="n">version</span> <span class="mf">3.1.1</span><span class="p">,</span> <span class="n">using</span> <span class="n">settings</span> <span class="s1">&#39;watcher.settings&#39;</span>
+<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Starting</span> <span class="n">development</span> <span class="n">server</span> <span class="n">at</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="mf">0.0.0.0</span><span class="p">:</span><span class="mi">9002</span><span class="o">/</span>
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">Quit</span> <span class="n">the</span> <span class="n">server</span> <span class="k">with</span> <span class="n">CONTROL</span><span class="o">-</span><span class="n">C</span><span class="o">.</span>
 </pre></div>
 </div>
 <ul class="simple">
-<li><p>Try Access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.</p></li>
+<li><p>Try to access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">CONTROL-C</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code> to stop all containers.</p></li>
 </ul>
@@ -251,7 +253,7 @@ with applications…</p>
 </div>
 <div class="section" id="create-admin-user">
 <h3>Create admin user<a class="headerlink" href="#create-admin-user" title="Permalink to this headline">¶</a></h3>
-<p>You will need to create the first superuser to access <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
+<p>You will need to create the first superuser to access the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
 <span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">createsuperuser</span>
@@ -260,7 +262,7 @@ with applications…</p>
 </div>
 <div class="section" id="populate-your-database">
 <h3>Populate your database<a class="headerlink" href="#populate-your-database" title="Permalink to this headline">¶</a></h3>
-<p>Populate your database with hundred of banned words and RSS sources related to Cybersecurity.</p>
+<p>Populate your database with hundred of banned words and RSS sources related to cybersecurity.</p>
 <p>Use <code class="docutils literal notranslate"><span class="pre">populate_db</span></code> script:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
@@ -276,8 +278,8 @@ with applications…</p>
 </div>
 <div class="section" id="static-configuration">
 <h2>Static configuration<a class="headerlink" href="#static-configuration" title="Permalink to this headline">¶</a></h2>
-<p>Most of the settings can be modify from the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
-<p>There are other settings located in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file that you can configure:</p>
+<p>Most of the settings can be modified from the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
+<p>There are other settings located in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file that you can configure.</p>
 <div class="section" id="production-settings-important">
 <h3>Production Settings [Important]<a class="headerlink" href="#production-settings-important" title="Permalink to this headline">¶</a></h3>
 <p>In production please put DJANGO_DEBUG environment variable to <strong>False</strong> in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
@@ -333,7 +335,7 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="thehive-settings">
 <h3>TheHive Settings<a class="headerlink" href="#thehive-settings" title="Permalink to this headline">¶</a></h3>
-<p>If you want to use <strong>TheHive export</strong>, please fill the <strong>IP</strong> of your TheHive instance and an <strong>API key generated</strong>.</p>
+<p>If you want to use <strong>TheHive export</strong>, please fill the <strong>IP</strong> of your TheHive instance and a <strong>generated API key</strong>.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># THE HIVE SETUP</span>
 <span class="n">THE_HIVE_URL</span><span class="o">=</span>
@@ -386,7 +388,7 @@ There is one by default but consider to change it in the <code class="docutils l
 <h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="remove-the-database">
 <h3>Remove the database<a class="headerlink" href="#remove-the-database" title="Permalink to this headline">¶</a></h3>
-<p>You may want to <strong>reset</strong> your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:</p>
+<p>You may want to <strong>reset</strong> your database entirely, in case of troubleshooting or other. To do this, you need to remove the database stored in your host system and restart the instance:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span> <span class="n">volume</span> <span class="n">rm</span> <span class="n">watcher</span><span class="o">-</span><span class="n">project_db_data</span>
 <span class="n">docker</span> <span class="n">volume</span> <span class="n">rm</span> <span class="n">watcher</span><span class="o">-</span><span class="n">project_db_log</span>
@@ -400,7 +402,7 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="useful-commands">
 <h3>Useful commands<a class="headerlink" href="#useful-commands" title="Permalink to this headline">¶</a></h3>
-<p>Use <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code> if you want to run it in Background.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code> if you want to run it in background.</p>
 <p>Run interactive shell session on the Watcher container:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
 </pre></div>
@@ -412,7 +414,7 @@ There is one by default but consider to change it in the <code class="docutils l
 <h1>Use Watcher<a class="headerlink" href="#use-watcher" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="user-enrollment">
 <h2>User enrollment<a class="headerlink" href="#user-enrollment" title="Permalink to this headline">¶</a></h2>
-<p>To create simple user, staff user or admin user:</p>
+<p>To create a simple user, staff user or admin user:</p>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
 <li><p>Click on <strong>Users</strong>.</p></li>
@@ -441,13 +443,13 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="add-your-rss-source-to-threats-detection">
 <h2>Add your RSS source to Threats Detection<a class="headerlink" href="#add-your-rss-source-to-threats-detection" title="Permalink to this headline">¶</a></h2>
-<p>As you know this feature allow the detection of emerging vulnerability, malware using social network &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…).</p>
+<p>As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…).</p>
 <p>Watcher currently provides hundreds of RSS cybersecurity sources (<a class="reference external" href="#populate-your-database">Populate default RSS sources</a>).</p>
 <p>However, you can add your RSS Cybersecurity source to your Watcher instance:</p>
 <ul class="simple">
 <li><p>First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0).</p></li>
 <li><p>Your RSS file must be composed of several articles.</p></li>
-<li><p>Please prefer to use https instead of http.</p></li>
+<li><p>Please consider the use of https over http.</p></li>
 </ul>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
@@ -459,8 +461,8 @@ There is one by default but consider to change it in the <code class="docutils l
 </div>
 <div class="section" id="how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube">
 <h2>How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…<a class="headerlink" href="#how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube" title="Permalink to this headline">¶</a></h2>
-<p>RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like: Facebook, DuckDuckGo, GoogleSearch…</p>
-<p>To do such you need to add the new bridge needed in the <code class="docutils literal notranslate"><span class="pre">Watcher/Rss-bridge/whitelist.txt</span></code> file.</p>
+<p>RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like Facebook, DuckDuckGo, GoogleSearch…</p>
+<p>To do so, you need to add the new bridge needed in the <code class="docutils literal notranslate"><span class="pre">Watcher/Rss-bridge/whitelist.txt</span></code> file.</p>
 <p>An RSS-Bridge source URL looks like this: <code class="docutils literal notranslate"><span class="pre">http://10.10.10.7/?action=display&amp;bridge=Twitter&amp;context=By+username&amp;u=tomchop_&amp;norep=on&amp;nopic=on&amp;noimg=on&amp;noimgscaling=on&amp;format=Mrss</span></code></p>
 <p>To add your own custom url, simply change the bridge, if necessary, with the associated parameters (just keep <code class="docutils literal notranslate"><span class="pre">http://10.10.10.7/</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">format=Mrss</span></code>).</p>
 <p>You can test RSS-Bridge API with a public instance like this one: <a class="reference external" href="https://wtf.roflcopter.fr/rss-bridge/">https://wtf.roflcopter.fr/rss-bridge/</a></p>
@@ -533,11 +535,10 @@ TheHive/MISP instance version:</p>
 </div>
 <div class="section" id="developers">
 <h1>Developers<a class="headerlink" href="#developers" title="Permalink to this headline">¶</a></h1>
-<p>If you want to modify the project and PR your work, you will need to setup your development environment.</p>
+<p>If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.</p>
 <div class="section" id="setup-watcher-environment">
 <h2>Setup Watcher environment<a class="headerlink" href="#setup-watcher-environment" title="Permalink to this headline">¶</a></h2>
-<p>Use a Linux server, we recommend the usage of a Virtual Machine.
-Ubuntu 20.04 LTS in our case.</p>
+<p>Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).</p>
 <p>Then, follow the steps below:</p>
 <ul class="simple">
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.8</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">Node.js</span> <span class="pre">14</span></code></p></li>
@@ -606,6 +607,35 @@ disable remote root logins, and load these new rules so that MySQL immediately r
 <li><p><strong>Run Watcher:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">runserver</span></code></p></li>
 </ul>
 </div>
+<div class="section" id="open-a-pull-request-pr-to-contribute-to-this-project">
+<h2>Open a Pull Request (PR) to contribute to this project<a class="headerlink" href="#open-a-pull-request-pr-to-contribute-to-this-project" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Fork the official Watcher repository</p></li>
+<li><p>Open a terminal: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
+<li><p>Switch to the dev branch: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">dev</span></code></p></li>
+<li><p>Make your changes on the working files and then: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">*</span></code></p></li>
+<li><p>Add a commit message and description: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span> <span class="pre">-m</span> <span class="pre">&quot;Title&quot;</span> <span class="pre">-m</span> <span class="pre">&quot;Description&quot;</span></code></p></li>
+<li><p>Publish the changes: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">push</span> <span class="pre">origin</span> <span class="pre">dev</span></code></p></li>
+<li><p>Back to GitHub on your forked repository, click Under Contribute &gt; Open Pull Request and then Confirm the operation</p></li>
+<li><p>Done! Your work will be reviewed by the team!</p></li>
+</ul>
+</div>
+<div class="section" id="deploy-a-simple-smtp-server-to-test-the-mail-notifications">
+<h2>Deploy a simple SMTP server to test the mail notifications<a class="headerlink" href="#deploy-a-simple-smtp-server-to-test-the-mail-notifications" title="Permalink to this headline">¶</a></h2>
+<p>If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.</p>
+<ul class="simple">
+<li><p>Grab the docker-compose file: <code class="docutils literal notranslate"><span class="pre">https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml</span></code></p></li>
+<li><p>Run the command: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
+<li><p>The mails will be available here by default: <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
+<li><p>Modify the mail settings in the environment variables: <code class="docutils literal notranslate"><span class="pre">nano</span> <span class="pre">Watcher/.env</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM=from&#64;from.com</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SMTP_SERVER=localhost</span></code></p></li>
+</ul>
+</li>
+<li><p>Launch Watcher: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">Watcher/Watcher/manage.py</span> <span class="pre">runserver</span></code></p></li>
+</ul>
+</div>
 <div class="section" id="modify-the-frontend">
 <h2>Modify the frontend<a class="headerlink" href="#modify-the-frontend" title="Permalink to this headline">¶</a></h2>
 <p>If you need to modify the frontend <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/frontend</span></code>:</p>
@@ -613,7 +643,7 @@ disable remote root logins, and load these new rules so that MySQL immediately r
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">run</span> <span class="n">dev</span>
 </pre></div>
 </div>
-<p>Let this command in background.
+<p>Let this command run in background.
 Now, when modifying some frontend ReactJs files it will automatically build them into one file (<code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/frontend/static/frontend/main.js</span></code>).</p>
 <p><span style="color:red"><strong>[IMPORTANT]</strong> When <strong>commit</strong> you have to run <strong>1 time</strong> the command below:</span></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">run</span> <span class="n">build</span>
