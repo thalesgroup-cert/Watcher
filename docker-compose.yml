@@ -27,22 +27,6 @@ services:
       - SETUID
       - DAC_OVERRIDE
 
-  searx-checker:
-    container_name: searx-checker
-    image: searx/searx-checker
-    hostname: searx-checker
-    restart: always
-    networks:
-      default:
-        ipv4_address: 10.10.10.4
-    environment:
-      HTTP_PROXY: ${HTTP_PROXY}
-      HTTPS_PROXY: ${HTTPS_PROXY}
-      no_proxy: "10.10.10.3"
-    command: -cron -o html/data/status.json http://10.10.10.3:8080
-    volumes:
-      - searx-checker:/usr/local/searx-checker/html/data:rw
-
   rss-bridge:
     container_name: rss-bridge
     image: rssbridge/rss-bridge:latest
