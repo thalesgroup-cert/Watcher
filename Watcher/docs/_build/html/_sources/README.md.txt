@@ -8,7 +8,6 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 - [Install docker-compose](https://docs.docker.com/compose/install/)
 
 ## Launch watcher
-
 - Grab the `docker-compose.yml`, `.env` files and `Searx`, `Rss-bridge` directories (keep the directory structure).
 - According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)). 
 - `docker-compose up`
@@ -46,7 +45,7 @@ You will need to create the first superuser to access the `/admin` page.
     python manage.py createsuperuser
 
 ### Populate your database
-Populate your database with hundred of banned words and RSS sources related to cybersecurity.
+Populate your database with hundred of banned words and RSS sources related to Cyber Security.
 
 Use `populate_db` script:
 
@@ -241,7 +240,6 @@ You can test RSS-Bridge API with a public instance like this one: [https://wtf.r
 RSS API request example: [https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss](https://wtf.roflcopter.fr/rss-bridge/?action=display&bridge=Twitter&context=By+username&u=tomchop_&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss)
 
 ## Thehive & MISP Export
-
 You can export **monitored DNS** to [TheHive](https://thehive-project.org/) or [MISP](https://www.misp-project.org/):
 
   - Go to **/website_monitoring** page.
@@ -294,10 +292,15 @@ To archived **several** alerts:
 To update Watcher image please follow the instructions below:
 
 - Stop all containers: `docker-compose down`
-- Remove the old docker images: `docker rmi felix83000/watcher:latest searx/searx searx/searx-checker rssbridge/rss-bridge:latest`
+- Remove the old docker images: `docker rmi felix83000/watcher searx/searx rssbridge/rss-bridge`
 - Pull the newer docker images: `docker-compose up`
 
 This will update Watcher, Rss-bridge and Searx.
+
+Verify that the `/.env`, `/docker-compose.yml` and `/Searx` files are **up-to-date**.
+
+Sometimes you will see in the Watcher logs a **database migration request in red**. 
+If so, follow this [process](#migrate).
 
 # Developers
 If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.
@@ -306,14 +309,14 @@ Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS 
 
 Then, follow the steps below:
 
-- **Install** `Python 3.8` **&** `Node.js 14`
+- **Install** `Python 3.8` **&** `Node.js 16`
 - **Install** `Git`
 - **Pull Watcher code:** `git clone https://github.com/thalesgroup-cert/Watcher.git`
 - `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
-- **Install Python dependencies:**`pip install -r requirements.txt`
-- **Install NLTK/punkt dependency:**`python3 ./nltk_dependencies.py`
+- **Install Python dependencies:** `pip install -r requirements.txt`
+- **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
      - `sudo apt install npm`
@@ -368,17 +371,15 @@ In `settings.py` change `HOST` variable to `localhost`:
 - Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
 - Done! Your work will be reviewed by the team! 
 
-
-## Deploy a simple SMTP server to test the mail notifications
+## Deploy a simple SMTP server to test the email notifications
 If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.
-- Grab the docker-compose file: `https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml`
+- Grab the docker-compose file: [here](https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml).
 - Run the command: `docker-compose up`
 - The mails will be available here by default: `localhost:5000`
-- Modify the mail settings in the environment variables: `nano Watcher/.env`
+- Modify the mail settings in the environment variables: `vi /.env`
     - `EMAIL_FROM=from@from.com`
     - `SMTP_SERVER=localhost`
 - Launch Watcher: `python3 Watcher/Watcher/manage.py runserver` 
-
 
 ## Modify the frontend
 If you need to modify the frontend `/Watcher/Watcher/frontend`:
@@ -393,7 +394,7 @@ Now, when modifying some frontend ReactJs files it will automatically build them
 <span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the command below:</span>
 
     npm run build
-    
+
 ## Build the documentation
 After modifying some comments you may want to rebluid the documentation:
 
