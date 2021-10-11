@@ -80,6 +80,19 @@ WATCHER_URL = os.environ.get('WATCHER_URL', '')
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com/thalesgroup-cert/Watcher/master'
                                               '/Watcher/static/Watcher-logo-simple.png')
 
+# CertStream proxy setup
+HTTP_PROXY_HOST = os.environ.get('HTTP_PROXY_HOST', '')
+HTTP_PROXY_PORT = os.environ.get('HTTP_PROXY_PORT', '')
+HTTP_PROXY_USER = os.environ.get('HTTP_PROXY_USER', '')
+HTTP_PROXY_PASS = os.environ.get('HTTP_PROXY_PASS', '')
+
+# Proxy setup
+HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
+HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
+
+# CertStream URL
+URL = os.environ.get('URL', 'wss://certstream.calidog.io')
+
 # Link to Searx Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')
 
@@ -158,14 +171,14 @@ WSGI_APPLICATION = 'watcher.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
-
+# SECURITY WARNING: In production please set DB_USER and DB_PASSWORD environment variables in the .env file.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'CONN_MAX_AGE': 3600,
         'NAME': 'db_watcher',
-        'USER': 'watcher',
-        'PASSWORD': 'Ee5kZm4fWWAmE9hs',
+        'USER': os.environ.get('DB_USER', 'watcher'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
         'HOST': 'db_watcher',
         'PORT': '3306',
         'OPTIONS': {

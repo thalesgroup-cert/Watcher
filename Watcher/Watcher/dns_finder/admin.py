@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DnsMonitored, DnsTwisted, Alert, Subscriber
+from .models import DnsMonitored, DnsTwisted, Alert, Subscriber, KeywordMonitored
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 
@@ -58,6 +58,18 @@ class DnsMonitoredResource(resources.ModelResource):
     class Meta:
         model = DnsMonitored
         exclude = ('created_at',)
+
+class KeywordMonitoredResource(resources.ModelResource):
+    class Meta:
+        model = KeywordMonitored
+
+@admin.register(KeywordMonitored)
+class KeywordMonitored(ImportExportModelAdmin):
+    list_display = ['name', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['name']
+    resource_class = KeywordMonitoredResource
+
 
 
 @admin.register(DnsMonitored)
