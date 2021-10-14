@@ -43,7 +43,6 @@ def create_observables(hive_api, case_id, site):
                                                                        tags=['Watcher'],
                                                                        message='Domain name monitored'))
     if response.status_code == 201:
-        # print(str(timezone.now()) + " - " + json.dumps(response.json(), indent=4, sort_keys=True))
         print(str(timezone.now()) + " - " + "OK")
     else:
         print(str(timezone.now()) + " - " + 'ko: {}/{}'.format(response.status_code, response.text))

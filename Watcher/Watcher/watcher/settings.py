@@ -103,6 +103,7 @@ DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/'
 THE_HIVE_URL = os.environ.get('THE_HIVE_URL', 'http://127.0.0.1:9000')
 THE_HIVE_KEY = os.environ.get('THE_HIVE_KEY', '')
 THE_HIVE_CASE_ASSIGNEE = os.environ.get('THE_HIVE_CASE_ASSIGNEE', 'watcher')
+THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")
 
 # MISP Setup
 MISP_URL = os.environ.get('MISP_URL', 'https://127.0.0.1')
@@ -113,6 +114,7 @@ if MISP_VERIFY_SSL == "False":
     MISP_VERIFY_SSL = False
 MISP_KEY = os.environ.get('MISP_KEY', '')
 MISP_TICKETING_URL = os.environ.get('MISP_TICKETING_URL', '')
+MISP_TAGS = os.environ.get('MISP_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting,TLP:Amber").split(",")
 
 # Application definition
 INSTALLED_APPS = [
