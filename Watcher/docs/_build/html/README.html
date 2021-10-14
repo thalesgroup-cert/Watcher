@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 1.0.0 documentation</title>
+  <title>Install Watcher &mdash; Watcher 1.2.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -83,6 +83,11 @@
 <li class="toctree-l2"><a class="reference internal" href="#open-a-pull-request-pr-to-contribute-to-this-project">Open a Pull Request (PR) to contribute to this project</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications">Deploy a simple SMTP server to test the email notifications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#migrations-change-the-database-schema">Migrations: Change the database schema</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#the-commands">The commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#change-a-model-adding-a-field-deleting-a-model-etc">Change a model (adding a field, deleting a model, etc.)</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#build-the-documentation">Build the documentation</a></li>
 </ul>
 </li>
@@ -443,10 +448,10 @@ TheHive/MISP instance version:</p>
 <li><p>Remove the old docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher</span> <span class="pre">searx/searx</span> <span class="pre">rssbridge/rss-bridge</span></code></p></li>
 <li><p>Pull the newer docker images: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
-<p>This will update Watcher, Rss-bridge and Searx.</p>
-<p>Verify that the <code class="docutils literal notranslate"><span class="pre">/.env</span></code>, <code class="docutils literal notranslate"><span class="pre">/docker-compose.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">/Searx</span></code> files are <strong>up-to-date</strong>.</p>
-<p>Sometimes you will see in the Watcher logs a <strong>database migration request in red</strong>.
-If so, follow this <a class="reference external" href="#migrate">process</a>.</p>
+<p>This will update the all project <strong>Watcher</strong>, <strong>Rss-bridge</strong> and <strong>Searx</strong>.</p>
+<p>Verify that your local files <code class="docutils literal notranslate"><span class="pre">/.env</span></code>, <code class="docutils literal notranslate"><span class="pre">/docker-compose.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">/Searx/</span></code> are <strong>up-to-date</strong>.</p>
+<p>Sometimes you will see in Watcher logs a <strong>database migration request in red</strong>.
+If so, please follow the migration <a class="reference external" href="#migrate">process</a>.</p>
 </section>
 <section id="developers">
 <h1>Developers<a class="headerlink" href="#developers" title="Permalink to this headline"></a></h1>
@@ -565,40 +570,41 @@ Now, when modifying some frontend ReactJs files it will automatically build them
 </pre></div>
 </div>
 </section>
+<section id="migrations-change-the-database-schema">
+<h2>Migrations: Change the database schema<a class="headerlink" href="#migrations-change-the-database-schema" title="Permalink to this headline"></a></h2>
+<p>Migrations are Django’s way of propagating changes you make to your models
+(adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic,
+but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.</p>
+<section id="the-commands">
+<h3>The commands<a class="headerlink" href="#the-commands" title="Permalink to this headline"></a></h3>
+<p>There are several commands which you will use to interact with migrations and Django’s handling of database schema:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>, which is responsible for applying and unapplying migrations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">makemigrations</span></code>, which is responsible for creating new migrations based on the changes you have made to your models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sqlmigrate</span></code>, which displays the SQL statements for a migration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">showmigrations</span></code>, which lists a project’s migrations and their status.</p></li>
+</ul>
+</section>
+<section id="change-a-model-adding-a-field-deleting-a-model-etc">
+<h3>Change a model (adding a field, deleting a model, etc.)<a class="headerlink" href="#change-a-model-adding-a-field-deleting-a-model-etc" title="Permalink to this headline"></a></h3>
+<p>When you are <strong>making a change to a model</strong>, for instance, adding a new field to: <strong>/Watcher/Watcher/data_leak/models.py</strong>
+Then, you need to create a new migration based on the changes you have made:</p>
+<ul class="simple">
+<li><p>Go to <strong>/Watcher/Watcher/</strong> and run this command: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">makemigrations</span></code></p></li>
+</ul>
+<p>Run the <code class="docutils literal notranslate"><span class="pre">makemigrations</span></code> command <strong>only once</strong>, when you have made <strong>all the changes</strong>.
+Otherwise, it will create <strong>several unnecessary migration files</strong>.</p>
+</section>
+</section>
 <section id="build-the-documentation">
 <h2>Build the documentation<a class="headerlink" href="#build-the-documentation" title="Permalink to this headline"></a></h2>
-<p>After modifying some comments you may want to rebluid the documentation:</p>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/threats_watcher/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber</span>
+<p>Modify some function comments or the <code class="docutils literal notranslate"><span class="pre">/Watcher/README.md</span></code> file.</p>
+<p>Go to <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span> <span class="o">./</span><span class="n">build_the_docs</span><span class="o">.</span><span class="n">sh</span>
 </pre></div>
 </div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/data_leak/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Keyword, Alert, PastId, Subscriber</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/site_monitoring/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site, Alert, Subscriber</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/site_monitoring/misp.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/site_monitoring/thehive.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/dns_finder/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Alert, DnsMonitored, DnsTwisted, Subscriber</span>
-</pre></div>
-</div>
-<p>Go to <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">html</span> 
-</pre></div>
-</div>
-<p><strong>Please uncomment after the documentation build.</strong></p>
-<p>When commit please add the all <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> folder:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">add</span> <span class="o">/</span><span class="n">Watcher</span><span class="o">/</span><span class="n">docs</span>
+<p>When commit please add the all <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> folder and the <code class="docutils literal notranslate"><span class="pre">README.md</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">add</span> <span class="o">../</span><span class="n">docs</span> <span class="o">../</span><span class="n">README</span><span class="o">.</span><span class="n">md</span>
 </pre></div>
 </div>
 </section>
@@ -615,7 +621,7 @@ Now, when modifying some frontend ReactJs files it will automatically build them
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright .</p>
+    <p>&#169; Copyright 2021 - Thales CERT.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

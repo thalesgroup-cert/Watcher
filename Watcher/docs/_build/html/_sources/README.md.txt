@@ -295,12 +295,12 @@ To update Watcher image please follow the instructions below:
 - Remove the old docker images: `docker rmi felix83000/watcher searx/searx rssbridge/rss-bridge`
 - Pull the newer docker images: `docker-compose up`
 
-This will update Watcher, Rss-bridge and Searx.
+This will update the all project **Watcher**, **Rss-bridge** and **Searx**.
 
-Verify that the `/.env`, `/docker-compose.yml` and `/Searx` files are **up-to-date**.
+Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
 
-Sometimes you will see in the Watcher logs a **database migration request in red**. 
-If so, follow this [process](#migrate).
+Sometimes you will see in Watcher logs a **database migration request in red**. 
+If so, please follow the migration [process](#migrate).
 
 # Developers
 If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.
@@ -395,39 +395,33 @@ Now, when modifying some frontend ReactJs files it will automatically build them
 
     npm run build
 
+## Migrations: Change the database schema
+Migrations are Django’s way of propagating changes you make to your models 
+(adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic, 
+but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.
+
+### The commands
+There are several commands which you will use to interact with migrations and Django’s handling of database schema:
+- `migrate`, which is responsible for applying and unapplying migrations.
+- `makemigrations`, which is responsible for creating new migrations based on the changes you have made to your models.
+- `sqlmigrate`, which displays the SQL statements for a migration.
+- `showmigrations`, which lists a project’s migrations and their status.
+
+### Change a model (adding a field, deleting a model, etc.)
+When you are **making a change to a model**, for instance, adding a new field to: **/Watcher/Watcher/data_leak/models.py**
+Then, you need to create a new migration based on the changes you have made:
+- Go to **/Watcher/Watcher/** and run this command: `python3 manage.py makemigrations`
+
+Run the `makemigrations` command **only once**, when you have made **all the changes**. 
+Otherwise, it will create **several unnecessary migration files**.
+
 ## Build the documentation
-After modifying some comments you may want to rebluid the documentation:
+Modify some function comments or the `/Watcher/README.md` file.
 
-Please comment the line below of `/Watcher/Watcher/threats_watcher/core.py`:
-
-    # from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber
-
-Please comment the line below of `/Watcher/Watcher/data_leak/core.py`:
-
-    # from .models import Keyword, Alert, PastId, Subscriber
-
-Please comment the line below of `/Watcher/Watcher/site_monitoring/core.py`:
-
-    # from .models import Site, Alert, Subscriber
-
-Please comment the line below of `/Watcher/Watcher/site_monitoring/misp.py`:
-
-    # from .models import Site
-
-Please comment the line below of `/Watcher/Watcher/site_monitoring/thehive.py`:
-
-    # from .models import Site
-
-Please comment the line below of `/Watcher/Watcher/dns_finder/core.py`:
-
-    # from .models import Alert, DnsMonitored, DnsTwisted, Subscriber
-
-Go to `/Watcher/docs`:
+Go to `/Watcher/docs` and run:
    
-    make html 
+     ./build_the_docs.sh
 
-**Please uncomment after the documentation build.**
+When commit please add the all `/Watcher/docs` folder and the `README.md` file:
 
-When commit please add the all `/Watcher/docs` folder:
-
-    git add /Watcher/docs
+    git add ../docs ../README.md
