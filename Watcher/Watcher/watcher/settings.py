@@ -17,8 +17,11 @@ from django_auth_ldap.config import LDAPSearch
 
 # LDAP Setup
 AUTH_LDAP_SERVER_URI = os.environ.get('AUTH_LDAP_SERVER_URI', "")
-# Disable Certificate Verification
-AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER}
+
+# TLS/SSL Certificate Verification
+AUTH_LDAP_VERIFY_SSL = os.environ.get('AUTH_LDAP_VERIFY_SSL', 'False')
+if AUTH_LDAP_VERIFY_SSL == 'False':
+    AUTH_LDAP_GLOBAL_OPTIONS = {ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER}
 
 AUTH_LDAP_BIND_DN = os.environ.get('AUTH_LDAP_BIND_DN', "")
 AUTH_LDAP_BIND_PASSWORD = os.environ.get('AUTH_LDAP_BIND_PASSWORD', "")
@@ -44,7 +47,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret! You can set DJANGO_SECRET_KEY environment variable to change it within the .env file.
+# SECURITY WARNING: keep the secret key used in production secret! You can set DJANGO_SECRET_KEY environment variable
+# to change it within the .env file.
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_9-qu(onjic((jfca$z(!')
 if SECRET_KEY == '':
     SECRET_KEY = '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_9-qu(onjic((jfca$z(!'
@@ -79,19 +83,18 @@ WATCHER_URL = os.environ.get('WATCHER_URL', '')
 # Watcher Logo
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com/thalesgroup-cert/Watcher/master'
                                               '/Watcher/static/Watcher-logo-simple.png')
-
-# CertStream proxy setup
-HTTP_PROXY_HOST = os.environ.get('HTTP_PROXY_HOST', '')
-HTTP_PROXY_PORT = os.environ.get('HTTP_PROXY_PORT', '')
-HTTP_PROXY_USER = os.environ.get('HTTP_PROXY_USER', '')
-HTTP_PROXY_PASS = os.environ.get('HTTP_PROXY_PASS', '')
-
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
 
+# CertStream proxy setup
+CERT_STREAM_HTTP_PROXY_HOST = os.environ.get('CERT_STREAM_HTTP_PROXY_HOST', '')
+CERT_STREAM_HTTP_PROXY_PORT = os.environ.get('CERT_STREAM_HTTP_PROXY_PORT', '')
+CERT_STREAM_HTTP_PROXY_USER = os.environ.get('CERT_STREAM_HTTP_PROXY_USER', '')
+CERT_STREAM_HTTP_PROXY_PASS = os.environ.get('CERT_STREAM_HTTP_PROXY_PASS', '')
+
 # CertStream URL
-URL = os.environ.get('URL', 'wss://certstream.calidog.io')
+CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io')
 
 # Link to Searx Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')
