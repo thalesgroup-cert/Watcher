@@ -8,7 +8,11 @@ import {
     PATCH_DNS_MONITORED,
     UPDATE_DNS_FINDER_ALERT,
     EXPORT_THE_HIVE_DNS_FINDER,
-    EXPORT_MISP_DNS_FINDER
+    EXPORT_MISP_DNS_FINDER,
+    GET_KEYWORD_MONITORED,
+    DELETE_KEYWORD_MONITORED,
+    ADD_KEYWORD_MONITORED,
+    PATCH_KEYWORD_MONITORED
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
@@ -69,6 +73,68 @@ export const patchDnsMonitored = (id, dns_monitored) => (dispatch, getState) => 
             dispatch(createMessage({add: `${dns_monitored.domain_name} Updated`}));
             dispatch({
                 type: PATCH_DNS_MONITORED,
+                payload: res.data
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// GET KEYWORD MONITORED
+export const getKeywordMonitored = () => (dispatch, getState) => {
+    axios.get('/api/dns_finder/keyword_monitored/', tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_KEYWORD_MONITORED,
+                payload: res.data
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// DELETE KEYWORD MONITORED
+export const deleteKeywordMonitored = (id, keyword_monitored) => (dispatch, getState) => {
+    axios
+        .delete(`/api/dns_finder/keyword_monitored/${id}/`, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({delete: `${keyword_monitored} Deleted`}));
+            dispatch({
+                type: DELETE_KEYWORD_MONITORED,
+                payload: id
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// ADD KEYWORD MONITORED
+export const addKeywordMonitored = keyword_monitored => (dispatch, getState) => {
+    axios
+        .post("/api/dns_finder/keyword_monitored/", keyword_monitored, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({add: `${keyword_monitored.name} Monitoring`}));
+            dispatch({
+                type: ADD_KEYWORD_MONITORED,
+                payload: res.data
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// UPDATE KEYWORD MONITORED
+export const patchKeywordMonitored = (id, keyword_monitored) => (dispatch, getState) => {
+    axios
+        .patch(`/api/dns_finder/keyword_monitored/${id}/`, keyword_monitored, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({add: `${keyword_monitored.name} Updated`}));
+            dispatch({
+                type: PATCH_KEYWORD_MONITORED,
                 payload: res.data
             });
         })

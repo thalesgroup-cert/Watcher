@@ -91,9 +91,10 @@ export class ArchivedAlerts extends Component {
                                 <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Fuzzer</th>
                                     <th>Twisted DNS</th>
-                                    <th>Related To</th>
+                                    <th>Corporate Keyword</th>
+                                    <th>Corporate DNS</th>
+                                    <th>Fuzzer</th>
                                     <th>Created At</th>
                                     <th/>
                                 </tr>
@@ -104,9 +105,10 @@ export class ArchivedAlerts extends Component {
                                         return (
                                             <tr key={alert.id}>
                                                 <td><h5>#{alert.id}</h5></td>
-                                                <td>{alert.dns_twisted.fuzzer}</td>
                                                 <td>{alert.dns_twisted.domain_name}</td>
-                                                <td>{alert.dns_twisted.dns_monitored.domain_name}</td>
+                                                <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
+                                                <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
+                                                <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
                                                 <td>{(new Date(alert.created_at)).toLocaleString()}</td>
                                                 <td>
                                                     <button onClick={() => {

@@ -6,11 +6,16 @@ import {
     PATCH_DNS_MONITORED,
     UPDATE_DNS_FINDER_ALERT,
     EXPORT_THE_HIVE_DNS_FINDER,
-    EXPORT_MISP_DNS_FINDER
+    EXPORT_MISP_DNS_FINDER,
+    GET_KEYWORD_MONITORED,
+    DELETE_KEYWORD_MONITORED,
+    ADD_KEYWORD_MONITORED,
+    PATCH_KEYWORD_MONITORED
 } from '../actions/types.js';
 
 const initialState = {
     dnsMonitored: [],
+    keywordMonitored: [],
     alerts: []
 };
 
@@ -20,11 +25,6 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 dnsMonitored: action.payload
-            };
-        case GET_DNS_FINDER_ALERTS:
-            return {
-                ...state,
-                alerts: action.payload
             };
         case DELETE_DNS_MONITORED:
             return {
@@ -49,6 +49,40 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 dnsMonitored: [...state.dnsMonitored]
+            };
+        case GET_KEYWORD_MONITORED:
+            return {
+                ...state,
+                keywordMonitored: action.payload
+            };
+        case DELETE_KEYWORD_MONITORED:
+            return {
+                ...state,
+                keywordMonitored: state.keywordMonitored.filter(keyword_monitored => keyword_monitored.id !== action.payload)
+            };
+        case ADD_KEYWORD_MONITORED:
+            return {
+                ...state,
+                keywordMonitored: [...state.keywordMonitored, action.payload].sort(function (a, b) {
+                    let rv;
+                    rv = a.name.localeCompare(b.name);
+                    return rv;
+                })
+            };
+        case PATCH_KEYWORD_MONITORED:
+            state.keywordMonitored.map(keyword_monitored => {
+                if (keyword_monitored.id === action.payload.id) {
+                    keyword_monitored.name = action.payload.name
+                }
+            });
+            return {
+                ...state,
+                keywordMonitored: [...state.keywordMonitored]
+            };
+        case GET_DNS_FINDER_ALERTS:
+            return {
+                ...state,
+                alerts: action.payload
             };
         case UPDATE_DNS_FINDER_ALERT:
             state.alerts.map(alert => {

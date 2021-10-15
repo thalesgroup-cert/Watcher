@@ -1,7 +1,7 @@
-from .models import DnsMonitored, DnsTwisted, Alert
+from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored
 from rest_framework import viewsets, permissions
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, ThehiveSerializer, \
-    MISPSerializer
+    MISPSerializer, KeywordMonitoredSerializer
 
 
 # DnsMonitored Viewset
@@ -11,6 +11,15 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
         permissions.DjangoModelPermissions
     ]
     serializer_class = DnsMonitoredSerializer
+
+
+# KeywordMonitored Viewset
+class KeywordMonitoredViewSet(viewsets.ModelViewSet):
+    queryset = KeywordMonitored.objects.all()
+    permission_classes = [
+        permissions.DjangoModelPermissions
+    ]
+    serializer_class = KeywordMonitoredSerializer
 
 
 # DnsTwisted Viewset

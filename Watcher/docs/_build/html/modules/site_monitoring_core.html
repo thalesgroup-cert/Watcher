@@ -1,70 +1,34 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
-  
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <title>Site Monitoring - Core Algorithm &mdash; Watcher 1.0.0 documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+  <title>Site Monitoring - Core Algorithm &mdash; Watcher 1.2.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-    
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
-
-    
+    <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="DNS Finder - Core Algorithm" href="dns_finder_core.html" />
     <link rel="prev" title="Data Leak - Core Algorithm" href="data_leak_core.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
             <a href="../index.html" class="icon icon-home"> Watcher
-          
-
-          
           </a>
-
-          
-            
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -72,19 +36,8 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
-              <p class="caption"><span class="caption-text">Contents:</span></p>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../README.html">Install Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#use-watcher">Use Watcher</a></li>
@@ -98,76 +51,35 @@
 <li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">Watcher</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-        
       <li>Site Monitoring - Core Algorithm</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
-          
             <a href="../_sources/modules/site_monitoring_core.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
-  <div class="section" id="module-Watcher.site_monitoring.core">
-<span id="site-monitoring-core-algorithm"></span><h1>Site Monitoring - Core Algorithm<a class="headerlink" href="#module-Watcher.site_monitoring.core" title="Permalink to this headline">¶</a></h1>
+             
+  <section id="module-Watcher.site_monitoring.core">
+<span id="site-monitoring-core-algorithm"></span><h1>Site Monitoring - Core Algorithm<a class="headerlink" href="#module-Watcher.site_monitoring.core" title="Permalink to this headline"></a></h1>
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.check_content">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">check_content</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ua</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.check_content" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.check_content">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">check_content</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ua</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.check_content" title="Permalink to this definition"></a></dt>
 <dd><p>Monitor Website Content.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -187,8 +99,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.check_ip">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">check_ip</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.check_ip" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.check_ip">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">check_ip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.check_ip" title="Permalink to this definition"></a></dt>
 <dd><p>Monitor IP Address.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -207,8 +119,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.check_mail">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">check_mail</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.check_mail" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.check_mail">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">check_mail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.check_mail" title="Permalink to this definition"></a></dt>
 <dd><p>Monitor Mail (MX Records + mail.example.com).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -227,8 +139,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.create_alert">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">create_alert</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_ip</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_ip_second</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.create_alert" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.create_alert">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">create_alert</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_ip</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_ip_second</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.create_alert" title="Permalink to this definition"></a></dt>
 <dd><p>Create Alerts &amp; Emails.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -247,14 +159,14 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.monitoring_check">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">monitoring_check</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.monitoring_check" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.monitoring_check">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">monitoring_check</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.monitoring_check" title="Permalink to this definition"></a></dt>
 <dd><p>Main monitoring function.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.monitoring_init">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">monitoring_init</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.monitoring_init" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.monitoring_init">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">monitoring_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.monitoring_init" title="Permalink to this definition"></a></dt>
 <dd><p>Init the monitoring for a specific website.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -267,8 +179,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.previous_alert">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">previous_alert</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert_pk</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.previous_alert" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.previous_alert">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">previous_alert</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert_pk</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.previous_alert" title="Permalink to this definition"></a></dt>
 <dd><p>Check if there was a previous Alert created for the same website in the last hour.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -288,8 +200,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.send_email">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">send_email</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.send_email" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.send_email">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">send_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.send_email" title="Permalink to this definition"></a></dt>
 <dd><p>Send Email alert.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -306,8 +218,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.start_scheduler">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">start_scheduler</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.start_scheduler" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.start_scheduler">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.start_scheduler" title="Permalink to this definition"></a></dt>
 <dd><dl class="simple">
 <dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
 <li><p>Fire monitoring_check from Monday to Sunday : minute=’<a href="#id1"><span class="problematic" id="id2">*</span></a>/6’</p></li>
@@ -317,8 +229,8 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.site_monitoring.core.tlsh_score">
-<code class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></code><code class="sig-name descname"><span class="pre">tlsh_score</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">response</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.tlsh_score" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.site_monitoring.core.tlsh_score">
+<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.core.</span></span><span class="sig-name descname"><span class="pre">tlsh_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">response</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.core.tlsh_score" title="Permalink to this definition"></a></dt>
 <dd><p>Caculate TLSH Score.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -337,54 +249,37 @@
 </dl>
 </dd></dl>
 
-</div>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="dns_finder_core.html" class="btn btn-neutral float-right" title="DNS Finder - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="data_leak_core.html" class="btn btn-neutral float-left" title="Data Leak - Core Algorithm" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dns_finder_core.html" class="btn btn-neutral float-right" title="DNS Finder - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright .
-
-    </p>
+    <p>&#169; Copyright 2021 - Thales CERT.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

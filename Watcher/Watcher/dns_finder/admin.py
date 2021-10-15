@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DnsMonitored, DnsTwisted, Alert, Subscriber
+from .models import DnsMonitored, DnsTwisted, Alert, Subscriber, KeywordMonitored
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 
@@ -60,6 +60,24 @@ class DnsMonitoredResource(resources.ModelResource):
         exclude = ('created_at',)
 
 
+class KeywordMonitoredResource(resources.ModelResource):
+    class Meta:
+        model = KeywordMonitored
+
+
+class DnsTwistedResource(resources.ModelResource):
+    class Meta:
+        model = DnsTwisted
+
+
+@admin.register(KeywordMonitored)
+class KeywordMonitored(ImportExportModelAdmin):
+    list_display = ['name', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['name']
+    resource_class = KeywordMonitoredResource
+
+
 @admin.register(DnsMonitored)
 class DnsMonitored(ImportExportModelAdmin):
     list_display = ['domain_name', 'created_at']
@@ -69,10 +87,11 @@ class DnsMonitored(ImportExportModelAdmin):
 
 
 @admin.register(DnsTwisted)
-class DnsTwisted(admin.ModelAdmin):
-    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'created_at']
-    list_filter = ['created_at', 'dns_monitored', 'fuzzer']
-    search_fields = ['domain_name', 'dns_monitored', 'fuzzer']
+class DnsTwisted(ExportMixin, admin.ModelAdmin):
+    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'created_at']
+    list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer']
+    search_fields = ['domain_name']
+    resource_class = DnsTwistedResource
 
     def has_add_permission(self, request):
         return False

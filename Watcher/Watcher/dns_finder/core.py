@@ -5,29 +5,70 @@ import json
 from django.utils import timezone
 from django.conf import settings
 from .mail_template.default_template import get_template
+from .mail_template.default_template_cert_transparency import get_template
 from .mail_template.group_template import get_group_template
 from apscheduler.schedulers.background import BackgroundScheduler
-from .models import Alert, DnsMonitored, DnsTwisted, Subscriber
+from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
+import certstream
 
 
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
-        - Fire main_dns_twist from Monday to Sunday : Every 2 hours.
+        - Fire main_dns_twist from Monday to Sunday: every 2 hours.
+        - Fire main_certificate_transparency from Monday to Sunday: every hour.
     """
     scheduler = BackgroundScheduler()
-
-    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='weekend_job',
+    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)
-
+    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
+                      id='main_certificate_transparency',
+                      max_instances=2,
+                      replace_existing=True)
     scheduler.start()
 
 
+def print_callback(message, context):
+    """
+        Runs CertStream scan
+
+    :param message: event from CertStream.
+    :param context: parameter from CertStream.
+    """
+    all_domains = str(message['data']['leaf_cert']['subject']['CN'])
+    for keyword_monitored in KeywordMonitored.objects.all():
+        if keyword_monitored.name in all_domains and not DnsTwisted.objects.filter(domain_name=all_domains):
+            print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", all_domains)
+            dns_twisted = DnsTwisted.objects.create(domain_name=all_domains, keyword_monitored=keyword_monitored)
+            alert = Alert.objects.create(dns_twisted=dns_twisted)
+            send_email_cert_transparency(alert)
+
+
+def main_certificate_transparency():
+    """
+    Launch CertStream scan.
+    """
+    if settings.CERT_STREAM_HTTP_PROXY_HOST == '':
+        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+    elif settings.CERT_STREAM_HTTP_PROXY_USER == '':
+        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL,
+                                     http_proxy_host=settings.CERT_STREAM_HTTP_PROXY_HOST,
+                                     http_proxy_port=settings.CERT_STREAM_HTTP_PROXY_PORT)
+    else:
+        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL,
+                                     http_proxy_host=settings.CERT_STREAM_HTTP_PROXY_HOST,
+                                     http_proxy_port=settings.CERT_STREAM_HTTP_PROXY_PORT, http_proxy_auth=(
+                settings.CERT_STREAM_HTTP_PROXY_USER, settings.CERT_STREAM_HTTP_PROXY_PASS))
+
+
 def main_dns_twist():
+    """
+    Launch dnstwist algorithm.
+    """
     for dns_monitored in DnsMonitored.objects.all():
         check_dnstwist(dns_monitored)
 
@@ -154,6 +195,41 @@ def send_group_email(dns_monitored, alerts_number):
             msg['To'] = ','.join(emails_to)
             msg['Subject'] = str("[" + str(alerts_number) + " ALERTS] DNS Finder")
             body = get_group_template(dns_monitored, alerts_number)
+            msg.attach(MIMEText(body, 'html', _charset='utf-8'))
+            text = msg.as_string()
+            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
+            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
+            smtp_server.quit()
+
+        except Exception as e:
+            # Print any error messages to stdout
+            print(str(timezone.now()) + " - Email Error : ", e)
+        finally:
+            for email in emails_to:
+                print(str(timezone.now()) + " - Email sent to ", email)
+    else:
+        print(str(timezone.now()) + " - No subscriber, no email sent.")
+
+
+def send_email_cert_transparency(alert):
+    """
+    Send e-mail alert.
+
+    :param alert: Alert Object.
+    """
+    emails_to = list()
+    # Get all subscribers email
+    for subscriber in Subscriber.objects.all():
+        emails_to.append(subscriber.user_rec.email)
+
+    # If there is at least one subscriber
+    if len(emails_to) > 0:
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = settings.EMAIL_FROM
+            msg['To'] = ','.join(emails_to)
+            msg['Subject'] = str("[ALERT #" + str(alert.pk) + "] DNS Finder")
+            body = get_template(alert)
             msg.attach(MIMEText(body, 'html', _charset='utf-8'))
             text = msg.as_string()
             smtp_server = smtplib.SMTP(settings.SMTP_SERVER)

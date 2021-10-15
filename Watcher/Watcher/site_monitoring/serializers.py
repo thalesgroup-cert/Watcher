@@ -147,7 +147,7 @@ class ThehiveSerializer(serializers.Serializer):
                         tlp=2,
                         pap=2,
                         flag=False,
-                        tags=['Watcher', 'Impersonation', 'Malicious Domain', 'Typosquatting'],
+                        tags=settings.THE_HIVE_TAGS,
                         description='Suspicious domain name ' + site.domain_name)
 
             # Create the case

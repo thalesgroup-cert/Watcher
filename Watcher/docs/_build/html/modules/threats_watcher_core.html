@@ -1,70 +1,34 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
-  
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <title>Threats Watcher - Core Algorithm &mdash; Watcher 1.0.0 documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+  <title>Threats Watcher - Core Algorithm &mdash; Watcher 1.2.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-    
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
-
-    
+    <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Data Leak - Core Algorithm" href="data_leak_core.html" />
     <link rel="prev" title="TheHive API" href="site_monitoring_thehive.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
             <a href="../index.html" class="icon icon-home"> Watcher
-          
-
-          
           </a>
-
-          
-            
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -72,19 +36,8 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
-              <p class="caption"><span class="caption-text">Contents:</span></p>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../README.html">Install Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#use-watcher">Use Watcher</a></li>
@@ -98,82 +51,41 @@
 <li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">Watcher</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-        
       <li>Threats Watcher - Core Algorithm</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
-          
             <a href="../_sources/modules/threats_watcher_core.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
-  <div class="section" id="module-Watcher.threats_watcher.core">
-<span id="threats-watcher-core-algorithm"></span><h1>Threats Watcher - Core Algorithm<a class="headerlink" href="#module-Watcher.threats_watcher.core" title="Permalink to this headline">¶</a></h1>
+             
+  <section id="module-Watcher.threats_watcher.core">
+<span id="threats-watcher-core-algorithm"></span><h1>Threats Watcher - Core Algorithm<a class="headerlink" href="#module-Watcher.threats_watcher.core" title="Permalink to this headline"></a></h1>
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.cleanup">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">cleanup</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.cleanup" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.cleanup">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.cleanup" title="Permalink to this definition"></a></dt>
 <dd><p>Remove words with a creation date greater than 30 days.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.fetch_last_posts">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">fetch_last_posts</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nb_max_post</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.fetch_last_posts" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.fetch_last_posts">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">fetch_last_posts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nb_max_post</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.fetch_last_posts" title="Permalink to this definition"></a></dt>
 <dd><p>Fetch the nb last posts for each feed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -183,14 +95,14 @@
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.focus_five_letters">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">focus_five_letters</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_five_letters" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.focus_five_letters">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">focus_five_letters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_five_letters" title="Permalink to this definition"></a></dt>
 <dd><p>Focus on 5 letters long words.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.focus_on_top">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">focus_on_top</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">words_occurrence</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_on_top" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.focus_on_top">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">focus_on_top</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">words_occurrence</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_on_top" title="Permalink to this definition"></a></dt>
 <dd><p>Focus on top words.
 Populated the database with only words with a minimum occurrence of  “words_occurence” in feeds.</p>
 <dl class="field-list simple">
@@ -201,14 +113,14 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.load_feeds">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">load_feeds</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.load_feeds" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.load_feeds">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">load_feeds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.load_feeds" title="Permalink to this definition"></a></dt>
 <dd><p>Load feeds.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.main_watch">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">main_watch</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.main_watch" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.main_watch">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">main_watch</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.main_watch" title="Permalink to this definition"></a></dt>
 <dd><dl class="simple">
 <dt>Main function:</dt><dd><ul class="simple">
 <li><p>close_old_connections()</p></li>
@@ -225,20 +137,20 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.remove_banned_words">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">remove_banned_words</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.remove_banned_words" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.remove_banned_words">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">remove_banned_words</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.remove_banned_words" title="Permalink to this definition"></a></dt>
 <dd><p>Clean the posts for specific patterns: BannedWord, then english + french common words.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.send_email">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">send_email</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_email" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.send_email">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">send_email</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_email" title="Permalink to this definition"></a></dt>
 <dd><p>Send e-mail alert.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.start_scheduler">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">start_scheduler</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.start_scheduler" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.start_scheduler">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.start_scheduler" title="Permalink to this definition"></a></dt>
 <dd><dl class="simple">
 <dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
 <li><p>Fire main_watch every 30 minutes from Monday to Friday (daylight only)</p></li>
@@ -250,59 +162,42 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 </dd></dl>
 
 <dl class="py function">
-<dt id="Watcher.threats_watcher.core.tokenize_count_urls">
-<code class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></code><code class="sig-name descname"><span class="pre">tokenize_count_urls</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.tokenize_count_urls" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.tokenize_count_urls">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">tokenize_count_urls</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.tokenize_count_urls" title="Permalink to this definition"></a></dt>
 <dd><p>Tokenize phrases to words, Count word occurences and keep the word post source urls.</p>
 </dd></dl>
 
-</div>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="data_leak_core.html" class="btn btn-neutral float-right" title="Data Leak - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="site_monitoring_thehive.html" class="btn btn-neutral float-left" title="TheHive API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_leak_core.html" class="btn btn-neutral float-right" title="Data Leak - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright .
-
-    </p>
+    <p>&#169; Copyright 2021 - Thales CERT.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

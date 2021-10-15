@@ -1,70 +1,34 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
-  
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <title>Install Watcher &mdash; Watcher 1.0.0 documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+  <title>Install Watcher &mdash; Watcher 1.2.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-    
-    <script type="text/javascript" src="_static/js/theme.js"></script>
-
-    
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="MISP API" href="modules/site_monitoring_misp.html" />
     <link rel="prev" title="Welcome to Watcher’s documentation!" href="index.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
             <a href="index.html" class="icon icon-home"> Watcher
-          
-
-          
           </a>
-
-          
-            
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -72,19 +36,8 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
-              <p class="caption"><span class="caption-text">Contents:</span></p>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Install Watcher</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
@@ -126,8 +79,15 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="#developers">Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#open-a-pull-request-pr-to-contribute-to-this-project">Open a Pull Request (PR) to contribute to this project</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#setup-watcher-environment">Setup Watcher environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications">Deploy a simple SMTP server to test the email notifications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#migrations-change-the-database-schema">Migrations: Change the database schema</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#the-commands">The commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#change-a-model-adding-a-field-deleting-a-model-etc">Change a model (adding a field, deleting a model, etc.)</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#build-the-documentation">Build the documentation</a></li>
 </ul>
 </li>
@@ -139,87 +99,46 @@
 <li class="toctree-l1"><a class="reference internal" href="modules/dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Watcher</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-        
       <li>Install Watcher</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
-          
             <a href="_sources/README.md.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <p>Developed by <a class="reference external" href="https://github.com/thalesgroup-cert">Thales Group CERT</a>.</p>
 <hr class="docutils" />
-<div class="section" id="install-watcher">
-<h1>Install Watcher<a class="headerlink" href="#install-watcher" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<section id="install-watcher">
+<h1>Install Watcher<a class="headerlink" href="#install-watcher" title="Permalink to this headline"></a></h1>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline"></a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://docs.docker.com/install/">Install docker</a></p></li>
 <li><p><a class="reference external" href="https://docs.docker.com/compose/install/">Install docker-compose</a></p></li>
 </ul>
-</div>
-<div class="section" id="launch-watcher">
-<h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="launch-watcher">
+<h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Permalink to this headline"></a></h2>
 <ul class="simple">
-<li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (Keep directory structure).</p></li>
-<li><p>According to your existent infrastructure you may configure <strong>Watcher settings</strong> using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
+<li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code>, <code class="docutils literal notranslate"><span class="pre">Rss-bridge</span></code> directories (keep the directory structure).</p></li>
+<li><p>According to your existing infrastructure you may need to configure <strong>Watcher settings</strong> using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference external" href="#static-configuration">Static configuration</a>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
 <p>This should run Docker containers.</p>
@@ -229,18 +148,18 @@
 <span class="n">watcher</span>          <span class="o">|</span> 
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">System</span> <span class="n">check</span> <span class="n">identified</span> <span class="n">no</span> <span class="n">issues</span> <span class="p">(</span><span class="mi">0</span> <span class="n">silenced</span><span class="p">)</span><span class="o">.</span>
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">October</span> <span class="mi">08</span><span class="p">,</span> <span class="mi">2020</span> <span class="o">-</span> <span class="mi">10</span><span class="p">:</span><span class="mi">28</span><span class="p">:</span><span class="mi">02</span>
-<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Django</span> <span class="n">version</span> <span class="mf">3.1</span><span class="o">.</span><span class="mi">1</span><span class="p">,</span> <span class="n">using</span> <span class="n">settings</span> <span class="s1">&#39;watcher.settings&#39;</span>
-<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Starting</span> <span class="n">development</span> <span class="n">server</span> <span class="n">at</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="mf">0.0</span><span class="o">.</span><span class="mf">0.0</span><span class="p">:</span><span class="mi">9002</span><span class="o">/</span>
+<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Django</span> <span class="n">version</span> <span class="mf">3.1.1</span><span class="p">,</span> <span class="n">using</span> <span class="n">settings</span> <span class="s1">&#39;watcher.settings&#39;</span>
+<span class="n">watcher</span>          <span class="o">|</span> <span class="n">Starting</span> <span class="n">development</span> <span class="n">server</span> <span class="n">at</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="mf">0.0.0.0</span><span class="p">:</span><span class="mi">9002</span><span class="o">/</span>
 <span class="n">watcher</span>          <span class="o">|</span> <span class="n">Quit</span> <span class="n">the</span> <span class="n">server</span> <span class="k">with</span> <span class="n">CONTROL</span><span class="o">-</span><span class="n">C</span><span class="o">.</span>
 </pre></div>
 </div>
 <ul class="simple">
-<li><p>Try Access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.</p></li>
+<li><p>Try to access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">CONTROL-C</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code> to stop all containers.</p></li>
 </ul>
-<div class="section" id="migrate">
-<h3>Migrate<a class="headerlink" href="#migrate" title="Permalink to this headline">¶</a></h3>
+<section id="migrate">
+<h3>Migrate<a class="headerlink" href="#migrate" title="Permalink to this headline"></a></h3>
 <p>Updates the state of the database in accordance with all current models and migrations. Migrations, their relationships
 with applications…</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
@@ -248,38 +167,38 @@ with applications…</p>
 <span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">migrate</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="create-admin-user">
-<h3>Create admin user<a class="headerlink" href="#create-admin-user" title="Permalink to this headline">¶</a></h3>
-<p>You will need to create the first superuser to access <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
+</section>
+<section id="create-admin-user">
+<h3>Create admin user<a class="headerlink" href="#create-admin-user" title="Permalink to this headline"></a></h3>
+<p>You will need to create the first superuser to access the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
 <span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">createsuperuser</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="populate-your-database">
-<h3>Populate your database<a class="headerlink" href="#populate-your-database" title="Permalink to this headline">¶</a></h3>
-<p>Populate your database with hundred of banned words and RSS sources related to Cybersecurity.</p>
+</section>
+<section id="populate-your-database">
+<h3>Populate your database<a class="headerlink" href="#populate-your-database" title="Permalink to this headline"></a></h3>
+<p>Populate your database with hundred of banned words and RSS sources related to Cyber Security.</p>
 <p>Use <code class="docutils literal notranslate"><span class="pre">populate_db</span></code> script:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
 <span class="n">python</span> <span class="n">manage</span><span class="o">.</span><span class="n">py</span> <span class="n">populate_db</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="good-to-know">
-<h3>Good to know<a class="headerlink" href="#good-to-know" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="good-to-know">
+<h3>Good to know<a class="headerlink" href="#good-to-know" title="Permalink to this headline"></a></h3>
 <p>The first time you run Watcher, you will not have any new threats on the homepage, this is normal.</p>
 <p>You just have to wait for Watcher to crawl the Internet. This will happen every 30 minutes.</p>
-</div>
-</div>
-<div class="section" id="static-configuration">
-<h2>Static configuration<a class="headerlink" href="#static-configuration" title="Permalink to this headline">¶</a></h2>
-<p>Most of the settings can be modify from the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
-<p>There are other settings located in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file that you can configure:</p>
-<div class="section" id="production-settings-important">
-<h3>Production Settings [Important]<a class="headerlink" href="#production-settings-important" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="static-configuration">
+<h2>Static configuration<a class="headerlink" href="#static-configuration" title="Permalink to this headline"></a></h2>
+<p>Most of the settings can be modified from the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
+<p>There are other settings located in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file that you can configure.</p>
+<section id="production-settings-important">
+<h3>Production Settings [Important]<a class="headerlink" href="#production-settings-important" title="Permalink to this headline"></a></h3>
 <p>In production please put DJANGO_DEBUG environment variable to <strong>False</strong> in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">DJANGO_DEBUG</span><span class="o">=</span><span class="kc">False</span>
 </pre></div>
@@ -299,9 +218,9 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="access-watcher-remotely-within-your-server-instance">
-<h3>Access Watcher remotely within your server instance<a class="headerlink" href="#access-watcher-remotely-within-your-server-instance" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="access-watcher-remotely-within-your-server-instance">
+<h3>Access Watcher remotely within your server instance<a class="headerlink" href="#access-watcher-remotely-within-your-server-instance" title="Permalink to this headline"></a></h3>
 <p>In case of <strong>“Bad Request” Error</strong> when accessing Watcher web interface, fill <code class="docutils literal notranslate"><span class="pre">ALLOWED_HOST</span></code> variable (in <code class="docutils literal notranslate"><span class="pre">.env</span></code> file) with your Watcher Server Instance <strong>IP</strong> / or your <strong>FQDN</strong>.</p>
 <p>It is limited to a <strong>single IP address</strong> / <strong>single FQDN</strong>.</p>
 <p>Please use this syntax:</p>
@@ -313,9 +232,9 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="smtp-server-settings-email-notifications">
-<h3>SMTP Server Settings (Email Notifications)<a class="headerlink" href="#smtp-server-settings-email-notifications" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="smtp-server-settings-email-notifications">
+<h3>SMTP Server Settings (Email Notifications)<a class="headerlink" href="#smtp-server-settings-email-notifications" title="Permalink to this headline"></a></h3>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">EMAIL_FROM</span><span class="o">=</span><span class="n">watcher</span><span class="nd">@example</span><span class="o">.</span><span class="n">com</span>
 <span class="n">SMTP_SERVER</span><span class="o">=</span><span class="n">smtp</span><span class="o">.</span><span class="n">example</span><span class="o">.</span><span class="n">com</span>
@@ -330,10 +249,10 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="thehive-settings">
-<h3>TheHive Settings<a class="headerlink" href="#thehive-settings" title="Permalink to this headline">¶</a></h3>
-<p>If you want to use <strong>TheHive export</strong>, please fill the <strong>IP</strong> of your TheHive instance and an <strong>API key generated</strong>.</p>
+</section>
+<section id="thehive-settings">
+<h3>TheHive Settings<a class="headerlink" href="#thehive-settings" title="Permalink to this headline"></a></h3>
+<p>If you want to use <strong>TheHive export</strong>, please fill the <strong>IP</strong> of your TheHive instance and a <strong>generated API key</strong>.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># THE HIVE SETUP</span>
 <span class="n">THE_HIVE_URL</span><span class="o">=</span>
@@ -346,9 +265,9 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="misp-settings">
-<h3>MISP Settings<a class="headerlink" href="#misp-settings" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="misp-settings">
+<h3>MISP Settings<a class="headerlink" href="#misp-settings" title="Permalink to this headline"></a></h3>
 <p>If you want to use <strong>MISP export</strong>, please fill the <strong>IP</strong> of your MISP instance and an <strong>API key</strong>.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># MISP Setup</span>
@@ -362,9 +281,9 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="ldap-settings">
-<h3>LDAP Settings<a class="headerlink" href="#ldap-settings" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="ldap-settings">
+<h3>LDAP Settings<a class="headerlink" href="#ldap-settings" title="Permalink to this headline"></a></h3>
 <p>You can configure an LDAP authentication within Watcher:</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># LDAP Setup</span>
@@ -380,13 +299,13 @@ There is one by default but consider to change it in the <code class="docutils l
 <span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">up</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="remove-the-database">
-<h3>Remove the database<a class="headerlink" href="#remove-the-database" title="Permalink to this headline">¶</a></h3>
-<p>You may want to <strong>reset</strong> your database entirely, in case of troubleshooting or other. To do this you need to remove the database stored in your host system and restart the instance:</p>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline"></a></h2>
+<section id="remove-the-database">
+<h3>Remove the database<a class="headerlink" href="#remove-the-database" title="Permalink to this headline"></a></h3>
+<p>You may want to <strong>reset</strong> your database entirely, in case of troubleshooting or other. To do this, you need to remove the database stored in your host system and restart the instance:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">down</span>
 <span class="n">docker</span> <span class="n">volume</span> <span class="n">rm</span> <span class="n">watcher</span><span class="o">-</span><span class="n">project_db_data</span>
 <span class="n">docker</span> <span class="n">volume</span> <span class="n">rm</span> <span class="n">watcher</span><span class="o">-</span><span class="n">project_db_log</span>
@@ -397,22 +316,22 @@ There is one by default but consider to change it in the <code class="docutils l
 </pre></div>
 </div>
 <p>Don’t forget to <a class="reference external" href="#migrate">migrate</a>.</p>
-</div>
-<div class="section" id="useful-commands">
-<h3>Useful commands<a class="headerlink" href="#useful-commands" title="Permalink to this headline">¶</a></h3>
-<p>Use <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code> if you want to run it in Background.</p>
+</section>
+<section id="useful-commands">
+<h3>Useful commands<a class="headerlink" href="#useful-commands" title="Permalink to this headline"></a></h3>
+<p>Use <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span> <span class="pre">-d</span></code> if you want to run it in background.</p>
 <p>Run interactive shell session on the Watcher container:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span><span class="o">-</span><span class="n">compose</span> <span class="n">run</span> <span class="n">watcher</span> <span class="n">bash</span>
 </pre></div>
 </div>
-</div>
-</div>
-</div>
-<div class="section" id="use-watcher">
-<h1>Use Watcher<a class="headerlink" href="#use-watcher" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="user-enrollment">
-<h2>User enrollment<a class="headerlink" href="#user-enrollment" title="Permalink to this headline">¶</a></h2>
-<p>To create simple user, staff user or admin user:</p>
+</section>
+</section>
+</section>
+<section id="use-watcher">
+<h1>Use Watcher<a class="headerlink" href="#use-watcher" title="Permalink to this headline"></a></h1>
+<section id="user-enrollment">
+<h2>User enrollment<a class="headerlink" href="#user-enrollment" title="Permalink to this headline"></a></h2>
+<p>To create a simple user, staff user or admin user:</p>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
 <li><p>Click on <strong>Users</strong>.</p></li>
@@ -428,9 +347,9 @@ There is one by default but consider to change it in the <code class="docutils l
 <li><p>You may enter an <strong>Email address</strong> for email notifications.</p></li>
 <li><p>Click on <strong>SAVE</strong>.</p></li>
 </ul>
-</div>
-<div class="section" id="add-email-notifications-subscriber">
-<h2>Add email notifications subscriber<a class="headerlink" href="#add-email-notifications-subscriber" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="add-email-notifications-subscriber">
+<h2>Add email notifications subscriber<a class="headerlink" href="#add-email-notifications-subscriber" title="Permalink to this headline"></a></h2>
 <p>Receive email notifications when subscribing to a topic.</p>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
@@ -438,16 +357,16 @@ There is one by default but consider to change it in the <code class="docutils l
 <li><p>Click on <strong>ADD SUBSCRIBER</strong>.</p></li>
 <li><p>Select the <strong>User</strong> and Click on <strong>SAVE</strong>.</p></li>
 </ul>
-</div>
-<div class="section" id="add-your-rss-source-to-threats-detection">
-<h2>Add your RSS source to Threats Detection<a class="headerlink" href="#add-your-rss-source-to-threats-detection" title="Permalink to this headline">¶</a></h2>
-<p>As you know this feature allow the detection of emerging vulnerability, malware using social network &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…).</p>
+</section>
+<section id="add-your-rss-source-to-threats-detection">
+<h2>Add your RSS source to Threats Detection<a class="headerlink" href="#add-your-rss-source-to-threats-detection" title="Permalink to this headline"></a></h2>
+<p>As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…).</p>
 <p>Watcher currently provides hundreds of RSS cybersecurity sources (<a class="reference external" href="#populate-your-database">Populate default RSS sources</a>).</p>
 <p>However, you can add your RSS Cybersecurity source to your Watcher instance:</p>
 <ul class="simple">
 <li><p>First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0).</p></li>
 <li><p>Your RSS file must be composed of several articles.</p></li>
-<li><p>Please prefer to use https instead of http.</p></li>
+<li><p>Please consider the use of https over http.</p></li>
 </ul>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
@@ -456,18 +375,18 @@ There is one by default but consider to change it in the <code class="docutils l
 <li><p>Fill <strong>Url</strong> text input.</p></li>
 <li><p>Click on <strong>SAVE</strong>.</p></li>
 </ul>
-</div>
-<div class="section" id="how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube">
-<h2>How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…<a class="headerlink" href="#how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube" title="Permalink to this headline">¶</a></h2>
-<p>RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like: Facebook, DuckDuckGo, GoogleSearch…</p>
-<p>To do such you need to add the new bridge needed in the <code class="docutils literal notranslate"><span class="pre">Watcher/Rss-bridge/whitelist.txt</span></code> file.</p>
+</section>
+<section id="how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube">
+<h2>How to use RSS-Bridge to add more sources from Facebook, GoogleSearch, YouTube…<a class="headerlink" href="#how-to-use-rss-bridge-to-add-more-sources-from-facebook-googlesearch-youtube" title="Permalink to this headline"></a></h2>
+<p>RSS-Bridge is, by default, configured with Twitter only, but users can use it for all other sources like Facebook, DuckDuckGo, GoogleSearch…</p>
+<p>To do so, you need to add the new bridge needed in the <code class="docutils literal notranslate"><span class="pre">Watcher/Rss-bridge/whitelist.txt</span></code> file.</p>
 <p>An RSS-Bridge source URL looks like this: <code class="docutils literal notranslate"><span class="pre">http://10.10.10.7/?action=display&amp;bridge=Twitter&amp;context=By+username&amp;u=tomchop_&amp;norep=on&amp;nopic=on&amp;noimg=on&amp;noimgscaling=on&amp;format=Mrss</span></code></p>
 <p>To add your own custom url, simply change the bridge, if necessary, with the associated parameters (just keep <code class="docutils literal notranslate"><span class="pre">http://10.10.10.7/</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">format=Mrss</span></code>).</p>
 <p>You can test RSS-Bridge API with a public instance like this one: <a class="reference external" href="https://wtf.roflcopter.fr/rss-bridge/">https://wtf.roflcopter.fr/rss-bridge/</a></p>
 <p>RSS API request example: <a class="reference external" href="https://wtf.roflcopter.fr/rss-bridge/?action=display&amp;bridge=Twitter&amp;context=By+username&amp;u=tomchop_&amp;norep=on&amp;nopic=on&amp;noimg=on&amp;noimgscaling=on&amp;format=Mrss">https://wtf.roflcopter.fr/rss-bridge/?action=display&amp;bridge=Twitter&amp;context=By+username&amp;u=tomchop_&amp;norep=on&amp;nopic=on&amp;noimg=on&amp;noimgscaling=on&amp;format=Mrss</a></p>
-</div>
-<div class="section" id="thehive-misp-export">
-<h2>Thehive &amp; MISP Export<a class="headerlink" href="#thehive-misp-export" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="thehive-misp-export">
+<h2>Thehive &amp; MISP Export<a class="headerlink" href="#thehive-misp-export" title="Permalink to this headline"></a></h2>
 <p>You can export <strong>monitored DNS</strong> to <a class="reference external" href="https://thehive-project.org/">TheHive</a> or <a class="reference external" href="https://www.misp-project.org/">MISP</a>:</p>
 <ul class="simple">
 <li><p>Go to <strong>/website_monitoring</strong> page.</p></li>
@@ -475,8 +394,8 @@ There is one by default but consider to change it in the <code class="docutils l
 <li><p>Click on the <strong>blue upload/cloud button</strong>.</p></li>
 <li><p>Choose which service you want to use.</p></li>
 </ul>
-<div class="section" id="id1">
-<h3>Troubleshooting<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<section id="id1">
+<h3>Troubleshooting<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
 <p>If the export do not work as expected, this may be related with
 the version of your TheHive or MISP instance.</p>
 <p>In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your
@@ -484,10 +403,10 @@ TheHive/MISP instance version:</p>
 <ul class="simple">
 <li><p>Update Thehive or MISP.</p></li>
 </ul>
-</div>
-</div>
-<div class="section" id="remove-add-to-blocklist">
-<h2>Remove &amp; Add to Blocklist<a class="headerlink" href="#remove-add-to-blocklist" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="remove-add-to-blocklist">
+<h2>Remove &amp; Add to Blocklist<a class="headerlink" href="#remove-add-to-blocklist" title="Permalink to this headline"></a></h2>
 <p>There is a <strong>blocklist</strong> to prevent a <strong>false positive trendy words</strong> from reappearing again.</p>
 <p>To add <strong>1</strong> word:</p>
 <ul class="simple">
@@ -502,9 +421,9 @@ TheHive/MISP instance version:</p>
 <li><p>Click on <strong>Action</strong> dropdown.</p></li>
 <li><p>Select “<strong>Delete &amp; Blocklist selected trendy words</strong>”.</p></li>
 </ul>
-</div>
-<div class="section" id="archived-alerts">
-<h2>Archived Alerts<a class="headerlink" href="#archived-alerts" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="archived-alerts">
+<h2>Archived Alerts<a class="headerlink" href="#archived-alerts" title="Permalink to this headline"></a></h2>
 <p>Once you have processed an alert, you can archive it.</p>
 <p>To archived <strong>1</strong> alert:</p>
 <ul class="simple">
@@ -519,35 +438,50 @@ TheHive/MISP instance version:</p>
 <li><p>Click on <strong>Action</strong> dropdown.</p></li>
 <li><p>Select “<strong>Disable selected alerts</strong>”.</p></li>
 </ul>
-</div>
-</div>
-<div class="section" id="update-watcher">
-<h1>Update Watcher<a class="headerlink" href="#update-watcher" title="Permalink to this headline">¶</a></h1>
+</section>
+</section>
+<section id="update-watcher">
+<h1>Update Watcher<a class="headerlink" href="#update-watcher" title="Permalink to this headline"></a></h1>
 <p>To update Watcher image please follow the instructions below:</p>
 <ul class="simple">
 <li><p>Stop all containers: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">down</span></code></p></li>
-<li><p>Remove the old docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher:latest</span> <span class="pre">searx/searx</span> <span class="pre">searx/searx-checker</span> <span class="pre">rssbridge/rss-bridge:latest</span></code></p></li>
+<li><p>Remove the old docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher</span> <span class="pre">searx/searx</span> <span class="pre">rssbridge/rss-bridge</span></code></p></li>
 <li><p>Pull the newer docker images: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 </ul>
-<p>This will update Watcher, Rss-bridge and Searx.</p>
-</div>
-<div class="section" id="developers">
-<h1>Developers<a class="headerlink" href="#developers" title="Permalink to this headline">¶</a></h1>
-<p>If you want to modify the project and PR your work, you will need to setup your development environment.</p>
-<div class="section" id="setup-watcher-environment">
-<h2>Setup Watcher environment<a class="headerlink" href="#setup-watcher-environment" title="Permalink to this headline">¶</a></h2>
-<p>Use a Linux server, we recommend the usage of a Virtual Machine.
-Ubuntu 20.04 LTS in our case.</p>
+<p>This will update the all project <strong>Watcher</strong>, <strong>Rss-bridge</strong> and <strong>Searx</strong>.</p>
+<p>Verify that your local files <code class="docutils literal notranslate"><span class="pre">/.env</span></code>, <code class="docutils literal notranslate"><span class="pre">/docker-compose.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">/Searx/</span></code> are <strong>up-to-date</strong>.</p>
+<p>Sometimes you will see in Watcher logs a <span style="color:red"> <strong>database migration request in red</strong></span>.
+If so, please follow the migration <a class="reference external" href="#migrate">process</a>.</p>
+</section>
+<section id="developers">
+<h1>Developers<a class="headerlink" href="#developers" title="Permalink to this headline"></a></h1>
+<p>If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.</p>
+<section id="open-a-pull-request-pr-to-contribute-to-this-project">
+<h2>Open a Pull Request (PR) to contribute to this project<a class="headerlink" href="#open-a-pull-request-pr-to-contribute-to-this-project" title="Permalink to this headline"></a></h2>
+<ul class="simple">
+<li><p>Fork the official Watcher repository</p></li>
+<li><p>Install<code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
+<li><p>Open a terminal: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
+<li><p>Switch to the dev branch: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">-b</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
+<li><p>Make your changes on the working files and then: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">*</span></code></p></li>
+<li><p>Add a commit message and description: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span> <span class="pre">-m</span> <span class="pre">&quot;Title&quot;</span> <span class="pre">-m</span> <span class="pre">&quot;Description&quot;</span></code></p></li>
+<li><p>Publish the changes: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">push</span> <span class="pre">origin</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
+<li><p>Back to GitHub on your forked repository, click Under Contribute &gt; Open Pull Request and then Confirm the operation</p></li>
+<li><p>Done! Your work will be reviewed by the team!</p></li>
+</ul>
+</section>
+<section id="setup-watcher-environment">
+<h2>Setup Watcher environment<a class="headerlink" href="#setup-watcher-environment" title="Permalink to this headline"></a></h2>
+<p>Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).</p>
 <p>Then, follow the steps below:</p>
 <ul class="simple">
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.8</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">Node.js</span> <span class="pre">14</span></code></p></li>
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
-<li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">https://github.com/thalesgroup-cert/Watcher.git</span></code></p></li>
+<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.8</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">Node.js</span> <span class="pre">16</span></code></p></li>
+<li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
-<li><p><strong>Install Python dependencies:</strong><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
-<li><p><strong>Install NLTK/punkt dependency:</strong><code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
+<li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
+<li><p><strong>Install NLTK/punkt dependency:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
 <ul>
 <li><p>If you have a proxy, you can configure it in <code class="docutils literal notranslate"><span class="pre">nltk_dependencies.py</span></code> script.</p></li>
 </ul>
@@ -605,106 +539,106 @@ disable remote root logins, and load these new rules so that MySQL immediately r
 <li><p><strong><a class="reference external" href="#migrate">Migrate</a> the database:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">migrate</span></code></p></li>
 <li><p><strong>Run Watcher:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">runserver</span></code></p></li>
 </ul>
-</div>
-<div class="section" id="modify-the-frontend">
-<h2>Modify the frontend<a class="headerlink" href="#modify-the-frontend" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="deploy-a-simple-smtp-server-to-test-the-email-notifications">
+<h2>Deploy a simple SMTP server to test the email notifications<a class="headerlink" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications" title="Permalink to this headline"></a></h2>
+<p>If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.</p>
+<ul class="simple">
+<li><p>Grab the docker-compose file: <a class="reference external" href="https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml">here</a>.</p></li>
+<li><p>Run the command: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
+<li><p>The mails will be available here by default: <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
+<li><p>Modify the mail settings in the environment variables: <code class="docutils literal notranslate"><span class="pre">vi</span> <span class="pre">/.env</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM=from&#64;from.com</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SMTP_SERVER=localhost</span></code></p></li>
+</ul>
+</li>
+<li><p>Launch Watcher: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">Watcher/Watcher/manage.py</span> <span class="pre">runserver</span></code></p></li>
+</ul>
+</section>
+<section id="modify-the-frontend">
+<h2>Modify the frontend<a class="headerlink" href="#modify-the-frontend" title="Permalink to this headline"></a></h2>
 <p>If you need to modify the frontend <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/frontend</span></code>:</p>
 <p>From <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/</span></code>, run the command below:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">run</span> <span class="n">dev</span>
 </pre></div>
 </div>
-<p>Let this command in background.
+<p>Let this command run in background.
 Now, when modifying some frontend ReactJs files it will automatically build them into one file (<code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/frontend/static/frontend/main.js</span></code>).</p>
 <p><span style="color:red"><strong>[IMPORTANT]</strong> When <strong>commit</strong> you have to run <strong>1 time</strong> the command below:</span></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">npm</span> <span class="n">run</span> <span class="n">build</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="build-the-documentation">
-<h2>Build the documentation<a class="headerlink" href="#build-the-documentation" title="Permalink to this headline">¶</a></h2>
-<p>After modifying some comments you may want to rebluid the documentation:</p>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/threats_watcher/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber</span>
+</section>
+<section id="migrations-change-the-database-schema">
+<h2>Migrations: Change the database schema<a class="headerlink" href="#migrations-change-the-database-schema" title="Permalink to this headline"></a></h2>
+<p>Migrations are Django’s way of propagating changes you make to your models
+(adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic,
+but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.</p>
+<section id="the-commands">
+<h3>The commands<a class="headerlink" href="#the-commands" title="Permalink to this headline"></a></h3>
+<p>There are several commands which you will use to interact with migrations and Django’s handling of database schema:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>, which is responsible for applying and unapplying migrations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">makemigrations</span></code>, which is responsible for creating new migrations based on the changes you have made to your models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sqlmigrate</span></code>, which displays the SQL statements for a migration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">showmigrations</span></code>, which lists a project’s migrations and their status.</p></li>
+</ul>
+</section>
+<section id="change-a-model-adding-a-field-deleting-a-model-etc">
+<h3>Change a model (adding a field, deleting a model, etc.)<a class="headerlink" href="#change-a-model-adding-a-field-deleting-a-model-etc" title="Permalink to this headline"></a></h3>
+<p>When you are <strong>making a change to a model</strong>, for instance, adding a new field to: <strong>/Watcher/Watcher/data_leak/models.py</strong>
+Then, you need to create a new migration based on the changes you have made:</p>
+<ul class="simple">
+<li><p>Go to <strong>/Watcher/Watcher/</strong> and run this command: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">makemigrations</span></code></p></li>
+</ul>
+<p><span style="color:red"> <strong>[IMPORTANT]</strong> Run the <code class="docutils literal notranslate"><span class="pre">makemigrations</span></code> command <strong>only once</strong></span>, when you have made <strong>all the changes</strong>.
+Otherwise, it will create <strong>several unnecessary migration files</strong>.</p>
+</section>
+</section>
+<section id="build-the-documentation">
+<h2>Build the documentation<a class="headerlink" href="#build-the-documentation" title="Permalink to this headline"></a></h2>
+<p>Modify some function comments or the <code class="docutils literal notranslate"><span class="pre">/Watcher/README.md</span></code> file.</p>
+<p>Go to <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span> <span class="o">./</span><span class="n">build_the_docs</span><span class="o">.</span><span class="n">sh</span>
 </pre></div>
 </div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/data_leak/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Keyword, Alert, PastId, Subscriber</span>
+<p>When commit please add the all <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> folder and the <code class="docutils literal notranslate"><span class="pre">README.md</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">add</span> <span class="o">../</span><span class="n">docs</span> <span class="o">../</span><span class="n">README</span><span class="o">.</span><span class="n">md</span>
 </pre></div>
 </div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/site_monitoring/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site, Alert, Subscriber</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/site_monitoring/misp.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/site_monitoring/thehive.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Site</span>
-</pre></div>
-</div>
-<p>Please comment the line below of <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/dns_finder/core.py</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># from .models import Alert, DnsMonitored, DnsTwisted, Subscriber</span>
-</pre></div>
-</div>
-<p>Go to <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">html</span> 
-</pre></div>
-</div>
-<p><strong>Please uncomment after the documentation build.</strong></p>
-<p>When commit please add the all <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> folder:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">add</span> <span class="o">/</span><span class="n">Watcher</span><span class="o">/</span><span class="n">docs</span>
-</pre></div>
-</div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="modules/site_monitoring_misp.html" class="btn btn-neutral float-right" title="MISP API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Welcome to Watcher’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modules/site_monitoring_misp.html" class="btn btn-neutral float-right" title="MISP API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright .
-
-    </p>
+    <p>&#169; Copyright 2021 - Thales CERT.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>

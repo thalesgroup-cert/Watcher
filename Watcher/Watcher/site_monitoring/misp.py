@@ -16,7 +16,7 @@ def create_misp_tags(misp_api):
     print(str(timezone.now()) + " - " + 'Generate MISP Tags')
     print('-----------------------------')
 
-    required_tags = ['Watcher', 'Impersonation', 'Malicious Domain', 'Typosquatting', 'TLP:Amber']
+    required_tags = settings.MISP_TAGS
     tag_list = list()
     tags = misp_api.tags(pythonify=True)
     tags_names = list()
