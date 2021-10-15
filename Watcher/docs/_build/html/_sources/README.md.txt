@@ -299,19 +299,30 @@ This will update the all project **Watcher**, **Rss-bridge** and **Searx**.
 
 Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
 
-Sometimes you will see in Watcher logs a **database migration request in red**. 
+Sometimes you will see in Watcher logs a <span style="color:red"> **database migration request in red**</span>. 
 If so, please follow the migration [process](#migrate).
 
 # Developers
 If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.
+
+## Open a Pull Request (PR) to contribute to this project
+- Fork the official Watcher repository
+- Install`Git`
+- Open a terminal: `git clone <your_forked_repository.git>`
+- Switch to the dev branch: `git checkout -b feature/<name_of_the_new_feature>`
+- Make your changes on the working files and then: `git add *`
+- Add a commit message and description: `git commit -m "Title" -m "Description"`
+- Publish the changes: `git push origin feature/<name_of_the_new_feature>`
+- Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
+- Done! Your work will be reviewed by the team! 
+
 ## Setup Watcher environment
 Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).
 
 Then, follow the steps below:
 
 - **Install** `Python 3.8` **&** `Node.js 16`
-- **Install** `Git`
-- **Pull Watcher code:** `git clone https://github.com/thalesgroup-cert/Watcher.git`
+- **Pull Watcher code:** `git clone <your_forked_repository.git>`
 - `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
@@ -361,16 +372,6 @@ In `settings.py` change `HOST` variable to `localhost`:
 - **[Migrate](#migrate) the database:** `python3 manage.py migrate`
 - **Run Watcher:** `python3 manage.py runserver`
 
-## Open a Pull Request (PR) to contribute to this project
-- Fork the official Watcher repository
-- Open a terminal: `git clone <your_forked_repository.git>`
-- Switch to the dev branch: `git checkout dev`
-- Make your changes on the working files and then: `git add *`
-- Add a commit message and description: `git commit -m "Title" -m "Description"`
-- Publish the changes: `git push origin dev`
-- Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
-- Done! Your work will be reviewed by the team! 
-
 ## Deploy a simple SMTP server to test the email notifications
 If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.
 - Grab the docker-compose file: [here](https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml).
@@ -412,7 +413,7 @@ When you are **making a change to a model**, for instance, adding a new field to
 Then, you need to create a new migration based on the changes you have made:
 - Go to **/Watcher/Watcher/** and run this command: `python3 manage.py makemigrations`
 
-Run the `makemigrations` command **only once**, when you have made **all the changes**. 
+<span style="color:red"> **[IMPORTANT]** Run the `makemigrations` command **only once**</span>, when you have made **all the changes**. 
 Otherwise, it will create **several unnecessary migration files**.
 
 ## Build the documentation

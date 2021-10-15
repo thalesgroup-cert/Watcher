@@ -79,8 +79,8 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="#developers">Developers</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#setup-watcher-environment">Setup Watcher environment</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#open-a-pull-request-pr-to-contribute-to-this-project">Open a Pull Request (PR) to contribute to this project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setup-watcher-environment">Setup Watcher environment</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications">Deploy a simple SMTP server to test the email notifications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#migrations-change-the-database-schema">Migrations: Change the database schema</a><ul>
@@ -450,20 +450,33 @@ TheHive/MISP instance version:</p>
 </ul>
 <p>This will update the all project <strong>Watcher</strong>, <strong>Rss-bridge</strong> and <strong>Searx</strong>.</p>
 <p>Verify that your local files <code class="docutils literal notranslate"><span class="pre">/.env</span></code>, <code class="docutils literal notranslate"><span class="pre">/docker-compose.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">/Searx/</span></code> are <strong>up-to-date</strong>.</p>
-<p>Sometimes you will see in Watcher logs a <strong>database migration request in red</strong>.
+<p>Sometimes you will see in Watcher logs a <span style="color:red"> <strong>database migration request in red</strong></span>.
 If so, please follow the migration <a class="reference external" href="#migrate">process</a>.</p>
 </section>
 <section id="developers">
 <h1>Developers<a class="headerlink" href="#developers" title="Permalink to this headline"></a></h1>
 <p>If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.</p>
+<section id="open-a-pull-request-pr-to-contribute-to-this-project">
+<h2>Open a Pull Request (PR) to contribute to this project<a class="headerlink" href="#open-a-pull-request-pr-to-contribute-to-this-project" title="Permalink to this headline"></a></h2>
+<ul class="simple">
+<li><p>Fork the official Watcher repository</p></li>
+<li><p>Install<code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
+<li><p>Open a terminal: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
+<li><p>Switch to the dev branch: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">-b</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
+<li><p>Make your changes on the working files and then: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">*</span></code></p></li>
+<li><p>Add a commit message and description: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span> <span class="pre">-m</span> <span class="pre">&quot;Title&quot;</span> <span class="pre">-m</span> <span class="pre">&quot;Description&quot;</span></code></p></li>
+<li><p>Publish the changes: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">push</span> <span class="pre">origin</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
+<li><p>Back to GitHub on your forked repository, click Under Contribute &gt; Open Pull Request and then Confirm the operation</p></li>
+<li><p>Done! Your work will be reviewed by the team!</p></li>
+</ul>
+</section>
 <section id="setup-watcher-environment">
 <h2>Setup Watcher environment<a class="headerlink" href="#setup-watcher-environment" title="Permalink to this headline"></a></h2>
 <p>Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).</p>
 <p>Then, follow the steps below:</p>
 <ul class="simple">
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.8</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">Node.js</span> <span class="pre">16</span></code></p></li>
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
-<li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">https://github.com/thalesgroup-cert/Watcher.git</span></code></p></li>
+<li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
@@ -527,19 +540,6 @@ disable remote root logins, and load these new rules so that MySQL immediately r
 <li><p><strong>Run Watcher:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">runserver</span></code></p></li>
 </ul>
 </section>
-<section id="open-a-pull-request-pr-to-contribute-to-this-project">
-<h2>Open a Pull Request (PR) to contribute to this project<a class="headerlink" href="#open-a-pull-request-pr-to-contribute-to-this-project" title="Permalink to this headline"></a></h2>
-<ul class="simple">
-<li><p>Fork the official Watcher repository</p></li>
-<li><p>Open a terminal: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
-<li><p>Switch to the dev branch: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">dev</span></code></p></li>
-<li><p>Make your changes on the working files and then: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">*</span></code></p></li>
-<li><p>Add a commit message and description: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span> <span class="pre">-m</span> <span class="pre">&quot;Title&quot;</span> <span class="pre">-m</span> <span class="pre">&quot;Description&quot;</span></code></p></li>
-<li><p>Publish the changes: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">push</span> <span class="pre">origin</span> <span class="pre">dev</span></code></p></li>
-<li><p>Back to GitHub on your forked repository, click Under Contribute &gt; Open Pull Request and then Confirm the operation</p></li>
-<li><p>Done! Your work will be reviewed by the team!</p></li>
-</ul>
-</section>
 <section id="deploy-a-simple-smtp-server-to-test-the-email-notifications">
 <h2>Deploy a simple SMTP server to test the email notifications<a class="headerlink" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications" title="Permalink to this headline"></a></h2>
 <p>If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.</p>
@@ -592,7 +592,7 @@ Then, you need to create a new migration based on the changes you have made:</p>
 <ul class="simple">
 <li><p>Go to <strong>/Watcher/Watcher/</strong> and run this command: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">makemigrations</span></code></p></li>
 </ul>
-<p>Run the <code class="docutils literal notranslate"><span class="pre">makemigrations</span></code> command <strong>only once</strong>, when you have made <strong>all the changes</strong>.
+<p><span style="color:red"> <strong>[IMPORTANT]</strong> Run the <code class="docutils literal notranslate"><span class="pre">makemigrations</span></code> command <strong>only once</strong></span>, when you have made <strong>all the changes</strong>.
 Otherwise, it will create <strong>several unnecessary migration files</strong>.</p>
 </section>
 </section>

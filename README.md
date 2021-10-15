@@ -6,6 +6,7 @@
 
 [![Install](/Watcher/static/Install-informational.svg)](https://thalesgroup-cert.github.io/Watcher/README.html)
 [![Documentation](/Watcher/static/Documentation-informational.svg)](https://thalesgroup-cert.github.io/Watcher/)
+[![GitHub Closed Issues](https://img.shields.io/github/issues-closed-raw/thalesgroup-cert/Watcher?logo=github&style=flat-square)](https://github.com/thalesgroup-cert/Watcher/issues?q=is%3Aissue+is%3Aclosed)
 [![LICENSE](https://img.shields.io/github/license/thalesgroup-cert/Watcher?logo=github&style=flat-square)](/LICENSE)
 [![Docker Build Status](https://img.shields.io/docker/cloud/build/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
 [![Docker Automated Status](https://img.shields.io/docker/cloud/automated/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/builds)
@@ -17,10 +18,12 @@ It should be used on webservers and available on Docker.
 
 ## Watcher capabilities
 
-- Detecting emerging cybersecurity trends like new vulnerabilities, malwares... Via social networks & other RSS feeds (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
-- Monitor for information leaks, for example in Pastebin & other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
-- Monitor malicious domain names for changes (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
-- Detecting suspicious domain names targeting your organisation, using [dnstwist](https://github.com/elceef/dnstwist). 
+- Detecting emerging cybersecurity trends like new vulnerabilities, malwares... Via social networks & other RSS feeds (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+- Monitor for information leaks, for example in Pastebin & other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
+- Monitor malicious domain names for changes (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
+- Detecting suspicious domain names targeting your organisation, using:
+     - [dnstwist](https://github.com/elceef/dnstwist). 
+     - Certificate transparency stream: [certstream](https://github.com/CaliDog/certstream-python)
 
 Useful as a bundle regrouping threat hunting/intelligence automated features.
 
@@ -37,6 +40,7 @@ Useful as a bundle regrouping threat hunting/intelligence automated features.
 ## Involved dependencies
 
 - [RSS-Bridge](https://github.com/RSS-Bridge/rss-bridge)
+- [certstream](https://github.com/CaliDog/certstream-python)
 - [dnstwist](https://github.com/elceef/dnstwist)
 - [Searx](https://searx.github.io/searx/)
 - [pymisp](https://github.com/MISP/PyMISP)
@@ -75,7 +79,7 @@ Watcher provides a powerful user interface for data visualization and analysis. 
 **Suspicious domain names detection**
 
 <p align="center">
-    <img alt="Potentially malicious domain names detection" src="/Watcher/static/Watcher-malicious-domain-names-detection.png">
+    <img alt="Suspicious domain names detection" src="/Watcher/static/Watcher-suspicious-domain-names-detection.png">
 </p>
 
 Django provides a ready-to-use user interface for administrative activities. We all know how an admin interface is important for a web project: Users management, user group management, Watcher configuration, usage logs...  
@@ -101,7 +105,7 @@ There are many ways to getting involved with Watcher:
 
 - Report bugs by opening [Issues](https://github.com/thalesgroup-cert/Watcher/issues) on GitHub.
 - Request new features or suggest ideas (via [Issues](https://github.com/thalesgroup-cert/Watcher/issues)).
-- Make pull-requests.
+- Create new features and make pull-requests. Process [here](https://thalesgroup-cert.github.io/Watcher/README.html#developers).
 - Discuss bugs, features, ideas or issues.
 - Share Watcher to your community (Twitter, Facebook...).
 
