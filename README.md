@@ -22,7 +22,7 @@ It should be used on webservers and available on Docker.
 - Monitor for information leaks, for example in Pastebin & other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
 - Monitor malicious domain names for changes (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
 - Detecting suspicious domain names targeting your organisation, using:
-     - [dnstwist](https://github.com/elceef/dnstwist). 
+     - [dnstwist](https://github.com/elceef/dnstwist) algorithm.
      - Certificate transparency stream: [certstream](https://github.com/CaliDog/certstream-python)
 
 Useful as a bundle regrouping threat hunting/intelligence automated features.
