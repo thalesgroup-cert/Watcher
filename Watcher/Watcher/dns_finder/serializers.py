@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.utils import timezone
-from .models import Alert, DnsMonitored, DnsTwisted
+from .models import Alert, DnsMonitored, DnsTwisted, KeywordMonitored
 from site_monitoring.models import Site
 from site_monitoring.core import monitoring_init
 import requests
@@ -25,10 +25,16 @@ class DnsMonitoredSerializer(serializers.ModelSerializer):
         model = DnsMonitored
         fields = '__all__'
 
+# KeywordMonitored Serializer
+class KeywordMonitoredSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KeywordMonitored
+        fields = '__all__'
 
 # DnsTwisted Serializer
 class DnsTwistedSerializer(serializers.ModelSerializer):
     dns_monitored = DnsMonitoredSerializer()
+    keyword_monitored = KeywordMonitoredSerializer()
 
     class Meta:
         model = DnsTwisted

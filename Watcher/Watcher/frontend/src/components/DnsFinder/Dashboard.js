@@ -1,5 +1,6 @@
 import React, {Component, Fragment} from 'react';
 import DnsMonitored from "./DnsMonitored";
+import KeywordMonitored from "./KeywordMonitored";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
 
@@ -19,6 +20,9 @@ export default class Dashboard extends Component {
                     <div className="row">
                         <div className="col-lg-8 mt-4">
                             <ArchivedAlerts/>
+                        </div>
+                        <div className="col-lg-4 ml-auto">
+                            <KeywordMonitored/>
                         </div>
                     </div>
                 </div>

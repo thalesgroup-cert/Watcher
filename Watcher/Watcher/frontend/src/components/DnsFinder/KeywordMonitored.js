@@ -1,7 +1,7 @@
 import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
-import {getDnsMonitored, deleteDnsMonitored, addDnsMonitored, patchDnsMonitored} from "../../actions/DnsFinder";
+import {getKeywordMonitored, deleteKeywordMonitored, addKeywordMonitored, patchKeywordMonitored} from "../../actions/DnsFinder";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
@@ -10,7 +10,7 @@ import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 
 
-export class DnsMonitored extends Component {
+export class KeywordMonitored extends Component {
 
     constructor(props) {
         super(props);
@@ -25,15 +25,15 @@ export class DnsMonitored extends Component {
     }
 
     static propTypes = {
-        getDnsMonitored: PropTypes.func.isRequired,
-        deleteDnsMonitored: PropTypes.func.isRequired,
-        addDnsMonitored: PropTypes.func.isRequired,
-        patchDnsMonitored: PropTypes.func.isRequired,
+        getKeywordMonitored: PropTypes.func.isRequired,
+        deleteKeywordMonitored: PropTypes.func.isRequired,
+        addKeywordMonitored: PropTypes.func.isRequired,
+        patchKeywordMonitored: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired
     };
 
     componentDidMount() {
-        this.props.getDnsMonitored();
+        this.props.getKeywordMonitored();
     }
 
     displayDeleteModal = (id, word) => {
@@ -55,7 +55,7 @@ export class DnsMonitored extends Component {
         let onSubmit;
         onSubmit = e => {
             e.preventDefault();
-            this.props.deleteDnsMonitored(this.state.id, this.state.word);
+            this.props.deleteKeywordMonitored(this.state.id, this.state.word);
             this.setState({
                 word: "",
                 id: 0
@@ -68,7 +68,7 @@ export class DnsMonitored extends Component {
                 <Modal.Header closeButton>
                     <Modal.Title>Action Requested</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>Are you sure you want to <b><u>delete</u></b> <b>{this.state.word}</b> domain name, the
+                <Modal.Body>Are you sure you want to <b><u>delete</u></b> <b>{this.state.word}</b> keyword, the
                 <b> associated alerts</b>, and <b>twisted dns</b>?</Modal.Body>
                 <Modal.Footer>
                     <form onSubmit={onSubmit}>
@@ -103,9 +103,9 @@ export class DnsMonitored extends Component {
         let onSubmit;
         onSubmit = e => {
             e.preventDefault();
-            const domain_name = this.inputRef.current.value;
-            const dns_monitored = {domain_name}; // Object { domain_name: "..." }
-            this.props.patchDnsMonitored(this.state.id, dns_monitored);
+            const name = this.inputRef.current.value;
+            const keyword_monitored = {name}; // Object { name: "..." }
+            this.props.patchKeywordMonitored(this.state.id, keyword_monitored);
             this.setState({
                 word: "",
                 id: 0
@@ -129,12 +129,10 @@ export class DnsMonitored extends Component {
                             <Col md={{span: 12}}>
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row}>
-                                        <Form.Label column sm="5">Domain name</Form.Label>
+                                        <Form.Label column sm="5">Keyword</Form.Label>
                                         <Col sm="7">
                                             <Form.Control required ref={this.inputRef} size="md"
-                                                          type="text"
-                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
-                                                          placeholder="example.com"
+                                                          type="text" placeholder="company, company.com..."
                                                           defaultValue={this.state.word}
                                                           onChange={handleOnChange}/>
                                         </Col>
@@ -173,9 +171,9 @@ export class DnsMonitored extends Component {
         let onSubmit;
         onSubmit = e => {
             e.preventDefault();
-            const domain_name = this.inputRef.current.value;
-            const dns_monitored = {domain_name};
-            this.props.addDnsMonitored(dns_monitored);
+            const name = this.inputRef.current.value;
+            const keyword_monitored = {name};
+            this.props.addKeywordMonitored(keyword_monitored);
             handleClose();
         };
 
@@ -190,12 +188,10 @@ export class DnsMonitored extends Component {
                             <Col md={{span: 12}}>
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row}>
-                                        <Form.Label column sm="4">Domain name</Form.Label>
+                                        <Form.Label column sm="4">Keyword</Form.Label>
                                         <Col sm="7">
                                             <Form.Control required ref={this.inputRef} size="md"
-                                                          type="text"
-                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
-                                                          placeholder="example.com"/>
+                                                          type="text" placeholder="company, company.com..."/>
                                         </Col>
                                     </Form.Group>
                                     <Col md={{span: 5, offset: 8}}>
@@ -221,8 +217,8 @@ export class DnsMonitored extends Component {
                 <div className="row">
                     <div className="col-lg-12">
                         <div className="float-left">
-                            <h4>Corporate DNS Assets Monitored</h4>
-                            <h6 className="text-muted">Dnstwist Algorithm</h6>
+                            <h4>Corporate Keywords Monitored</h4>
+                            <h6 className="text-muted">Certificate Transparency Stream Monitoring</h6>
                         </div>
                         <div className="float-right mr-1 mb-2">
                             <button className="btn btn-success" onClick={() => {
@@ -230,7 +226,7 @@ export class DnsMonitored extends Component {
                             }}>
                                 <i className="material-icons mr-1 align-middle"
                                    style={{fontSize: 23}}>&#xE147;</i>
-                                <span className="align-middle">Add New DNS</span>
+                                <span className="align-middle">Add New Keyword</span>
                             </button>
                         </div>
                     </div>
@@ -241,28 +237,28 @@ export class DnsMonitored extends Component {
                             <table className="table table-striped table-hover">
                                 <thead>
                                 <tr>
-                                    <th>Domain Name</th>
+                                    <th>Name</th>
                                     <th>Created At</th>
                                     <th/>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                {this.props.dnsMonitored.map(dns_monitored => (
-                                    <tr key={dns_monitored.id}>
-                                        <td><h5>{dns_monitored.domain_name}</h5></td>
-                                        <td>{(new Date(dns_monitored.created_at)).toDateString()}</td>
+                                {this.props.keywordMonitored.map(keyword_monitored => (
+                                    <tr key={keyword_monitored.id}>
+                                        <td><h5>{keyword_monitored.name}</h5></td>
+                                        <td>{(new Date(keyword_monitored.created_at)).toDateString()}</td>
                                         <td className="text-right" style={{whiteSpace: 'nowrap'}}>
                                             <button className="btn btn-outline-warning btn-sm mr-2"
                                                     data-toggle="tooltip"
                                                     data-placement="top" title="Edit" onClick={() => {
-                                                this.displayEditModal(dns_monitored.id, dns_monitored.domain_name)
+                                                this.displayEditModal(keyword_monitored.id, keyword_monitored.name)
                                             }}>
                                                 <i className="material-icons"
                                                    style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                             </button>
                                             <button className="btn btn-outline-danger btn-sm" data-toggle="tooltip"
                                                     data-placement="top" title="Delete" onClick={() => {
-                                                this.displayDeleteModal(dns_monitored.id, dns_monitored.domain_name)
+                                                this.displayDeleteModal(keyword_monitored.id, keyword_monitored.name)
                                             }}>
                                                 <i className="material-icons"
                                                    style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
@@ -284,13 +280,13 @@ export class DnsMonitored extends Component {
 }
 
 const mapStateToProps = state => ({
-    dnsMonitored: state.DnsFinder.dnsMonitored,
+    keywordMonitored: state.DnsFinder.keywordMonitored,
     auth: state.auth
 });
 
 export default connect(mapStateToProps, {
-    getDnsMonitored,
-    deleteDnsMonitored,
-    addDnsMonitored,
-    patchDnsMonitored
-})(DnsMonitored);
+    getKeywordMonitored,
+    deleteKeywordMonitored,
+    addKeywordMonitored,
+    patchKeywordMonitored
+})(KeywordMonitored);

@@ -18,6 +18,7 @@ class DnsMonitored(models.Model):
     def __str__(self):
         return self.domain_name
 
+
 class KeywordMonitored(models.Model):
     """
     Keyword stored in order to find new certificates issued matching these keywords
@@ -32,6 +33,7 @@ class KeywordMonitored(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class DnsTwisted(models.Model):
     """

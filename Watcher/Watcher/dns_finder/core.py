@@ -22,32 +22,14 @@ def start_scheduler():
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
     """
     scheduler = BackgroundScheduler()
-    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='weekend_job',
+    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)
-    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1', id='cerstream_job',
-                      max_instances=1,
+    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
+                      id='main_certificate_transparency',
+                      max_instances=2,
                       replace_existing=True)
     scheduler.start()
-
-    
-def on_open(instance):
-    """
-        Connection successfully established.
-
-    :param instance: CertStreamClient instance opened.
-    """
-    print(str(timezone.now()) + " - " + "Keyword monitoring: connection successfully established!")
-
-    
-def on_error(instance, exception):
-    """
-        An error occured.
-
-    :param instance: CertStreamClient instance opened.
-    :param exception: error message from CertStream.
-    """
-    print(str(timezone.now()) + " - " + "Keyword monitoring: exception in CertStream -> {}".format(exception))
 
 
 def print_callback(message, context):
@@ -59,21 +41,29 @@ def print_callback(message, context):
     """
     all_domains = str(message['data']['leaf_cert']['subject']['CN'])
     for keyword_monitored in KeywordMonitored.objects.all():
-        if keyword_monitored.name in all_domains:
-            print(str(timezone.now()) + " - " + "Keyword",keyword_monitored.name, "detected in :", all_domains)
+        if keyword_monitored.name in all_domains and not DnsTwisted.objects.filter(domain_name=all_domains):
+            print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", all_domains)
             dns_twisted = DnsTwisted.objects.create(domain_name=all_domains, keyword_monitored=keyword_monitored)
             alert = Alert.objects.create(dns_twisted=dns_twisted)
             send_email_cert_transparency(alert)
 
-            
+
 def main_certificate_transparency():
     """
     Launch CertStream scan.
     """
-    if (settings.HTTP_PROXY_HOST == ''):
-        certstream.listen_for_events(print_callback, on_open=on_open, on_error=on_error, url=settings.URL)
+    if settings.CERT_STREAM_HTTP_PROXY_HOST == '':
+        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+    elif settings.CERT_STREAM_HTTP_PROXY_USER == '':
+        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL,
+                                     http_proxy_host=settings.CERT_STREAM_HTTP_PROXY_HOST,
+                                     http_proxy_port=settings.CERT_STREAM_HTTP_PROXY_PORT)
     else:
-        certstream.listen_for_events(print_callback, on_open=on_open, on_error=on_error, url=settings.URL, http_proxy_host=settings.HTTP_PROXY_HOST, http_proxy_port=settings.HTTP_PROXY_PORT, http_proxy_auth=(settings.HTTP_PROXY_USER, settings.HTTP.PROXY.PASS))
+        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL,
+                                     http_proxy_host=settings.CERT_STREAM_HTTP_PROXY_HOST,
+                                     http_proxy_port=settings.CERT_STREAM_HTTP_PROXY_PORT, http_proxy_auth=(
+                settings.CERT_STREAM_HTTP_PROXY_USER, settings.CERT_STREAM_HTTP_PROXY_PASS))
+
 
 def main_dns_twist():
     """

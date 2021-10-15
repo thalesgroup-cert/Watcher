@@ -59,9 +59,16 @@ class DnsMonitoredResource(resources.ModelResource):
         model = DnsMonitored
         exclude = ('created_at',)
 
+
 class KeywordMonitoredResource(resources.ModelResource):
     class Meta:
         model = KeywordMonitored
+
+
+class DnsTwistedResource(resources.ModelResource):
+    class Meta:
+        model = DnsTwisted
+
 
 @admin.register(KeywordMonitored)
 class KeywordMonitored(ImportExportModelAdmin):
@@ -69,7 +76,6 @@ class KeywordMonitored(ImportExportModelAdmin):
     list_filter = ['created_at']
     search_fields = ['name']
     resource_class = KeywordMonitoredResource
-
 
 
 @admin.register(DnsMonitored)
@@ -81,10 +87,11 @@ class DnsMonitored(ImportExportModelAdmin):
 
 
 @admin.register(DnsTwisted)
-class DnsTwisted(admin.ModelAdmin):
-    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'created_at']
-    list_filter = ['created_at', 'dns_monitored', 'fuzzer']
-    search_fields = ['domain_name', 'dns_monitored', 'fuzzer']
+class DnsTwisted(ExportMixin, admin.ModelAdmin):
+    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'created_at']
+    list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer']
+    search_fields = ['domain_name']
+    resource_class = DnsTwistedResource
 
     def has_add_permission(self, request):
         return False
