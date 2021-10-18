@@ -189,7 +189,7 @@ export class SuspiciousSites extends Component {
                                                           defaultValue={this.state.domainName}
                                                           onChange={handleOnChange}/>
                                         </Col>
-                                        <Form.Label column sm="4">RTIR</Form.Label>
+                                        <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
                                             <Form.Control required ref={this.inputRtirRef} size="md"
                                                           type="number" placeholder="number"
@@ -277,11 +277,21 @@ export class SuspiciousSites extends Component {
             });
         };
 
+        let getMax;
+        getMax = (arr, prop) => {
+            var max;
+            for (var i=0 ; i<arr.length ; i++) {
+                if (max == null || parseInt(arr[i][prop]) > parseInt(max[prop]))
+                    max = arr[i];
+            }
+            return max;
+        };
+
         let onSubmit;
         onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
-            const rtir = this.inputRtirRef.current.value;
+            const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir").rtir+1;
             const expiry = this.state.day;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
@@ -315,9 +325,9 @@ export class SuspiciousSites extends Component {
                                                           pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
                                                           placeholder="example.com"/>
                                         </Col>
-                                        <Form.Label column sm="4">RTIR</Form.Label>
+                                        <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
-                                            <Form.Control required ref={this.inputRtirRef} size="md"
+                                            <Form.Control ref={this.inputRtirRef} size="md"
                                                           type="number" placeholder="number"/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
@@ -556,7 +566,7 @@ export class SuspiciousSites extends Component {
                             <table className="table table-striped table-hover">
                                 <thead>
                                 <tr>
-                                    <th>RTIR</th>
+                                    <th>Ticket ID</th>
                                     <th>Domain Name</th>
                                     <th>Ip</th>
                                     <th>Ip Second</th>
