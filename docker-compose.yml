@@ -83,6 +83,8 @@ services:
       EMAIL_FROM: ${EMAIL_FROM}
       SMTP_SERVER: ${SMTP_SERVER}
       WATCHER_URL: ${WATCHER_URL}
+      WATCHER_LOGO: ${WATCHER_LOGO}
+      EMAIL_CLASSIFICATION: ${EMAIL_CLASSIFICATION}
       THE_HIVE_URL: ${THE_HIVE_URL}
       THE_HIVE_KEY: ${THE_HIVE_KEY}
       THE_HIVE_CASE_ASSIGNEE: ${THE_HIVE_CASE_ASSIGNEE}
@@ -110,7 +112,7 @@ services:
       no_proxy: "10.10.10.3,10.10.10.5,10.10.10.7"
     ports:
       - "9002:9002"
-    command: sh -c '/tmp/wait-for-mysql.sh db_watcher 3306 watcher Ee5kZm4fWWAmE9hs db_watcher -- python manage.py runserver 0.0.0.0:9002'
+    command: sh -c '/tmp/wait-for-mysql.sh db_watcher 3306 ${DB_USER} ${DB_PASSWORD} db_watcher -- python manage.py runserver 0.0.0.0:9002'
 
 networks:
   default:
@@ -122,4 +124,3 @@ networks:
 volumes:
   db_data: {}
   db_log: {}
-  searx-checker:
