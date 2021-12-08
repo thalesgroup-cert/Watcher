@@ -29,4 +29,4 @@ jobs:
       with:
         context: https://github.com/thalesgroup-cert/Watcher.git#:Watcher
         push: true
-        tags: user/app:latest
+        tags: felix83000/watcher:latest
