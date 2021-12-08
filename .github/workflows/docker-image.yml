@@ -27,6 +27,6 @@ jobs:
       id: docker_build
       uses: docker/build-push-action@v2
       with:
-        context: /Watcher/
+        context: https://github.com/thalesgroup-cert/Watcher.git#:Watcher
         push: true
         tags: user/app:latest
