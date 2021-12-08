@@ -6,6 +6,7 @@ Supported with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| v1.1.1  | :white_check_mark: |
-| latest  | :white_check_mark: |
+| latest | :white_check_mark: |
+| v1.2.2 | :white_check_mark: |
+| v1.1.1 | :x: |
 
