@@ -3,8 +3,6 @@ name: Docker Image CI
 on:
   push:
     branches: [ master ]
-    tags:
-      - 'v*.*.*'
   pull_request:
     branches: [ master ]
 
@@ -37,5 +35,5 @@ jobs:
       with:
         context: https://github.com/thalesgroup-cert/Watcher.git#:Watcher
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
+        tags: latest
         labels: ${{ steps.meta.outputs.labels }}
