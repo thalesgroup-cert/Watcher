@@ -2,8 +2,12 @@ name: Docker Image Latest
 
 on:
   push:
+    paths:
+    - 'Watcher/**'
     branches: [ master ]
   pull_request:
+    paths:
+    - 'Watcher/**'
     branches: [ master ]
 
 jobs:
