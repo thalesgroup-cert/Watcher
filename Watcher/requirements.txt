@@ -6,7 +6,7 @@ django-rest-knox==4.1.0
 apscheduler==3.8.1
 nltk==3.6.5
 feedparser==6.0.8
-docutils==0.18.1
+docutils==0.17.1
 sphinx==4.3.1
 sphinx-rtd-theme==1.0.0
 recommonmark==0.7.1
