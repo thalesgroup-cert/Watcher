@@ -1,8 +1,14 @@
 name: Deploy to GitHub Pages
+
 on:
   push:
-    branches:
-      - master
+    paths:
+    - 'Watcher/docs/**'
+    branches: [ master ]
+  pull_request:
+    paths:
+    - 'Watcher/docs/**'
+    branches: [ master ]
 
 jobs:
   deploy:
