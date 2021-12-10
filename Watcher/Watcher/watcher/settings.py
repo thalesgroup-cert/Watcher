@@ -87,12 +87,6 @@ WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
 
-# CertStream proxy setup
-CERT_STREAM_HTTP_PROXY_HOST = os.environ.get('CERT_STREAM_HTTP_PROXY_HOST', '')
-CERT_STREAM_HTTP_PROXY_PORT = os.environ.get('CERT_STREAM_HTTP_PROXY_PORT', '')
-CERT_STREAM_HTTP_PROXY_USER = os.environ.get('CERT_STREAM_HTTP_PROXY_USER', '')
-CERT_STREAM_HTTP_PROXY_PASS = os.environ.get('CERT_STREAM_HTTP_PROXY_PASS', '')
-
 # CertStream URL
 CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io')
 

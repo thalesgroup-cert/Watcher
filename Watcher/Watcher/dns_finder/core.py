@@ -52,17 +52,7 @@ def main_certificate_transparency():
     """
     Launch CertStream scan.
     """
-    if settings.CERT_STREAM_HTTP_PROXY_HOST == '':
-        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
-    elif settings.CERT_STREAM_HTTP_PROXY_USER == '':
-        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL,
-                                     http_proxy_host=settings.CERT_STREAM_HTTP_PROXY_HOST,
-                                     http_proxy_port=settings.CERT_STREAM_HTTP_PROXY_PORT)
-    else:
-        certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL,
-                                     http_proxy_host=settings.CERT_STREAM_HTTP_PROXY_HOST,
-                                     http_proxy_port=settings.CERT_STREAM_HTTP_PROXY_PORT, http_proxy_auth=(
-                settings.CERT_STREAM_HTTP_PROXY_USER, settings.CERT_STREAM_HTTP_PROXY_PASS))
+    certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
 
 
 def main_dns_twist():
