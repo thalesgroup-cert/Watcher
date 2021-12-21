@@ -96,24 +96,24 @@ def check_dnstwist(dns_monitored):
                 dns_a = False
                 dns_aaaa = False
                 dns_mx = False
-                if 'dns-a' in twisted_website_dict:
-                    if twisted_website_dict['dns-a'] != ['!ServFail']:
+                if 'dns_a' in twisted_website_dict:
+                    if twisted_website_dict['dns_a'] != ['!ServFail']:
                         dns_a = True
-                if 'dns-aaaa' in twisted_website_dict:
-                    if twisted_website_dict['dns-aaaa'] != ['!ServFail']:
+                if 'dns_aaaa' in twisted_website_dict:
+                    if twisted_website_dict['dns_aaaa'] != ['!ServFail']:
                         dns_aaaa = True
-                if 'dns-mx' in twisted_website_dict:
-                    if twisted_website_dict['dns-mx'] != ['!ServFail']:
+                if 'dns_mx' in twisted_website_dict:
+                    if twisted_website_dict['dns_mx'] != ['!ServFail']:
                         dns_mx = True
-                if 'dns-ns' in twisted_website_dict:
-                    if twisted_website_dict['dns-ns'] != ['!ServFail']:
+                if 'dns_ns' in twisted_website_dict:
+                    if twisted_website_dict['dns_ns'] != ['!ServFail']:
                         dns_ns = True
                 # Check if there is at least one DNS entry
                 if dns_ns or dns_a or dns_aaaa or dns_mx:
-                    if twisted_website_dict['domain-name'] != dns_monitored.domain_name:
+                    if twisted_website_dict['domain'] != dns_monitored.domain_name:
                         # If it is a new domain name, we create it
-                        if not DnsTwisted.objects.filter(domain_name=twisted_website_dict['domain-name']):
-                            dns_twisted = DnsTwisted.objects.create(domain_name=twisted_website_dict['domain-name'],
+                        if not DnsTwisted.objects.filter(domain_name=twisted_website_dict['domain']):
+                            dns_twisted = DnsTwisted.objects.create(domain_name=twisted_website_dict['domain'],
                                                                     dns_monitored=dns_monitored,
                                                                     fuzzer=twisted_website_dict['fuzzer'])
                             alert = Alert.objects.create(dns_twisted=dns_twisted)
