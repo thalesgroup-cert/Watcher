@@ -4,8 +4,6 @@ on:
   push:
     paths:
     - 'Watcher/**'
-    - '!Watcher/README.md'
-    - '!Watcher/docs/**'
     branches: [ master ]
 
 jobs:
