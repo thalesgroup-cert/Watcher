@@ -307,7 +307,7 @@ If you want to modify the project and Pull Request (PR) your work, you will need
 
 ## Open a Pull Request (PR) to contribute to this project
 - Fork the official Watcher repository
-- Install`Git`
+- Install `Git`
 - Open a terminal: `git clone <your_forked_repository.git>`
 - Switch to the dev branch: `git checkout -b feature/<name_of_the_new_feature>`
 - Make your changes on the working files and then: `git add *`
@@ -317,23 +317,24 @@ If you want to modify the project and Pull Request (PR) your work, you will need
 - Done! Your work will be reviewed by the team! 
 
 ## Setup Watcher environment
-Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).
+Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 and Ubuntu 21.10 LTS in our case).
 
 Then, follow the steps below:
 
-- **Install** `Python 3.8` **&** `Node.js 16`
+- **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
+- **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
 - **Pull Watcher code:** `git clone <your_forked_repository.git>`
-- `cd Watcher/Watcher`
+- **Move to the following directory:** `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
-- **Install Python dependencies:** `pip install -r requirements.txt`
+- **Install Python dependencies:** `pip3 install -r requirements.txt`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
-     - `sudo apt install npm`
+     - `sudo apt install npm -y`
      - `npm install`
 - **Install MySQL:**
-     - `sudo apt install mysql-server`
+     - `sudo apt install mysql-server -y`
      - `sudo mysql_secure_installation`
           - Enter root password.
           - You may now enter `Y` and `ENTER`. Accept all fields. This will remove some anonymous users and the test database, 
@@ -342,13 +343,13 @@ Then, follow the steps below:
 **Create & Configure Watcher database:**
 
     sudo mysql 
-    CREATE USER 'watcher'@'localhost' IDENTIFIED BY 'Ee5kZm4fWWAmE9hs';
+    CREATE USER 'watcher'@'localhost' IDENTIFIED BY 'Ee5kZm4fWWAmE9hs!';
     GRANT ALL PRIVILEGES ON *.* TO 'watcher'@'localhost' WITH GRANT OPTION;
     CREATE DATABASE db_watcher;
     use db_watcher;
     exit
     systemctl status mysql.service
-    cd watcher
+    cd Watcher/watcher
 
 In `settings.py` change `HOST` variable to `localhost`:
 
@@ -358,7 +359,7 @@ In `settings.py` change `HOST` variable to `localhost`:
            'CONN_MAX_AGE': 3600,
            'NAME': 'db_watcher',
            'USER': 'watcher',
-           'PASSWORD': 'Ee5kZm4fWWAmE9hs',
+           'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
            'HOST': 'localhost',
            'PORT': '3306',
            'OPTIONS': {
@@ -375,7 +376,7 @@ In `settings.py` change `HOST` variable to `localhost`:
 ## Deploy a simple SMTP server to test the email notifications
 If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.
 - Grab the docker-compose file: [here](https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml).
-- Run the command: `docker-compose up`
+- Run the command: `sudo docker-compose up`
 - The mails will be available here by default: `localhost:5000`
 - Modify the mail settings in the environment variables: `vi /.env`
     - `EMAIL_FROM=from@from.com`

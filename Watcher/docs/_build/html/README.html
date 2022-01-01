@@ -460,7 +460,7 @@ If so, please follow the migration <a class="reference external" href="#migrate"
 <h2>Open a Pull Request (PR) to contribute to this project<a class="headerlink" href="#open-a-pull-request-pr-to-contribute-to-this-project" title="Permalink to this headline"></a></h2>
 <ul class="simple">
 <li><p>Fork the official Watcher repository</p></li>
-<li><p>Install<code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
+<li><p>Install <code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
 <li><p>Open a terminal: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
 <li><p>Switch to the dev branch: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">-b</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
 <li><p>Make your changes on the working files and then: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">*</span></code></p></li>
@@ -472,15 +472,16 @@ If so, please follow the migration <a class="reference external" href="#migrate"
 </section>
 <section id="setup-watcher-environment">
 <h2>Setup Watcher environment<a class="headerlink" href="#setup-watcher-environment" title="Permalink to this headline"></a></h2>
-<p>Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 LTS in our case).</p>
+<p>Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 and Ubuntu 21.10 LTS in our case).</p>
 <p>Then, follow the steps below:</p>
 <ul class="simple">
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.8</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">Node.js</span> <span class="pre">16</span></code></p></li>
+<li><p><strong>Update and upgrade your machine:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">update</span> <span class="pre">&amp;&amp;</span> <span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">upgrade</span> <span class="pre">-y</span></code></p></li>
+<li><p><strong>Install Python and Node.js:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">python3</span> <span class="pre">python3-pip</span> <span class="pre">-y</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">nodejs</span> <span class="pre">-y</span></code></p></li>
 <li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
+<li><p><strong>Move to the following directory:</strong> <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
-<li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
+<li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
 <li><p><strong>Install NLTK/punkt dependency:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
 <ul>
 <li><p>If you have a proxy, you can configure it in <code class="docutils literal notranslate"><span class="pre">nltk_dependencies.py</span></code> script.</p></li>
@@ -488,13 +489,13 @@ If so, please follow the migration <a class="reference external" href="#migrate"
 </li>
 <li><p><strong>Install Node.js dependencies:</strong></p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">npm</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">npm</span> <span class="pre">-y</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">install</span></code></p></li>
 </ul>
 </li>
 <li><p><strong>Install MySQL:</strong></p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">mysql-server</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">mysql-server</span> <span class="pre">-y</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">mysql_secure_installation</span></code></p>
 <ul>
 <li><p>Enter root password.</p></li>
@@ -507,13 +508,13 @@ disable remote root logins, and load these new rules so that MySQL immediately r
 </ul>
 <p><strong>Create &amp; Configure Watcher database:</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">mysql</span> 
-<span class="n">CREATE</span> <span class="n">USER</span> <span class="s1">&#39;watcher&#39;</span><span class="o">@</span><span class="s1">&#39;localhost&#39;</span> <span class="n">IDENTIFIED</span> <span class="n">BY</span> <span class="s1">&#39;Ee5kZm4fWWAmE9hs&#39;</span><span class="p">;</span>
+<span class="n">CREATE</span> <span class="n">USER</span> <span class="s1">&#39;watcher&#39;</span><span class="o">@</span><span class="s1">&#39;localhost&#39;</span> <span class="n">IDENTIFIED</span> <span class="n">BY</span> <span class="s1">&#39;Ee5kZm4fWWAmE9hs!&#39;</span><span class="p">;</span>
 <span class="n">GRANT</span> <span class="n">ALL</span> <span class="n">PRIVILEGES</span> <span class="n">ON</span> <span class="o">*.*</span> <span class="n">TO</span> <span class="s1">&#39;watcher&#39;</span><span class="o">@</span><span class="s1">&#39;localhost&#39;</span> <span class="n">WITH</span> <span class="n">GRANT</span> <span class="n">OPTION</span><span class="p">;</span>
 <span class="n">CREATE</span> <span class="n">DATABASE</span> <span class="n">db_watcher</span><span class="p">;</span>
 <span class="n">use</span> <span class="n">db_watcher</span><span class="p">;</span>
 <span class="n">exit</span>
 <span class="n">systemctl</span> <span class="n">status</span> <span class="n">mysql</span><span class="o">.</span><span class="n">service</span>
-<span class="n">cd</span> <span class="n">watcher</span>
+<span class="n">cd</span> <span class="n">Watcher</span><span class="o">/</span><span class="n">watcher</span>
 </pre></div>
 </div>
 <p>In <code class="docutils literal notranslate"><span class="pre">settings.py</span></code> change <code class="docutils literal notranslate"><span class="pre">HOST</span></code> variable to <code class="docutils literal notranslate"><span class="pre">localhost</span></code>:</p>
@@ -523,7 +524,7 @@ disable remote root logins, and load these new rules so that MySQL immediately r
        <span class="s1">&#39;CONN_MAX_AGE&#39;</span><span class="p">:</span> <span class="mi">3600</span><span class="p">,</span>
        <span class="s1">&#39;NAME&#39;</span><span class="p">:</span> <span class="s1">&#39;db_watcher&#39;</span><span class="p">,</span>
        <span class="s1">&#39;USER&#39;</span><span class="p">:</span> <span class="s1">&#39;watcher&#39;</span><span class="p">,</span>
-       <span class="s1">&#39;PASSWORD&#39;</span><span class="p">:</span> <span class="s1">&#39;Ee5kZm4fWWAmE9hs&#39;</span><span class="p">,</span>
+       <span class="s1">&#39;PASSWORD&#39;</span><span class="p">:</span> <span class="s1">&#39;Ee5kZm4fWWAmE9hs!&#39;</span><span class="p">,</span>
        <span class="s1">&#39;HOST&#39;</span><span class="p">:</span> <span class="s1">&#39;localhost&#39;</span><span class="p">,</span>
        <span class="s1">&#39;PORT&#39;</span><span class="p">:</span> <span class="s1">&#39;3306&#39;</span><span class="p">,</span>
        <span class="s1">&#39;OPTIONS&#39;</span><span class="p">:</span> <span class="p">{</span>
@@ -545,7 +546,7 @@ disable remote root logins, and load these new rules so that MySQL immediately r
 <p>If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.</p>
 <ul class="simple">
 <li><p>Grab the docker-compose file: <a class="reference external" href="https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml">here</a>.</p></li>
-<li><p>Run the command: <code class="docutils literal notranslate"><span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
+<li><p>Run the command: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">docker-compose</span> <span class="pre">up</span></code></p></li>
 <li><p>The mails will be available here by default: <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
 <li><p>Modify the mail settings in the environment variables: <code class="docutils literal notranslate"><span class="pre">vi</span> <span class="pre">/.env</span></code></p>
 <ul>
