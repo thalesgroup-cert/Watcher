@@ -4,10 +4,8 @@ on:
   push:
     paths:
     - 'Watcher/**'
-    branches: [ master ]
-  pull_request:
-    paths:
-    - 'Watcher/**'
+    - '!Watcher/README.md'
+    - '!Watcher/docs/**'
     branches: [ master ]
 
 jobs:
