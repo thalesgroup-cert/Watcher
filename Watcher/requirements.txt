@@ -4,7 +4,7 @@ django-mysql==4.3.0
 djangorestframework==3.12.4
 django-rest-knox==4.1.0
 apscheduler==3.8.0
-nltk==3.6.5
+nltk==3.6.6
 feedparser==6.0.8
 docutils==0.17.1
 sphinx==4.3.1
