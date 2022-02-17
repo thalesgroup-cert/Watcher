@@ -1,5 +1,5 @@
 mysqlclient==2.1.0
-django==3.2.11
+django==3.2.12
 django-mysql==4.3.0
 djangorestframework==3.12.4
 django-rest-knox==4.1.0
