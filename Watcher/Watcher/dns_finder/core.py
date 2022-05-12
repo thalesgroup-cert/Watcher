@@ -32,18 +32,33 @@ def start_scheduler():
     scheduler.start()
 
 
+def in_dns_monitored(domain):
+    """
+    Check if domain is a subdomain of one domain of the DnsMonitored list.
+
+    :param domain: Domain to search (Str).
+    :rtype: bool
+    """
+    is_in = False
+    for dns_monitored in DnsMonitored.objects.all():
+        if dns_monitored.domain_name in domain:
+            is_in = True
+    return is_in
+
+
 def print_callback(message, context):
     """
-        Runs CertStream scan
+    Runs CertStream scan.
 
     :param message: event from CertStream.
     :param context: parameter from CertStream.
     """
-    all_domains = str(message['data']['leaf_cert']['subject']['CN'])
+    domain = str(message['data']['leaf_cert']['subject']['CN'])
     for keyword_monitored in KeywordMonitored.objects.all():
-        if keyword_monitored.name in all_domains and not DnsTwisted.objects.filter(domain_name=all_domains):
-            print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", all_domains)
-            dns_twisted = DnsTwisted.objects.create(domain_name=all_domains, keyword_monitored=keyword_monitored)
+        if keyword_monitored.name in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
+                not in_dns_monitored(domain):
+            print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", domain)
+            dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
             alert = Alert.objects.create(dns_twisted=dns_twisted)
             send_email_cert_transparency(alert)
 
@@ -65,7 +80,7 @@ def main_dns_twist():
 
 def check_dnstwist(dns_monitored):
     """
-        Runs dnstwist.
+    Runs dnstwist.
 
     :param dns_monitored: DnsMonitored Object.
     :return:
