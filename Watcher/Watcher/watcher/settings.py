@@ -95,6 +95,11 @@ DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/'
 
 # The Hive Setup
 THE_HIVE_URL = os.environ.get('THE_HIVE_URL', 'http://127.0.0.1:9000')
+THE_HIVE_VERIFY_SSL = os.environ.get('THE_HIVE_VERIFY_SSL', False)
+if THE_HIVE_VERIFY_SSL == "True":
+    THE_HIVE_VERIFY_SSL = True
+if THE_HIVE_VERIFY_SSL == "False":
+    THE_HIVE_VERIFY_SSL = False
 THE_HIVE_KEY = os.environ.get('THE_HIVE_KEY', '')
 THE_HIVE_CASE_ASSIGNEE = os.environ.get('THE_HIVE_CASE_ASSIGNEE', 'watcher')
 THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")

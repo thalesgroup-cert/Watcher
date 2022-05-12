@@ -26,11 +26,8 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler()
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-fri', minute='*/30', hour="7-18", id='week_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10,
-                      replace_existing=True)
-
-    scheduler.add_job(main_watch, 'cron', day_of_week='sat', hour=18, minute=00, id='weekend_job', max_instances=10,
                       replace_existing=True)
 
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour=8, minute=00, id='day_clean', replace_existing=True)

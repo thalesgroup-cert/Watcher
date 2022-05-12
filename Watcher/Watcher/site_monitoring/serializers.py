@@ -132,7 +132,7 @@ class ThehiveSerializer(serializers.Serializer):
             print(str(timezone.now()) + " - ", e)
             raise NotFound("Not Found: " + settings.THE_HIVE_URL)
 
-        hive_api = TheHiveApi(settings.THE_HIVE_URL, settings.THE_HIVE_KEY, cert=True)
+        hive_api = TheHiveApi(settings.THE_HIVE_URL, settings.THE_HIVE_KEY, cert=settings.THE_HIVE_VERIFY_SSL)
 
         if site.the_hive_case_id is not None:
             # If the case already exist, then we update IOCs
