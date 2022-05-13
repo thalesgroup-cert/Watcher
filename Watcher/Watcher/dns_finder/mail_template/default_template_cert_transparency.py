@@ -1,7 +1,7 @@
 from django.conf import settings
 
 
-def get_template(alert):
+def get_cert_transparency_template(alert):
     body = """\
         <html>
             <head>

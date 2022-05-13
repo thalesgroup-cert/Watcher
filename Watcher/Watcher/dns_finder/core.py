@@ -5,7 +5,7 @@ import json
 from django.utils import timezone
 from django.conf import settings
 from .mail_template.default_template import get_template
-from .mail_template.default_template_cert_transparency import get_template
+from .mail_template.default_template_cert_transparency import get_cert_transparency_template
 from .mail_template.group_template import get_group_template
 from apscheduler.schedulers.background import BackgroundScheduler
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
@@ -234,7 +234,7 @@ def send_email_cert_transparency(alert):
             msg['From'] = settings.EMAIL_FROM
             msg['To'] = ','.join(emails_to)
             msg['Subject'] = str("[ALERT #" + str(alert.pk) + "] DNS Finder")
-            body = get_template(alert)
+            body = get_cert_transparency_template(alert)
             msg.attach(MIMEText(body, 'html', _charset='utf-8'))
             text = msg.as_string()
             smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
