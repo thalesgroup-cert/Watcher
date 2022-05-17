@@ -63,6 +63,12 @@ ALLOWED_HOSTS = [
     os.environ.get('ALLOWED_HOST', '')
 ]
 
+if os.environ.get('CSRF_TRUSTED_ORIGINS', '') != '':
+    CSRF_TRUSTED_ORIGINS = [
+        'https://' + os.environ.get('CSRF_TRUSTED_ORIGINS', ''),
+        'http://' + os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+    ]
+
 # threats_watcher APP settings
 # Will use django-constance to store these settings in db
 
@@ -187,6 +193,7 @@ DATABASES = {
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
         },
     }
 }
