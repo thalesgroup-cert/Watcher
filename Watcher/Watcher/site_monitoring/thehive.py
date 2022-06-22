@@ -1,4 +1,5 @@
 from django.utils import timezone
+from rest_framework.exceptions import NotFound
 from rest_framework import serializers
 from .models import Site
 from thehive4py.models import CaseObservable
@@ -40,7 +41,6 @@ def create_observables(hive_api, case_id, site):
                                                                        tlp=2,
                                                                        ioc=True,
                                                                        sighted=True,
-                                                                       tags=['Watcher'],
                                                                        message='Domain name monitored'))
     if response.status_code == 201:
         print(str(timezone.now()) + " - " + "OK")
@@ -55,7 +55,6 @@ def create_observables(hive_api, case_id, site):
                                                                            tlp=2,
                                                                            ioc=True,
                                                                            sighted=True,
-                                                                           tags=['Watcher'],
                                                                            message='First IP'))
         if response.status_code == 201:
             print(str(timezone.now()) + " - " + "OK")
@@ -70,7 +69,6 @@ def create_observables(hive_api, case_id, site):
                                                                            tlp=2,
                                                                            ioc=True,
                                                                            sighted=True,
-                                                                           tags=['Watcher'],
                                                                            message='Second IP'))
         if response.status_code == 201:
             print(str(timezone.now()) + " - " + "OK")
@@ -85,7 +83,6 @@ def create_observables(hive_api, case_id, site):
                                                                            tlp=2,
                                                                            ioc=True,
                                                                            sighted=True,
-                                                                           tags=['Watcher'],
                                                                            message='Mail Server A record IP: mail.' + site.domain_name))
         if response.status_code == 201:
             print(str(timezone.now()) + " - " + "OK")
@@ -101,7 +98,6 @@ def create_observables(hive_api, case_id, site):
                                                                                tlp=2,
                                                                                ioc=True,
                                                                                sighted=True,
-                                                                               tags=['Watcher'],
                                                                                message='MX record'))
             if response.status_code == 201:
                 print(str(timezone.now()) + " - " + "OK")
@@ -129,19 +125,15 @@ def update_observables(hive_api, site):
                                                                            tlp=2,
                                                                            ioc=True,
                                                                            sighted=True,
-                                                                           tags=['Watcher'],
                                                                            message='First IP'))
         if response.status_code == 201:
             print(str(timezone.now()) + " - " + "OK")
         else:
             print(str(timezone.now()) + " - " + 'ko: {}/{}'.format(response.status_code, response.text))
-
-            if response.json()['type'] == "NotFoundError":
+            if response.json()['type'] == "AuthorizationError":
                 # Reset the case id in database
                 Site.objects.filter(pk=site.pk).update(the_hive_case_id=None)
-
-            data = {'detail': response.json()['type'] + ": " + response.json()['message']}
-            raise serializers.ValidationError(data)
+                raise NotFound("TheHive Case " + str(case_id) + " Not Found: Resetting")
 
     if site.ip_second and not search_observables(hive_api, case_id, site.ip_second):
         response = hive_api.create_case_observable(case_id, CaseObservable(dataType='ip',
@@ -149,19 +141,16 @@ def update_observables(hive_api, site):
                                                                            tlp=2,
                                                                            ioc=True,
                                                                            sighted=True,
-                                                                           tags=['Watcher'],
                                                                            message='Second IP'))
         if response.status_code == 201:
             print(str(timezone.now()) + " - " + "OK")
         else:
             print(str(timezone.now()) + " - " + 'ko: {}/{}'.format(response.status_code, response.text))
 
-            if response.json()['type'] == "NotFoundError":
+            if response.json()['type'] == "AuthorizationError":
                 # Reset the case id in database
                 Site.objects.filter(pk=site.pk).update(the_hive_case_id=None)
-
-            data = {'detail': response.json()['type'] + ": " + response.json()['message']}
-            raise serializers.ValidationError(data)
+                raise NotFound("TheHive Case " + str(case_id) + " Not Found: Resetting")
 
     if site.mail_A_record_ip and not search_observables(hive_api, case_id, site.mail_A_record_ip):
         response = hive_api.create_case_observable(case_id, CaseObservable(dataType='ip',
@@ -169,19 +158,16 @@ def update_observables(hive_api, site):
                                                                            tlp=2,
                                                                            ioc=True,
                                                                            sighted=True,
-                                                                           tags=['Watcher'],
                                                                            message='Mail Server A record IP: mail.' + site.domain_name))
         if response.status_code == 201:
             print(str(timezone.now()) + " - " + "OK")
         else:
             print(str(timezone.now()) + " - " + 'ko: {}/{}'.format(response.status_code, response.text))
 
-            if response.json()['type'] == "NotFoundError":
+            if response.json()['type'] == "AuthorizationError":
                 # Reset the case id in database
                 Site.objects.filter(pk=site.pk).update(the_hive_case_id=None)
-
-            data = {'detail': response.json()['type'] + ": " + response.json()['message']}
-            raise serializers.ValidationError(data)
+                raise NotFound("TheHive Case " + str(case_id) + " Not Found: Resetting")
 
     if site.MX_records:
         for mx in site.MX_records:
@@ -191,16 +177,13 @@ def update_observables(hive_api, site):
                                                                                    tlp=2,
                                                                                    ioc=True,
                                                                                    sighted=True,
-                                                                                   tags=['Watcher'],
                                                                                    message='MX record'))
                 if response.status_code == 201:
                     print(str(timezone.now()) + " - " + "OK")
                 else:
                     print(str(timezone.now()) + " - " + 'ko: {}/{}'.format(response.status_code, response.text))
 
-                    if response.json()['type'] == "NotFoundError":
+                    if response.json()['type'] == "AuthorizationError":
                         # Reset the case id in database
                         Site.objects.filter(pk=site.pk).update(the_hive_case_id=None)
-
-                    data = {'detail': response.json()['type'] + ": " + response.json()['message']}
-                    raise serializers.ValidationError(data)
+                        raise NotFound("TheHive Case " + str(case_id) + " Not Found: Resetting")

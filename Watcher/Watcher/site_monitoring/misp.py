@@ -25,7 +25,6 @@ def create_misp_tags(misp_api):
     for tag in required_tags:
         t = MISPTag()
         t.name = tag
-        t.org_id = 1
         if tag not in tags_names:
             print(str(timezone.now()) + " - " + "Create tag: ", tag)
             misp_api.add_tag(t)
@@ -46,18 +45,11 @@ def create_attributes(misp_api, event_id, site):
     print(str(timezone.now()) + " - " + 'Create MISP IOCs attributes for: ', event_id)
     print('-----------------------------')
 
-    tag = None
-    tags = misp_api.tags(pythonify=True)
-    for t in tags:
-        if t.name == 'Watcher':
-            tag = t
-
     attribute = MISPAttribute()
     attribute.category = "Network activity"
     attribute.type = "domain"
     attribute.distribution = 5
     attribute.comment = "Domain name monitored"
-    attribute.tags = [tag]
     attribute.value = site.domain_name
     misp_api.add_attribute(event=event_id, attribute=attribute)
 
@@ -67,7 +59,6 @@ def create_attributes(misp_api, event_id, site):
         attribute.type = "link"
         attribute.distribution = 0
         attribute.comment = "Ticketing link"
-        attribute.tags = [tag]
         attribute.value = settings.MISP_TICKETING_URL + "?id=" + str(site.rtir)
         misp_api.add_attribute(event=event_id, attribute=attribute)
 
@@ -77,7 +68,6 @@ def create_attributes(misp_api, event_id, site):
         attribute.type = "ip-dst"
         attribute.distribution = 5
         attribute.comment = "First IP"
-        attribute.tags = [tag]
         attribute.value = site.ip
         misp_api.add_attribute(event=event_id, attribute=attribute)
 
@@ -87,7 +77,6 @@ def create_attributes(misp_api, event_id, site):
         attribute.type = "ip-dst"
         attribute.distribution = 5
         attribute.comment = "Second IP"
-        attribute.tags = [tag]
         attribute.value = site.ip_second
         misp_api.add_attribute(event=event_id, attribute=attribute)
 
@@ -97,7 +86,6 @@ def create_attributes(misp_api, event_id, site):
         attribute.type = "ip-dst"
         attribute.distribution = 5
         attribute.comment = 'Mail Server A record IP: mail.' + site.domain_name
-        attribute.tags = [tag]
         attribute.value = site.mail_A_record_ip
         misp_api.add_attribute(event=event_id, attribute=attribute)
 
@@ -108,7 +96,6 @@ def create_attributes(misp_api, event_id, site):
             attribute.type = "domain"
             attribute.distribution = 5
             attribute.comment = "MX record"
-            attribute.tags = [tag]
             attribute.value = str(mx).split()[1][:-1]
             misp_api.add_attribute(event=event_id, attribute=attribute)
 
@@ -155,19 +142,12 @@ def update_attributes(misp_api, site):
     print(str(timezone.now()) + " - " + 'Update MISP IOCs attributes for: ', site.misp_event_id)
     print('-----------------------------')
 
-    tag = None
-    tags = misp_api.tags(pythonify=True)
-    for t in tags:
-        if t.name == 'Watcher':
-            tag = t
-
     if site.ip and not search_attributes(misp_api, site.misp_event_id, site.ip, site.pk):
         attribute = MISPAttribute()
         attribute.category = "Network activity"
         attribute.type = "ip-dst"
         attribute.distribution = 5
         attribute.comment = "First IP"
-        attribute.tags = [tag]
         attribute.value = site.ip
         misp_api.add_attribute(event=site.misp_event_id, attribute=attribute)
 
@@ -177,7 +157,6 @@ def update_attributes(misp_api, site):
         attribute.type = "ip-dst"
         attribute.distribution = 5
         attribute.comment = "Second IP"
-        attribute.tags = [tag]
         attribute.value = site.ip_second
         misp_api.add_attribute(event=site.misp_event_id, attribute=attribute)
 
@@ -187,7 +166,6 @@ def update_attributes(misp_api, site):
         attribute.type = "ip-dst"
         attribute.distribution = 5
         attribute.comment = 'Mail Server A record IP: mail.' + site.domain_name
-        attribute.tags = [tag]
         attribute.value = site.mail_A_record_ip
         misp_api.add_attribute(event=site.misp_event_id, attribute=attribute)
 
@@ -199,6 +177,5 @@ def update_attributes(misp_api, site):
                 attribute.type = "domain"
                 attribute.distribution = 5
                 attribute.comment = "MX record"
-                attribute.tags = [tag]
                 attribute.value = str(mx).split()[1][:-1]
                 misp_api.add_attribute(event=site.misp_event_id, attribute=attribute)
