@@ -1,11 +1,11 @@
 {
   "name": "Watcher",
-  "version": "1.0.0",
+  "version": "1.2.8",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "webpack --mode development --watch ./Watcher/frontend/src/index.js --output ./Watcher/frontend/static/frontend/main.js",
-    "build": "webpack --mode production ./Watcher/frontend/src/index.js --output ./Watcher/frontend/static/frontend/main.js"
+    "dev": "webpack --mode development --watch ./Watcher/frontend/src/index.js --output-path ./Watcher/frontend/static/frontend/",
+    "build": "webpack --mode production ./Watcher/frontend/src/index.js --output-path ./Watcher/frontend/static/frontend/"
   },
   "keywords": [],
   "author": "",

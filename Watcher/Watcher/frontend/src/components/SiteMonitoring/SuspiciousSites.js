@@ -280,9 +280,14 @@ export class SuspiciousSites extends Component {
         let getMax;
         getMax = (arr, prop) => {
             var max;
-            for (var i=0 ; i<arr.length ; i++) {
-                if (max == null || parseInt(arr[i][prop]) > parseInt(max[prop]))
-                    max = arr[i];
+            if (arr.length !== 0) {
+                for (var i=0 ; i<arr.length ; i++) {
+                    if (max == null || parseInt(arr[i][prop]) > parseInt(max[prop]))
+                        max = arr[i];
+                }
+                max=max.rtir
+            } else {
+                max=0;
             }
             return max;
         };
@@ -291,7 +296,7 @@ export class SuspiciousSites extends Component {
         onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
-            const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir").rtir+1;
+            const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir")+1;
             const expiry = this.state.day;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
