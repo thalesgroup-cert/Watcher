@@ -49,8 +49,6 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - db_log:/var/log/mysql
-    ports:
-      - '3307:3306'
     restart: always
     networks:
       default:
