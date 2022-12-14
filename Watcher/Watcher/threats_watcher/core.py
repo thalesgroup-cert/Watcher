@@ -104,7 +104,7 @@ def fetch_last_posts(nb_max_post):
     posts_published = dict()
     for url in rss_urls:
         try:
-            feed_content = requests.get(url)
+            feed_content = requests.get(url, timeout=60)
             feeds.append(feedparser.parse(feed_content.text))
         except requests.exceptions.RequestException as e:
             print(str(timezone.now()) + " - ", e)
@@ -181,7 +181,7 @@ def remove_banned_words():
         word = word.replace("'", "")
         # Remove '/' (sometimes regular expression don't catch this character)
         word = word.replace("/", "")
-        
+
         if word:
             posts_without_banned[word] = count
 
