@@ -330,236 +330,42 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
     message_ip = "IP address change detected"
     message_ips = "IP address changes detected"
 
-    if site.monitored:
-        if alert == 1:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_ip,
-                                             new_ip=new_ip,
-                                             old_ip=site.ip)
-            if not previous_alert(site, message_ip, new_alert.pk):
-                send_email("IP address change detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 2:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_ip,
-                                             new_ip_second=new_ip_second,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_ip, new_alert.pk):
-                send_email("IP address change detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 3:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_ips,
-                                             new_ip=new_ip,
-                                             new_ip_second=new_ip_second,
-                                             old_ip=site.ip,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_ips, new_alert.pk):
-                send_email("IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 4:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_web,
-                                             difference_score=score)
-            if not previous_alert(site, message_web, new_alert.pk):
-                send_email("Web content change detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 5:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_web_ip,
-                                             difference_score=score,
-                                             new_ip=new_ip,
-                                             old_ip=site.ip)
-            if not previous_alert(site, message_web_ip, new_alert.pk):
-                send_email("Web content + IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 6:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_web_ip,
-                                             difference_score=score,
-                                             new_ip_second=new_ip_second,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_web_ip, new_alert.pk):
-                send_email("Web content + IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 7:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_web_ip,
-                                             difference_score=score,
-                                             new_ip=new_ip,
-                                             new_ip_second=new_ip_second,
-                                             old_ip=site.ip,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_web_ip, new_alert.pk):
-                send_email("Web content + IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-        if alert == 8:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail)
-            if not previous_alert(site, message_mail, new_alert.pk):
-                send_email("Mail record change(s) detected on " + site.domain_name, site.rtir, new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 9:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_ip,
-                                             new_ip=new_ip,
-                                             old_ip=site.ip)
-            if not previous_alert(site, message_mail_ip, new_alert.pk):
-                send_email("Mail record + IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 10:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_ip,
-                                             new_ip_second=new_ip_second,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_mail_ip, new_alert.pk):
-                send_email("Mail record + IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 11:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_ip,
-                                             new_ip=new_ip,
-                                             new_ip_second=new_ip_second,
-                                             old_ip=site.ip,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_mail_ip, new_alert.pk):
-                send_email("Mail record + IP address changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(
-                                                                     pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(
-                            pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 12:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_web,
-                                             difference_score=score)
-            if not previous_alert(site, message_mail_web, new_alert.pk):
-                send_email("Mail record + Web content changes detected on " + site.domain_name, site.rtir, new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(
-                                                                     pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(
-                            pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 13:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_ip_web,
-                                             difference_score=score,
-                                             new_ip=new_ip,
-                                             old_ip=site.ip)
-            if not previous_alert(site, message_mail_ip_web, new_alert.pk):
-                send_email("Mail record + Ip address + Web content changes detected on " + site.domain_name, site.rtir,
-                           new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(
-                                                                     pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(
-                            pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 14:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_ip_web,
-                                             difference_score=score,
-                                             new_ip_second=new_ip_second,
-                                             old_ip_second=site.ip_second)
-            if not previous_alert(site, message_mail_ip_web, new_alert.pk):
-                send_email("Mail record + Ip address + Web content changes detected on " + site.domain_name, site.rtir,
-                           new_alert.pk)
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(
-                                                                     pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(
-                            pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-        if alert == 15:
-            new_alert = Alert.objects.create(site=site,
-                                             type=message_mail_ip_web,
-                                             difference_score=score,
-                                             new_ip=new_ip,
-                                             new_ip_second=new_ip_second,
-                                             old_ip=site.ip,
-                                             old_ip_second=site.ip_second)
+    alert_types = {
+        1: {'type': message_ip, 'new_ip': new_ip, 'old_ip': site.ip},
+        2: {'type': message_ip, 'new_ip_second': new_ip_second, 'old_ip_second': site.ip_second},
+        3: {'type': message_ips, 'new_ip': new_ip, 'new_ip_second': new_ip_second, 'old_ip': site.ip,
+            'old_ip_second': site.ip_second},
+        4: {'type': message_web, 'difference_score': score},
+        5: {'type': message_web_ip, 'difference_score': score, 'new_ip': new_ip, 'old_ip': site.ip},
+        6: {'type': message_web_ip, 'difference_score': score, 'new_ip_second': new_ip_second,
+            'old_ip_second': site.ip_second},
+        7: {'type': message_web_ip, 'difference_score': score, 'new_ip': new_ip, 'new_ip_second': new_ip_second,
+            'old_ip': site.ip, 'old_ip_second': site.ip_second},
+        8: {'type': message_mail},
+        9: {'type': message_mail_ip, 'new_ip': new_ip, 'old_ip': site.ip},
+        10: {'type': message_mail_ip, 'new_ip_second': new_ip_second, 'old_ip_second': site.ip_second},
+        11: {'type': message_mail_ip, 'new_ip': new_ip, 'new_ip_second': new_ip_second, 'old_ip': site.ip,
+             'old_ip_second': site.ip_second},
+        12: {'type': message_mail_web, 'difference_score': score},
+        13: {'type': message_mail_ip_web, 'difference_score': score, 'new_ip': new_ip, 'old_ip': site.ip},
+        14: {'type': message_mail_ip_web, 'difference_score': score, 'new_ip_second': new_ip_second,
+             'old_ip_second': site.ip_second},
+        15: {'type': message_mail_ip_web, 'difference_score': score, 'new_ip': new_ip, 'new_ip_second': new_ip_second,
+             'old_ip': site.ip, 'old_ip_second': site.ip_second}
+    }
 
-            if not previous_alert(site, message_mail_ip_web, new_alert.pk):
-                send_email("Mail record + Ip address + Web content changes detected on " + site.domain_name, site.rtir,
-                           new_alert.pk)
+    if site.monitored and alert != 0:
+        alert_data = alert_types[alert]
+        new_alert = Alert.objects.create(site=site, **alert_data)
+
+        if not previous_alert(site, alert_data['type'], new_alert.pk):
+            send_email(alert_data['type'] + " on " + site.domain_name, site.rtir, new_alert.pk)
+
+            # Handle Mail record for mail changes
+            if 'Mail' in alert_data['type']:
                 if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
                     Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(
-                                                                     pk=site.pk).MX_records)
+                                                                 new_MX_records=Site.objects.get(pk=site.pk).MX_records)
                 try:
                     if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
                             Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
@@ -567,8 +373,7 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
                                                                      new_mail_A_record_ip=Site.objects.get(
                                                                          pk=site.pk).mail_A_record_ip)
                 except Exception:
-                    if Site.objects.get(
-                            pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
+                    if Site.objects.get(pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
                         Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
                                                                      new_mail_A_record_ip=Site.objects.get(
                                                                          pk=site.pk).mail_A_record_ip)
@@ -595,7 +400,7 @@ def send_email(message, rtir, alert_id):
             msg = MIMEMultipart()
             msg['From'] = settings.EMAIL_FROM
             msg['To'] = ','.join(emails_to)
-            msg['Subject'] = "[INCIDENT #" + str(rtir) + "] " + message
+            msg['Subject'] = "[" + settings.EMAIL_SUBJECT_TAG_SITE_MONITORING + " #" + str(rtir) + "] " + message
             body = message
             body += u"""\
             Alert ID: """ + str(alert_id)
