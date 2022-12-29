@@ -6,6 +6,7 @@ from datetime import timedelta
 from datetime import datetime
 import calendar
 from apscheduler.schedulers.background import BackgroundScheduler
+import tzlocal
 from nltk.tokenize import word_tokenize
 from .mail_template.default_template import get_template
 import feedparser
@@ -24,7 +25,7 @@ def start_scheduler():
         - Fire main_watch at 18h00 on Saturday
         - Fire cleanup every day at 8 am
     """
-    scheduler = BackgroundScheduler()
+    scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
     scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10,
@@ -104,8 +105,11 @@ def fetch_last_posts(nb_max_post):
     posts_published = dict()
     for url in rss_urls:
         try:
-            feed_content = requests.get(url, timeout=60)
-            feeds.append(feedparser.parse(feed_content.text))
+            feed_content = requests.get(url, timeout=10)
+            if feed_content.status_code == 200:
+                feeds.append(feedparser.parse(feed_content.text))
+            else:
+                print(str(timezone.now()) + " - " + "Feed: " + url + " => Error: Status code: ", str(feed_content.status_code))
         except requests.exceptions.RequestException as e:
             print(str(timezone.now()) + " - ", e)
     for feed in feeds:
@@ -114,7 +118,10 @@ def fetch_last_posts(nb_max_post):
             if count <= nb_max_post:
                 count += 1
                 if 'published_parsed' in post:
-                    dt = datetime.fromtimestamp(calendar.timegm(post.published_parsed))
+                    if post.published_parsed is not None:
+                        dt = datetime.fromtimestamp(calendar.timegm(post.published_parsed))
+                    else:
+                        dt = "no-date"
                 else:
                     dt = "no-date"
                 if 'link' in post:

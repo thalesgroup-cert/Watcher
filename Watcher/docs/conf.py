@@ -26,9 +26,9 @@ project = 'Watcher'
 author = 'Félix Herrenschmidt'
 
 # The full version, including alpha/beta/rc tags
-release = '1.2.1'
+release = '1.2.13'
 
-copyright = '2021 - Thales CERT'
+copyright = '2023 - Thales CERT'
 
 # -- General configuration ---------------------------------------------------
 
@@ -37,7 +37,7 @@ copyright = '2021 - Thales CERT'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'recommonmark',
+    'myst_parser',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -55,7 +55,4 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 #
 html_theme = 'sphinx_rtd_theme'
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+myst_heading_anchors = 3

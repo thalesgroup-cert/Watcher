@@ -1,3 +1,4 @@
+# coding=utf-8
 import os
 import six
 import subprocess
@@ -8,6 +9,7 @@ from .mail_template.default_template import get_template
 from .mail_template.default_template_cert_transparency import get_cert_transparency_template
 from .mail_template.group_template import get_group_template
 from apscheduler.schedulers.background import BackgroundScheduler
+import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -21,7 +23,7 @@ def start_scheduler():
         - Fire main_dns_twist from Monday to Sunday: every 2 hours.
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
     """
-    scheduler = BackgroundScheduler()
+    scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
     scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)

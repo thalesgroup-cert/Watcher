@@ -1,6 +1,5 @@
 # coding=utf-8
 from __future__ import unicode_literals
-
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -9,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+import tzlocal
 from .models import Site, Alert, Subscriber
 import tlsh
 import requests
@@ -31,7 +31,7 @@ def start_scheduler():
     Launch multiple planning tasks in background:
         - Fire monitoring_check from Monday to Sunday : minute='*/6'
     """
-    scheduler = BackgroundScheduler()
+    scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
     scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/6', id='weekend_job',
                       max_instances=10,

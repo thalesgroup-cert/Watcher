@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Threats Watcher - Core Algorithm &mdash; Watcher 1.2.1 documentation</title>
+  <title>Threats Watcher - Core Algorithm &mdash; Watcher 1.2.13 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -14,7 +14,9 @@
         <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -45,7 +47,19 @@
 <li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_misp.html">MISP API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_thehive.html">TheHive API</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Threats Watcher - Core Algorithm</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Threats Watcher - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.fetch_last_posts"><code class="docutils literal notranslate"><span class="pre">fetch_last_posts()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.focus_five_letters"><code class="docutils literal notranslate"><span class="pre">focus_five_letters()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.focus_on_top"><code class="docutils literal notranslate"><span class="pre">focus_on_top()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.load_feeds"><code class="docutils literal notranslate"><span class="pre">load_feeds()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.main_watch"><code class="docutils literal notranslate"><span class="pre">main_watch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.remove_banned_words"><code class="docutils literal notranslate"><span class="pre">remove_banned_words()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.tokenize_count_urls"><code class="docutils literal notranslate"><span class="pre">tokenize_count_urls()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
@@ -64,8 +78,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Threats Watcher - Core Algorithm</li>
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Threats Watcher - Core Algorithm</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/modules/threats_watcher_core.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -76,7 +90,7 @@
            <div itemprop="articleBody">
              
   <section id="module-Watcher.threats_watcher.core">
-<span id="threats-watcher-core-algorithm"></span><h1>Threats Watcher - Core Algorithm<a class="headerlink" href="#module-Watcher.threats_watcher.core" title="Permalink to this headline"></a></h1>
+<span id="threats-watcher-core-algorithm"></span><h1>Threats Watcher - Core Algorithm<a class="headerlink" href="#module-Watcher.threats_watcher.core" title="Permalink to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.cleanup">
 <span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.cleanup" title="Permalink to this definition"></a></dt>
@@ -180,7 +194,7 @@ Populated the database with only words with a minimum occurrence of  “words_oc
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021 - Thales CERT.</p>
+    <p>&#169; Copyright 2023 - Thales CERT.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

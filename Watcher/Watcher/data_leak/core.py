@@ -5,6 +5,7 @@ from django.db import close_old_connections
 from django.utils import timezone
 from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+import tzlocal
 from django.conf import settings
 from django.db.models.functions import Length
 from .mail_template.default_template import get_template
@@ -21,7 +22,7 @@ def start_scheduler():
         - Fire main every 5 minutes from Monday to Sunday
         - Fire cleanup every 2 hours
     """
-    scheduler = BackgroundScheduler()
+    scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
     scheduler.add_job(main_data_leak, 'cron', day_of_week='mon-sun', minute='*/5', id='week_job', max_instances=10,
                       replace_existing=True)

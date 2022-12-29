@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to Watcher’s documentation! &mdash; Watcher 1.2.1 documentation</title>
+  <title>Welcome to Watcher’s documentation! &mdash; Watcher 1.2.13 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -14,7 +14,9 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -63,8 +65,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
-      <li>Welcome to Watcher’s documentation!</li>
+      <li><a href="#" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Welcome to Watcher’s documentation!</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -75,7 +77,7 @@
            <div itemprop="articleBody">
              
   <section id="welcome-to-watcher-s-documentation">
-<h1>Welcome to Watcher’s documentation!<a class="headerlink" href="#welcome-to-watcher-s-documentation" title="Permalink to this headline"></a></h1>
+<h1>Welcome to Watcher’s documentation!<a class="headerlink" href="#welcome-to-watcher-s-documentation" title="Permalink to this heading"></a></h1>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
@@ -106,17 +108,74 @@
 <li class="toctree-l2"><a class="reference internal" href="README.html#build-the-documentation">Build the documentation</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_misp.html">MISP API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_thehive.html">TheHive API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_misp.html">MISP API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_misp.html#Watcher.site_monitoring.misp.create_attributes"><code class="docutils literal notranslate"><span class="pre">create_attributes()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_misp.html#Watcher.site_monitoring.misp.create_misp_tags"><code class="docutils literal notranslate"><span class="pre">create_misp_tags()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_misp.html#Watcher.site_monitoring.misp.search_attributes"><code class="docutils literal notranslate"><span class="pre">search_attributes()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_misp.html#Watcher.site_monitoring.misp.update_attributes"><code class="docutils literal notranslate"><span class="pre">update_attributes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_thehive.html">TheHive API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_thehive.html#Watcher.site_monitoring.thehive.create_observables"><code class="docutils literal notranslate"><span class="pre">create_observables()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_thehive.html#Watcher.site_monitoring.thehive.search_observables"><code class="docutils literal notranslate"><span class="pre">search_observables()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_thehive.html#Watcher.site_monitoring.thehive.update_observables"><code class="docutils literal notranslate"><span class="pre">update_observables()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.fetch_last_posts"><code class="docutils literal notranslate"><span class="pre">fetch_last_posts()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.focus_five_letters"><code class="docutils literal notranslate"><span class="pre">focus_five_letters()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.focus_on_top"><code class="docutils literal notranslate"><span class="pre">focus_on_top()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.load_feeds"><code class="docutils literal notranslate"><span class="pre">load_feeds()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.main_watch"><code class="docutils literal notranslate"><span class="pre">main_watch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.remove_banned_words"><code class="docutils literal notranslate"><span class="pre">remove_banned_words()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.tokenize_count_urls"><code class="docutils literal notranslate"><span class="pre">tokenize_count_urls()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.check_keywords"><code class="docutils literal notranslate"><span class="pre">check_keywords()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.check_pastebin"><code class="docutils literal notranslate"><span class="pre">check_pastebin()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.check_searx"><code class="docutils literal notranslate"><span class="pre">check_searx()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.check_urls"><code class="docutils literal notranslate"><span class="pre">check_urls()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.main_data_leak"><code class="docutils literal notranslate"><span class="pre">main_data_leak()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.send_group_email"><code class="docutils literal notranslate"><span class="pre">send_group_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/data_leak_core.html#Watcher.data_leak.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_content"><code class="docutils literal notranslate"><span class="pre">check_content()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_ip"><code class="docutils literal notranslate"><span class="pre">check_ip()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_mail"><code class="docutils literal notranslate"><span class="pre">check_mail()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_alert"><code class="docutils literal notranslate"><span class="pre">create_alert()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.monitoring_check"><code class="docutils literal notranslate"><span class="pre">monitoring_check()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.monitoring_init"><code class="docutils literal notranslate"><span class="pre">monitoring_init()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.previous_alert"><code class="docutils literal notranslate"><span class="pre">previous_alert()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.tlsh_score"><code class="docutils literal notranslate"><span class="pre">tlsh_score()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules/dns_finder_core.html">DNS Finder - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.check_dnstwist"><code class="docutils literal notranslate"><span class="pre">check_dnstwist()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.in_dns_monitored"><code class="docutils literal notranslate"><span class="pre">in_dns_monitored()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.main_certificate_transparency"><code class="docutils literal notranslate"><span class="pre">main_certificate_transparency()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.main_dns_twist"><code class="docutils literal notranslate"><span class="pre">main_dns_twist()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.print_callback"><code class="docutils literal notranslate"><span class="pre">print_callback()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_email_cert_transparency"><code class="docutils literal notranslate"><span class="pre">send_email_cert_transparency()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_group_email"><code class="docutils literal notranslate"><span class="pre">send_group_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </div>
 </section>
 <section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline"></a></h1>
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
@@ -134,7 +193,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2021 - Thales CERT.</p>
+    <p>&#169; Copyright 2023 - Thales CERT.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
