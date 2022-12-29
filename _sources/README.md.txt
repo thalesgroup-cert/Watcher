@@ -20,8 +20,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | October 08, 2020 - 10:28:02
-    watcher          | Django version 3.1.1, using settings 'watcher.settings'
+    watcher          | October 08, 2022 - 10:28:02
+    watcher          | Django version 4.1.4, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
@@ -63,7 +63,7 @@ Most of the settings can be modified from the `/admin` page.
 
 There are other settings located in the `.env` file that you can configure. 
 
-##### Production Settings [Important]
+### Production Settings [Important]
 
 In production please put DJANGO_DEBUG environment variable to **False** in the `.env` file:
 
@@ -84,7 +84,7 @@ If you have modified some of these parameters, don't forget to restart all conta
     docker-compose down
     docker-compose up
 
-##### Access Watcher remotely within your server instance
+### Access Watcher remotely within your server instance
 In case of **"Bad Request" Error** when accessing Watcher web interface, fill `ALLOWED_HOST` variable (in `.env` file) with your Watcher Server Instance **IP** / or your **FQDN**.
 
 It is limited to a **single IP address** / **single FQDN**. 
@@ -98,7 +98,7 @@ Now, you can restart your instance and the parameters will be taken into account
     docker-compose down
     docker-compose up
     
-##### SMTP Server Settings (Email Notifications) 
+### SMTP Server Settings (Email Notifications) 
 In the `.env` file:
 
     EMAIL_FROM=watcher@example.com
@@ -113,7 +113,7 @@ Now, you can restart your instance and the parameters will be taken into account
     docker-compose down
     docker-compose up
  
-##### TheHive Settings
+### TheHive Settings
 If you want to use **TheHive export**, please fill the **IP** of your TheHive instance and a **generated API key**.
 
 In the `.env` file:
@@ -128,7 +128,7 @@ Now, you can restart your instance and the parameters will be taken into account
     docker-compose down
     docker-compose up
  
-##### MISP Settings
+### MISP Settings
 If you want to use **MISP export**, please fill the **IP** of your MISP instance and an **API key**.
 
 In the `.env` file:
@@ -143,7 +143,7 @@ Now, you can restart your instance and the parameters will be taken into account
     docker-compose down
     docker-compose up
  
-##### LDAP Settings
+### LDAP Settings
 You can configure an LDAP authentication within Watcher:
 
 In the `.env` file:
