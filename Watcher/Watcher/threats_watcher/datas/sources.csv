@@ -28,7 +28,6 @@ http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=teamcymru
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=OnexteC&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=InfoSec_Geek&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=bulletproofsec&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
-http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=DefendMalware&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=_odisseus&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=IT_securitynews&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=Securityartwork&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
@@ -39,7 +38,6 @@ http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=mwtracker
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=everythingcybr&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=koczkatamas&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=AttackDetection&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
-http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=CyberFusionTeam&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=tuxpanik&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=Lvanoel&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=HackRead&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
@@ -55,6 +53,12 @@ http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=meadowmtt
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=TheHackersNews&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=CSAsingapore&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=CERTEU&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=0xcharlie&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=carhackvillage&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=defcon&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=ecrime_ch&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=SwitHak&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
+http://10.10.10.7/?action=display&bridge=Twitter&context=By+username&u=teamcymru_S2&norep=on&nopic=on&noimg=on&noimgscaling=on&format=Mrss
 https://krebsonsecurity.com/feed/
 https://www.bleepingcomputer.com/feed/
 https://securelist.com/feed/
@@ -96,3 +100,4 @@ https://www.schneier.com/feed/atom/
 https://www.incibe-cert.es/feed/avisos-seguridad/all
 https://www.ccn-cert.cni.es/component/obrss/rss-ultimas-vulnerabilidades.feed
 https://www.cyberveille-sante.gouv.fr/alertes-et-vulnerabilites/rss.xml
+https://feeds.feedburner.com/ZDI-Upcoming-Advisories
