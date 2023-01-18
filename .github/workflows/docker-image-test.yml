@@ -5,6 +5,7 @@ on:
     paths:
     - 'Watcher/**'
     branches: [ test ]
+  workflow_dispatch:
 
 jobs:
   build:
