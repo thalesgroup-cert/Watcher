@@ -5,6 +5,7 @@ on:
     paths:
     - 'Watcher/docs/**'
     branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   deploy:
