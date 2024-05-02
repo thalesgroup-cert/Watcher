@@ -22,6 +22,7 @@ export class SuspiciousSites extends Component {
             showExportModal: false,
             id: 0,
             domainName: "",
+            ticketId: "",
             name: "",
             rtir: "",
             expiry: null,
@@ -34,6 +35,7 @@ export class SuspiciousSites extends Component {
             exportLoading: false
         };
         this.inputDomainRef = React.createRef();
+        this.inputTicketRef = React.createRef();
         this.inputRtirRef = React.createRef();
         this.ipMonitoringRef = React.createRef();
         this.webContentMonitoringRef = React.createRef();
@@ -128,6 +130,7 @@ export class SuspiciousSites extends Component {
             showEditModal: true,
             id: site.id,
             domainName: site.domain_name,
+            ticketId: site.ticket_id,
             rtir: site.rtir,
             expiry: site.expiry,
             ipMonitoring: site.ip_monitoring,
@@ -148,13 +151,14 @@ export class SuspiciousSites extends Component {
         onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
+            const ticket_id = this.inputTicketRef.current.value;
             const rtir = this.inputRtirRef.current.value;
             const expiry = this.state.expiry ? this.state.expiry : null;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
             const mail_monitoring = this.emailMonitoringRef.current.checked;
 
-            const site = {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring};
+            const site = {domain_name, ticket_id, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring};
 
             this.props.patchSite(this.state.id, site);
             this.setState({
@@ -191,9 +195,19 @@ export class SuspiciousSites extends Component {
                                         </Col>
                                         <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
-                                            <Form.Control required ref={this.inputRtirRef} size="md"
+                                            <Form.Control
+                                                ref={this.inputTicketRef} size="md"
+                                                type="text"
+                                                pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                placeholder="240529-2e0a2"
+                                                defaultValue={this.state.ticketId}/>
+                                        </Col>
+                                        <Form.Label column sm="4">ID</Form.Label>
+                                        <Col sm="8">
+                                            <Form.Control ref={this.inputRtirRef} size="md"
                                                           type="number" placeholder="number"
-                                                          defaultValue={this.state.rtir}/>
+                                                          defaultValue={this.state.rtir}
+                                                          readOnly/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
@@ -296,18 +310,20 @@ export class SuspiciousSites extends Component {
         onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
+            const ticket_id = this.inputTicketRef.current.value;
             const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir")+1;
             const expiry = this.state.day;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
             const mail_monitoring = this.emailMonitoringRef.current.checked;
-            const site = expiry ? {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, rtir, ip_monitoring, content_monitoring, mail_monitoring};
+            const site = expiry ? {domain_name, ticket_id, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, ticket_id, rtir, ip_monitoring, content_monitoring, mail_monitoring};
 
             this.props.addSite(site);
             this.setState({
                 domainName: "",
                 day: "",
                 id: 0,
+                ticketId: "",
                 addLoading: true
             });
             handleClose();
@@ -332,8 +348,20 @@ export class SuspiciousSites extends Component {
                                         </Col>
                                         <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
+                                            <Form.Control
+                                                ref={this.inputTicketRef}
+                                                size="md"
+                                                type="text"
+                                                pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                placeholder="230509-200a2"
+                                                defaultValue={this.state.ticketId}/>
+                                        </Col>
+                                        <Form.Label column sm="4">ID</Form.Label>
+                                        <Col sm="8">
                                             <Form.Control ref={this.inputRtirRef} size="md"
-                                                          type="number" placeholder="number"/>
+                                                          type="number" placeholder="number"
+                                                          defaultValue={this.state.rtir}
+                                                          readOnly/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
@@ -403,11 +431,12 @@ export class SuspiciousSites extends Component {
     };
 
 
-    displayExportModal = (id, domainName, theHiveCaseId, mispEventId) => {
+    displayExportModal = (id, domainName, ticketId, theHiveCaseId, mispEventId) => {
         this.setState({
             showExportModal: true,
             id: id,
             domainName: domainName,
+            ticketId: ticketId,
             theHiveCaseId: theHiveCaseId,
             mispEventId: mispEventId
         });
@@ -430,6 +459,7 @@ export class SuspiciousSites extends Component {
             this.props.exportToTheHive(site);
             this.setState({
                 domainName: "",
+                ticketId: "",
                 id: 0,
                 exportLoading: id
             });
@@ -445,6 +475,7 @@ export class SuspiciousSites extends Component {
             this.props.exportToMISP(site);
             this.setState({
                 domainName: "",
+                ticketId: "",
                 id: 0,
                 exportLoading: id
             });
@@ -529,7 +560,7 @@ export class SuspiciousSites extends Component {
             <button className="btn btn-outline-primary btn-sm mr-2"
                     data-toggle="tooltip"
                     data-placement="top" title="Export" onClick={() => {
-                this.displayExportModal(site.id, site.domain_name, site.the_hive_case_id, site.misp_event_id)
+                this.displayExportModal(site.id, site.domain_name, site.ticket_id, site.the_hive_case_id, site.misp_event_id)
             }} disabled={this.state.exportLoading === site.id}>
 
                 {this.state.exportLoading === site.id && (
@@ -571,8 +602,8 @@ export class SuspiciousSites extends Component {
                             <table className="table table-striped table-hover">
                                 <thead>
                                 <tr>
-                                    <th>Ticket ID</th>
                                     <th>Domain Name</th>
+                                    <th>Ticket ID</th>
                                     <th>Ip</th>
                                     <th>Ip Second</th>
                                     <th>MX Records</th>
@@ -587,8 +618,8 @@ export class SuspiciousSites extends Component {
                                 <tbody>
                                 {this.props.sites.map(site => (
                                     <tr key={site.id}>
-                                        <td><h5>#{site.rtir}</h5></td>
                                         <td><h5>{site.domain_name}</h5></td>
+                                        <td><h5>{site.ticket_id ? site.ticket_id : "-"}</h5></td>
                                         <td>{site.ip ? site.ip : "-"}</td>
                                         <td>{site.ip_second ? site.ip_second : "-"}</td>
                                         <td>{site.MX_records ? site.MX_records.replace('[', '').replace(']', '').split("'").map(record => record) : "-"}</td>
