@@ -10,6 +10,7 @@ class Site(models.Model):
     Stores a site which will be monitor (discrepancy in the hosting or in its DNS resolution, content hosted).
     """
     domain_name = models.CharField(max_length=100, unique=True)
+    ticket_id = models.CharField(max_length=20, blank=True, null=True)
     rtir = models.IntegerField()
     ip = models.GenericIPAddressField(blank=True, null=True)
     ip_second = models.GenericIPAddressField(blank=True, null=True)
