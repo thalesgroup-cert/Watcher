@@ -40,7 +40,7 @@ export default class Dashboard extends Component {
                         </div>
                     </div>
                     <div className="row justify-content-lg-center">
-                        <div className="mt-3 col-lg-7 ml-auto">
+                        <div className="mt-3 col-lg-12 ml-auto">
                             <PostUrls postUrls={this.state.postUrls} word={this.state.word}/>
                         </div>
                     </div>
