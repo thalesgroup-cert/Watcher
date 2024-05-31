@@ -35,7 +35,6 @@
     "react-dom": "^16.14.0",
     "react-redux": "^7.2.4",
     "react-router-dom": "^5.2.0",
-    "react-twitter-widgets": "^1.10.0",
     "react-wordcloud": "^1.2.7",
     "redux": "^4.1.0",
     "redux-devtools-extension": "^2.13.9",
