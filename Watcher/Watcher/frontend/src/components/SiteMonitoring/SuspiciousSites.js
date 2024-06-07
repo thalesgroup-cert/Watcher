@@ -311,11 +311,12 @@ export class SuspiciousSites extends Component {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
             const ticket_id = this.inputTicketRef.current.value;
+            const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir")+1;
             const expiry = this.state.day;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
             const mail_monitoring = this.emailMonitoringRef.current.checked;
-            const site = expiry ? {domain_name, ticket_id, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, ticket_id, rtir, ip_monitoring, content_monitoring, mail_monitoring};
+            const site = expiry ? {domain_name, ticket_id, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, ticket_id, rtir, ip_monitoring, content_monitoring, mail_monitoring};
 
             this.props.addSite(site);
             this.setState({
@@ -354,6 +355,13 @@ export class SuspiciousSites extends Component {
                                                 pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
                                                 placeholder="230509-200a2"
                                                 defaultValue={this.state.ticketId}/>
+                                        </Col>
+                                        <Form.Label column sm="4">ID</Form.Label>
+                                        <Col sm="8">
+                                            <Form.Control ref={this.inputRtirRef} size="md"
+                                                          type="number" placeholder="number"
+                                                          defaultValue={this.state.rtir}
+                                                          readOnly/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
