@@ -42,6 +42,13 @@ class Site(models.Model):
         return self.domain_name
 
 
+@receiver(pre_save, sender=Site)
+def set_rtir(sender, instance, **kwargs):
+    if instance.rtir is None:
+        last_site = Site.objects.order_by('-rtir').first()
+        instance.rtir = 1 if not last_site else last_site.rtir + 1
+
+
 class Alert(models.Model):
     """
     Triggered when there is a site status change.
