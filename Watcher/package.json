@@ -33,12 +33,12 @@
     "react-bootstrap": "^2.10.2",
     "react-day-picker": "^8.10.1",
     "react-dom": "^16.13.0",
-    "react-redux": "^9.1.2",
+    "react-redux": "^7.2.4",
     "react-router-dom": "^6.23.1",
     "react-wordcloud": "^1.2.7",
     "redux": "^4.0.1",
     "redux-devtools-extension": "^2.13.9",
-    "redux-thunk": "^3.1.0",
+    "redux-thunk": "^2.3.0",
     "style-loader": "^4.0.0",
     "tippy.js": "^6.3.7"
   }
