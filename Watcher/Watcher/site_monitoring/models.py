@@ -12,7 +12,7 @@ class Site(models.Model):
     """
     domain_name = models.CharField(max_length=100, unique=True)
     ticket_id = models.CharField(max_length=20, blank=True, null=True)
-    rtir = models.IntegerField()
+    rtir = models.IntegerField(unique=True, blank=True, null=True)
     ip = models.GenericIPAddressField(blank=True, null=True)
     ip_second = models.GenericIPAddressField(blank=True, null=True)
     ip_monitoring = models.BooleanField(default=True)
