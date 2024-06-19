@@ -152,7 +152,7 @@ export class SuspiciousSites extends Component {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
             const ticket_id = this.inputTicketRef.current.value;
-            const rtir = this.inputRtirRef.current.value;
+            const rtir = this.inputRtirRef.current ? this.inputRtirRef.current.value : null;
             const expiry = this.state.expiry ? this.state.expiry : null;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
@@ -201,13 +201,6 @@ export class SuspiciousSites extends Component {
                                                 pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
                                                 placeholder="240529-2e0a2"
                                                 defaultValue={this.state.ticketId}/>
-                                        </Col>
-                                        <Form.Label column sm="4">ID</Form.Label>
-                                        <Col sm="8">
-                                            <Form.Control ref={this.inputRtirRef} size="md"
-                                                          type="number" placeholder="number"
-                                                          defaultValue={this.state.rtir}
-                                                          readOnly/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
