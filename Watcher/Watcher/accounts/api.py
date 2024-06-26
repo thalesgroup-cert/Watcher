@@ -19,7 +19,7 @@ class LoginAPI(generics.GenericAPIView):
         raw_key, _ = generate_api_key(user)
         return Response({
             "user": UserSerializer(user, context=self.get_serializer_context()).data,
-            "token": AuthToken.objects.create(user)[1]
+            "token": raw_key
         })
 
 
