@@ -283,6 +283,7 @@ class APIKeyAdmin(admin.ModelAdmin):
                     <img src="https://img.icons8.com/material-outlined/24/000000/clipboard.png" alt="Copy" style="vertical-align: middle;"/>
                     <span style="vertical-align: middle;">Copy</span>
                 </button>
+                <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
                 <script>
                 function copyToClipboard(text) {{
                     const textarea = document.createElement('textarea');
@@ -291,9 +292,26 @@ class APIKeyAdmin(admin.ModelAdmin):
                     textarea.select();
                     document.execCommand('copy');
                     document.body.removeChild(textarea);
-                    alert('API key copied to clipboard');
+                    Swal.fire({{
+                        position: 'bottom-end',
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'API key copied to clipboard',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        customClass: {{
+                            popup: 'small-swal-popup'
+                        }}
+                    }});
                 }}
                 </script>
+                <style>
+                .small-swal-popup {{
+                    width: 300px !important;
+                    padding: 10px !important;
+                    font-size: 12px !important;
+                }}
+                </style>
             '''
             messages.success(request, mark_safe(f"The API Key for {user.username} was added successfully: {raw_key}. {copy_button} Make sure to copy this personal token now. You won't be able to see it again!"), extra_tags='safe', fail_silently=True)
         super().save_model(request, obj, form, change)
