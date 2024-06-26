@@ -17,6 +17,8 @@ import ipaddress
 from dns import resolver
 from dns.exception import DNSException
 import shadow_useragent
+from datetime import datetime, timedelta
+import ipaddress
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
@@ -33,7 +35,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/6', id='weekend_job',
+    scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/1', id='weekend_job',
                       max_instances=10,
                       replace_existing=True)
 
@@ -356,28 +358,57 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
 
     if site.monitored and alert != 0:
         alert_data = alert_types[alert]
+
+        # Get current time and time one hour ago
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        
+        # Retrieve the two latest alerts for this site within the last hour
+        last_two_alerts = Alert.objects.filter(site=site, created_at__gte=one_hour_ago, created_at__lte=now).order_by('-created_at')[:2]
+
+        # Check if the new alert is identical to the last two alerts created at the exact same time
+                for previous_alert in last_two_alerts:
+            if all(getattr(previous_alert, key) == value for key, value in alert_data.items()) and previous_alert.created_at == now:
+                return
+
+        # Create a new alert
         new_alert = Alert.objects.create(site=site, **alert_data)
 
-        if not previous_alert(site, alert_data['type'], new_alert.pk):
-            send_email(alert_data['type'] + " on " + site.domain_name, site.rtir, new_alert.pk)
+        # Send an email for the alert
+        send_email(alert_data['type'] + " on " + site.domain_name, site.rtir, new_alert.pk)
 
-            # Handle Mail record for mail changes
-            if 'Mail' in alert_data['type']:
-                if site.MX_records != Site.objects.get(pk=site.pk).MX_records:
-                    Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
-                                                                 new_MX_records=Site.objects.get(pk=site.pk).MX_records)
-                try:
-                    if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
-                            Site.objects.get(pk=site.pk).mail_A_record_ip + "/16", strict=False):
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
-                except Exception:
-                    if Site.objects.get(pk=site.pk).mail_A_record_ip is not None or site.mail_A_record_ip is not None:
-                        Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
-                                                                     new_mail_A_record_ip=Site.objects.get(
-                                                                         pk=site.pk).mail_A_record_ip)
+        # Manage MX records for mail changes
+        if 'Mail' in alert_data['type']:
+            current_site = Site.objects.get(pk=site.pk)
+            if site.MX_records != current_site.MX_records:
+                Alert.objects.filter(pk=new_alert.pk).update(old_MX_records=site.MX_records,
+                                                             new_MX_records=current_site.MX_records)
+            try:
+                if ipaddress.ip_address(site.mail_A_record_ip) not in ipaddress.ip_network(
+                        current_site.mail_A_record_ip + "/16", strict=False):
+                    Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
+                                                                 new_mail_A_record_ip=current_site.mail_A_record_ip)
+            except Exception:
+                if current_site.mail_A_record_ip is not None or site.mail_A_record_ip is not None:
+                    Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
+                                                                 new_mail_A_record_ip=current_site.mail_A_record_ip)
+            try:
+                if ipaddress.ip_address(site.mail_A_record_ip_second) not in ipaddress.ip_network(
+                        current_site.mail_A_record_ip_second + "/16", strict=False):
+                    Alert.objects.filter(pk=new_alert.pk).update(
+                        old_mail_A_record_ip_second=site.mail_A_record_ip_second,
+                        new_mail_A_record_ip_second=current_site.mail_A_record_ip_second)
+            except Exception:
+                if current_site.mail_A_record_ip_second is not None or site.mail_A_record_ip_second is not None:
+                    Alert.objects.filter(pk=new_alert.pk).update(
+                        old_mail_A_record_ip_second=site.mail_A_record_ip_second,
+                        new_mail_A_record_ip_second=current_site.mail_A_record_ip_second)
 
+            if 'Web' not in alert_data['type']:
+                if site.monitored and alert != 8:
+                    Site.objects.filter(pk=site.pk).update(MX_records=site.MX_records,
+                                                            mail_A_record_ip=site.mail_A_record_ip,
+                                                            mail_A_record_ip_second=site.mail_A_record_ip_second)
 
 def send_email(message, rtir, alert_id):
     """
