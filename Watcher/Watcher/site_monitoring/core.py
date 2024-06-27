@@ -356,15 +356,15 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
              'old_ip': site.ip, 'old_ip_second': site.ip_second}
     }
 
+    
     if site.monitored and alert != 0:
         alert_data = alert_types[alert]
 
-        # Get current time and time one hour ago
+        # Get current time
         now = datetime.now()
-        one_hour_ago = now - timedelta(hours=1)
-        
-        # Retrieve the two latest alerts for this site within the last hour
-        last_two_alerts = Alert.objects.filter(site=site, created_at__gte=one_hour_ago, created_at__lte=now).order_by('-created_at')[:2]
+
+        # Retrieve the two latest alerts for this site
+        last_two_alerts = Alert.objects.filter(site=site).order_by('-created_at')[:2]
 
         # Check if the new alert is identical to the last two alerts created at the exact same time
         for previous_alert in last_two_alerts:
