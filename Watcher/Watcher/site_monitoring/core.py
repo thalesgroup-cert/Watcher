@@ -356,6 +356,7 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
              'old_ip': site.ip, 'old_ip_second': site.ip_second}
     }
 
+    
     if site.monitored and alert != 0:
         alert_data = alert_types[alert]
 
