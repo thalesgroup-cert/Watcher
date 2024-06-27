@@ -368,7 +368,7 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
 
         # Check if the new alert is identical to the last two alerts created at the exact same time
         for previous_alert in last_two_alerts:
-            if all(getattr(previous_alert, key) == value for key, value in alert_data.items()) and previous_alert.created_at.replace(microsecond=0) == now.replace(microsecond=0):
+            if all(getattr(previous_alert, key) == value for key, value in alert_data.items()) and previous_alert.created_at == now:
                 return
 
         # Create a new alert
