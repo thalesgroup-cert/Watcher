@@ -30,7 +30,7 @@
     "react": "^16.13.0",
     "react-alert": "^7.0.3",
     "react-alert-template-oldschool-dark": "^1.0.1",
-    "react-bootstrap": "^2.10.2",
+    "react-bootstrap": "^1.6.8",
     "react-day-picker": "^7.4.10",
     "react-dom": "^16.13.0",
     "react-redux": "^7.2.4",
