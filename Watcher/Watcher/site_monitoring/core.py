@@ -364,8 +364,8 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
         # Get current time
         now = datetime.now()
 
-        # Retrieve the two latest alerts for this site within the last hour
-        one_hour_ago = now - timedelta(hours=1)
+        # Retrieve the two latest alerts for this site within the last three hours
+        one_hour_ago = now - timedelta(hours=3)
         last_two_alerts = Alert.objects.filter(site=site, created_at__gte=one_hour_ago).order_by('-created_at')[:2]
 
         # Check if the information of the new alert is identical to the last two alerts
