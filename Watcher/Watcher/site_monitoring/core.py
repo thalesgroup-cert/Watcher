@@ -4,9 +4,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from django.db import close_old_connections
+from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from .models import Site, Alert, Subscriber
@@ -17,8 +18,8 @@ import ipaddress
 from dns import resolver
 from dns.exception import DNSException
 import shadow_useragent
-from datetime import datetime, timedelta
-import ipaddress
+import time
+import random
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
@@ -359,8 +360,11 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
     if site.monitored and alert != 0:
         alert_data = alert_types[alert]
 
+        # Get current time
+        now = datetime.now()
+
         # Retrieve the two latest alerts for this site within the last hour
-        one_hour_ago = datetime.now() - timedelta(hours=1)
+        one_hour_ago = now - timedelta(hours=1)
         last_two_alerts = Alert.objects.filter(site=site, created_at__gte=one_hour_ago).order_by('-created_at')[:2]
 
         # Check if the information of the new alert is identical to the last two alerts
@@ -370,7 +374,11 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
                 return
 
         # Create a new alert
-        new_alert = Alert.objects.create(site=site, **alert_data)
+        with transaction.atomic():
+            new_alert = Alert.objects.create(site=site, **alert_data)
+
+        # Sleep randomly for 1 to 3 seconds to avoid simultaneous creation of duplicate alerts
+        time.sleep(random.uniform(1, 3))
 
         # Send an email for the alert
         send_email(alert_data['type'] + " on " + site.domain_name, site.rtir, new_alert.pk)
