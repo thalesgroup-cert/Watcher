@@ -149,6 +149,11 @@ REST_FRAMEWORK = {
         ('knox.auth.TokenAuthentication',)
 }
 
+REST_KNOX = {
+  'SECURE_HASH_ALGORITHM': 'cryptography.hazmat.primitives.hashes.SHA3_512',  
+  'TOKEN_TTL': timedelta(hours=10),
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
