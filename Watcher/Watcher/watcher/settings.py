@@ -14,7 +14,6 @@ import os
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
-from datetime import timedelta
 
 # LDAP Setup
 AUTH_LDAP_SERVER_URI = os.environ.get('AUTH_LDAP_SERVER_URI', "")
@@ -148,11 +147,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES':
         ('knox.auth.TokenAuthentication',)
-}
-
-REST_KNOX = {
-  'SECURE_HASH_ALGORITHM': 'cryptography.hazmat.primitives.hashes.SHA3_512',  
-  'TOKEN_TTL': timedelta(hours=10),
 }
 
 MIDDLEWARE = [
