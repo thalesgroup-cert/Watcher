@@ -194,6 +194,9 @@ class APIKeyAdmin(admin.ModelAdmin):
     get_created.short_description = 'Created'
     get_expiry.short_description = 'Expiry'
 
+    def has_add_permission(self, request):
+        return True
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if not request.user.is_superuser:
