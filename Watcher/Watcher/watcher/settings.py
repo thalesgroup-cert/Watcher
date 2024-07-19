@@ -14,6 +14,7 @@ import os
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
+from datetime import timedelta
 
 # LDAP Setup
 AUTH_LDAP_SERVER_URI = os.environ.get('AUTH_LDAP_SERVER_URI', "")
