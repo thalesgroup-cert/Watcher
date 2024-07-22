@@ -297,3 +297,14 @@ def delete_authtoken_when_apikey_deleted(sender, instance, **kwargs):
             instance.auth_token.delete()
     except AuthToken.DoesNotExist:
         pass
+
+
+class AuthTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'digest', 'created', 'expiry')
+    readonly_fields = ('user', 'digest', 'created', 'expiry')
+ 
+    def has_add_permission(self, request):
+        return False
+ 
+admin.site.unregister(AuthToken)
+admin.site.register(AuthToken, AuthTokenAdmin)
