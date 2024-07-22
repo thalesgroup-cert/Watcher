@@ -2,7 +2,8 @@ from django.db import models
 from django_auth_ldap.backend import populate_user
 from django.contrib.auth.models import User
 from knox.models import AuthToken
-
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 class APIKey(models.Model):
     """
@@ -17,6 +18,14 @@ class APIKey(models.Model):
         verbose_name = "API Key"
         verbose_name_plural = "API Keys"
         app_label = 'auth' 
+
+@receiver(post_delete, sender=APIKey)
+def delete_authtoken_when_apikey_deleted(sender, instance, **kwargs):
+    try:
+        if instance.auth_token:
+            instance.auth_token.delete()
+    except AuthToken.DoesNotExist:
+        pass
 
 
 def make_inactive(sender, user, **kwargs):

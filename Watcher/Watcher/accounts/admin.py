@@ -11,8 +11,7 @@ from django import forms
 from django.utils import timezone
 from datetime import timedelta
 from knox.models import AuthToken
-from django.db.models.signals import post_delete
-from django.dispatch import receiver
+
 
 """
 Log Entries Snippet
@@ -288,15 +287,6 @@ class APIKeyAdmin(admin.ModelAdmin):
     key_details.short_description = 'Key Details'
 
 admin.site.register(APIKey, APIKeyAdmin)
-
-
-@receiver(post_delete, sender=APIKey)
-def delete_authtoken_when_apikey_deleted(sender, instance, **kwargs):
-    try:
-        if instance.auth_token:
-            instance.auth_token.delete()
-    except AuthToken.DoesNotExist:
-        pass
 
 
 class AuthTokenAdmin(admin.ModelAdmin):
