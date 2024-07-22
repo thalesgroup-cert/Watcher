@@ -82,7 +82,6 @@ class LogEntryAdmin(admin.ModelAdmin):
         UserFilter,
         ActionFilter,
         'content_type',
-        # 'user',
     ]
 
     search_fields = [
@@ -132,19 +131,12 @@ class LogEntryAdmin(admin.ModelAdmin):
 
     action_description.short_description = 'Action'
 
-
 admin.site.register(LogEntry, LogEntryAdmin)
 
 
 class APIKeyForm(forms.ModelForm):
     EXPIRATION_CHOICES = (
-        (1, '1 day'), 
-        (7, '7 days'), 
-        (30, '30 days'), 
-        (60, '60 days'),
-        (90, '90 days'), 
-        (365, '1 year'), 
-        (730, '2 years'),
+        (1, '1 day'), (7, '7 days'), (30, '30 days'), (60, '60 days'), (90, '90 days'), (365, '1 year'), (730, '2 years'),
     )
     expiration = forms.ChoiceField(choices=EXPIRATION_CHOICES, label='Expiration', required=True)
     user = forms.ModelChoiceField(queryset=User.objects.all(), label='User', required=True)
@@ -281,11 +273,9 @@ class APIKeyAdmin(admin.ModelAdmin):
             return ['key']
 
     def has_view_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        if obj is None:
-            return True
-        return obj.user == request.user
+        if obj and not request.user.is_superuser:
+            return obj.auth_token.user == request.user
+        return super().has_view_permission(request, obj)
 
     def key_details(self, obj):
         if obj.auth_token:
@@ -307,14 +297,3 @@ def delete_authtoken_when_apikey_deleted(sender, instance, **kwargs):
             instance.auth_token.delete()
     except AuthToken.DoesNotExist:
         pass
-
-
-class AuthTokenAdmin(admin.ModelAdmin):
-    list_display = ('user', 'digest', 'created', 'expiry')
-    readonly_fields = ('user', 'digest', 'created', 'expiry')
- 
-    def has_add_permission(self, request):
-        return False
- 
-admin.site.unregister(AuthToken)
-admin.site.register(AuthToken, AuthTokenAdmin)
