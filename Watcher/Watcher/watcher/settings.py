@@ -151,7 +151,7 @@ REST_FRAMEWORK = {
 }
 
 REST_KNOX = {
-  'SECURE_HASH_ALGORITHM': 'hashlib.SHA3_512',  
+  'SECURE_HASH_ALGORITHM': 'hashlib.sha3_512',  
   'TOKEN_TTL': timedelta(hours=10),
 }
 
