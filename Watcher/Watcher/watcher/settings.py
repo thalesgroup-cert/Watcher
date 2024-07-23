@@ -155,6 +155,8 @@ REST_KNOX = {
   'TOKEN_TTL': timedelta(hours=10),
 }
 
+KNOX_TOKEN_MODEL = 'knox.AuthToken'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
