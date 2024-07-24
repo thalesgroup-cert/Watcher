@@ -12,7 +12,7 @@ class Source(models.Model):
     """
     Stores Source RSS Feed Url which will be used to find new words tendencies in **threats_watcher/apps.py** Algorithms.
     """
-    url = models.URLField(max_length=350)
+    url = models.URLField(max_length=350, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
