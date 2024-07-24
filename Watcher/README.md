@@ -230,7 +230,7 @@ Connect to the `/admin` page:
 
 Connect to the `/admin` page:
 
-- Click on **API Keys** in **Authentication and Authorization** part.
+- Click on **API Keys** in **Accounts** part.
 - Click on **ADD API KEY**.
 - Select the **expiration** date.
 - Click on **SAVE**.
