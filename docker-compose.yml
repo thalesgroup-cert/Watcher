@@ -27,7 +27,7 @@ services:
 
   db_watcher:
     container_name: db_watcher
-    image: mysql:latest
+    image: mysql:8.0.39
     command: mysqld --default-authentication-plugin=mysql_native_password
     volumes:
       - db_data:/var/lib/mysql
