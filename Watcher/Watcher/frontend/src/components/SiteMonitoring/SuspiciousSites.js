@@ -10,9 +10,9 @@ import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import DayPickerInput from "react-day-picker/DayPickerInput";
 import {formatDate, parseDate} from 'react-day-picker/moment';
-
+ 
 export class SuspiciousSites extends Component {
-
+ 
     constructor(props) {
         super(props);
         this.state = {
@@ -22,6 +22,7 @@ export class SuspiciousSites extends Component {
             showExportModal: false,
             id: 0,
             domainName: "",
+            ticketId: "",
             name: "",
             rtir: "",
             expiry: null,
@@ -34,12 +35,13 @@ export class SuspiciousSites extends Component {
             exportLoading: false
         };
         this.inputDomainRef = React.createRef();
+        this.inputTicketRef = React.createRef();
         this.inputRtirRef = React.createRef();
         this.ipMonitoringRef = React.createRef();
         this.webContentMonitoringRef = React.createRef();
         this.emailMonitoringRef = React.createRef();
     }
-
+ 
     static propTypes = {
         sites: PropTypes.array.isRequired,
         getSites: PropTypes.func.isRequired,
@@ -51,11 +53,11 @@ export class SuspiciousSites extends Component {
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
     };
-
+ 
     componentDidMount() {
         this.props.getSites();
     }
-
+ 
     componentDidUpdate(prevProps) {
         if (this.props.sites !== prevProps.sites) {
             this.setState({
@@ -72,7 +74,7 @@ export class SuspiciousSites extends Component {
             }
         }
     }
-
+ 
     displayDeleteModal = (id, domainName) => {
         this.setState({
             showDeleteModal: true,
@@ -80,7 +82,7 @@ export class SuspiciousSites extends Component {
             domainName: domainName,
         });
     };
-
+ 
     deleteModal = () => {
         let handleClose;
         handleClose = () => {
@@ -88,7 +90,7 @@ export class SuspiciousSites extends Component {
                 showDeleteModal: false
             });
         };
-
+ 
         let onSubmit;
         onSubmit = e => {
             e.preventDefault();
@@ -99,7 +101,7 @@ export class SuspiciousSites extends Component {
             });
             handleClose();
         };
-
+ 
         return (
             <Modal show={this.state.showDeleteModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
@@ -121,13 +123,14 @@ export class SuspiciousSites extends Component {
             </Modal>
         );
     };
-
+ 
     displayEditModal = (site) => {
         site.expiry = site.expiry ? new Date(site.expiry) : null;
         this.setState({
             showEditModal: true,
             id: site.id,
             domainName: site.domain_name,
+            ticketId: site.ticket_id,
             rtir: site.rtir,
             expiry: site.expiry,
             ipMonitoring: site.ip_monitoring,
@@ -135,7 +138,7 @@ export class SuspiciousSites extends Component {
             emailMonitoring: site.mail_monitoring
         });
     };
-
+ 
     editModal = () => {
         let handleClose;
         handleClose = () => {
@@ -143,19 +146,20 @@ export class SuspiciousSites extends Component {
                 showEditModal: false
             });
         };
-
+ 
         let onSubmit;
         onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
-            const rtir = this.inputRtirRef.current.value;
+            const ticket_id = this.inputTicketRef.current.value;
+            const rtir = this.inputRtirRef.current ? this.inputRtirRef.current.value : null;
             const expiry = this.state.expiry ? this.state.expiry : null;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
             const mail_monitoring = this.emailMonitoringRef.current.checked;
-
-            const site = {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring};
-
+ 
+            const site = {domain_name, ticket_id, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring};
+ 
             this.props.patchSite(this.state.id, site);
             this.setState({
                 day: "",
@@ -163,12 +167,12 @@ export class SuspiciousSites extends Component {
             });
             handleClose();
         };
-
+ 
         let handleOnChange;
         handleOnChange = e => {
             e.preventDefault();
         };
-
+ 
         return (
             <Modal show={this.state.showEditModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
@@ -191,9 +195,12 @@ export class SuspiciousSites extends Component {
                                         </Col>
                                         <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
-                                            <Form.Control required ref={this.inputRtirRef} size="md"
-                                                          type="number" placeholder="number"
-                                                          defaultValue={this.state.rtir}/>
+                                            <Form.Control
+                                                ref={this.inputTicketRef} size="md"
+                                                type="text"
+                                                pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                placeholder="240529-2e0a2"
+                                                defaultValue={this.state.ticketId}/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
@@ -262,56 +269,34 @@ export class SuspiciousSites extends Component {
             </Modal>
         );
     };
-
+ 
     displayAddModal = () => {
         this.setState({
             showAddModal: true
         });
     };
-
+ 
     addModal = () => {
-        let handleClose;
-        handleClose = () => {
-            this.setState({
-                showAddModal: false
-            });
+        let handleClose = () => {
+            this.setState({ showAddModal: false });
         };
-
-        let getMax;
-        getMax = (arr, prop) => {
-            var max;
-            if (arr.length !== 0) {
-                for (var i=0 ; i<arr.length ; i++) {
-                    if (max == null || parseInt(arr[i][prop]) > parseInt(max[prop]))
-                        max = arr[i];
-                }
-                max=max.rtir
-            } else {
-                max=0;
-            }
-            return max;
-        };
-
-        let onSubmit;
-        onSubmit = e => {
+    
+        let onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputDomainRef.current.value;
-            const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir")+1;
+            const ticket_id = this.inputTicketRef.current.value;
             const expiry = this.state.day;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
             const mail_monitoring = this.emailMonitoringRef.current.checked;
-            const site = expiry ? {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, rtir, ip_monitoring, content_monitoring, mail_monitoring};
-
+    
+            const site = { domain_name, ticket_id, expiry, ip_monitoring, content_monitoring, mail_monitoring };
+    
             this.props.addSite(site);
-            this.setState({
-                domainName: "",
-                day: "",
-                id: 0,
-                addLoading: true
-            });
+            this.setState({ domainName: "", day: "", ticketId: "", addLoading: true });
             handleClose();
         };
+    
         return (
             <Modal show={this.state.showAddModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
@@ -320,7 +305,7 @@ export class SuspiciousSites extends Component {
                 <Modal.Body>
                     <Container>
                         <Row className="show-grid">
-                            <Col md={{span: 12}}>
+                            <Col md={{ span: 12 }}>
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row}>
                                         <Form.Label column sm="4">Domain name</Form.Label>
@@ -332,60 +317,42 @@ export class SuspiciousSites extends Component {
                                         </Col>
                                         <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
-                                            <Form.Control ref={this.inputRtirRef} size="md"
-                                                          type="number" placeholder="number"/>
+                                            <Form.Control ref={this.inputTicketRef} size="md" type="text"
+                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                          placeholder="230509-200a2"
+                                                          defaultValue={this.state.ticketId}/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
-                                            <DayPickerInput
-                                                style={{color: "black"}}
-                                                formatDate={formatDate}
-                                                parseDate={parseDate}
-                                                placeholder={`${formatDate(new Date())}`}
-                                                dayPickerProps={{
-                                                    disabledDays: {before: new Date()},
-                                                    fromMonth: new Date(),
-                                                    firstDayOfWeek: 1,
-                                                    fixedWeeks: true,
-                                                    showWeekNumbers: true
-                                                }}
-                                                onDayChange={day => this.setState({day})}/>
+                                            <DayPickerInput style={{ color: "black" }} formatDate={formatDate}
+                                                            parseDate={parseDate}
+                                                            placeholder={`${formatDate(new Date())}`}
+                                                            dayPickerProps={{
+                                                                disabledDays: { before: new Date() },
+                                                                fromMonth: new Date(),
+                                                                firstDayOfWeek: 1,
+                                                                fixedWeeks: true,
+                                                                showWeekNumbers: true
+                                                            }}
+                                                            onDayChange={day => this.setState({ day })}/>
                                         </Col>
                                         <Form.Label column sm="6">Ip Monitoring</Form.Label>
                                         <Col sm="6">
-                                            <Form.Check
-                                                ref={this.ipMonitoringRef}
-                                                defaultChecked={true}
-                                                className="mt-2"
-                                                type="switch"
-                                                id="custom-switch"
-                                                label=""
-                                            />
+                                            <Form.Check ref={this.ipMonitoringRef} defaultChecked={true}
+                                                        className="mt-2" type="switch" id="custom-switch" label=""/>
                                         </Col>
                                         <Form.Label column sm="6">Web Content Monitoring</Form.Label>
                                         <Col sm="6">
-                                            <Form.Check
-                                                ref={this.webContentMonitoringRef}
-                                                defaultChecked={true}
-                                                className="mt-2"
-                                                type="switch"
-                                                id="custom-switch-2"
-                                                label=""
-                                            />
+                                            <Form.Check ref={this.webContentMonitoringRef} defaultChecked={true}
+                                                        className="mt-2" type="switch" id="custom-switch-2" label=""/>
                                         </Col>
                                         <Form.Label column sm="6">Email Monitoring</Form.Label>
                                         <Col sm="6">
-                                            <Form.Check
-                                                ref={this.emailMonitoringRef}
-                                                defaultChecked={true}
-                                                className="mt-2"
-                                                type="switch"
-                                                id="custom-switch-3"
-                                                label=""
-                                            />
+                                            <Form.Check ref={this.emailMonitoringRef} defaultChecked={true}
+                                                        className="mt-2" type="switch" id="custom-switch-3" label=""/>
                                         </Col>
                                     </Form.Group>
-                                    <Col md={{span: 5, offset: 8}}>
+                                    <Col md={{ span: 5, offset: 8 }}>
                                         <Button variant="secondary" className="mr-2" onClick={handleClose}>
                                             Close
                                         </Button>
@@ -401,18 +368,20 @@ export class SuspiciousSites extends Component {
             </Modal>
         );
     };
-
-
-    displayExportModal = (id, domainName, theHiveCaseId, mispEventId) => {
+    
+ 
+ 
+    displayExportModal = (id, domainName, ticketId, theHiveCaseId, mispEventId) => {
         this.setState({
             showExportModal: true,
             id: id,
             domainName: domainName,
+            ticketId: ticketId,
             theHiveCaseId: theHiveCaseId,
             mispEventId: mispEventId
         });
     };
-
+ 
     exportModal = () => {
         let handleClose;
         handleClose = () => {
@@ -420,37 +389,39 @@ export class SuspiciousSites extends Component {
                 showExportModal: false
             });
         };
-
+ 
         let onSubmitTheHive;
         onSubmitTheHive = e => {
             e.preventDefault();
             const id = this.state.id;
             const site = {id};
-
+ 
             this.props.exportToTheHive(site);
             this.setState({
                 domainName: "",
+                ticketId: "",
                 id: 0,
                 exportLoading: id
             });
             handleClose();
         };
-
+ 
         let onSubmitMisp;
         onSubmitMisp = e => {
             e.preventDefault();
             const id = this.state.id;
             const site = {id};
-
+ 
             this.props.exportToMISP(site);
             this.setState({
                 domainName: "",
+                ticketId: "",
                 id: 0,
                 exportLoading: id
             });
             handleClose();
         };
-
+ 
         const theHiveExportButton = (
             <Button type="submit" className="btn-thehive">
                 Export to TheHive
@@ -467,7 +438,7 @@ export class SuspiciousSites extends Component {
             <Button type="submit" className="btn-misp">
                 Update MISP IOCs
             </Button>);
-
+ 
         return (
             <Modal show={this.state.showExportModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
@@ -502,8 +473,8 @@ export class SuspiciousSites extends Component {
             </Modal>
         );
     };
-
-
+ 
+ 
     render() {
         const yes_monitoring = (
             <i className="material-icons text-success mt-1 col-lg-12"
@@ -529,9 +500,9 @@ export class SuspiciousSites extends Component {
             <button className="btn btn-outline-primary btn-sm mr-2"
                     data-toggle="tooltip"
                     data-placement="top" title="Export" onClick={() => {
-                this.displayExportModal(site.id, site.domain_name, site.the_hive_case_id, site.misp_event_id)
+                this.displayExportModal(site.id, site.domain_name, site.ticket_id, site.the_hive_case_id, site.misp_event_id)
             }} disabled={this.state.exportLoading === site.id}>
-
+ 
                 {this.state.exportLoading === site.id && (
                     <div className="loader">Loading...</div>
                 )}
@@ -541,7 +512,7 @@ export class SuspiciousSites extends Component {
                 )}
             </button>
         );
-
+ 
         return (
             <Fragment>
                 <div className="row">
@@ -571,8 +542,8 @@ export class SuspiciousSites extends Component {
                             <table className="table table-striped table-hover">
                                 <thead>
                                 <tr>
-                                    <th>Ticket ID</th>
                                     <th>Domain Name</th>
+                                    <th>Ticket ID</th>
                                     <th>Ip</th>
                                     <th>Ip Second</th>
                                     <th>MX Records</th>
@@ -587,8 +558,8 @@ export class SuspiciousSites extends Component {
                                 <tbody>
                                 {this.props.sites.map(site => (
                                     <tr key={site.id}>
-                                        <td><h5>#{site.rtir}</h5></td>
                                         <td><h5>{site.domain_name}</h5></td>
+                                        <td><h5>{site.ticket_id ? site.ticket_id : "-"}</h5></td>
                                         <td>{site.ip ? site.ip : "-"}</td>
                                         <td>{site.ip_second ? site.ip_second : "-"}</td>
                                         <td>{site.MX_records ? site.MX_records.replace('[', '').replace(']', '').split("'").map(record => record) : "-"}</td>
@@ -631,13 +602,13 @@ export class SuspiciousSites extends Component {
         )
     }
 }
-
+ 
 const mapStateToProps = state => ({
     sites: state.SiteMonitoring.sites,
     auth: state.auth,
     error: state.errors
 });
-
+ 
 export default connect(mapStateToProps, {
     getSites,
     deleteSite,

@@ -14,6 +14,7 @@ import os
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
+from datetime import timedelta
 
 # LDAP Setup
 AUTH_LDAP_SERVER_URI = os.environ.get('AUTH_LDAP_SERVER_URI', "")
@@ -74,7 +75,7 @@ if os.environ.get('CSRF_TRUSTED_ORIGINS', '') != '':
 
 # Feed Parser Configuration
 POSTS_DEPTH = 30
-WORDS_OCCURRENCE = 10
+WORDS_OCCURRENCE = 7
 # Example for daily watch : PostsDepth = 30 et WordsOccurrence = 5
 # Example for a continuous watch : PostsDepth = 3 et WordsOccurrence = 8
 # Example for a Monday morning watch : PostsDepth = 50 et WordsOccurrence = 0
@@ -147,6 +148,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES':
         ('knox.auth.TokenAuthentication',)
+}
+
+REST_KNOX = {
+  'SECURE_HASH_ALGORITHM': 'cryptography.hazmat.primitives.hashes.SHA3_512',  
+  'TOKEN_TTL': timedelta(hours=10),
 }
 
 MIDDLEWARE = [

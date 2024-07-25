@@ -1,10 +1,8 @@
-version: "3.3"
-
 services:
 
   searx:
     container_name: searx
-    image: searx/searx:0.18.0-341-ae0b621e
+    image: searx/searx:1.1.0-69-75b859d2
     hostname: searx
     restart: always
     networks:
@@ -27,24 +25,9 @@ services:
       - SETUID
       - DAC_OVERRIDE
 
-  rss-bridge:
-    container_name: rss-bridge
-    image: rssbridge/rss-bridge:latest
-    hostname: rss-bridge
-    restart: always
-    networks:
-      default:
-        ipv4_address: 10.10.10.7
-    volumes:
-      - ./Rss-bridge/whitelist.txt:/app/whitelist.txt
-    environment:
-      - TZ=${TZ}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
-
   db_watcher:
     container_name: db_watcher
-    image: mysql:latest
+    image: mysql:8.0.39
     command: mysqld --default-authentication-plugin=mysql_native_password
     volumes:
       - db_data:/var/lib/mysql
@@ -66,7 +49,6 @@ services:
     depends_on:
       - db_watcher
       - searx
-      - rss-bridge
     restart: always
     networks:
       default:

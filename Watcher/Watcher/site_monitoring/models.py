@@ -3,14 +3,16 @@ from django.db import models
 from django.utils import timezone
 from django_mysql.models import ListCharField
 from django.contrib.auth.models import User
-
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
 class Site(models.Model):
     """
     Stores a site which will be monitor (discrepancy in the hosting or in its DNS resolution, content hosted).
     """
     domain_name = models.CharField(max_length=100, unique=True)
-    rtir = models.IntegerField()
+    ticket_id = models.CharField(max_length=20, blank=True, null=True)
+    rtir = models.IntegerField(unique=True, blank=True, null=True)
     ip = models.GenericIPAddressField(blank=True, null=True)
     ip_second = models.GenericIPAddressField(blank=True, null=True)
     ip_monitoring = models.BooleanField(default=True)
@@ -39,6 +41,13 @@ class Site(models.Model):
 
     def __str__(self):
         return self.domain_name
+
+
+@receiver(pre_save, sender=Site)
+def set_rtir(sender, instance, **kwargs):
+    if instance.rtir is None:
+        last_site = Site.objects.order_by('-rtir').first()
+        instance.rtir = 1 if not last_site else last_site.rtir + 1
 
 
 class Alert(models.Model):

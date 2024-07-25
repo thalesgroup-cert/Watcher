@@ -2,6 +2,7 @@ from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from knox.models import AuthToken
 from .serializers import UserSerializer, LoginSerializer, UserPasswordChangeSerializer
+from django.utils import timezone
 
 
 # Login API
@@ -35,3 +36,11 @@ class PasswordChangeViewSet(viewsets.ModelViewSet):
         permissions.IsAuthenticated,
     ]
     serializer_class = UserPasswordChangeSerializer
+
+
+# Generate API Key
+def generate_api_key(user, expiration):
+    expiry = timezone.timedelta(days=expiration)
+    token_instance, raw_key = AuthToken.objects.create(user=user, expiry=expiry)
+    
+    return raw_key, token_instance

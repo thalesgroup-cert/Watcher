@@ -67,7 +67,7 @@ class SiteResource(resources.ModelResource):
 
 @admin.register(Site)
 class Site(ExportMixin, admin.ModelAdmin):
-    list_display = ['rtir', 'domain_name', 'ip', 'ip_second', 'monitored', 'web_status', 'misp_event_id',
+    list_display = ['rtir', 'domain_name', 'ticket_id','ip', 'ip_second', 'monitored', 'web_status', 'misp_event_id',
                     'the_hive_case_id', 'created_at', 'expiry']
     list_filter = ['created_at', 'expiry', 'monitored', 'web_status']
     search_fields = ['rtir', 'domain_name', 'ip', 'ip_second', 'the_hive_case_id', 'misp_event_id']
