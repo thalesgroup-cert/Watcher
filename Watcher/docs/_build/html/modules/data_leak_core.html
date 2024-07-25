@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Data Leak - Core Algorithm &mdash; Watcher 1.2.13 documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=250a84ee"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -29,11 +30,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> Watcher
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Watcher
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -77,7 +82,7 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a></li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
       <li class="breadcrumb-item active">Data Leak - Core Algorithm</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/modules/data_leak_core.rst.txt" rel="nofollow"> View page source</a>
@@ -89,13 +94,13 @@
            <div itemprop="articleBody">
              
   <section id="module-Watcher.data_leak.core">
-<span id="data-leak-core-algorithm"></span><h1>Data Leak - Core Algorithm<a class="headerlink" href="#module-Watcher.data_leak.core" title="Permalink to this heading"></a></h1>
+<span id="data-leak-core-algorithm"></span><h1>Data Leak - Core Algorithm<a class="headerlink" href="#module-Watcher.data_leak.core" title="Link to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.check_keywords">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_keywords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_keywords" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_keywords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_keywords" title="Link to this definition"></a></dt>
 <dd><p>Check keywords in Searx Instance &amp; Pastebin.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>keywords</strong> – Keywords stored in database.</p>
 </dd>
 </dl>
@@ -103,16 +108,16 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.check_pastebin">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_pastebin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_pastebin" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_pastebin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_pastebin" title="Link to this definition"></a></dt>
 <dd><p>Check Pastebin for keyword list.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>keywords</strong> – Keywords stored in database.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Matched urls &amp; Corresponding keyword.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dictionary</p>
 </dd>
 </dl>
@@ -120,16 +125,16 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.check_searx">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_searx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_searx" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_searx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_searx" title="Link to this definition"></a></dt>
 <dd><p>Pull Searx instance for keyword.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>keyword</strong> – Keyword stored in database.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Matched urls.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -137,19 +142,19 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.check_urls">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_urls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urls</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_urls" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_urls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urls</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_urls" title="Link to this definition"></a></dt>
 <dd><p>Check if the URL is new.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>keyword</strong> – Keyword stored in database.</p></li>
 <li><p><strong>urls</strong> – Fresh searx urls.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Urls not already in alert database column.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -157,13 +162,13 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.cleanup">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.cleanup" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.cleanup" title="Link to this definition"></a></dt>
 <dd><p>Remove 2 hours old, useless, pasteIDs.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.main_data_leak">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">main_data_leak</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.main_data_leak" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">main_data_leak</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.main_data_leak" title="Link to this definition"></a></dt>
 <dd><dl class="simple">
 <dt>Main function:</dt><dd><ul class="simple">
 <li><p>close_old_connections()</p></li>
@@ -176,10 +181,10 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.send_email">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_email" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_email" title="Link to this definition"></a></dt>
 <dd><p>Send e-mail alert.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>alert</strong> – Alert object.</p>
 </dd>
 </dl>
@@ -187,10 +192,10 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.send_group_email">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_group_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_group_email" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_group_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_group_email" title="Link to this definition"></a></dt>
 <dd><p>Send group e-mail for a specific keyword.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>keyword</strong> – Matched Keyword.</p></li>
 <li><p><strong>alerts_number</strong> – Number of alerts.</p></li>
@@ -201,7 +206,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.data_leak.core.start_scheduler">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.start_scheduler" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.start_scheduler" title="Link to this definition"></a></dt>
 <dd><dl class="simple">
 <dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
 <li><p>Fire main every 5 minutes from Monday to Sunday</p></li>
