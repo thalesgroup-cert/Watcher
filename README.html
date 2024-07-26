@@ -393,7 +393,7 @@ docker volume rm watcher-project_db_log
 <h2>API Key Creation &amp; Management<a class="headerlink" href="#api-key-creation-management" title="Link to this heading"></a></h2>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
-<li><p>Click on <strong>API Keys</strong> in <strong>Accounts</strong> part.</p></li>
+<li><p>Click on <strong>API Keys</strong> in <strong>Authentication and Authorization</strong> part.</p></li>
 <li><p>Click on <strong>ADD API KEY</strong>.</p></li>
 <li><p>Select the <strong>expiration</strong> date.</p></li>
 <li><p>Click on <strong>SAVE</strong>.</p></li>
@@ -709,7 +709,7 @@ python manage.py populate_db
 <li><p><strong>Install Python and Node.js:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">python3</span> <span class="pre">python3-pip</span> <span class="pre">-y</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">nodejs</span> <span class="pre">-y</span></code></p></li>
 <li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
 <li><p><strong>Move to the following directory:</strong> <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">_y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev-is-python3</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
+<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev-is-python3</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
 <li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
 <li><p><strong>Install NLTK/punkt dependency:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
