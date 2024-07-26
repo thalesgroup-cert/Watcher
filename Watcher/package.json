@@ -22,7 +22,7 @@
   "dependencies": {
     "axios": "^1.7.2",
     "bootstrap": "^5.3.3",
-    "chart.js": "^4.4.3",
+    "chart.js": "^2.9.4",
     "css-loader": "^7.1.2",
     "jquery": "^3.7.1",
     "moment": "^2.30.1",
