@@ -382,7 +382,7 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
         time.sleep(random.uniform(1, 3))
 
         # Send an email for the alert
-        send_email(alert_data['type'] + " on " + site.domain_name, site.rtir, new_alert.pk)
+        send_email(alert_data['type'] + " on " + site.domain_name, site.ticket_id, new_alert.pk)
 
         # Manage MX records for mail changes
         if 'Mail' in alert_data['type']:
@@ -417,13 +417,13 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
                                                             mail_A_record_ip=site.mail_A_record_ip,
                                                             mail_A_record_ip_second=site.mail_A_record_ip_second)
 
-def send_email(message, rtir, alert_id):
+def send_email(message, ticket_id, alert_id):
     """
     Send Email alert.
 
     :param alert_id: Alert ID.
     :param message: Subject email end message.
-    :param rtir: Identification number of RTIR.
+    :param ticket_id: Identification number for the case managment software.
     :return:
     """
     emails_to = list()
@@ -433,12 +433,11 @@ def send_email(message, rtir, alert_id):
 
     # If there is at least one subscriber
     if len(emails_to) > 0:
-        # RTIR Ticket
         try:
             msg = MIMEMultipart()
             msg['From'] = settings.EMAIL_FROM
             msg['To'] = ','.join(emails_to)
-            msg['Subject'] = "[" + settings.EMAIL_SUBJECT_TAG_SITE_MONITORING + " #" + str(rtir) + "] " + message
+            msg['Subject'] = "[" + settings.EMAIL_SUBJECT_TAG_SITE_MONITORING + " #" + str(ticket_id) + "] " + message
             body = message
             body += u"""\
             Alert ID: """ + str(alert_id)
