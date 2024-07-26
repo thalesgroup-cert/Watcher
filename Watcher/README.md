@@ -506,7 +506,7 @@ Then, follow the steps below:
 - **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
 - **Pull Watcher code:** `git clone <your_forked_repository.git>`
 - **Move to the following directory:** `cd Watcher/Watcher`
-- **Install** `python-ldap` **dependencies:** `sudo apt install _y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
+- **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`

@@ -16,7 +16,7 @@ It should be used on webservers and available on Docker.
 
 ## Watcher capabilities
 
-- Detecting emerging cybersecurity trends like new vulnerabilities, malwares... Via social networks & other RSS feeds (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+- Detecting emerging cybersecurity trends like new vulnerabilities, malwares... Via RSS feeds (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
 - Monitor for information leaks, for example in Pastebin & other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
 - Monitor malicious domain names for changes (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
 - Detecting suspicious domain names targeting your organisation, using:
@@ -37,7 +37,6 @@ Useful as a bundle regrouping threat hunting/intelligence automated features.
 
 ## Involved dependencies
 
-- [RSS-Bridge](https://github.com/RSS-Bridge/rss-bridge)
 - [certstream](https://github.com/CaliDog/certstream-python)
 - [dnstwist](https://github.com/elceef/dnstwist)
 - [Searx](https://searx.github.io/searx/)
