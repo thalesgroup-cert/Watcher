@@ -1,7 +1,7 @@
 mysqlclient==2.1.1
 django==5.0.7
 django-mysql==4.13.0
-djangorestframework==3.15.1
+djangorestframework==3.15.2
 django-rest-knox==4.2.0
 apscheduler==3.10.4
 nltk==3.8.1
