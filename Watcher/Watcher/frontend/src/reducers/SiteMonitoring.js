@@ -43,6 +43,7 @@ export default function (state = initialState, action) {
             state.sites.map(site => {
                 if (site.id === action.payload.id) {
                     site.domain_name = action.payload.domain_name;
+                    site.ticket_id = action.payload.ticket_id;
                     site.rtir = action.payload.rtir;
                     site.expiry = action.payload.expiry;
                     site.ip_monitoring = action.payload.ip_monitoring;
