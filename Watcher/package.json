@@ -20,7 +20,7 @@
     "webpack-cli": "^4.9.1"
   },
   "dependencies": {
-    "axios": "^1.7.2",
+    "axios": "^1.7.4",
     "bootstrap": "^5.3.3",
     "chart.js": "^2.9.4",
     "css-loader": "^7.1.2",
