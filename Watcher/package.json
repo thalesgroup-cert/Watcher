@@ -34,7 +34,7 @@
     "react-day-picker": "^7.4.10",
     "react-dom": "^16.13.0",
     "react-redux": "^7.2.4",
-    "react-router-dom": "^5.2.0",
+    "react-router-dom": "^6.26.2",
     "react-wordcloud": "^1.2.7",
     "redux": "^4.0.1",
     "redux-devtools-extension": "^2.13.9",
