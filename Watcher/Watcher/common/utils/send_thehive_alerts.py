@@ -65,7 +65,7 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
     :rtype: None
     """
     thehive_url = thehive_url or settings.THE_HIVE_URL
-    api_key = api_key or settings.THEHIVE_API_KEY
+    api_key = api_key or settings.THE_HIVE_API_KEY
 
     ticket_id = None
 

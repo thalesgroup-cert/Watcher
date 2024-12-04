@@ -116,7 +116,7 @@ if THE_HIVE_VERIFY_SSL == "True":
     THE_HIVE_VERIFY_SSL = True
 if THE_HIVE_VERIFY_SSL == "False":
     THE_HIVE_VERIFY_SSL = False
-THEHIVE_API_KEY = os.environ.get('THEHIVE_API_KEY', '')
+THE_HIVE_API_KEY = os.environ.get('THE_HIVE_API_KEY', '')
 THE_HIVE_CASE_ASSIGNEE = os.environ.get('THE_HIVE_CASE_ASSIGNEE', 'watcher')
 THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")
 THE_HIVE_CUSTOM_FIELD = os.environ.get('THE_HIVE_CUSTOM_FIELD', 'watcher-id')

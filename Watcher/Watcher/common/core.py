@@ -14,7 +14,7 @@ from .mail_template.dns_finder_group_template import get_dns_finder_group_templa
 from .mail_template.site_monitoring_template import get_site_monitoring_template
 
 thehive_url = settings.THE_HIVE_URL
-api_key = settings.THEHIVE_API_KEY
+api_key = settings.THE_HIVE_API_KEY
 
 from datetime import datetime  
 from secrets import token_hex  
