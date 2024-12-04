@@ -1,7 +1,7 @@
 from django.conf import settings
 
 
-def get_group_template(dns_monitored, alerts_number):
+def get_dns_finder_cert_transparency_template(alert):
     body = """\
         <html>
             <head>
@@ -107,7 +107,11 @@ def get_group_template(dns_monitored, alerts_number):
                 <tbody>
                 <tr>
                     <td colspan="2" align="center" height="100">       
-                        <h1>DNS Finder: Alerts</h1>
+                        <h1>DNS Finder: Alert 
+                        """
+    body += "#" + str(
+        alert.pk) + """
+                        </h1>
                      </td>
                 </tr>
                 </tbody>
@@ -127,12 +131,14 @@ def get_group_template(dns_monitored, alerts_number):
                                 <tr>
                                   <td style="text-align: center;" align="left" bgcolor="#ffffff">
                                     <p style="text-align: left;">Dear team,</p>
-                                    <p style="text-align: justify;"><b> 
-        """
-    body += str(alerts_number) + """</b> New DNS Twisted Alerts for 
+                                    <p style="text-align: justify;">New Twisted DNS found: 
                                     <b>
         """
-    body += str(dns_monitored.domain_name) + """</b> asset: </p> <p style="text-align: left; margin-left: 30px; margin-bottom: 25px;"> Details <a href="
+    body += str(
+        alert.dns_twisted.domain_name) + """</b></p> <p style="text-align: left; margin-left: 30px;"> Asset: 
+        """
+    body += str(
+        alert.dns_twisted.keyword_monitored) + """ </p> <p style="text-align: left; margin-left: 30px; margin-bottom: 25px;"> Details <a href="
         """
     body += str(
         settings.WATCHER_URL + "/#/dns_finder") + """ ">here</a>.</p>

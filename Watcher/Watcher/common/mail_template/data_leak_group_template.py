@@ -1,7 +1,7 @@
 from django.conf import settings
 
 
-def get_template(alert):
+def get_data_leak_group_template(keyword, alerts_number):
     body = """\
         <html>
             <head>
@@ -107,11 +107,7 @@ def get_template(alert):
                 <tbody>
                 <tr>
                     <td colspan="2" align="center" height="100">       
-                        <h1>Data Leak: Alert 
-                        """
-    body += "#" + str(
-        alert.pk) + """
-                        </h1>
+                        <h1>Data Leak: Alerts</h1>
                      </td>
                 </tr>
                 </tbody>
@@ -131,14 +127,12 @@ def get_template(alert):
                                 <tr>
                                   <td style="text-align: center;" align="left" bgcolor="#ffffff">
                                     <p style="text-align: left;">Dear team,</p>
-                                    <p style="text-align: justify;">New Data Leakage Alert for 
+                                    <p style="text-align: justify;"><b> 
+        """
+    body += str(alerts_number) + """</b> New Data Leakage Alerts for 
                                     <b>
         """
-    body += str(
-        alert.keyword) + """</b> keyword: </p> <p style="text-align: left; margin-left: 30px;"> Source: 
-        """
-    body += str(
-        alert.url) + """ </p> <p style="text-align: left; margin-left: 30px; margin-bottom: 25px;"> Details <a href="
+    body += str(keyword) + """</b> keyword: </p> <p style="text-align: left; margin-left: 30px; margin-bottom: 25px;"> Details <a href="
         """
     body += str(
         settings.WATCHER_URL + "/#/data_leak") + """ ">here</a>.</p>

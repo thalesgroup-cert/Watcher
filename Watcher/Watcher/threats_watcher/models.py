@@ -81,10 +81,18 @@ class BannedWord(models.Model):
 
 class Subscriber(models.Model):
     """
-    List of the email alert subscriber(s).
+    List of the alert subscriber(s).
     """
-    user_rec = models.ForeignKey(User, on_delete=models.CASCADE)
+    user_rec = models.ForeignKey(User, on_delete=models.CASCADE, related_name='threats_watcher')
     created_at = models.DateTimeField(default=timezone.now)
+
+    email = models.BooleanField(default=False, verbose_name="E-mail")
+    thehive = models.BooleanField(default=False, verbose_name="TheHive")
+    slack = models.BooleanField(default=False, verbose_name="Slack")
+    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     class Meta:
         verbose_name_plural = 'subscribers'
+
+    def __str__(self):
+        return f'{self.user_rec.username} - {self.created_at}'

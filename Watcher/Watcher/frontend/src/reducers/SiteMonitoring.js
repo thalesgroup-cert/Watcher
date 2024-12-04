@@ -5,7 +5,6 @@ import {
     ADD_SITE,
     PATCH_SITE,
     UPDATE_SITE_ALERT,
-    EXPORT_THE_HIVE,
     EXPORT_MISP
 } from '../actions/types.js';
 
@@ -66,16 +65,6 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 alerts: [...state.alerts]
-            };
-        case EXPORT_THE_HIVE:
-            state.sites.map(site => {
-                if (site.id === action.payload.id) {
-                    site.the_hive_case_id = action.payload.the_hive_case_id;
-                }
-            });
-            return {
-                ...state,
-                sites: [...state.sites]
             };
         case EXPORT_MISP:
             state.sites.map(site => {

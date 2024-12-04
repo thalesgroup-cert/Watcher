@@ -20,6 +20,10 @@ from dns.exception import DNSException
 import shadow_useragent
 import time
 import random
+from common.core import send_app_specific_notifications
+from django.db.models import Q
+from common.core import generate_ref
+import string
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
@@ -41,6 +45,13 @@ def start_scheduler():
                       replace_existing=True)
 
     scheduler.start()
+
+
+def generate_unique_suffix(length=3):
+    """
+    Génère un suffixe unique constitué de lettres et chiffres aléatoires.
+    """
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 
 def monitoring_init(site):
@@ -354,35 +365,32 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
         14: {'type': message_mail_ip_web, 'difference_score': score, 'new_ip_second': new_ip_second,
              'old_ip_second': site.ip_second},
         15: {'type': message_mail_ip_web, 'difference_score': score, 'new_ip': new_ip, 'new_ip_second': new_ip_second,
-             'old_ip': site.ip, 'old_ip_second': site.ip_second}
+             'old_ip': site.ip, 'old_ip_second': site.ip_second},
+        16: {'type': message_mail_ip_web, 'old_MX_records': site.MX_records, 'old_mail_A_record_ip': site.mail_A_record_ip},
     }
 
-    
+
     if site.monitored and alert != 0:
         alert_data = alert_types[alert]
 
-        # Get current time
-        now = datetime.now()
+        alert_data.update({
+            'new_ip': new_ip if new_ip else None,
+            'old_ip': site.ip if site.ip else None,
+            'new_ip_second': new_ip_second if new_ip_second else None,
+            'old_ip_second': site.ip_second if site.ip_second else None,
+            'new_MX_records': site.MX_records if site.MX_records else None,
+            'old_MX_records': site.MX_records if site.MX_records else None,
+            'new_mail_A_record_ip': site.mail_A_record_ip if site.mail_A_record_ip else None,
+            'old_mail_A_record_ip': site.mail_A_record_ip if site.mail_A_record_ip else None,
+            'difference_score': score if score else None,
+        })
 
-        # Retrieve the two latest alerts for this site within the last three hours
-        one_hour_ago = now - timedelta(hours=3)
-        last_two_alerts = Alert.objects.filter(site=site, created_at__gte=one_hour_ago).order_by('-created_at')[:2]
 
-        # Check if the information of the new alert is identical to the last two alerts
-        for previous_alert in last_two_alerts:
-            if all(getattr(previous_alert, key) == value for key, value in alert_data.items()):
-                # If the information is identical to one of the last two alerts, do not create a new alert
-                return
-
-        # Create a new alert
         with transaction.atomic():
             new_alert = Alert.objects.create(site=site, **alert_data)
 
-        # Sleep randomly for 1 to 3 seconds to avoid simultaneous creation of duplicate alerts
-        time.sleep(random.uniform(1, 3))
-
-        # Send an email for the alert
-        send_email(alert_data['type'] + " on " + site.domain_name, site.ticket_id, new_alert.pk)
+        # Envoyer les notifications avec les données actualisées
+        send_website_monitoring_notifications(site, alert_data)
 
         # Manage MX records for mail changes
         if 'Mail' in alert_data['type']:
@@ -399,61 +407,64 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
                 if current_site.mail_A_record_ip is not None or site.mail_A_record_ip is not None:
                     Alert.objects.filter(pk=new_alert.pk).update(old_mail_A_record_ip=site.mail_A_record_ip,
                                                                  new_mail_A_record_ip=current_site.mail_A_record_ip)
-            try:
-                if ipaddress.ip_address(site.mail_A_record_ip_second) not in ipaddress.ip_network(
-                        current_site.mail_A_record_ip_second + "/16", strict=False):
-                    Alert.objects.filter(pk=new_alert.pk).update(
-                        old_mail_A_record_ip_second=site.mail_A_record_ip_second,
-                        new_mail_A_record_ip_second=current_site.mail_A_record_ip_second)
-            except Exception:
-                if current_site.mail_A_record_ip_second is not None or site.mail_A_record_ip_second is not None:
-                    Alert.objects.filter(pk=new_alert.pk).update(
-                        old_mail_A_record_ip_second=site.mail_A_record_ip_second,
-                        new_mail_A_record_ip_second=current_site.mail_A_record_ip_second)
 
             if 'Web' not in alert_data['type']:
                 if site.monitored and alert != 8:
                     Site.objects.filter(pk=site.pk).update(MX_records=site.MX_records,
-                                                            mail_A_record_ip=site.mail_A_record_ip,
-                                                            mail_A_record_ip_second=site.mail_A_record_ip_second)
+                                                            mail_A_record_ip=site.mail_A_record_ip)
 
-def send_email(message, ticket_id, alert_id):
+
+def send_website_monitoring_notifications(site, alert_data):
     """
-    Send Email alert.
-
-    :param alert_id: Alert ID.
-    :param message: Subject email end message.
-    :param ticket_id: Identification number for the case managment software.
-    :return:
+    Sends notifications to Slack, Citadel, or TheHive based on Site Monitoring.
+    
+    Args:
+        site (Site): The object representing the site to monitor.
+        alert_data (dict): The alert data associated with the site.
     """
-    emails_to = list()
-    # Get all subscribers email
-    for subscriber in Subscriber.objects.all():
-        emails_to.append(subscriber.user_rec.email)
+    subscribers = Subscriber.objects.filter(
+        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
+    )
 
-    # If there is at least one subscriber
-    if len(emails_to) > 0:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ','.join(emails_to)
-            msg['Subject'] = "[" + settings.EMAIL_SUBJECT_TAG_SITE_MONITORING + " #" + str(ticket_id) + "] " + message
-            body = message
-            body += u"""\
-            Alert ID: """ + str(alert_id)
-            body += u"""\
-            Link: """ + settings.WATCHER_URL + "/#/website_monitoring"
-            msg.attach(MIMEText(body))
-            text = msg.as_string()
-            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-            smtp_server.quit()
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for Site Monitoring, no message sent.")
+        return
 
-        except Exception as e:
-            # Print any error messages to stdout
-            print(str(timezone.now()) + " - Email Error : ", e)
-        finally:
-            for email in emails_to:
-                print(str(timezone.now()) + " - Email sent to ", email)
-    else:
-        print(str(timezone.now()) + " - No subscriber, no email sent.")
+
+    ip_changes = f"New IP: {alert_data.get('new_ip', 'N/A')} | Old IP: {alert_data.get('old_ip', 'N/A')}"
+    ip_second_changes = f"New Second IP: {alert_data.get('new_ip_second', 'N/A')} | Old Second IP: {alert_data.get('old_ip_second', 'N/A')}"
+    mx_changes = f"MX Records: {', '.join(alert_data.get('new_mx_records', []))}" 
+    content_score_info = f"TLSH Score: {alert_data.get('difference_score', 'N/A')}"
+    alert_type_info = f"Alert Type: {alert_data.get('type', 'N/A')}"
+    timestamp_info = f"Date and Time: {timezone.now().isoformat()}"
+
+
+    required_keys = ['new_ip', 'old_ip', 'new_ip_second', 'old_ip_second', 'new_MX_records', 'old_MX_records', 'new_mail_A_record_ip', 'old_mail_A_record_ip']
+    for key in required_keys:
+        if key not in alert_data:
+            alert_data[key] = 'None' 
+
+
+    if alert_data['type'] == 'Web content change detected':  
+        alert_data['new_ip'] = alert_data.get('new_ip')
+        alert_data['old_ip'] = alert_data.get('old_ip')
+        alert_data['new_ip_second'] = alert_data.get('new_ip_second')
+        alert_data['old_ip_second'] = alert_data.get('old_ip_second')
+        alert_data['new_MX_records'] = alert_data.get('new_MX_records')
+        alert_data['old_MX_records'] = alert_data.get('old_MX_records')
+        alert_data['new_mail_A_record_ip'] = alert_data.get('new_mail_A_record_ip')
+        alert_data['old_mail_A_record_ip'] = alert_data.get('old_mail_A_record_ip')
+
+
+    context_data = {
+        'site': site,
+        'alert_data': alert_data,
+        'ip_changes': ip_changes,
+        'ip_second_changes': ip_second_changes,
+        'mx_changes': mx_changes,
+        'content_score_info': content_score_info,
+        'alert_type_info': alert_type_info,
+        'timestamp_info': timestamp_info
+    }
+
+    send_app_specific_notifications('website_monitoring', context_data, subscribers)

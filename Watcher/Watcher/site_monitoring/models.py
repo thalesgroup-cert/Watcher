@@ -29,7 +29,6 @@ class Site(models.Model):
     content_monitoring = models.BooleanField(default=True)
     monitored = models.BooleanField(default=False, blank=True, null=True)
     web_status = models.IntegerField(blank=True, null=True)
-    the_hive_case_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
     misp_event_id = models.IntegerField(unique=True, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
     expiry = models.DateTimeField(blank=True, null=True)
@@ -89,7 +88,18 @@ class Alert(models.Model):
 
 class Subscriber(models.Model):
     """
-    List of the email alert subscriber(s).
+    List of the alert subscriber(s).
     """
     user_rec = models.ForeignKey(User, on_delete=models.CASCADE, related_name='site_monitoring')
     created_at = models.DateTimeField(default=timezone.now)
+
+    email = models.BooleanField(default=False, verbose_name="E-mail")
+    thehive = models.BooleanField(default=False, verbose_name="TheHive")
+    slack = models.BooleanField(default=False, verbose_name="Slack")
+    citadel = models.BooleanField(default=False, verbose_name="Citadel")
+
+    class Meta:
+        verbose_name_plural = 'subscribers'
+
+    def __str__(self):
+        return f'{self.user_rec.username} - {self.created_at}'

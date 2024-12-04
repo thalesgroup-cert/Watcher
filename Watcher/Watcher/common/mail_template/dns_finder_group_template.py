@@ -1,7 +1,7 @@
 from django.conf import settings
 
 
-def get_group_template(keyword, alerts_number):
+def get_dns_finder_group_template(dns_monitored, alerts_number):
     body = """\
         <html>
             <head>
@@ -107,7 +107,7 @@ def get_group_template(keyword, alerts_number):
                 <tbody>
                 <tr>
                     <td colspan="2" align="center" height="100">       
-                        <h1>Data Leak: Alerts</h1>
+                        <h1>DNS Finder: Alerts</h1>
                      </td>
                 </tr>
                 </tbody>
@@ -129,13 +129,13 @@ def get_group_template(keyword, alerts_number):
                                     <p style="text-align: left;">Dear team,</p>
                                     <p style="text-align: justify;"><b> 
         """
-    body += str(alerts_number) + """</b> New Data Leakage Alerts for 
+    body += str(alerts_number) + """</b> New DNS Twisted Alerts for 
                                     <b>
         """
-    body += str(keyword) + """</b> keyword: </p> <p style="text-align: left; margin-left: 30px; margin-bottom: 25px;"> Details <a href="
+    body += str(dns_monitored.domain_name) + """</b> asset: </p> <p style="text-align: left; margin-left: 30px; margin-bottom: 25px;"> Details <a href="
         """
     body += str(
-        settings.WATCHER_URL + "/#/data_leak") + """ ">here</a>.</p>
+        settings.WATCHER_URL + "/#/dns_finder") + """ ">here</a>.</p>
                                     <p style="text-align: justify;">
                                         Best Regards,
                                     </p>

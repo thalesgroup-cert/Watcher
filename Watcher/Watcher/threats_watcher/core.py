@@ -8,7 +8,6 @@ import calendar
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from nltk.tokenize import word_tokenize
-from .mail_template.default_template import get_template
 import feedparser
 import requests
 import re
@@ -16,6 +15,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
 from django.db import close_old_connections
+from common.core import send_app_specific_notifications
+from django.db.models import Q
 
 
 def start_scheduler():
@@ -58,7 +59,8 @@ def main_watch():
         - remove_banned_words()
         - focus_five_letters()
         - focus_on_top(settings.WORDS_OCCURRENCE)
-        - send_email()
+        - send_threats_watcher_notifications()
+        
     """
     close_old_connections()
     print(str(timezone.now()) + " - CRON TASK : Main function")
@@ -75,7 +77,7 @@ def main_watch():
 
     focus_five_letters()
     focus_on_top(settings.WORDS_OCCURRENCE)
-    send_email()
+    send_threats_watcher_notifications(email_words)
 
 
 def load_feeds():
@@ -287,37 +289,20 @@ def focus_on_top(words_occurrence):
                     pass
 
 
-def send_email():
+def send_threats_watcher_notifications(email_words):
     """
-    Send e-mail alert.
+    Sends notifications to Slack, Citadel, or TheHive based on Threats Watcher.
     """
-    emails_to = list()
-    if len(email_words) > 0:
-        # Get all subscribers email
-        for subscriber in Subscriber.objects.all():
-            emails_to.append(subscriber.user_rec.email)
+    subscribers = Subscriber.objects.filter(
+        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
+    )
 
-        # If there is at least one subscriber
-        if len(emails_to) > 0:
-            try:
-                msg = MIMEMultipart()
-                msg['From'] = settings.EMAIL_FROM
-                msg['To'] = ','.join(emails_to)
-                msg['Subject'] = "[WARNING] Threats Watcher buzzword detected"
-                body = get_template(settings.WORDS_OCCURRENCE, email_words)
-                msg.attach(MIMEText(body, 'html', _charset='utf-8'))
-                text = msg.as_string()
-                smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-                smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-                smtp_server.quit()
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for Threats Watcher, no message sent.")
+        return
 
-            except Exception as e:
-                # Print any error messages to stdout
-                print(str(timezone.now()) + " - Email Error : ", e)
-            finally:
-                for email in emails_to:
-                    print(str(timezone.now()) + " - Email sent to ", email)
-        else:
-            print(str(timezone.now()) + " - No subscriber, no email sent.")
-    else:
-        print(str(timezone.now()) + " - No new word detected, no email sent.")
+    context_data = {
+        'email_words': email_words,
+    }
+
+    send_app_specific_notifications('threats_watcher', context_data, subscribers)
