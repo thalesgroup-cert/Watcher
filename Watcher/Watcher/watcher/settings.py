@@ -82,13 +82,13 @@ WORDS_OCCURRENCE = 7
 
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-SMTP_SERVER = os.environ.get('SMTP_SERVER', 'localhost')
-EMAIL_PORT = 465  
-EMAIL_USE_SSL = True  
-EMAIL_USE_TLS = False 
-EMAIL_HOST_USER = os.environ.get('EMAIL_USER', 'your-email@example.com')  # Votre email (ex: exemple@gmail.com)
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'your-password')  # Le mot de passe de votre email
-EMAIL_FROM = os.environ.get('EMAIL_FROM', 'from@from.com')
+SMTP_SERVER = os.environ.get('SMTP_SERVER', '') 
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 25))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False') == 'True'  
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False') == 'True' 
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '') 
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  
+EMAIL_FROM = os.environ.get('EMAIL_FROM', '')  
 EMAIL_SUBJECT_TAG_SITE_MONITORING = os.environ.get('EMAIL_SUBJECT_TAG_SITE_MONITORING', 'INCIDENT')
 # Display at the end of the email notification
 EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
@@ -135,7 +135,7 @@ MISP_TAGS = os.environ.get('MISP_TAGS', "Watcher,Impersonation,Malicious Domain,
 
 # Slack configuration
 SLACK_API_TOKEN = os.environ.get('SLACK_API_TOKEN', '')
-SLACK_CHANNEL = os.environ.get('SLACK_CHANNEL', '#watcher')
+SLACK_CHANNEL = os.environ.get('SLACK_CHANNEL', '')
 
 # Citadel configuration
 CITADEL_API_TOKEN = os.environ.get('CITADEL_API_TOKEN', '')

@@ -11,9 +11,8 @@ def send_slack_message(content, channel, app_name):
         channel (str): The Slack channel where the message will be sent.
     """
     
-    # if not settings.SLACK_API_TOKEN or not settings.SLACK_CHANNEL:
     if not settings.SLACK_API_TOKEN or not settings.SLACK_CHANNEL:
-        print("No configuration for Slack, not notifications sending")
+        print(f"{str(timezone.now())} - No configuration for Slack, notifications disabled. Configure it in the '.env' file.")
         return
 
     url = 'https://slack.com/api/chat.postMessage'

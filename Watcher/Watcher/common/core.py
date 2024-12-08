@@ -6,18 +6,14 @@ from django.conf import settings
 import re
 from html import unescape
 from site_monitoring.models import Site
-from .mail_template.threats_watcher_template import get_threats_watcher_template
-from .mail_template.data_leak_template import get_data_leak_template
-from .mail_template.data_leak_group_template import get_data_leak_group_template
-from .mail_template.dns_finder_template import get_dns_finder_template
-from .mail_template.dns_finder_group_template import get_dns_finder_group_template
-from .mail_template.site_monitoring_template import get_site_monitoring_template
-
-thehive_url = settings.THE_HIVE_URL
-api_key = settings.THE_HIVE_API_KEY
-
 from datetime import datetime  
 from secrets import token_hex  
+from .mail_template.threats_watcher_template import get_threats_watcher_template
+from .mail_template.data_leak_template import get_data_leak_template
+from .mail_template.site_monitoring_template import get_site_monitoring_template
+from .mail_template.dns_finder_template import get_dns_finder_template
+from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_transparency_template
+
 
 def generate_ref():
     """
@@ -228,10 +224,6 @@ APP_CONFIG_EMAIL = {
         'subject': "[ALERT] Data Leak Detected",
         'template_func': get_data_leak_template,
     },
-    'data_leak_group': {
-        'subject': "[ALERT] Group Data Leak Detected",
-        'template_func': get_data_leak_group_template,  
-    },
     'website_monitoring': {
         'subject': "[ALERT] Website Monitoring Detected",
         'template_func': get_site_monitoring_template,
@@ -240,9 +232,9 @@ APP_CONFIG_EMAIL = {
         'subject': "[ALERT] DNS Finder",
         'template_func': get_dns_finder_template,
     },
-    'dns_finder_group': {
-        'subject': "[ALERT] Group DNS Finder",
-        'template_func': get_dns_finder_group_template,
+    'dns_finder_cert_transparency': {
+        'subject': "[ALERT] DNS Finder",
+        'template_func': get_dns_finder_cert_transparency_template,
     },
 }
 
@@ -304,10 +296,12 @@ def collect_observables(app_name, context_data):
 
     return observables
 
+
 def remove_html_tags(text):
     """Remove HTML tags from a text."""
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
+
 
 def send_app_specific_notifications(app_name, context_data, subscribers):
     from .utils.send_thehive_alerts import send_thehive_alert
@@ -324,13 +318,13 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
     if not app_config_slack or not app_config_citadel or not app_config_thehive or not app_config_email:
         return
 
-
     if not subscribers.exists():
         return
     
-    custom_field_key = settings.THE_HIVE_CUSTOM_FIELD  
-
     observables = collect_observables(app_name, context_data)
+
+    thehive_url = settings.THE_HIVE_URL
+    api_key = settings.THE_HIVE_API_KEY
 
     def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
         """Helper to format and send notification based on the channel."""
@@ -412,13 +406,21 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             if not alert.dns_twisted.domain_name:
                 print(f"Error: domain_name is missing in dns_twisted for alert {alert.pk if alert.pk else 'Unknown'}")
                 return
+
+            source = context_data.get('source')
+            if source == 'print_callback':
+                email_body = get_dns_finder_cert_transparency_template(alert)
+            elif source == 'check_dnstwist':
+                email_body = get_dns_finder_template(alert)
+            else:
+                print(f"Warning: Unknown source '{source}' for alert.")
+                email_body = "Alert with no specific model defined."
+
             common_data = {
                 'alert': alert,
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder'
             }
-            email_words = context_data.get('alert', [])
-            email_body = get_dns_finder_template(alert)
 
         send_notification(
             channel="slack",
@@ -501,7 +503,6 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 pass
 
         if app_config_email:
-            # Récupération des abonnés ayant une adresse email
             email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
 
     except Exception as e:

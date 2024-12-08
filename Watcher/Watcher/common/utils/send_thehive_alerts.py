@@ -64,6 +64,11 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
     :return: None
     :rtype: None
     """
+
+    if not settings.THE_HIVE_API_KEY or not settings.THE_HIVE_URL:
+        print(f"{str(timezone.now())} - No configuration for TheHive, notifications disabled. Configure it in the '.env' file.")
+        return
+
     thehive_url = thehive_url or settings.THE_HIVE_URL
     api_key = api_key or settings.THE_HIVE_API_KEY
 

@@ -18,12 +18,8 @@ import ipaddress
 from dns import resolver
 from dns.exception import DNSException
 import shadow_useragent
-import time
-import random
 from common.core import send_app_specific_notifications
 from django.db.models import Q
-from common.core import generate_ref
-import string
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
@@ -43,15 +39,8 @@ def start_scheduler():
     scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/1', id='weekend_job',
                       max_instances=10,
                       replace_existing=True)
-
+    
     scheduler.start()
-
-
-def generate_unique_suffix(length=3):
-    """
-    Génère un suffixe unique constitué de lettres et chiffres aléatoires.
-    """
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 
 def monitoring_init(site):

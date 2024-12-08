@@ -11,6 +11,8 @@ from django.db.models.functions import Length
 from json.decoder import JSONDecodeError
 from common.core import send_app_specific_notifications
 from django.db.models import Q
+from django.core.mail import EmailMessage
+from common.mail_template.data_leak_group_template import get_data_leak_group_template
 
 
 def start_scheduler():
@@ -229,8 +231,12 @@ def check_keywords(keywords):
             for result in results:
                 print(str(timezone.now()) + " - Create alert for: ", keyword, "url: ", result)
                 alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=result)
-                send_data_leak_notifications(alert)
-
+                # limiting the number of specific email per alert
+                if len(results) < 6:
+                    send_data_leak_notifications(alert)
+            # if there is too many alerts, we send a group email
+            if len(results) >= 6:
+                send_group_email(keyword, len(results))
 
     # now we check Pastebin for new pastes
     result = check_pastebin(keywords)
@@ -262,3 +268,36 @@ def send_data_leak_notifications(alert):
     }
 
     send_app_specific_notifications('data_leak', context_data, subscribers)
+
+
+def send_group_email(keyword, alerts_number):
+    """
+    Send group e-mail for a specific keyword.
+
+    :param keyword: Matched Keyword.
+    :param alerts_number: Number of alerts.
+    """
+    emails_to = [subscriber.user_rec.email for subscriber in Subscriber.objects.all()]
+
+    if emails_to: 
+        try:
+            # Construire l'email
+            subject = f"[{alerts_number} ALERTS] Data Leak"
+            body = get_data_leak_group_template(keyword, alerts_number)
+
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=settings.EMAIL_FROM,
+                to=emails_to,
+            )
+            email.content_subtype = "html"  
+
+            email.send(fail_silently=False)
+
+            for email_address in emails_to:
+                print(f"{timezone.now()} - Email sent to {email_address}")
+        except Exception as e:
+            print(f"{timezone.now()} - Email Error: {e}")
+    else:
+        print(f"{timezone.now()} - No subscriber, no email sent.")

@@ -11,6 +11,8 @@ from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitore
 import certstream
 from common.core import send_app_specific_notifications
 from django.db.models import Q
+from django.core.mail import EmailMessage
+from common.mail_template.dns_finder_group_template import get_dns_finder_group_template
 
 
 def start_scheduler():
@@ -27,7 +29,7 @@ def start_scheduler():
                       id='main_certificate_transparency',
                       max_instances=2,
                       replace_existing=True)
-    
+
     scheduler.start()
 
 
@@ -59,6 +61,8 @@ def print_callback(message, context):
             print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", domain)
             dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
             alert = Alert.objects.create(dns_twisted=dns_twisted)
+            alert.source = 'print_callback'
+            alert.save()
             send_dns_finder_notifications(alert)
 
 
@@ -131,11 +135,16 @@ def check_dnstwist(dns_monitored):
                                                                     dns_monitored=dns_monitored,
                                                                     fuzzer=twisted_website_dict['fuzzer'])
                             alert = Alert.objects.create(dns_twisted=dns_twisted)
+                            alert.source = 'check_dnstwist'
+                            alert.save()
                             alerts_list.append(alert)
 
-            for alert in alerts_list:
-                send_dns_finder_notifications(alert)
-
+            # Send email alerts
+            if len(alerts_list) < 6:
+                for alert in alerts_list:
+                    send_dns_finder_notifications(alert)
+            if len(alerts_list) >= 6:
+                send_group_email(dns_monitored, len(alerts_list))
         except ValueError:
             print('Decoding JSON has failed')
 
@@ -160,8 +169,49 @@ def send_dns_finder_notifications(alert):
         print(f"Error: Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
         return
 
+    source = None
+    if hasattr(alert, 'source'):
+        source = alert.source 
+
     context_data = {
-        'alert': alert,  
+        'alert': alert,
+        'source': source 
     }
 
     send_app_specific_notifications('dns_finder', context_data, subscribers)
+
+
+def send_group_email(dns_monitored, alerts_number):
+    """
+    Send group e-mail for a specific dns_monitored.
+
+    :param dns_monitored: DnsMonitored Object.
+    :param alerts_number: Number of alerts.
+    """
+    # Collecter les emails des abonnés
+    emails_to = [subscriber.user_rec.email for subscriber in Subscriber.objects.all()]
+
+    if emails_to:  # S'il y a au moins un abonné
+        try:
+            # Construire l'email
+            subject = f"[{alerts_number} ALERTS] DNS Finder"
+            body = get_dns_finder_group_template(dns_monitored, alerts_number)
+
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=settings.EMAIL_FROM,
+                to=emails_to,
+            )
+            email.content_subtype = "html"  
+
+            # Envoyer l'email
+            email.send(fail_silently=False)
+
+            # Confirmation des emails envoyés
+            for email_address in emails_to:
+                print(f"{timezone.now()} - Email sent to {email_address}")
+        except Exception as e:
+            print(f"{timezone.now()} - Email Error: {e}")
+    else:
+        print(f"{timezone.now()} - No subscriber, no email sent.")
