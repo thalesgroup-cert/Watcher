@@ -324,7 +324,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
     observables = collect_observables(app_name, context_data)
 
     thehive_url = settings.THE_HIVE_URL
-    api_key = settings.THE_HIVE_API_KEY
+    api_key = settings.THE_HIVE_KEY
 
     def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
         """Helper to format and send notification based on the channel."""
