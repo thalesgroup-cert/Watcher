@@ -375,7 +375,6 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             website_url = site.domain_name
             alert_id = alert_data.get('id', '-')
             email_body = get_site_monitoring_template(website_url, alert_id, alert_data)
-            print(f"alert_data: {alert_data}") 
 
 
         elif app_name == 'data_leak':
