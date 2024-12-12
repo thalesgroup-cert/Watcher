@@ -505,4 +505,4 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
 
     except Exception as e:
-        print(f"Error sending notifications for {app_name}: {str(e)}")
+        print(f"{datetime.now()} - Error sending notifications for {app_name}: {str(e)}")

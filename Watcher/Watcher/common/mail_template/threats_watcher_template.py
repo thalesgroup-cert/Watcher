@@ -1,8 +1,6 @@
 from django.conf import settings
 
-
 def get_threats_watcher_template(words_occurrence, email_words):
-    github_repo = "https://github.com/thalesgroup-cert/Watcher"
     body = """\
     <html>
         <head>
@@ -12,7 +10,7 @@ def get_threats_watcher_template(words_occurrence, email_words):
                 body, p, table, td, div {
                     margin: 0;
                     padding: 0;
-                    font-family: 'Lato', sans-serif; 
+                    font-family: Arial, Helvetica, sans-serif;
                     line-height: 1.6;
                 }
                 
@@ -22,21 +20,24 @@ def get_threats_watcher_template(words_occurrence, email_words):
                     color: #2d3748;
                     font-size: 14px;
                 }
-                
+
                 .container {
+                    width: 100%;
                     max-width: 600px;
                     margin: 20px auto;
                     background: #ffffff;
-                    border-radius: 8px;
+                    border-radius: 30px;
                     overflow: hidden;
                     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
                 }
                 
                 /* Header Styles */
                 .header {
-                    background: linear-gradient(135deg, #00267F 0%, #1a365d 100%);
+                    background: #00267F;
                     padding: 30px 20px;
                     text-align: center;
+                    border-top-left-radius: 8px;
+                    border-top-right-radius: 8px;
                 }
                 
                 .header h1 {
@@ -66,54 +67,38 @@ def get_threats_watcher_template(words_occurrence, email_words):
                 
                 .word-list {
                     background: #f3f4f6;
-                    border-left: 4px solid #00267F;
-                    padding: 15px 20px;
+                    border-left: 10px solid #00267F;
+                    padding: 15px 10px 15px 10px; 
                     margin: 20px 0;
                     border-radius: 0 4px 4px 0;
                 }
-                
+
                 .word-list p {
                     margin: 8px 0;
                     color: #2d3748;
                     font-size: 15px;
                 }
-                
+
+                .word-list p:last-child {
+                    margin-bottom: 0;
+                }
+
                 /* Footer Styles */
                 .footer {
                     background: #58c3d7;
                     padding: 30px 20px;
                     text-align: center;
+                    border-bottom-left-radius: 8px;
+                    border-bottom-right-radius: 8px;
                 }
-                
-                .footer-logo {
-                    margin-bottom: 20px;
-                }
-                
-                .footer-logo img {
-                    width: 90px;
-                    height: 90px;
-                }
-                
-                .github-link {
-                    display: inline-block;
-                    padding: 8px 15px;
-                    background: rgba(255, 255, 255, 0.1);
-                    border-radius: 5px;
+
+                .footer a {
                     color: #ffffff;
                     text-decoration: none;
-                    transition: background 0.3s ease;
-                }
-                
-                .github-link:hover {
-                    background: rgba(255, 255, 255, 0.2);
-                }
-                
-                .github-link img {
-                    width: 20px;
-                    height: 20px;
-                    vertical-align: middle;
-                    margin-right: 8px;
-                    filter: invert(1);
+                    font-size: 14px;
+                    display: inline-block;
+                    padding: 8px 15px;
+                    margin-top: 10px;
                 }
                 
                 .classification {
@@ -125,39 +110,38 @@ def get_threats_watcher_template(words_occurrence, email_words):
             </style>
         </head>
         <body>
-            <div class="container">
-                <!-- Header -->
-                <div class="header">
-                    <img src=\"""" + str(settings.WATCHER_LOGO_BASE64) + """\" alt="Threats Watcher Logo">
-                    <h1>Threats Watcher</h1>
-                </div>
-                
+            <table class="container" align="center">
+                <tr>
+                    <!-- Header -->
+                    <td class="header" colspan="2">
+                        <img src=\"""" + str(settings.WATCHER_LOGO_BASE64) + """ " alt="Threats Watcher Logo">
+                        <h1>Threats Watcher</h1>
+                    </td>
+                </tr>
                 <!-- Content -->
-                <div class="content">
-                    <p>Dear team,</p>
-                    
-                    <p>Please find below trendy word(s) that match at least <strong>""" + str(words_occurrence) + """</strong> times:</p>
-                    
-                    <div class="word-list">
-                    """ + "<p>".join(email_words) + """
-                    </div>
+                <tr>
+                    <td class="content" colspan="2">
+                        <p>Dear team,</p>
+                        <p>Please find below trendy word(s) that match at least <strong>""" + str(words_occurrence) + """</strong> times:</p>
+                        <div class="word-list">
+                            """ + "<p>".join(email_words) + """
+                        </div>
 
-                    <p>You can check more details <a href="{settings.WATCHER_URL}#/">here.</a></p>
-                    
-                    <p>Kind Regards,<br>
-                    <strong>Watcher</strong></p>
-                </div>
-                
+                        <p>You can check more details <a href=" """ + str(settings.WATCHER_URL + "#/") + """ ">here.</a></p>
+                        
+                        <p>Kind Regards,<br>
+                        <br><strong>Watcher</strong></p>
+                    </td>
+                </tr>
                 <!-- Footer -->
-                <div class="footer">
-
-                    <a href=\"""" + github_repo + """\" class="github-link">
-                        <img src="https://cdnjs.cloudflare.com/ajax/libs/simple-icons/3.0.1/github.svg" alt="GitHub">
-                        View Watcher on GitHub
-                    </a>
-                </div>
-            </div>
-            
+                <tr>
+                    <td class="footer" colspan="2">
+                        <a href="https://github.com/thalesgroup-cert/Watcher" class="github-link">
+                            <img src=\"""" + str(settings.GITHUB_LOGO) + """ " alt="GitHub">
+                        </a>
+                    </td>
+                </tr>
+            </table>
             <p class="classification">[""" + str(settings.EMAIL_CLASSIFICATION) + """]</p>
         </body>
     </html>
