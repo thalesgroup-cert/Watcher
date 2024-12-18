@@ -6,7 +6,6 @@ from common.utils.update_thehive import (
     create_new_alert
 )
 from site_monitoring.models import Site
-from common.core import generate_ref
 
 
 def get_ticket_id_for_domain(domain_name):
@@ -48,6 +47,7 @@ def post_to_thehive(url, data, headers, proxies):
 
 
 def send_thehive_alert(title, description, severity, tags, app_name, domain_name, observables=None, customFields=None, thehive_url=None, api_key=None):
+    from common.core import generate_ref
     """
     Send or update an alert in TheHive based on the application and ticket_id.
 
@@ -82,6 +82,9 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
 
     if app_name == 'website_monitoring' and not ticket_id:
         return
+    
+    current_time = timezone.now().strftime("%H:%M:%S")
+    current_date = timezone.now().strftime("%d/%m/%y")
 
     # Handle the alert for 'website_monitoring' if ticket_id is found
     if app_name == 'website_monitoring':
@@ -94,7 +97,10 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
             app_name=app_name,
             observables=observables,
             customFields=customFields,
-            comment=f"New alert created by {app_name} on {timezone.now()}: New information reported and initial context added.",
+            comment=(
+                f"A change was processed by {app_name} application at {current_time} on {current_date}.\n"
+                "The associated observables have been handled in the dedicated section."
+            ),
             thehive_url=thehive_url,
             api_key=api_key
         )
@@ -110,7 +116,11 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
             app_name=app_name,
             observables=observables,
             customFields=customFields,
-            comment=f"New alert created by {app_name} on {timezone.now()}: New information reported and initial context added.",
+            comment=(
+                f"An alert was processed by {app_name} application at {current_time} on {current_date}.\n"
+                "The associated observables have been handled in the dedicated section."
+            ),
             thehive_url=thehive_url,
             api_key=api_key
         )
+        

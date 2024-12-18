@@ -10,9 +10,9 @@ import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
 import certstream
 from common.core import send_app_specific_notifications
+from common.core import send_app_specific_notifications_group
+from common.core import send_only_thehive_notifications
 from django.db.models import Q
-from django.core.mail import EmailMessage
-from common.mail_template.dns_finder_group_template import get_dns_finder_group_template
 
 
 def start_scheduler():
@@ -145,7 +145,7 @@ def check_dnstwist(dns_monitored):
                 for alert in alerts_list:
                     send_dns_finder_notifications(alert)
             if len(alerts_list) >= 6:
-                send_group_email(dns_monitored, len(alerts_list))
+                send_dns_finder_notifications_group(dns_monitored, len(alerts_list), alerts_list)
         except ValueError:
             print('Decoding JSON has failed')
 
@@ -154,7 +154,7 @@ def check_dnstwist(dns_monitored):
 
 def send_dns_finder_notifications(alert):
     """
-    Sends notifications to Slack, Citadel, or TheHive based on dns_finder.
+    Sends notifications to Slack, Citadel, TheHive or Email based on DNS Finder.
     
     :param alert: Alert Object.
     """
@@ -182,37 +182,34 @@ def send_dns_finder_notifications(alert):
     send_app_specific_notifications('dns_finder', context_data, subscribers)
 
 
-def send_group_email(dns_monitored, alerts_number):
+def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     """
-    Send group e-mail for a specific dns_monitored.
+    Sends grouped notifications to Slack, Citadel, TheHive or Email based on dns_finder_group.
+    If the application is TheHive, individual notifications are sent for each alert.
 
-    :param dns_monitored: DnsMonitored Object.
-    :param alerts_number: Number of alerts.
+    :param keyword: The keyword or term associated with the dns finder.
+    :param alerts_number: The total number of alerts in the group.
+    :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
-    # Collecter les emails des abonnés
-    emails_to = [subscriber.user_rec.email for subscriber in Subscriber.objects.all()]
+    subscribers = Subscriber.objects.filter(
+        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
+    )
 
-    if emails_to:  # S'il y a au moins un abonné
-        try:
-            # Construire l'email
-            subject = f"[{alerts_number} ALERTS] DNS Finder"
-            body = get_dns_finder_group_template(dns_monitored, alerts_number)
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for DNS Finder group, no message sent.")
+        return
 
-            email = EmailMessage(
-                subject=subject,
-                body=body,
-                from_email=settings.EMAIL_FROM,
-                to=emails_to,
-            )
-            email.content_subtype = "html"  
+    context_data_group = {
+        'dns_monitored': dns_monitored,
+        'alerts_number': alerts_number,
+    }
 
-            # Envoyer l'email
-            email.send(fail_silently=False)
+    send_app_specific_notifications_group('dns_finder_group', context_data_group, subscribers)
 
-            # Confirmation des emails envoyés
-            for email_address in emails_to:
-                print(f"{timezone.now()} - Email sent to {email_address}")
-        except Exception as e:
-            print(f"{timezone.now()} - Email Error: {e}")
-    else:
-        print(f"{timezone.now()} - No subscriber, no email sent.")
+    for alert in alerts:
+
+        context_data_thehive = {
+            'alert': alert,  
+        }
+
+        send_only_thehive_notifications('dns_finder', context_data_thehive, subscribers)

@@ -20,6 +20,8 @@ from dns.exception import DNSException
 import shadow_useragent
 from common.core import send_app_specific_notifications
 from django.db.models import Q
+import time
+import random
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
@@ -367,19 +369,15 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
             'old_ip': site.ip if site.ip else None,
             'new_ip_second': new_ip_second if new_ip_second else None,
             'old_ip_second': site.ip_second if site.ip_second else None,
-            'new_MX_records': site.MX_records if site.MX_records else None,
             'old_MX_records': site.MX_records if site.MX_records else None,
-            'new_mail_A_record_ip': site.mail_A_record_ip if site.mail_A_record_ip else None,
             'old_mail_A_record_ip': site.mail_A_record_ip if site.mail_A_record_ip else None,
             'difference_score': score if score else None,
         })
 
-
         with transaction.atomic():
             new_alert = Alert.objects.create(site=site, **alert_data)
 
-        # Envoyer les notifications avec les données actualisées
-        send_website_monitoring_notifications(site, alert_data)
+        time.sleep(random.uniform(1, 3))
 
         # Manage MX records for mail changes
         if 'Mail' in alert_data['type']:
@@ -401,11 +399,13 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
                 if site.monitored and alert != 8:
                     Site.objects.filter(pk=site.pk).update(MX_records=site.MX_records,
                                                             mail_A_record_ip=site.mail_A_record_ip)
+                    
+        send_website_monitoring_notifications(site, alert_data)
 
 
 def send_website_monitoring_notifications(site, alert_data):
     """
-    Sends notifications to Slack, Citadel, or TheHive based on Site Monitoring.
+    Sends notifications to Slack, Citadel, TheHive or Email based on Site Monitoring.
     
     Args:
         site (Site): The object representing the site to monitor.
@@ -425,7 +425,6 @@ def send_website_monitoring_notifications(site, alert_data):
     mx_changes = f"MX Records: {', '.join(alert_data.get('new_mx_records', []))}" 
     content_score_info = f"TLSH Score: {alert_data.get('difference_score', 'N/A')}"
     alert_type_info = f"Alert Type: {alert_data.get('type', 'N/A')}"
-    timestamp_info = f"Date and Time: {timezone.now().isoformat()}"
 
 
     required_keys = ['new_ip', 'old_ip', 'new_ip_second', 'old_ip_second', 'new_MX_records', 'old_MX_records', 'new_mail_A_record_ip', 'old_mail_A_record_ip']
@@ -453,7 +452,6 @@ def send_website_monitoring_notifications(site, alert_data):
         'mx_changes': mx_changes,
         'content_score_info': content_score_info,
         'alert_type_info': alert_type_info,
-        'timestamp_info': timestamp_info
     }
 
     send_app_specific_notifications('website_monitoring', context_data, subscribers)

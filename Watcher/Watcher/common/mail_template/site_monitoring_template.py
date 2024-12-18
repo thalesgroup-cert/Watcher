@@ -83,7 +83,7 @@ def get_site_monitoring_template(website_status, website_url, alert_id):
 
                 .details {
                     background: #f3f4f6;
-                    border-left: 10px solid #00267F;
+                    border-left: 4px solid #00267F;
                     padding: 15px 10px 15px 10px;
                     margin: 20px 0;
                     border-radius: 0 4px 4px 0;
@@ -131,7 +131,7 @@ def get_site_monitoring_template(website_status, website_url, alert_id):
                     <!-- Header -->
                     <td class="header" colspan="2">
                         <img src=\"""" + str(settings.WATCHER_LOGO_BASE64) + """ " alt="Watcher Logo">
-                        <h1>Website Monitoring Alert</h1>
+                        <h1>Website Monitoring</h1>
                     </td>
                 </tr>
                 <!-- Content -->

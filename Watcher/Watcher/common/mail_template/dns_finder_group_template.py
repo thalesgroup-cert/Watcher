@@ -76,7 +76,7 @@ def get_dns_finder_group_template(dns_monitored, alerts_number):
                 
                 .details {{
                     background: #f3f4f6;
-                    border-left: 10px solid #00267F;
+                    border-left: 4px solid #00267F;
                     padding: 15px 10px 15px 10px; 
                     margin: 20px 0;
                     border-radius: 0 4px 4px 0;

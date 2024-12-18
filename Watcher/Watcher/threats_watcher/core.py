@@ -291,7 +291,7 @@ def focus_on_top(words_occurrence):
 
 def send_threats_watcher_notifications(email_words):
     """
-    Sends notifications to Slack, Citadel, or TheHive based on Threats Watcher.
+    Sends notifications to Slack, Citadel, TheHive or Email based on Threats Watcher.
     """
     subscribers = Subscriber.objects.filter(
         (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))

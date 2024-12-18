@@ -68,7 +68,7 @@ def get_data_leak_template(alert):
                 
                 .details {
                     background: #f3f4f6;
-                    border-left: 10px solid #00267F;
+                    border-left: 4px solid #00267F;
                     padding: 15px 10px 15px 10px; 
                     margin: 20px 0;
                     border-radius: 0 4px 4px 0;

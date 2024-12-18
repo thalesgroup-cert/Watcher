@@ -1,6 +1,5 @@
 import requests
 from django.utils import timezone
-from common.core import generate_ref
 from django.conf import settings
 
 
@@ -65,7 +64,7 @@ def add_observables_to_item(item_type, item_id, observables_data, thehive_url, a
             # Send a POST request to add each observable to the item
             response = requests.post(url, headers=headers, json=observable, verify=False, proxies=proxies)
             response.raise_for_status()
-            added_observables.append(observable['data'])  # Add the observable data to the success list
+            added_observables.append(observable['data'])
         except requests.exceptions.RequestException as e:
             print(f"{timezone.now()} - Error while adding observable {observable['data']}: {e}")
 
@@ -135,11 +134,11 @@ def update_existing_alert_case(item_type, existing_item, observables, comment, t
         add_observables_to_item(item_type, item_id, observables_data, thehive_url, api_key)
 
     if comment:
-        print(f"{timezone.now()} - Adding comment to {item_type} with ID {item_id}...")
         add_comment_to_item(item_type, item_id, comment, thehive_url, api_key)
 
 
 def create_new_alert(ticket_id, title, description, severity, tags, app_name, observables, customFields, comment, thehive_url, api_key):
+    from common.core import generate_ref
     """
     Create a new alert in TheHive with the provided details.
 
@@ -183,7 +182,7 @@ def create_new_alert(ticket_id, title, description, severity, tags, app_name, ob
         response.raise_for_status()
         alert = response.json()
         alert_id = alert.get('_id')
-        print(f"{timezone.now()} - Alert created successfully with ID: {alert_id}")
+        print(f"{timezone.now()} - Alert successfully created on TheHive for {app_name}.")
 
         if observables:
             observables_data = create_observables(observables)
