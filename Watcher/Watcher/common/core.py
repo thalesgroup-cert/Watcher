@@ -63,7 +63,7 @@ APP_CONFIG_SLACK = {
     },
     'website_monitoring': {
         'content_template': (
-            "*[SITE MONITORING - INCIDENT #{ticket_id}] 🔔 {alert_type} on {domain_name} 🔔*\n\n"
+            f"*[{settings.SUBJECT_TAG_SITE_MONITORING}" "{ticket_id}] 🔔 {alert_type} on {domain_name_sanitized} 🔔*\n\n"
             "Dear team,\n\n"
             "Please find the new incident detected below:\n\n"
             "*• Difference Score:* {difference_score}\n"
@@ -82,10 +82,10 @@ APP_CONFIG_SLACK = {
     },
     'dns_finder': {
         'content_template': (
-            "*[DNS FINDER - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {alert.dns_twisted.domain_name} 🚨*\n\n"
+            "*[DNS FINDER - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨*\n\n"
             "Dear team,\n\n"
             "New Twisted DNS found: \n\n"
-            "*• Twisted DNS:* {alert.dns_twisted.domain_name}\n"
+            "*• Twisted DNS:* {dns_domain_name_sanitized}\n"
             "*• Corporate Keyword:* {alert.dns_twisted.keyword_monitored}\n"
             "*• Corporate DNS:* {alert.dns_twisted.dns_monitored}\n"
             "*• Fuzzer:* {alert.dns_twisted.fuzzer}\n\n"
@@ -98,14 +98,13 @@ APP_CONFIG_SLACK = {
         'content_template': (
             "*[{alerts_number} ALERTS] 🚨 DNS Finder 🚨*\n\n"
             "Dear team,\n\n"
-            "*{alerts_number}* New DNS Twisted Alerts for *{dns_monitored.domain_name}* asset.\n\n"
+            "*{alerts_number}* New DNS Twisted Alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
             "Please, find more details <{details_url}|here>."
         ),
         'channel': settings.SLACK_CHANNEL,
         'url_suffix': '#/dns_finder/',
     },
 }
-
 
 # Configuration for Citadel
 APP_CONFIG_CITADEL = {
@@ -146,7 +145,7 @@ APP_CONFIG_CITADEL = {
     },
     'website_monitoring': {
         'content_template': (
-            "<p><strong><h4>[SITE MONITORING - INCIDENT #{ticket_id}] 🔔 {alert_type} on {domain_name} 🔔</h4></strong></p>"
+            f"<p><strong><h4>[{settings.SUBJECT_TAG_SITE_MONITORING}{{ticket_id}}] 🔔 {{alert_type}} on {{domain_name_sanitized}} 🔔</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p>Please find the new incident detected below:</p>"
             "<ul>"
@@ -167,11 +166,11 @@ APP_CONFIG_CITADEL = {
     },
     'dns_finder': {
         'content_template': (
-            "<p><strong><h4>[DNS FINDER - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {alert.dns_twisted.domain_name} 🚨</h4></strong></p>"
+            "<p><strong><h4>[DNS FINDER - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p>New Twisted DNS found:</p>"
             "<ul>"
-            "<li><strong>Twisted DNS:</strong> {alert.dns_twisted.domain_name}</li>"
+            "<li><strong>Twisted DNS:</strong> {dns_domain_name_sanitized}</li>"
             "<li><strong>Corporate Keyword:</strong> {alert.dns_twisted.keyword_monitored}</li>"
             "<li><strong>Corporate DNS:</strong> {alert.dns_twisted.dns_monitored}</li>"
             "<li><strong>Fuzzer:</strong> {alert.dns_twisted.fuzzer}</li>"
@@ -185,7 +184,7 @@ APP_CONFIG_CITADEL = {
         'content_template': (
             "<p><strong><h4>[{alerts_number} ALERTS] 🚨 DNS Finder 🚨</h4></strong></p>"
             "<p>Dear team,</p>"
-            "<p><strong>{alerts_number}</strong> New DNS Twisted Alerts for <strong>{dns_monitored.domain_name}</strong> asset.</p>"
+            "<p><strong>{alerts_number}</strong> New DNS Twisted Alerts for <strong>{dns_domain_name_sanitized_group}</strong> asset.</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
         'citadel_room_id': settings.CITADEL_ROOM_ID,
@@ -218,12 +217,12 @@ APP_CONFIG_THEHIVE = {
         'tags': ["Data Leak", "Watcher", "Sensitive Data", "Leak Detection"]
     },
     'website_monitoring': {
-        'title': "Website Monitoring Detected - {alert_type} on {domain_name}",
+        'title': "Website Monitoring Detected - {alert_type} on {domain_name_sanitized}",
         'description_template': (
             "**Alert:**\n"
             "**New website monitoring incident detected:**\n"
             "*Type of alert:* {alert_type}\n"
-            "*Domain name:* {domain_name}\n"
+            "*Domain name:* {domain_name_sanitized}\n"
             "*• Difference Score:* {difference_score}\n"
             "*• New Ip:* {new_ip}\n"
             "*• Old Ip:* {old_ip}\n"
@@ -235,7 +234,7 @@ APP_CONFIG_THEHIVE = {
             "*• Old Mail Server:* {old_mail_A_record_ip}\n"
         ),
         'severity': 2,
-        'tags': ["Website Monitoring", "Watcher", "Incident", "Website", "Domain Name"]
+        'tags': ["Website Monitoring", "Watcher", "Incident", "Website", "Domain Name", "Impersonation" , "Malicious Domain", "Typosquatting"]
     },
     'dns_finder': {
         'title': "New Twisted DNS found - {alert.dns_twisted.domain_name}",
@@ -248,7 +247,7 @@ APP_CONFIG_THEHIVE = {
             "*Fuzzer:* {alert.dns_twisted.fuzzer}\n"
         ),
         'severity': 3,
-        'tags': ["DNS Finder", "Watcher", "Twisted DNS", "Corporate Keywords", "Corporate DNS Assets"]
+        'tags': ["DNS Finder", "Watcher", "Twisted DNS", "Corporate Keywords", "Corporate DNS Assets", "Impersonation" , "Malicious Domain", "Typosquatting"]
     },
 }
 
@@ -268,7 +267,7 @@ APP_CONFIG_EMAIL = {
         'template_func': get_data_leak_group_template,
     },
     'website_monitoring': {
-        'subject': '[' + settings.EMAIL_SUBJECT_TAG_SITE_MONITORING + ' #{ticket_id}] Website Monitoring Detected',
+        'subject': '[' + settings.SUBJECT_TAG_SITE_MONITORING + '{ticket_id}] {alert_type} on {domain_name_sanitized}',
         'template_func': get_site_monitoring_template,
     },
     'dns_finder': {
@@ -293,11 +292,13 @@ def collect_observables(app_name, context_data):
     observables = []
 
     if app_name == 'threats_watcher':
-        for word in context_data.get('email_words', []):
-            if re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', word): 
-                observables.append({"dataType": "domain", "data": word})
+        email_words = context_data.get('email_words', [])
+        for word in email_words:
+            clean_word = re.sub(r'<[^>]*>', '', word) 
+            if re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', clean_word): 
+                observables.append({"dataType": "domain", "data": clean_word})
             else:
-                observables.append({"dataType": "other", "data": word})
+                observables.append({"dataType": "other", "data": clean_word})
 
     elif app_name == 'website_monitoring':
         site = context_data.get('site')
@@ -399,9 +400,10 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             if not site:
                 return
             common_data = {
-                'ticket_id': site.ticket_id,
+                'ticket_id': f" - #{site.ticket_id}" if site.ticket_id else '',
                 'alert_type': alert_data.get('type', None),
                 'domain_name': site.domain_name,
+                'domain_name_sanitized': site.domain_name.replace('.', '[.]'),
                 'difference_score': alert_data.get('difference_score', None),
                 'new_ip': alert_data.get('new_ip', None),
                 'old_ip': alert_data.get('old_ip', None),
@@ -454,6 +456,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
             common_data = {
                 'alert': alert,
+                'dns_domain_name_sanitized': alert.dns_twisted.domain_name.replace('.', '[.]'),
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder'
             }
@@ -591,7 +594,7 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
 
             common_data = {
                 'alerts_number': alerts_number,
-                'dns_monitored': dns_monitored,
+                'dns_domain_name_sanitized_group': dns_monitored.domain_name.replace('.', '[.]'),
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder_group',
             }

@@ -130,7 +130,7 @@ def get_site_monitoring_template(website_status, website_url, alert_id):
                 <tr>
                     <!-- Header -->
                     <td class="header" colspan="2">
-                        <img src=\"""" + str(settings.WATCHER_LOGO_BASE64) + """ " alt="Watcher Logo">
+                        <img src=\"""" + str(settings.WATCHER_LOGO) + """ " alt="Watcher Logo">
                         <h1>Website Monitoring</h1>
                     </td>
                 </tr>

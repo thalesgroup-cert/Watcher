@@ -114,7 +114,7 @@ def get_threats_watcher_template(words_occurrence, email_words):
                 <tr>
                     <!-- Header -->
                     <td class="header" colspan="2">
-                        <img src=\"""" + str(settings.WATCHER_LOGO_BASE64) + """ " alt="Threats Watcher Logo">
+                        <img src=\"""" + str(settings.WATCHER_LOGO) + """ " alt="Threats Watcher Logo">
                         <h1>Threats Watcher</h1>
                     </td>
                 </tr>
@@ -122,7 +122,7 @@ def get_threats_watcher_template(words_occurrence, email_words):
                 <tr>
                     <td class="content" colspan="2">
                         <p>Dear team,</p>
-                        <p>Please find below trendy word(s) that match at least <strong>""" + str(words_occurrence) + """</strong> times:</p>
+                        <p>Please find the new trendy word(s) detected below:</p>
                         <div class="word-list">
                             """ + "<p>".join(email_words) + """
                         </div>

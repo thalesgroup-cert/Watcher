@@ -80,6 +80,11 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
     if ticket_id is None:
         ticket_id = generate_ref()
 
+    if app_name == 'website_monitoring' and domain_name:
+        site = Site.objects.get(domain_name=domain_name)
+        site.ticket_id = ticket_id 
+        site.save()
+
     if app_name == 'website_monitoring' and not ticket_id:
         return
     

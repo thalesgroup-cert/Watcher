@@ -11,9 +11,6 @@ from nltk.tokenize import word_tokenize
 import feedparser
 import requests
 import re
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import smtplib
 from django.db import close_old_connections
 from common.core import send_app_specific_notifications
 from django.db.models import Q

@@ -116,7 +116,7 @@ def get_dns_finder_template(alert):
                 <tr>
                     <!-- Header -->
                     <td class="header" colspan="2">
-                        <img src="{settings.WATCHER_LOGO_BASE64}" alt="Watcher Logo">
+                        <img src="{settings.WATCHER_LOGO}" alt="Watcher Logo">
                         <h1>DNS Finder: Alert #{alert.pk}</h1>
                     </td>
                 </tr>

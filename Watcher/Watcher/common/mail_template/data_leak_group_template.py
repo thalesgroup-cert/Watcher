@@ -114,7 +114,7 @@ def get_data_leak_group_template(keyword, alerts_number):
                 <tr>
                     <!-- Header -->
                     <td class="header" colspan="2">
-                        <img src=""" + str(settings.WATCHER_LOGO_BASE64) + """ " alt="Watcher Logo">
+                        <img src=""" + str(settings.WATCHER_LOGO) + """ " alt="Watcher Logo">
                         <h1>Data Leak Group Alerts</h1>
                     </td>
                 </tr>

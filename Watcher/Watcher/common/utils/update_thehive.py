@@ -100,12 +100,16 @@ def create_observables(observables):
     :return: A list of formatted observables ready for TheHive.
     :rtype: list
     """
+
+    current_time = timezone.now().strftime("%H:%M:%S")
+    current_date = timezone.now().strftime("%d/%m/%y")
+
     observables_data = []
     for obs in observables:
         observable_data = {
             "dataType": obs['dataType'],
             "data": obs['data'],
-            "message": f"Observable added: {obs['data']} on {timezone.now()}",
+            "message": f"An observable was added on {current_date} at {current_time}.",
             "ioc": True,
             "sighted": True,
             "tlp": 2
@@ -130,7 +134,6 @@ def update_existing_alert_case(item_type, existing_item, observables, comment, t
     
     if observables:
         observables_data = create_observables(observables)
-        print(f"{timezone.now()} - Adding observables to {item_type} with ID {item_id}...")
         add_observables_to_item(item_type, item_id, observables_data, thehive_url, api_key)
 
     if comment:
@@ -224,10 +227,10 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
     case_type, case_item = search_thehive_for_ticket_id(ticket_id, thehive_url, api_key, item_type="case")
 
     if case_item:
-        print(f"{timezone.now()} - Case found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Updating...")
+        print(f"{timezone.now()} - Case found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
         update_existing_alert_case("case", case_item, observables, comment, thehive_url, api_key)
     elif alert_item:
-        print(f"{timezone.now()} - Alert found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Updating...")
+        print(f"{timezone.now()} - Alert found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
         update_existing_alert_case("alert", alert_item, observables, comment, thehive_url, api_key)
     else:
         create_new_alert(
