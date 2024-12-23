@@ -237,12 +237,12 @@ APP_CONFIG_THEHIVE = {
         'tags': ["Website Monitoring", "Watcher", "Incident", "Website", "Domain Name", "Impersonation" , "Malicious Domain", "Typosquatting"]
     },
     'dns_finder': {
-        'title': "New Twisted DNS found - {alert.dns_twisted.domain_name}",
+        'title': "New Twisted DNS found - {dns_domain_name_sanitized}",
         'description_template': (
             "**Alert:**\n"
             "**New Twisted DNS found:**\n"
-            "*Corporate Keyword:* {alert.dns_twisted.domain_name}\n"
-            "*Twisted DNS:* {alert.dns_twisted.keyword_monitored}\n"
+            "*Twisted DNS:* {dns_domain_name_sanitized}\n"
+            "*Corporate Keyword:* {alert.dns_twisted.keyword_monitored}\n"
             "*Corporate DNS:* {alert.dns_twisted.dns_monitored}\n"
             "*Fuzzer:* {alert.dns_twisted.fuzzer}\n"
         ),

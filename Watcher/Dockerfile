@@ -1,5 +1,5 @@
-FROM nikolaik/python-nodejs:python3.11-nodejs18
-MAINTAINER Félix HERRENSCHMIDT <felix@herrenschmidt.pro>
+FROM nikolaik/python-nodejs:python3.12-nodejs20
+MAINTAINER Ygal NEZRI <ygalnezri@icloud.com>
 
 # Adding backend directory to make absolute filepaths consistent across services
 WORKDIR /app/
