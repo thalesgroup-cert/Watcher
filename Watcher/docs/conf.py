@@ -23,12 +23,12 @@ django.setup()
 # -- Project information -----------------------------------------------------
 
 project = 'Watcher'
-author = 'Félix Herrenschmidt'
+author = 'Ygal Nezri & Félix Herrenschmidt'
 
 # The full version, including alpha/beta/rc tags
-release = '1.2.13'
+release = '2.1'
 
-copyright = '2023 - Thales CERT'
+copyright = '2025 - Thales CERT'
 
 # -- General configuration ---------------------------------------------------
 
@@ -54,5 +54,13 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+
+html_logo = '../static/Watcher-logo-documentation.png'
+html_favicon = '../static/Watcher-favicon.ico'
+
+
+html_theme_options = {
+    'logo_only': True,
+}
 
 myst_heading_anchors = 3
