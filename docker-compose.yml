@@ -45,7 +45,9 @@ services:
 
   watcher:
     container_name: watcher
-    image: felix83000/watcher:latest
+    build:
+      context: ./Watcher/
+      dockerfile: Dockerfile
     depends_on:
       - db_watcher
       - searx
