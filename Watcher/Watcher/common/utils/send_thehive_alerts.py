@@ -1,10 +1,7 @@
 import requests
 from django.conf import settings
 from django.utils import timezone
-from common.utils.update_thehive import (
-    handle_alert_or_case,
-    create_new_alert
-)
+from common.utils.update_thehive import handle_alert_or_case, create_new_alert
 from site_monitoring.models import Site
 
 

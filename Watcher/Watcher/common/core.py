@@ -25,6 +25,9 @@ def generate_ref():
     ref = datetime.now().strftime("%y%m%d") + "-" + str(token_hex(3))[:5]
     return ref
 
+SLACK_CHANNEL = getattr(settings, 'SLACK_CHANNEL', '')
+CITADEL_ROOM_ID = getattr(settings, 'CITADEL_ROOM_ID', '')
+SUBJECT_TAG_SITE_MONITORING = getattr(settings, 'SUBJECT_TAG_SITE_MONITORING', '')
 
 # Configuration for Slack
 APP_CONFIG_SLACK = {
@@ -36,7 +39,7 @@ APP_CONFIG_SLACK = {
             "{words_list}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': settings.SLACK_CHANNEL,
+        'channel': SLACK_CHANNEL,
         'url_suffix': '#/',
     },
     'data_leak': {
@@ -48,7 +51,7 @@ APP_CONFIG_SLACK = {
             "*• Source:* {url}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': settings.SLACK_CHANNEL,
+        'channel': SLACK_CHANNEL,
         'url_suffix': '#data_leak',
     },
     'data_leak_group': {
@@ -58,12 +61,12 @@ APP_CONFIG_SLACK = {
             "*{alerts_number}* new data leakage alerts have been detected for the keyword *{keyword}*\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': settings.SLACK_CHANNEL,
+        'channel': SLACK_CHANNEL,
         'url_suffix': '#data_leak',
     },
     'website_monitoring': {
         'content_template': (
-            f"*[{settings.SUBJECT_TAG_SITE_MONITORING}" "{ticket_id}] 🔔 {alert_type} on {domain_name_sanitized} 🔔*\n\n"
+            f"*[{SUBJECT_TAG_SITE_MONITORING}" "{ticket_id}] 🔔 {alert_type} on {domain_name_sanitized} 🔔*\n\n"
             "Dear team,\n\n"
             "Please find the new incident detected below:\n\n"
             "*• Difference Score:* {difference_score}\n"
@@ -77,7 +80,7 @@ APP_CONFIG_SLACK = {
             "*• Old Mail Server:* {old_mail_A_record_ip}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': settings.SLACK_CHANNEL,
+        'channel': SLACK_CHANNEL,
         'url_suffix': '#/website_monitoring/',
     },
     'dns_finder': {
@@ -91,7 +94,7 @@ APP_CONFIG_SLACK = {
             "*• Fuzzer:* {alert.dns_twisted.fuzzer}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': settings.SLACK_CHANNEL,
+        'channel': SLACK_CHANNEL,
         'url_suffix': '#/dns_finder/',
     },
     'dns_finder_group': {
@@ -101,7 +104,7 @@ APP_CONFIG_SLACK = {
             "*{alerts_number}* New DNS Twisted Alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': settings.SLACK_CHANNEL,
+        'channel': SLACK_CHANNEL,
         'url_suffix': '#/dns_finder/',
     },
 }
@@ -116,7 +119,7 @@ APP_CONFIG_CITADEL = {
             "<ul><strong>{words_list}</strong></ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': settings.CITADEL_ROOM_ID,
+        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/',
     },
     'data_leak': {
@@ -130,7 +133,7 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': settings.CITADEL_ROOM_ID,
+        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#data_leak',
     },
     'data_leak_group': {
@@ -140,12 +143,12 @@ APP_CONFIG_CITADEL = {
             "<p><strong>{alerts_number}</strong> new data leakage alerts have been detected for the keyword <strong>{keyword}</strong>.</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': settings.CITADEL_ROOM_ID,
+        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#data_leak',
     },
     'website_monitoring': {
         'content_template': (
-            f"<p><strong><h4>[{settings.SUBJECT_TAG_SITE_MONITORING}{{ticket_id}}] 🔔 {{alert_type}} on {{domain_name_sanitized}} 🔔</h4></strong></p>"
+            f"<p><strong><h4>[{SUBJECT_TAG_SITE_MONITORING}{{ticket_id}}] 🔔 {{alert_type}} on {{domain_name_sanitized}} 🔔</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p>Please find the new incident detected below:</p>"
             "<ul>"
@@ -161,7 +164,7 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': settings.CITADEL_ROOM_ID,
+        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/website_monitoring/',
     },
     'dns_finder': {
@@ -177,7 +180,7 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': settings.CITADEL_ROOM_ID,
+        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/dns_finder/',
     },
     'dns_finder_group': {
@@ -187,7 +190,7 @@ APP_CONFIG_CITADEL = {
             "<p><strong>{alerts_number}</strong> New DNS Twisted Alerts for <strong>{dns_domain_name_sanitized_group}</strong> asset.</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': settings.CITADEL_ROOM_ID,
+        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/dns_finder/',
     },
 }
@@ -267,7 +270,7 @@ APP_CONFIG_EMAIL = {
         'template_func': get_data_leak_group_template,
     },
     'website_monitoring': {
-        'subject': '[' + settings.SUBJECT_TAG_SITE_MONITORING + '{ticket_id}] {alert_type} on {domain_name_sanitized}',
+        'subject': '[' + SUBJECT_TAG_SITE_MONITORING + '{ticket_id}] {alert_type} on {domain_name_sanitized}',
         'template_func': get_site_monitoring_template,
     },
     'dns_finder': {
