@@ -7,7 +7,6 @@ import {
     ADD_DNS_MONITORED,
     PATCH_DNS_MONITORED,
     UPDATE_DNS_FINDER_ALERT,
-    EXPORT_THE_HIVE_DNS_FINDER,
     EXPORT_MISP_DNS_FINDER,
     GET_KEYWORD_MONITORED,
     DELETE_KEYWORD_MONITORED,
@@ -165,22 +164,6 @@ export const updateAlertStatus = (id, status) => (dispatch, getState) => {
             dispatch(createMessage({add: `Alert Updated`}));
             dispatch({
                 type: UPDATE_DNS_FINDER_ALERT,
-                payload: res.data
-            });
-        })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
-};
-
-// EXPORT TO THE HIVE
-export const exportToTheHive = (site) => (dispatch, getState) => {
-    axios
-        .post(`/api/dns_finder/thehive/`, site, tokenConfig(getState))
-        .then(res => {
-            dispatch(createMessage({add: `Twisted DNS Exported to Thehive`}));
-            dispatch({
-                type: EXPORT_THE_HIVE_DNS_FINDER,
                 payload: res.data
             });
         })

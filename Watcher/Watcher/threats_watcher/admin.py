@@ -75,8 +75,18 @@ class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
         return actions
 
 
-@admin.register(Subscriber)
-class Subscriber(admin.ModelAdmin):
-    list_display = ['user_rec', 'created_at']
-    list_filter = ['created_at']
-    search_fields = ['user_rec']
+class SubscriberAdmin(admin.ModelAdmin):
+    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
+    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    search_fields = ('user_rec__username',)
+    fieldsets = (
+        (None, { 
+            'fields': ('user_rec', 'created_at')
+        }),
+        ('Notification Channels', {
+            'fields': ('email', 'thehive', 'slack', 'citadel'),
+            'description': "Select the notification channels for this subscriber."
+        }),
+    )
+
+admin.site.register(Subscriber, SubscriberAdmin)

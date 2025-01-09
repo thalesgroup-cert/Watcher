@@ -1,6 +1,6 @@
 from .models import Site, Alert
 from rest_framework import viewsets, permissions
-from .serializers import SiteSerializer, AlertSerializer, ThehiveSerializer, MISPSerializer
+from .serializers import SiteSerializer, AlertSerializer, MISPSerializer
 
 
 # Site Viewset
@@ -32,14 +32,6 @@ class ExportPermission(permissions.DjangoModelPermissions):
         if request.user.has_perm('site_monitoring.add_site'):
             has_permission = True
         return has_permission
-
-
-# Thehive Viewset
-class ThehiveViewSet(viewsets.ModelViewSet):
-    permission_classes = [
-        ExportPermission
-    ]
-    serializer_class = ThehiveSerializer
 
 
 # MISP Viewset

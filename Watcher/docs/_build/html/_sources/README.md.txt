@@ -19,8 +19,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | October 08, 2022 - 10:28:02
-    watcher          | Django version 4.1.4, using settings 'watcher.settings'
+    watcher          | January 08, 2025 - 11:43:02
+    watcher          | Django version 5.0.10, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
@@ -92,36 +92,6 @@ Please use this syntax:
 
     ALLOWED_HOST=X.X.X.X or ALLOWED_HOST=mywebsite.com
     
-Now, you can restart your instance and the parameters will be taken into account:
-
-    docker compose down
-    docker compose up
-    
-### SMTP Server Settings (Email Notifications) 
-In the `.env` file:
-
-    EMAIL_FROM=watcher@example.com
-    SMTP_SERVER=smtp.example.com
-    
-Website url, which will be the link in the email notifications body:
-
-    WATCHER_URL=https://example.watcher.local
-    
-Now, you can restart your instance and the parameters will be taken into account:
-
-    docker compose down
-    docker compose up
- 
-### TheHive Settings
-If you want to use **TheHive export**, please fill the **IP** of your TheHive instance and a **generated API key**.
-
-In the `.env` file:
-
-    # THE HIVE SETUP
-    THE_HIVE_URL=
-    THE_HIVE_KEY=
-    THE_HIVE_CASE_ASSIGNEE=watcher
- 
 Now, you can restart your instance and the parameters will be taken into account:
 
     docker compose down
@@ -198,14 +168,135 @@ Connect to the `/admin` page:
    - You may enter an **Email address** for email notifications.
    - Click on **SAVE**.
  
-## Add email notifications subscriber
-Receive email notifications when subscribing to a topic.
+## Subscribe to notifications
 
-Connect to the `/admin` page:
+Receive notifications via different channels when subscribing to a topic.
 
-   - Click on **Subscribers**.
-   - Click on **ADD SUBSCRIBER**.
-   - Select the **User** and Click on **SAVE**.
+To add a subscriber, follow these steps:
+
+1. Go to the `/admin` page.
+2. Click on **Subscribers**.
+3. Click on **ADD SUBSCRIBER**.
+4. Select the **USER**.
+5. Choose your preferred notification channel from the following options:
+   - **EMAIL**
+   - **THEHIVE**
+   - **SLACK**
+   - **CITADEL**
+
+Make sure to configure the necessary settings for each channel in your `.env` file.
+
+### Configure your Email notifications
+
+To configure Email, you need the following variables, in the `.env` file:
+
+    # DJANGO EMAIL Configuration
+    SMTP_SERVER=
+    EMAIL_PORT=25
+    EMAIL_USE_TLS=False
+    EMAIL_USE_SSL=False
+    EMAIL_HOST_USER=
+    EMAIL_HOST_PASSWORD=
+    EMAIL_FROM=
+
+Follow these steps to get the required information:
+
+1. Choose your email provider (example: Gmail, Outlook...).
+2. Go to the email provider’s settings and generate the **SMTP configuration**:
+   - For **Gmail**, detailed instructions can be found in [Google SMTP documentation](https://support.google.com/a/answer/176600?hl=en).
+   - For **Outlook**, you can refer to the [Outlook SMTP documentation](https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-for-outlook-com-d088b986-291d-42b8-9564-9c414e2aa040) for more information.
+3. Follow the instructions to retrieve the SMTP server, email port, and other necessary credentials.
+4. Save these values in your `.env` file.
+   - `SMTP_SERVER`
+   - `EMAIL_PORT`
+   - `EMAIL_USE_TLS`
+   - `EMAIL_USE_SSL` 
+   - `EMAIL_HOST_USER` 
+   - `EMAIL_HOST_PASSWORD` 
+   - `EMAIL_FROM` 
+
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker compose down
+    docker compose up
+
+### Configure your TheHive notifications
+
+To configure TheHive, you need the following variables, in the `.env` file:
+
+    # THE HIVE Setup
+    THE_HIVE_URL=
+    THE_HIVE_VERIFY_SSL=False
+    THE_HIVE_KEY=
+    # Ensure the custom field referenced here is CREATED IN THEHIVE. Otherwise, Alert exports to TheHive will be impacted
+    THE_HIVE_CUSTOM_FIELD=watcher-id
+    THE_HIVE_EMAIL_SENDER=watcher@watcher.com
+
+Follow these steps to get the required information:
+
+1. Go to your TheHive instance’s API section (typically located at `/account/api`).
+2. Copy the API Key from this page and save it as `THEHIVE_API_TOKEN` in your `.env` file.
+
+
+3. Also, you need to set the URL of your TheHive instance as `THEHIVE_URL` in your `.env` file.
+4. For proper integration, Watcher uses a custom field in TheHive for its ticketing system. By default, this field is named **watcher-id** and should be set as `THE_HIVE_CUSTOM_FIELD` in your .env file.
+
+    # Note: Ensure the custom field referenced here is CREATED IN THEHIVE. Otherwise, Alert exports to TheHive will be impacted
+
+   You can modify the name of this custom field in your .env file to match your specific TheHive instance setup.
+
+5. The **second custom** field is used to track the email sender and is defined as `THE_HIVE_EMAIL_SENDER`. By default, this is set to watcher@watcher.com. You can update this value in your .env file as needed.
+
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker compose down
+    docker compose up
+
+### Configure your Slack notifications
+
+To configure Slack, you need the following variables, in the `.env` file:
+
+    # SLACK Setup
+    SLACK_API_TOKEN=
+    SLACK_CHANNEL=
+
+Follow these steps to get the required information:
+
+1. Go to the [Slack API page](https://api.slack.com/apps).
+2. Click on **Create New App**.
+3. Choose **From scratch**.
+4. Once your app is created, go to **OAuth & Permissions**.
+5. Under **OAuth Scopes**, ensure you add the required permission:
+   - `chat:write` (This allows your app to send messages to channels).
+6. On **OAuth Tokens**, click on **Install App** to install the app to your workspace.
+7. After installation, you will be provided with an **OAuth Access Token**. Copy this token and save it as `SLACK_API_TOKEN` in your `.env` file.
+8. Lastly, create the channel in Slack if you haven’t already and save its name as `SLACK_CHANNEL` in the `.env` file.
+
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker compose down
+    docker compose up
+
+### Configure your Citadel notifications
+
+To configure Citadel, you need the following variables, in the `.env` file:
+
+    # CITADEL Setup
+    CITADEL_API_TOKEN=
+    CITADEL_CHANNEL=
+    CITADEL_URL=
+
+Follow these steps to get the required information:
+
+1. Create a **New Room**.
+2. Retrieve the `CITADEL_ROOM_ID` from the room's settings. Copy the room's link, then extract the ID after `/#/room/` and add it to your .env file.
+3. Next, visit this link: [Citadel Team Website](https://cds.thalesgroup.com/en/ercom/citadel) to request your `CITADEL_API_TOKEN`. This token will allow you to send automatic notifications.
+4. For the `CITADEL_URL` variable, if you're using a public instance, the URL should be: [https://join.citadel.team/](https://join.citadel.team/). Otherwise, enter your customized instance URL.
+
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker compose down
+    docker compose up
 
 ## Add your RSS source to Threats Detection
 As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
@@ -230,7 +321,7 @@ Connect to the `/admin` page:
 
 Connect to the `/admin` page:
 
-- Click on **API Keys** in **Authentication and Authorization** part.
+- Click on **API Keys** in **Accounts** part.
 - Click on **ADD API KEY**.
 - Select the **expiration** date.
 - Click on **SAVE**.
@@ -311,12 +402,6 @@ Below, you will find our 4 modules with their API functions:
   - **DELETE:** Removes an alert related to site monitoring.
 - **Usage:** Used to get, add, update, or delete current alerts regarding site monitoring.
 
-`^api/site_monitoring/thehive/$`
-- **HTTP Method:** POST
-- **Description:** 
-  - **POST:** Adds a new integration with TheHive.
-- **Usage:** Used to get, add, update, or delete current integrations with TheHive.
-
 `^api/site_monitoring/misp/$`
 - **HTTP Method:** POST
 - **Description:** 
@@ -365,14 +450,6 @@ Below, you will find our 4 modules with their API functions:
   - **DELETE:** Removes a DNS alert.
 - **Usage:** Used to get, add, update, or delete current DNS alerts.
 
-`^api/dns_finder/thehive/$`
-- **HTTP Method:** POST, PATCH, DELETE
-- **Description:** 
-  - **POST:** Adds a new integration with TheHive for DNS.
-  - **PATCH:** Updates an existing integration with TheHive for DNS.
-  - **DELETE:** Removes an integration with TheHive for DNS.
-- **Usage:** Used to get, add, update, or delete current integrations with TheHive for DNS.
-
 `^api/dns_finder/misp/$`
 - **HTTP Method:** POST, PATCH, DELETE
 - **Description:** 
@@ -386,7 +463,7 @@ Below, you will find our 4 modules with their API functions:
 
 ### Specific Details
 
-To obtain detailed information about a specific item, such as an alert, a monitored site, or any other entity in the system, you can access its details by appending /(?P<pk>[^/.]+)/$ to the end of the corresponding API URL.
+To obtain detailed information about a specific item, such as an alert, a monitored site, or any other entity in the system, you can access its details by appending `/(?P<pk>[^/.]+)/$` to the end of the corresponding API URL.
 
 For instance, let's say you want to retrieve information about an alert with the ID "1". You would construct the URL as follows: `http://0.0.0.0:9002/api/site_monitoring/alert/1`
 
@@ -395,22 +472,20 @@ By making a GET request to this URL using your web browser, CURL, or any HTTP cl
 Following this pattern, you can easily navigate and retrieve specific information for any item in the system, ensuring efficient use of the available API endpoints.
 
 
-## Thehive & MISP Export
-You can export **monitored DNS** to [TheHive](https://thehive-project.org/) or [MISP](https://www.misp-project.org/):
+## MISP Export
+You can export **monitored DNS** to [MISP](https://www.misp-project.org/):
 
   - Go to **/website_monitoring** page.
   - Add new DNS to monitored.
   - Click on the **blue upload/cloud button**.
-  - Choose which service you want to use.
 
 ### Troubleshooting
 If the export do not work as expected, this may be related with 
-the version of your TheHive or MISP instance.
+the version of your MISP instance.
 
-In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your 
-TheHive/MISP instance version:
+In fact, if you are using an outdated MISP instance, the client API version will not correspond with your MISP instance version:
 
-- Update Thehive or MISP.
+- Update MISP.
 
 ## Remove & Add to Blocklist
 There is a **blocklist** to prevent a **false positive trendy words** from reappearing again.
@@ -561,8 +636,8 @@ If you are working on a test environment and willing to have email alerts, here 
 - Run the command: `docker compose up`
 - The mails will be available here by default: `localhost:5000`
 - Modify the mail settings in the environment variables: `vi /.env`
-    - `EMAIL_FROM=from@from.com`
     - `SMTP_SERVER=localhost`
+    - `EMAIL_FROM=from@from.com`
 - Launch Watcher: `python3 Watcher/Watcher/manage.py runserver` 
 
 ## Modify the frontend

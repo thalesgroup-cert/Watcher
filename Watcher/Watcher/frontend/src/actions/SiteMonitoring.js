@@ -7,7 +7,6 @@ import {
     ADD_SITE,
     PATCH_SITE,
     UPDATE_SITE_ALERT,
-    EXPORT_THE_HIVE,
     EXPORT_MISP
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
@@ -99,22 +98,6 @@ export const updateSiteAlertStatus = (id, status) => (dispatch, getState) => {
             dispatch(createMessage({add: `Alert Updated`}));
             dispatch({
                 type: UPDATE_SITE_ALERT,
-                payload: res.data
-            });
-        })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
-};
-
-// EXPORT TO THE HIVE
-export const exportToTheHive = (site) => (dispatch, getState) => {
-    axios
-        .post(`/api/site_monitoring/thehive/`, site, tokenConfig(getState))
-        .then(res => {
-            dispatch(createMessage({add: `Website Exported to Thehive`}));
-            dispatch({
-                type: EXPORT_THE_HIVE,
                 payload: res.data
             });
         })

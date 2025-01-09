@@ -61,16 +61,16 @@ class SiteResource(resources.ModelResource):
     class Meta:
         model = Site
         exclude = (
-        'the_hive_case_id', 'misp_event_id', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring',
+        'misp_event_id', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring',
         'ip_monitoring')
 
 
 @admin.register(Site)
 class Site(ExportMixin, admin.ModelAdmin):
     list_display = ['rtir', 'domain_name', 'ticket_id','ip', 'ip_second', 'monitored', 'web_status', 'misp_event_id',
-                    'the_hive_case_id', 'created_at', 'expiry']
+                    'created_at', 'expiry']
     list_filter = ['created_at', 'expiry', 'monitored', 'web_status']
-    search_fields = ['rtir', 'domain_name', 'ip', 'ip_second', 'the_hive_case_id', 'misp_event_id']
+    search_fields = ['rtir', 'domain_name', 'ip', 'ip_second', 'misp_event_id']
     resource_class = SiteResource
 
     def has_add_permission(self, request):
@@ -79,6 +79,15 @@ class Site(ExportMixin, admin.ModelAdmin):
 
 @admin.register(Subscriber)
 class Subscriber(admin.ModelAdmin):
-    list_display = ['user_rec', 'created_at']
-    list_filter = ['created_at']
-    search_fields = ['user_rec']
+    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
+    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    search_fields = ('user_rec__username',)
+    fieldsets = (
+        (None, { 
+            'fields': ('user_rec', 'created_at')
+        }),
+        ('Notification Channels', {
+            'fields': ('email', 'thehive', 'slack', 'citadel'),
+            'description': "Select the notification channels for this subscriber."
+        }),
+    )

@@ -81,16 +81,31 @@ WORDS_OCCURRENCE = 7
 # Example for a Monday morning watch : PostsDepth = 50 et WordsOccurrence = 0
 
 # Email Configuration
-EMAIL_FROM = os.environ.get('EMAIL_FROM', 'from@from.com')
-SMTP_SERVER = os.environ.get('SMTP_SERVER', 'localhost')
-EMAIL_SUBJECT_TAG_SITE_MONITORING = os.environ.get('EMAIL_SUBJECT_TAG_SITE_MONITORING', 'INCIDENT')
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('SMTP_SERVER', '') 
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 25))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', False)
+if EMAIL_USE_TLS == "True":
+    EMAIL_USE_TLS = True
+if EMAIL_USE_TLS == "False":
+    EMAIL_USE_TLS = False
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', False)
+if EMAIL_USE_SSL == "True":
+    EMAIL_USE_SSL = True
+if EMAIL_USE_SSL == "False":
+    EMAIL_USE_SSL = False
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '') 
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  
+EMAIL_FROM = os.environ.get('EMAIL_FROM', '')  
+SUBJECT_TAG_SITE_MONITORING = os.environ.get('SUBJECT_TAG_SITE_MONITORING', 'INCIDENT')
 # Display at the end of the email notification
 EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
 WATCHER_URL = os.environ.get('WATCHER_URL', '')
 # Watcher Logo
-WATCHER_LOGO = os.environ.get('WATCHER_LOGO', 'https://raw.githubusercontent.com/thalesgroup-cert/Watcher/master'
-                                              '/Watcher/static/Watcher-logo-simple.png')
+WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
+GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
+
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
@@ -102,15 +117,15 @@ CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')
 
 # The Hive Setup
-THE_HIVE_URL = os.environ.get('THE_HIVE_URL', 'http://127.0.0.1:9000')
+THE_HIVE_URL = os.environ.get('THE_HIVE_URL', '')
 THE_HIVE_VERIFY_SSL = os.environ.get('THE_HIVE_VERIFY_SSL', False)
 if THE_HIVE_VERIFY_SSL == "True":
     THE_HIVE_VERIFY_SSL = True
 if THE_HIVE_VERIFY_SSL == "False":
     THE_HIVE_VERIFY_SSL = False
 THE_HIVE_KEY = os.environ.get('THE_HIVE_KEY', '')
-THE_HIVE_CASE_ASSIGNEE = os.environ.get('THE_HIVE_CASE_ASSIGNEE', 'watcher')
-THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")
+THE_HIVE_CUSTOM_FIELD = os.environ.get('THE_HIVE_CUSTOM_FIELD', 'watcher-id')
+THE_HIVE_EMAIL_SENDER = os.environ.get('THE_HIVE_EMAIL_SENDER', 'watcher@watcher.com')
 
 # MISP Setup
 MISP_URL = os.environ.get('MISP_URL', 'https://127.0.0.1')
@@ -122,6 +137,15 @@ if MISP_VERIFY_SSL == "False":
 MISP_KEY = os.environ.get('MISP_KEY', '')
 MISP_TICKETING_URL = os.environ.get('MISP_TICKETING_URL', '')
 MISP_TAGS = os.environ.get('MISP_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting,TLP:Amber").split(",")
+
+# Slack configuration
+SLACK_API_TOKEN = os.environ.get('SLACK_API_TOKEN', '')
+SLACK_CHANNEL = os.environ.get('SLACK_CHANNEL', '')
+
+# Citadel configuration
+CITADEL_API_TOKEN = os.environ.get('CITADEL_API_TOKEN', '')
+CITADEL_ROOM_ID = os.environ.get('CITADEL_ROOM_ID', '')
+CITADEL_URL = os.environ.get('CITADEL_URL', '')
 
 # Application definition
 INSTALLED_APPS = [
@@ -137,6 +161,7 @@ INSTALLED_APPS = [
     'data_leak',
     'site_monitoring',
     'dns_finder',
+    'common',
     'knox',
     'django.contrib.admindocs',
     'accounts',
