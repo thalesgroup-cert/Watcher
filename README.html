@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 1.2.13 documentation</title>
+  <title>Install Watcher &mdash; Watcher 2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="_static/jquery.js?v=5d32c60e"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=250a84ee"></script>
-        <script src="_static/doctools.js?v=888ff710"></script>
-        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=c4a36953"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -33,8 +32,9 @@
 
           
           
-          <a href="index.html" class="icon icon-home">
-            Watcher
+          <a href="index.html">
+            
+              <img src="_static/Watcher-logo-documentation.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -58,8 +58,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#static-configuration">Static configuration</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#production-settings-important">Production Settings [Important]</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#access-watcher-remotely-within-your-server-instance">Access Watcher remotely within your server instance</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#smtp-server-settings-email-notifications">SMTP Server Settings (Email Notifications)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#thehive-settings">TheHive Settings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#misp-settings">MISP Settings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#ldap-settings">LDAP Settings</a></li>
 </ul>
@@ -73,13 +71,19 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#use-watcher">Use Watcher</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#user-enrollment">User enrollment</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#add-email-notifications-subscriber">Add email notifications subscriber</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#subscribe-to-notifications">Subscribe to notifications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configure-your-email-notifications">Configure your Email notifications</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-your-thehive-notifications">Configure your TheHive notifications</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-your-slack-notifications">Configure your Slack notifications</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-your-citadel-notifications">Configure your Citadel notifications</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#add-your-rss-source-to-threats-detection">Add your RSS source to Threats Detection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#api-key-creation-management">API Key Creation &amp; Management</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#specific-details">Specific Details</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#thehive-misp-export">Thehive &amp; MISP Export</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#misp-export">MISP Export</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id1">Troubleshooting</a></li>
 </ul>
 </li>
@@ -106,7 +110,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_misp.html">MISP API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_thehive.html">TheHive API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
@@ -160,8 +164,8 @@
 watcher          | Performing system checks...
 watcher          | 
 watcher          | System check identified no issues (0 silenced).
-watcher          | October 08, 2022 - 10:28:02
-watcher          | Django version 4.1.4, using settings &#39;watcher.settings&#39;
+watcher          | January 08, 2025 - 11:43:02
+watcher          | Django version 5.0.10, using settings &#39;watcher.settings&#39;
 watcher          | Starting development server at http://0.0.0.0:9002/
 watcher          | Quit the server with CONTROL-C.
 </pre></div>
@@ -238,39 +242,6 @@ docker compose up
 <p>It is limited to a <strong>single IP address</strong> / <strong>single FQDN</strong>.</p>
 <p>Please use this syntax:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>ALLOWED_HOST=X.X.X.X or ALLOWED_HOST=mywebsite.com
-</pre></div>
-</div>
-<p>Now, you can restart your instance and the parameters will be taken into account:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
-docker compose up
-</pre></div>
-</div>
-</section>
-<section id="smtp-server-settings-email-notifications">
-<h3>SMTP Server Settings (Email Notifications)<a class="headerlink" href="#smtp-server-settings-email-notifications" title="Link to this heading"></a></h3>
-<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>EMAIL_FROM=watcher@example.com
-SMTP_SERVER=smtp.example.com
-</pre></div>
-</div>
-<p>Website url, which will be the link in the email notifications body:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>WATCHER_URL=https://example.watcher.local
-</pre></div>
-</div>
-<p>Now, you can restart your instance and the parameters will be taken into account:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
-docker compose up
-</pre></div>
-</div>
-</section>
-<section id="thehive-settings">
-<h3>TheHive Settings<a class="headerlink" href="#thehive-settings" title="Link to this heading"></a></h3>
-<p>If you want to use <strong>TheHive export</strong>, please fill the <strong>IP</strong> of your TheHive instance and a <strong>generated API key</strong>.</p>
-<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># THE HIVE SETUP
-THE_HIVE_URL=
-THE_HIVE_KEY=
-THE_HIVE_CASE_ASSIGNEE=watcher
 </pre></div>
 </div>
 <p>Now, you can restart your instance and the parameters will be taken into account:</p>
@@ -361,15 +332,146 @@ docker volume rm watcher-project_db_log
 <li><p>Click on <strong>SAVE</strong>.</p></li>
 </ul>
 </section>
-<section id="add-email-notifications-subscriber">
-<h2>Add email notifications subscriber<a class="headerlink" href="#add-email-notifications-subscriber" title="Link to this heading"></a></h2>
-<p>Receive email notifications when subscribing to a topic.</p>
-<p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
-<ul class="simple">
+<section id="subscribe-to-notifications">
+<h2>Subscribe to notifications<a class="headerlink" href="#subscribe-to-notifications" title="Link to this heading"></a></h2>
+<p>Receive notifications via different channels when subscribing to a topic.</p>
+<p>To add a subscriber, follow these steps:</p>
+<ol class="arabic simple">
+<li><p>Go to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p></li>
 <li><p>Click on <strong>Subscribers</strong>.</p></li>
 <li><p>Click on <strong>ADD SUBSCRIBER</strong>.</p></li>
-<li><p>Select the <strong>User</strong> and Click on <strong>SAVE</strong>.</p></li>
+<li><p>Select the <strong>USER</strong>.</p></li>
+<li><p>Choose your preferred notification channel from the following options:</p>
+<ul class="simple">
+<li><p><strong>EMAIL</strong></p></li>
+<li><p><strong>THEHIVE</strong></p></li>
+<li><p><strong>SLACK</strong></p></li>
+<li><p><strong>CITADEL</strong></p></li>
 </ul>
+</li>
+</ol>
+<p>Make sure to configure the necessary settings for each channel in your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p>
+<section id="configure-your-email-notifications">
+<h3>Configure your Email notifications<a class="headerlink" href="#configure-your-email-notifications" title="Link to this heading"></a></h3>
+<p>To configure Email, you need the following variables, in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># DJANGO EMAIL Configuration
+SMTP_SERVER=
+EMAIL_PORT=25
+EMAIL_USE_TLS=False
+EMAIL_USE_SSL=False
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+EMAIL_FROM=
+</pre></div>
+</div>
+<p>Follow these steps to get the required information:</p>
+<ol class="arabic simple">
+<li><p>Choose your email provider (example: Gmail, Outlook…).</p></li>
+<li><p>Go to the email provider’s settings and generate the <strong>SMTP configuration</strong>:</p>
+<ul class="simple">
+<li><p>For <strong>Gmail</strong>, detailed instructions can be found in <a class="reference external" href="https://support.google.com/a/answer/176600?hl=en">Google SMTP documentation</a>.</p></li>
+<li><p>For <strong>Outlook</strong>, you can refer to the <a class="reference external" href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-for-outlook-com-d088b986-291d-42b8-9564-9c414e2aa040">Outlook SMTP documentation</a> for more information.</p></li>
+</ul>
+</li>
+<li><p>Follow the instructions to retrieve the SMTP server, email port, and other necessary credentials.</p></li>
+<li><p>Save these values in your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SMTP_SERVER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_PORT</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_USE_TLS</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_USE_SSL</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_HOST_USER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_HOST_PASSWORD</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM</span></code></p></li>
+</ul>
+</li>
+</ol>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
+docker compose up
+</pre></div>
+</div>
+</section>
+<section id="configure-your-thehive-notifications">
+<h3>Configure your TheHive notifications<a class="headerlink" href="#configure-your-thehive-notifications" title="Link to this heading"></a></h3>
+<p>To configure TheHive, you need the following variables, in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># THE HIVE Setup
+THE_HIVE_URL=
+THE_HIVE_VERIFY_SSL=False
+THE_HIVE_KEY=
+# Ensure the custom field referenced here is CREATED IN THEHIVE. Otherwise, Alert exports to TheHive will be impacted
+THE_HIVE_CUSTOM_FIELD=watcher-id
+THE_HIVE_EMAIL_SENDER=watcher@watcher.com
+</pre></div>
+</div>
+<p>Follow these steps to get the required information:</p>
+<ol class="arabic">
+<li><p>Go to your TheHive instance’s API section (typically located at <code class="docutils literal notranslate"><span class="pre">/account/api</span></code>).</p></li>
+<li><p>Copy the API Key from this page and save it as <code class="docutils literal notranslate"><span class="pre">THEHIVE_API_TOKEN</span></code> in your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p></li>
+<li><p>Also, you need to set the URL of your TheHive instance as <code class="docutils literal notranslate"><span class="pre">THEHIVE_URL</span></code> in your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p></li>
+<li><p>For proper integration, Watcher uses a custom field in TheHive for its ticketing system. By default, this field is named <strong>watcher-id</strong> and should be set as <code class="docutils literal notranslate"><span class="pre">THE_HIVE_CUSTOM_FIELD</span></code> in your .env file.</p>
+<p class="rubric" id="note-ensure-the-custom-field-referenced-here-is-created-in-thehive-otherwise-alert-exports-to-thehive-will-be-impacted">Note: Ensure the custom field referenced here is CREATED IN THEHIVE. Otherwise, Alert exports to TheHive will be impacted</p>
+<p>You can modify the name of this custom field in your .env file to match your specific TheHive instance setup.</p>
+</li>
+<li><p>The <strong>second custom</strong> field is used to track the email sender and is defined as <code class="docutils literal notranslate"><span class="pre">THE_HIVE_EMAIL_SENDER</span></code>. By default, this is set to watcher&#64;watcher.com. You can update this value in your .env file as needed.</p></li>
+</ol>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
+docker compose up
+</pre></div>
+</div>
+</section>
+<section id="configure-your-slack-notifications">
+<h3>Configure your Slack notifications<a class="headerlink" href="#configure-your-slack-notifications" title="Link to this heading"></a></h3>
+<p>To configure Slack, you need the following variables, in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># SLACK Setup
+SLACK_API_TOKEN=
+SLACK_CHANNEL=
+</pre></div>
+</div>
+<p>Follow these steps to get the required information:</p>
+<ol class="arabic simple">
+<li><p>Go to the <a class="reference external" href="https://api.slack.com/apps">Slack API page</a>.</p></li>
+<li><p>Click on <strong>Create New App</strong>.</p></li>
+<li><p>Choose <strong>From scratch</strong>.</p></li>
+<li><p>Once your app is created, go to <strong>OAuth &amp; Permissions</strong>.</p></li>
+<li><p>Under <strong>OAuth Scopes</strong>, ensure you add the required permission:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">chat:write</span></code> (This allows your app to send messages to channels).</p></li>
+</ul>
+</li>
+<li><p>On <strong>OAuth Tokens</strong>, click on <strong>Install App</strong> to install the app to your workspace.</p></li>
+<li><p>After installation, you will be provided with an <strong>OAuth Access Token</strong>. Copy this token and save it as <code class="docutils literal notranslate"><span class="pre">SLACK_API_TOKEN</span></code> in your <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p></li>
+<li><p>Lastly, create the channel in Slack if you haven’t already and save its name as <code class="docutils literal notranslate"><span class="pre">SLACK_CHANNEL</span></code> in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p></li>
+</ol>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
+docker compose up
+</pre></div>
+</div>
+</section>
+<section id="configure-your-citadel-notifications">
+<h3>Configure your Citadel notifications<a class="headerlink" href="#configure-your-citadel-notifications" title="Link to this heading"></a></h3>
+<p>To configure Citadel, you need the following variables, in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># CITADEL Setup
+CITADEL_API_TOKEN=
+CITADEL_CHANNEL=
+CITADEL_URL=
+</pre></div>
+</div>
+<p>Follow these steps to get the required information:</p>
+<ol class="arabic simple">
+<li><p>Create a <strong>New Room</strong>.</p></li>
+<li><p>Retrieve the <code class="docutils literal notranslate"><span class="pre">CITADEL_ROOM_ID</span></code> from the room’s settings. Copy the room’s link, then extract the ID after <code class="docutils literal notranslate"><span class="pre">/#/room/</span></code> and add it to your .env file.</p></li>
+<li><p>Next, visit this link: <a class="reference external" href="https://cds.thalesgroup.com/en/ercom/citadel">Citadel Team Website</a> to request your <code class="docutils literal notranslate"><span class="pre">CITADEL_API_TOKEN</span></code>. This token will allow you to send automatic notifications.</p></li>
+<li><p>For the <code class="docutils literal notranslate"><span class="pre">CITADEL_URL</span></code> variable, if you’re using a public instance, the URL should be: <a class="reference external" href="https://join.citadel.team/">https://join.citadel.team/</a>. Otherwise, enter your customized instance URL.</p></li>
+</ol>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
+docker compose up
+</pre></div>
+</div>
+</section>
 </section>
 <section id="add-your-rss-source-to-threats-detection">
 <h2>Add your RSS source to Threats Detection<a class="headerlink" href="#add-your-rss-source-to-threats-detection" title="Link to this heading"></a></h2>
@@ -393,7 +495,7 @@ docker volume rm watcher-project_db_log
 <h2>API Key Creation &amp; Management<a class="headerlink" href="#api-key-creation-management" title="Link to this heading"></a></h2>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
 <ul class="simple">
-<li><p>Click on <strong>API Keys</strong> in <strong>Authentication and Authorization</strong> part.</p></li>
+<li><p>Click on <strong>API Keys</strong> in <strong>Accounts</strong> part.</p></li>
 <li><p>Click on <strong>ADD API KEY</strong>.</p></li>
 <li><p>Select the <strong>expiration</strong> date.</p></li>
 <li><p>Click on <strong>SAVE</strong>.</p></li>
@@ -486,16 +588,6 @@ docker volume rm watcher-project_db_log
 </li>
 <li><p><strong>Usage:</strong> Used to get, add, update, or delete current alerts regarding site monitoring.</p></li>
 </ul>
-<p><code class="docutils literal notranslate"><span class="pre">^api/site_monitoring/thehive/$</span></code></p>
-<ul class="simple">
-<li><p><strong>HTTP Method:</strong> POST</p></li>
-<li><p><strong>Description:</strong></p>
-<ul>
-<li><p><strong>POST:</strong> Adds a new integration with TheHive.</p></li>
-</ul>
-</li>
-<li><p><strong>Usage:</strong> Used to get, add, update, or delete current integrations with TheHive.</p></li>
-</ul>
 <p><code class="docutils literal notranslate"><span class="pre">^api/site_monitoring/misp/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> POST</p></li>
@@ -561,18 +653,6 @@ docker volume rm watcher-project_db_log
 </li>
 <li><p><strong>Usage:</strong> Used to get, add, update, or delete current DNS alerts.</p></li>
 </ul>
-<p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/thehive/$</span></code></p>
-<ul class="simple">
-<li><p><strong>HTTP Method:</strong> POST, PATCH, DELETE</p></li>
-<li><p><strong>Description:</strong></p>
-<ul>
-<li><p><strong>POST:</strong> Adds a new integration with TheHive for DNS.</p></li>
-<li><p><strong>PATCH:</strong> Updates an existing integration with TheHive for DNS.</p></li>
-<li><p><strong>DELETE:</strong> Removes an integration with TheHive for DNS.</p></li>
-</ul>
-</li>
-<li><p><strong>Usage:</strong> Used to get, add, update, or delete current integrations with TheHive for DNS.</p></li>
-</ul>
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/misp/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> POST, PATCH, DELETE</p></li>
@@ -588,29 +668,27 @@ docker volume rm watcher-project_db_log
 </details> <br>
 <section id="specific-details">
 <h3>Specific Details<a class="headerlink" href="#specific-details" title="Link to this heading"></a></h3>
-<p>To obtain detailed information about a specific item, such as an alert, a monitored site, or any other entity in the system, you can access its details by appending /(?P<pk>[^/.]+)/$ to the end of the corresponding API URL.</p>
+<p>To obtain detailed information about a specific item, such as an alert, a monitored site, or any other entity in the system, you can access its details by appending <code class="docutils literal notranslate"><span class="pre">/(?P&lt;pk&gt;[^/.]+)/$</span></code> to the end of the corresponding API URL.</p>
 <p>For instance, let’s say you want to retrieve information about an alert with the ID “1”. You would construct the URL as follows: <code class="docutils literal notranslate"><span class="pre">http://0.0.0.0:9002/api/site_monitoring/alert/1</span></code></p>
 <p>By making a GET request to this URL using your web browser, CURL, or any HTTP client, you will receive comprehensive details about the alert with the ID “1”.</p>
 <p>Following this pattern, you can easily navigate and retrieve specific information for any item in the system, ensuring efficient use of the available API endpoints.</p>
 </section>
 </section>
-<section id="thehive-misp-export">
-<h2>Thehive &amp; MISP Export<a class="headerlink" href="#thehive-misp-export" title="Link to this heading"></a></h2>
-<p>You can export <strong>monitored DNS</strong> to <a class="reference external" href="https://thehive-project.org/">TheHive</a> or <a class="reference external" href="https://www.misp-project.org/">MISP</a>:</p>
+<section id="misp-export">
+<h2>MISP Export<a class="headerlink" href="#misp-export" title="Link to this heading"></a></h2>
+<p>You can export <strong>monitored DNS</strong> to <a class="reference external" href="https://www.misp-project.org/">MISP</a>:</p>
 <ul class="simple">
 <li><p>Go to <strong>/website_monitoring</strong> page.</p></li>
 <li><p>Add new DNS to monitored.</p></li>
 <li><p>Click on the <strong>blue upload/cloud button</strong>.</p></li>
-<li><p>Choose which service you want to use.</p></li>
 </ul>
 <section id="id1">
 <h3>Troubleshooting<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
 <p>If the export do not work as expected, this may be related with
-the version of your TheHive or MISP instance.</p>
-<p>In fact, if you are using an outdated TheHive/MISP instance, the client API version will not correspond with your
-TheHive/MISP instance version:</p>
+the version of your MISP instance.</p>
+<p>In fact, if you are using an outdated MISP instance, the client API version will not correspond with your MISP instance version:</p>
 <ul class="simple">
-<li><p>Update Thehive or MISP.</p></li>
+<li><p>Update MISP.</p></li>
 </ul>
 </section>
 </section>
@@ -782,8 +860,8 @@ systemctl status mysql.service
 <li><p>The mails will be available here by default: <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
 <li><p>Modify the mail settings in the environment variables: <code class="docutils literal notranslate"><span class="pre">vi</span> <span class="pre">/.env</span></code></p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM=from&#64;from.com</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">SMTP_SERVER=localhost</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM=from&#64;from.com</span></code></p></li>
 </ul>
 </li>
 <li><p>Launch Watcher: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">Watcher/Watcher/manage.py</span> <span class="pre">runserver</span></code></p></li>
@@ -854,7 +932,7 @@ Otherwise, it will create <strong>several unnecessary migration files</strong>.<
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2023 - Thales CERT.</p>
+    <p>&#169; Copyright 2025 - Thales CERT.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

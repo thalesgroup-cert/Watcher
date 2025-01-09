@@ -9,7 +9,7 @@ Welcome to Watcher's documentation!
 
    /README.md
    modules/site_monitoring_misp
-   modules/site_monitoring_thehive
+   modules/common_core
    modules/threats_watcher_core
    modules/data_leak_core
    modules/site_monitoring_core
