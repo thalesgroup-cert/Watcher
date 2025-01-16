@@ -106,15 +106,31 @@ def create_observables(observables):
 
     observables_data = []
     for obs in observables:
+        tag_info = []
+        if 'tags' in obs:
+            for tag in obs['tags']:
+                tag_parts = tag.split(':')
+                if len(tag_parts) == 2:
+                    tag_info.append(f"*{tag_parts[0]}:* {tag_parts[1]}")
+        
+        tags_message = "\n".join(tag_info) if tag_info else "No tags"
+        message = f"**More information(s)**:\n{tags_message}"
+
         observable_data = {
             "dataType": obs['dataType'],
             "data": obs['data'],
-            "message": f"An observable was added on {current_date} at {current_time}.",
+            "message": message,
             "ioc": True,
             "sighted": True,
-            "tlp": 2
+            "tlp": 1,
+            "pap": 1
         }
+
+        if 'tags' in obs:
+            observable_data['tags'] = obs['tags']
+
         observables_data.append(observable_data)
+    
     return observables_data
 
 
@@ -140,7 +156,7 @@ def update_existing_alert_case(item_type, existing_item, observables, comment, t
         add_comment_to_item(item_type, item_id, comment, thehive_url, api_key)
 
 
-def create_new_alert(ticket_id, title, description, severity, tags, app_name, observables, customFields, comment, thehive_url, api_key):
+def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, app_name, observables, customFields, comment, thehive_url, api_key):
     from common.core import generate_ref
     """
     Create a new alert in TheHive with the provided details.
@@ -149,6 +165,8 @@ def create_new_alert(ticket_id, title, description, severity, tags, app_name, ob
     :param title: The title of the alert.
     :param description: The description of the alert.
     :param severity: The severity level of the alert (integer).
+    :param tlp: The Traffic Light Protocol (TLP) level of the alert (integer).
+    :param pap: The Permissible Action Protocol (PAP) level of the alert (integer).
     :param tags: A list of tags associated with the alert.
     :param app_name: The application triggering the alert.
     :param observables: A list of observables to associate with the alert.
@@ -166,6 +184,8 @@ def create_new_alert(ticket_id, title, description, severity, tags, app_name, ob
         "title": title,
         "description": description,
         "severity": severity,
+        "tlp": tlp,
+        "pap": pap,
         "tags": tags,
         "type": app_name,
         "source": "watcher",
@@ -201,7 +221,7 @@ def create_new_alert(ticket_id, title, description, severity, tags, app_name, ob
         return None
 
 
-def handle_alert_or_case(ticket_id, observables, comment, title, description, severity, tags, app_name, customFields, thehive_url, api_key):
+def handle_alert_or_case(ticket_id, observables, comment, title, description, severity, tlp, pap, tags, app_name, customFields, thehive_url, api_key):
     """
     Handle the creation or updating of alerts and cases in TheHive.
 
@@ -211,6 +231,8 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
     :param title: The title for the alert.
     :param description: The description for the alert.
     :param severity: The severity of the alert (integer).
+    :param tlp: The Traffic Light Protocol (TLP) level of the alert (integer).
+    :param pap: The Permissible Action Protocol (PAP) level of the alert (integer).
     :param tags: A list of tags for the alert.
     :param app_name: The name of the application triggering the alert.
     :param customFields: Custom fields to be included in the alert.
@@ -235,6 +257,6 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
     else:
         create_new_alert(
             ticket_id=ticket_id, title=title, description=description, severity=severity, 
-            tags=tags, app_name=app_name, observables=observables, 
+            tlp=tlp, pap=pap, tags=tags, app_name=app_name, observables=observables, 
             customFields=customFields, comment=comment, thehive_url=thehive_url, api_key=api_key
         )

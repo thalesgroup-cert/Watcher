@@ -205,8 +205,10 @@ APP_CONFIG_THEHIVE = {
             "**The following trendy words were detected:**\n"
             "{words_list}"
         ),
-        'severity': 2,
-        'tags': ["Threats Watcher", "Watcher", "Buzzword", "Trendy Words", "Threat Detection"]
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+        'tags': settings.THE_HIVE_TAGS
     },
     'data_leak': {
         'title': "New Data Leakage - Alert #{alert_pk} for {keyword_name} keyword",
@@ -216,8 +218,10 @@ APP_CONFIG_THEHIVE = {
             "*Keyword:* {keyword_name}\n"
             "*Source:* {url}\n"
         ),
-        'severity': 3,
-        'tags': ["Data Leak", "Watcher", "Sensitive Data", "Leak Detection"]
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+        'tags': settings.THE_HIVE_TAGS
     },
     'website_monitoring': {
         'title': "Website Monitoring Detected - {alert_type} on {domain_name_sanitized}",
@@ -236,8 +240,10 @@ APP_CONFIG_THEHIVE = {
             "*• New Mail Server:* {new_mail_A_record_ip}\n"
             "*• Old Mail Server:* {old_mail_A_record_ip}\n"
         ),
-        'severity': 2,
-        'tags': ["Website Monitoring", "Watcher", "Incident", "Website", "Domain Name", "Impersonation" , "Malicious Domain", "Typosquatting"]
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+        'tags': settings.THE_HIVE_TAGS
     },
     'dns_finder': {
         'title': "New Twisted DNS found - {dns_domain_name_sanitized}",
@@ -249,8 +255,10 @@ APP_CONFIG_THEHIVE = {
             "*Corporate DNS:* {alert.dns_twisted.dns_monitored}\n"
             "*Fuzzer:* {alert.dns_twisted.fuzzer}\n"
         ),
-        'severity': 3,
-        'tags': ["DNS Finder", "Watcher", "Twisted DNS", "Corporate Keywords", "Corporate DNS Assets", "Impersonation" , "Malicious Domain", "Typosquatting"]
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+        'tags': settings.THE_HIVE_TAGS
     },
 }
 
@@ -306,41 +314,56 @@ def collect_observables(app_name, context_data):
     elif app_name == 'website_monitoring':
         site = context_data.get('site')
         alert_data = context_data.get('alert_data', {})
+        alert_type = alert_data.get('type') 
         if site:
-            observables.append({"dataType": "domain", "data": site.domain_name})
+            domain_tag = f"domain_name:{site.domain_name}" 
+            observable = {"dataType": "domain", "data": site.domain_name, "tags": [domain_tag]}
+            observables.append(observable)
             if alert_data.get('new_ip'):
-                observables.append({"dataType": "ip", "data": alert_data['new_ip']})
+                observable = {"dataType": "ip", "data": alert_data['new_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:new_ip"]}
+                observables.append(observable)
             if alert_data.get('old_ip'):
-                observables.append({"dataType": "ip", "data": alert_data['old_ip']})
+                observable = {"dataType": "ip", "data": alert_data['old_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:old_ip"]}
+                observables.append(observable)
             if alert_data.get('new_ip_second'):
-                observables.append({"dataType": "ip", "data": alert_data['new_ip_second']})
+                observable = {"dataType": "ip", "data": alert_data['new_ip_second'], "tags": [domain_tag, f"type:{alert_type}", "details:new_ip_second"]}
+                observables.append(observable)
             if alert_data.get('old_ip_second'):
-                observables.append({"dataType": "ip", "data": alert_data['old_ip_second']})     
+                observable = {"dataType": "ip", "data": alert_data['old_ip_second'], "tags": [domain_tag, f"type:{alert_type}", "details:old_ip_second"]}
+                observables.append(observable)
             if alert_data.get('new_MX_records'):
-                observables.append({"dataType": "other", "data": alert_data['new_MX_records']})
+                observable = {"dataType": "other", "data": alert_data['new_MX_records'], "tags": [domain_tag, f"type:{alert_type}", "details:new_MX_records"]}
+                observables.append(observable)
             if alert_data.get('old_MX_records'):
-                observables.append({"dataType": "other", "data": alert_data['old_MX_records']})
+                observable = {"dataType": "other", "data": alert_data['old_MX_records'], "tags": [domain_tag, f"type:{alert_type}", "details:old_MX_records"]}
+                observables.append(observable)
             if alert_data.get('new_mail_A_record_ip'):
-                observables.append({"dataType": "ip", "data": alert_data['new_mail_A_record_ip']})
+                observable = {"dataType": "ip", "data": alert_data['new_mail_A_record_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:new_mail_A_record_ip"]}
+                observables.append(observable)
             if alert_data.get('old_mail_A_record_ip'):
-                observables.append({"dataType": "ip", "data": alert_data['old_mail_A_record_ip']})
+                observable = {"dataType": "ip", "data": alert_data['old_mail_A_record_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:old_mail_A_record_ip"]}
+                observables.append(observable)
 
     elif app_name == 'data_leak':
         alert = context_data.get('alert')
         if alert:
-            observables.append({"dataType": "url", "data": alert.url})
-            observables.append({"dataType": "other", "data": alert.keyword.name})
+            observable = {"dataType": "url", "data": alert.url, "tags": []}
+            if alert.keyword:
+                observable["tags"].append(f"keyword:{alert.keyword.name}")
+            observables.append(observable)
 
     elif app_name == 'dns_finder':
         alert = context_data.get('alert')
         if alert:
-            observables.append({"dataType": "domain", "data": alert.dns_twisted.domain_name})
-            if alert.dns_twisted.keyword_monitored:
-                observables.append({"dataType": "other", "data": alert.dns_twisted.keyword_monitored.name})
-            if alert.dns_twisted.dns_monitored:
-                observables.append({"dataType": "domain", "data": alert.dns_twisted.dns_monitored.domain_name})
+            observable = {"dataType": "domain", "data": alert.dns_twisted.domain_name, "tags": []}
             if alert.dns_twisted.fuzzer:
-                observables.append({"dataType": "other", "data": alert.dns_twisted.fuzzer})
+                observable["tags"].append(f"fuzzer:{alert.dns_twisted.fuzzer}")
+            if alert.dns_twisted.dns_monitored:
+                observable["tags"].append(f"corporate_dns:{alert.dns_twisted.dns_monitored.domain_name}")
+            if alert.dns_twisted.keyword_monitored:
+                observable["tags"].append(f"corporate_keyword:{alert.dns_twisted.keyword_monitored.name}")
+
+            observables.append(observable)
 
     observables = [observable for observable in observables if observable['data'] is not None and observable['data'] != 'None']
 
@@ -513,6 +536,8 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         title=formatted_title,
                         description=content,
                         severity=app_config_thehive['severity'],
+                        tlp=app_config_thehive['tlp'],
+                        pap=app_config_thehive['pap'],
                         tags=app_config_thehive['tags'],
                         customFields=app_config_thehive.get('customFields'),
                         app_name=app_name,
@@ -527,6 +552,8 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         title=formatted_title,
                         description=app_config_thehive['description_template'].format(**common_data),
                         severity=app_config_thehive['severity'],
+                        tlp=app_config_thehive['tlp'],
+                        pap=app_config_thehive['pap'],
                         tags=app_config_thehive['tags'],
                         app_name=app_name,
                         domain_name=None,
