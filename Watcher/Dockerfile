@@ -5,7 +5,7 @@ LABEL title='Watcher' \
         documentation='https://thalesgroup-cert.github.io/Watcher/' \
         source='https://github.com/thalesgroup-cert/Watcher' \
         maintainer='ygalnezri@icloud.com'
-
+        
 # Adding backend directory to make absolute filepaths consistent across services
 WORKDIR /app/
 # Add the rest of the code
