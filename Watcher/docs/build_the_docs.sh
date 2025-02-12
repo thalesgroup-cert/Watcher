@@ -2,7 +2,7 @@
 
 cd ../Watcher
 
-filelist=`grep -Rn 'from .models'`
+filelist=`grep -Rn -E 'from .models|from common|from site_monitoring.models'`
 re='^[0-9]+$'
 
 while IFS= read -r line; do
@@ -29,7 +29,7 @@ do
    :
     linenumber=${lines[i]}
     line=${lines[i+1]}
-    # Comment each '.models import' line
+    # Comment each 'from .models|from common|from site_monitoring.models' line
     sed -i "${linenumber}s/.*/#${line}/" $file
     let "i+=2"
 done
@@ -45,7 +45,7 @@ do
    :
     linenumber=${lines[i]}
     line=${lines[i+1]}
-    # Uncomment each '.models import' line
+    # Uncomment each 'from .models|from common|from site_monitoring.models' line
     sed -i "${linenumber}s/.*/${line}/" $file
     let "i+=2"
 done

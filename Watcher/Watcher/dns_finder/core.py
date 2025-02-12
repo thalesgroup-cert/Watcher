@@ -5,16 +5,14 @@ import subprocess
 import json
 from django.utils import timezone
 from django.conf import settings
-from .mail_template.default_template import get_template
-from .mail_template.default_template_cert_transparency import get_cert_transparency_template
-from .mail_template.group_template import get_group_template
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import smtplib
 import certstream
+from common.core import send_app_specific_notifications
+from common.core import send_app_specific_notifications_group
+from common.core import send_only_thehive_notifications
+from django.db.models import Q
 
 
 def start_scheduler():
@@ -31,6 +29,7 @@ def start_scheduler():
                       id='main_certificate_transparency',
                       max_instances=2,
                       replace_existing=True)
+
     scheduler.start()
 
 
@@ -62,7 +61,9 @@ def print_callback(message, context):
             print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", domain)
             dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
             alert = Alert.objects.create(dns_twisted=dns_twisted)
-            send_email_cert_transparency(alert)
+            alert.source = 'print_callback'
+            alert.save()
+            send_dns_finder_notifications(alert)
 
 
 def main_certificate_transparency():
@@ -134,120 +135,80 @@ def check_dnstwist(dns_monitored):
                                                                     dns_monitored=dns_monitored,
                                                                     fuzzer=twisted_website_dict['fuzzer'])
                             alert = Alert.objects.create(dns_twisted=dns_twisted)
+                            alert.source = 'check_dnstwist'
+                            alert.save()
                             alerts_list.append(alert)
+
             # Send email alerts
             if len(alerts_list) < 6:
                 for alert in alerts_list:
-                    send_email(alert)
+                    send_dns_finder_notifications(alert)
             if len(alerts_list) >= 6:
-                send_group_email(dns_monitored, len(alerts_list))
+                send_dns_finder_notifications_group(dns_monitored, len(alerts_list), alerts_list)
         except ValueError:
             print('Decoding JSON has failed')
 
     print(str(timezone.now()) + " - " + "dnstwist: Successfully processed: ", dns_monitored.domain_name)
 
 
-def send_email(alert):
+def send_dns_finder_notifications(alert):
     """
-    Send e-mail alert.
-
+    Sends notifications to Slack, Citadel, TheHive or Email based on DNS Finder.
+    
     :param alert: Alert Object.
     """
-    emails_to = list()
-    # Get all subscribers email
-    for subscriber in Subscriber.objects.all():
-        emails_to.append(subscriber.user_rec.email)
+    subscribers = Subscriber.objects.filter(
+        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
+    )
 
-    # If there is at least one subscriber
-    if len(emails_to) > 0:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ','.join(emails_to)
-            msg['Subject'] = str("[ALERT #" + str(alert.pk) + "] DNS Finder")
-            body = get_template(alert)
-            msg.attach(MIMEText(body, 'html', _charset='utf-8'))
-            text = msg.as_string()
-            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-            smtp_server.quit()
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for DNS Finder, no message sent.")
+        return
 
-        except Exception as e:
-            # Print any error messages to stdout
-            print(str(timezone.now()) + " - Email Error : ", e)
-        finally:
-            for email in emails_to:
-                print(str(timezone.now()) + " - Email sent to ", email)
-    else:
-        print(str(timezone.now()) + " - No subscriber, no email sent.")
+    if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
+        print(f"Error: Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
+        return
+
+    source = None
+    if hasattr(alert, 'source'):
+        source = alert.source 
+
+    context_data = {
+        'alert': alert,
+        'source': source 
+    }
+
+    send_app_specific_notifications('dns_finder', context_data, subscribers)
 
 
-def send_group_email(dns_monitored, alerts_number):
+def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     """
-    Send group e-mail for a specific dns_monitored.
+    Sends grouped notifications to Slack, Citadel, TheHive or Email based on dns_finder_group.
+    If the application is TheHive, individual notifications are sent for each alert.
 
-    :param dns_monitored: DnsMonitored Object.
-    :param alerts_number: Number of alerts.
+    :param keyword: The keyword or term associated with the dns finder.
+    :param alerts_number: The total number of alerts in the group.
+    :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
-    emails_to = list()
-    # Get all subscribers email
-    for subscriber in Subscriber.objects.all():
-        emails_to.append(subscriber.user_rec.email)
+    subscribers = Subscriber.objects.filter(
+        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
+    )
 
-    # If there is at least one subscriber
-    if len(emails_to) > 0:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ','.join(emails_to)
-            msg['Subject'] = str("[" + str(alerts_number) + " ALERTS] DNS Finder")
-            body = get_group_template(dns_monitored, alerts_number)
-            msg.attach(MIMEText(body, 'html', _charset='utf-8'))
-            text = msg.as_string()
-            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-            smtp_server.quit()
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for DNS Finder group, no message sent.")
+        return
 
-        except Exception as e:
-            # Print any error messages to stdout
-            print(str(timezone.now()) + " - Email Error : ", e)
-        finally:
-            for email in emails_to:
-                print(str(timezone.now()) + " - Email sent to ", email)
-    else:
-        print(str(timezone.now()) + " - No subscriber, no email sent.")
+    context_data_group = {
+        'dns_monitored': dns_monitored,
+        'alerts_number': alerts_number,
+    }
 
+    send_app_specific_notifications_group('dns_finder_group', context_data_group, subscribers)
 
-def send_email_cert_transparency(alert):
-    """
-    Send e-mail alert.
+    for alert in alerts:
 
-    :param alert: Alert Object.
-    """
-    emails_to = list()
-    # Get all subscribers email
-    for subscriber in Subscriber.objects.all():
-        emails_to.append(subscriber.user_rec.email)
+        context_data_thehive = {
+            'alert': alert,  
+        }
 
-    # If there is at least one subscriber
-    if len(emails_to) > 0:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ','.join(emails_to)
-            msg['Subject'] = str("[ALERT #" + str(alert.pk) + "] DNS Finder")
-            body = get_cert_transparency_template(alert)
-            msg.attach(MIMEText(body, 'html', _charset='utf-8'))
-            text = msg.as_string()
-            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-            smtp_server.quit()
-
-        except Exception as e:
-            # Print any error messages to stdout
-            print(str(timezone.now()) + " - Email Error : ", e)
-        finally:
-            for email in emails_to:
-                print(str(timezone.now()) + " - Email sent to ", email)
-    else:
-        print(str(timezone.now()) + " - No subscriber, no email sent.")
+        send_only_thehive_notifications('dns_finder', context_data_thehive, subscribers)

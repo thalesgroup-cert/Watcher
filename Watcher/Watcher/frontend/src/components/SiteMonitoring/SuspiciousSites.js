@@ -1,7 +1,7 @@
 import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
-import {getSites, deleteSite, addSite, patchSite, exportToTheHive, exportToMISP} from "../../actions/SiteMonitoring";
+import {getSites, deleteSite, addSite, patchSite, exportToMISP} from "../../actions/SiteMonitoring";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
@@ -29,7 +29,6 @@ export class SuspiciousSites extends Component {
             ipMonitoring: null,
             webContentMonitoring: null,
             emailMonitoring: null,
-            theHiveCaseId: null,
             mispEventId: null,
             addLoading: false,
             exportLoading: false
@@ -48,7 +47,6 @@ export class SuspiciousSites extends Component {
         deleteSite: PropTypes.func.isRequired,
         addSite: PropTypes.func.isRequired,
         patchSite: PropTypes.func.isRequired,
-        exportToTheHive: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
@@ -371,13 +369,12 @@ export class SuspiciousSites extends Component {
     
  
  
-    displayExportModal = (id, domainName, ticketId, theHiveCaseId, mispEventId) => {
+    displayExportModal = (id, domainName, ticketId, mispEventId) => {
         this.setState({
             showExportModal: true,
             id: id,
             domainName: domainName,
             ticketId: ticketId,
-            theHiveCaseId: theHiveCaseId,
             mispEventId: mispEventId
         });
     };
@@ -388,22 +385,6 @@ export class SuspiciousSites extends Component {
             this.setState({
                 showExportModal: false
             });
-        };
- 
-        let onSubmitTheHive;
-        onSubmitTheHive = e => {
-            e.preventDefault();
-            const id = this.state.id;
-            const site = {id};
- 
-            this.props.exportToTheHive(site);
-            this.setState({
-                domainName: "",
-                ticketId: "",
-                id: 0,
-                exportLoading: id
-            });
-            handleClose();
         };
  
         let onSubmitMisp;
@@ -422,14 +403,6 @@ export class SuspiciousSites extends Component {
             handleClose();
         };
  
-        const theHiveExportButton = (
-            <Button type="submit" className="btn-thehive">
-                Export to TheHive
-            </Button>);
-        const theHiveUpdateButton = (
-            <Button type="submit" className="btn-thehive">
-                Update TheHive IOCs
-            </Button>);
         const mispExportButton = (
             <Button type="submit" className="btn-misp">
                 Export to MISP
@@ -448,24 +421,18 @@ export class SuspiciousSites extends Component {
                                 <Modal.Title>Action Requested</Modal.Title>
                             </Col>
                             <Col md={{span: 12}} style={{paddingTop: 12, marginLeft: 20}} className="my-auto">
-                                <img src="/static/img/thehive_misp_logo.png" style={{maxWidth: "60%", maxHeight: "60%"}}
+                                <img src="/static/img/misp_logo.png" style={{maxWidth: "30%", maxHeight: "30%"}}
                                      className="mx-auto d-block"
-                                     alt="TheHive & MISP Logo"/>
+                                     alt="MISP Logo"/>
                             </Col>
                         </Row>
                     </Container>
                 </Modal.Header>
                 <Modal.Body>
-                    <p>Export <b>{this.state.domainName}</b> & <b>IOCs</b> to <b><u>TheHive</u></b> or <b><u>MISP</u></b>:
+                    <p>Export <b>{this.state.domainName}</b> & <b>IOCs</b> to <b><u>MISP</u></b>.
                     </p>
                 </Modal.Body>
                 <Modal.Footer>
-                    <form onSubmit={onSubmitTheHive}>
-                        <Button variant="secondary" className="mr-2" onClick={handleClose}>
-                            Close
-                        </Button>
-                        {this.state.theHiveCaseId ? theHiveUpdateButton : theHiveExportButton}
-                    </form>
                     <form onSubmit={onSubmitMisp}>
                         {this.state.mispEventId ? mispUpdateButton : mispExportButton}
                     </form>
@@ -500,7 +467,7 @@ export class SuspiciousSites extends Component {
             <button className="btn btn-outline-primary btn-sm mr-2"
                     data-toggle="tooltip"
                     data-placement="top" title="Export" onClick={() => {
-                this.displayExportModal(site.id, site.domain_name, site.ticket_id, site.the_hive_case_id, site.misp_event_id)
+                this.displayExportModal(site.id, site.domain_name, site.ticket_id, site.misp_event_id)
             }} disabled={this.state.exportLoading === site.id}>
  
                 {this.state.exportLoading === site.id && (
@@ -614,6 +581,5 @@ export default connect(mapStateToProps, {
     deleteSite,
     addSite,
     patchSite,
-    exportToTheHive,
     exportToMISP
 })(SuspiciousSites);

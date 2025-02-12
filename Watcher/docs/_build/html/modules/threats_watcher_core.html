@@ -1,28 +1,27 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Threats Watcher - Core Algorithm &mdash; Watcher 1.2.13 documentation</title>
+  <title>Threats Watcher - Core Algorithm &mdash; Watcher 2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=250a84ee"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="shortcut icon" href="../_static/Watcher-favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=c4a36953"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Data Leak - Core Algorithm" href="data_leak_core.html" />
-    <link rel="prev" title="TheHive API" href="site_monitoring_thehive.html" /> 
+    <link rel="prev" title="Common - Core Algorithm" href="common_core.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -33,8 +32,9 @@
 
           
           
-          <a href="../index.html" class="icon icon-home">
-            Watcher
+          <a href="../index.html">
+            
+              <img src="../_static/Watcher-logo-documentation.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -51,7 +51,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../README.html#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_misp.html">MISP API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="site_monitoring_thehive.html">TheHive API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Threats Watcher - Core Algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.fetch_last_posts"><code class="docutils literal notranslate"><span class="pre">fetch_last_posts()</span></code></a></li>
@@ -60,7 +60,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.load_feeds"><code class="docutils literal notranslate"><span class="pre">load_feeds()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.main_watch"><code class="docutils literal notranslate"><span class="pre">main_watch()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.remove_banned_words"><code class="docutils literal notranslate"><span class="pre">remove_banned_words()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.send_threats_watcher_notifications"><code class="docutils literal notranslate"><span class="pre">send_threats_watcher_notifications()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.tokenize_count_urls"><code class="docutils literal notranslate"><span class="pre">tokenize_count_urls()</span></code></a></li>
 </ul>
@@ -149,7 +149,7 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 <li><p>remove_banned_words()</p></li>
 <li><p>focus_five_letters()</p></li>
 <li><p>focus_on_top(settings.WORDS_OCCURRENCE)</p></li>
-<li><p>send_email()</p></li>
+<li><p>send_threats_watcher_notifications()</p></li>
 </ul>
 </dd>
 </dl>
@@ -162,9 +162,9 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.threats_watcher.core.send_email">
-<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">send_email</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_email" title="Link to this definition"></a></dt>
-<dd><p>Send e-mail alert.</p>
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.send_threats_watcher_notifications">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">send_threats_watcher_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">email_words</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_threats_watcher_notifications" title="Link to this definition"></a></dt>
+<dd><p>Sends notifications to Slack, Citadel, TheHive or Email based on Threats Watcher.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -192,14 +192,14 @@ Populated the database with only words with a minimum occurrence of  “words_oc
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="site_monitoring_thehive.html" class="btn btn-neutral float-left" title="TheHive API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="common_core.html" class="btn btn-neutral float-left" title="Common - Core Algorithm" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="data_leak_core.html" class="btn btn-neutral float-right" title="Data Leak - Core Algorithm" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2023 - Thales CERT.</p>
+    <p>&#169; Copyright 2025 - Thales CERT.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

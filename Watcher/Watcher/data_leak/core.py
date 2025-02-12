@@ -8,12 +8,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from django.conf import settings
 from django.db.models.functions import Length
-from .mail_template.default_template import get_template
-from .mail_template.group_template import get_group_template
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from json.decoder import JSONDecodeError
-import smtplib
+from common.core import send_app_specific_notifications
+from common.core import send_app_specific_notifications_group
+from common.core import send_only_thehive_notifications
+from django.db.models import Q
 
 
 def start_scheduler():
@@ -26,7 +25,6 @@ def start_scheduler():
 
     scheduler.add_job(main_data_leak, 'cron', day_of_week='mon-sun', minute='*/5', id='week_job', max_instances=10,
                       replace_existing=True)
-
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour='*/2', id='clean', replace_existing=True)
     scheduler.start()
 
@@ -235,10 +233,10 @@ def check_keywords(keywords):
                 alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=result)
                 # limiting the number of specific email per alert
                 if len(results) < 6:
-                    send_email(alert)
+                    send_data_leak_notifications(alert)
             # if there is too many alerts, we send a group email
             if len(results) >= 6:
-                send_group_email(keyword, len(results))
+                send_data_leak_notifications_group(keyword, len(results), results)
 
     # now we check Pastebin for new pastes
     result = check_pastebin(keywords)
@@ -248,75 +246,59 @@ def check_keywords(keywords):
             print(str(timezone.now()) + " - Create alert for: ", keyword, "url: ", url)
             alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=url,
                                          content=paste_content_hits[url])
-            send_email(alert)
+            send_data_leak_notifications(alert)
 
 
-def send_email(alert):
+def send_data_leak_notifications(alert):
     """
-    Send e-mail alert.
-
-    :param alert: Alert object.
+    Sends notifications to Slack, Citadel, TheHive or Email based on Data Leak.
+    
+    :param alert: Alert Object.
     """
-    emails_to = list()
-    # Get all subscribers email
-    for subscriber in Subscriber.objects.all():
-        emails_to.append(subscriber.user_rec.email)
+    subscribers = Subscriber.objects.filter(
+        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
+    )
 
-    # If there is at least one subscriber
-    if len(emails_to) > 0:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ','.join(emails_to)
-            msg['Subject'] = str("[ALERT #" + str(alert.pk) + "] Data Leak")
-            body = get_template(alert)
-            msg.attach(MIMEText(body, 'html', _charset='utf-8'))
-            text = msg.as_string()
-            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-            smtp_server.quit()
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for Data Leak, no message sent.")
+        return    
 
-        except Exception as e:
-            # Print any error messages to stdout
-            print(str(timezone.now()) + " - Email Error : ", e)
-        finally:
-            for email in emails_to:
-                print(str(timezone.now()) + " - Email sent to ", email)
-    else:
-        print(str(timezone.now()) + " - No subscriber, no email sent.")
+    context_data = {
+        'alert': alert
+    }
+
+    send_app_specific_notifications('data_leak', context_data, subscribers)
 
 
-def send_group_email(keyword, alerts_number):
+def send_data_leak_notifications_group(keyword, alerts_number, alerts):
     """
-    Send group e-mail for a specific keyword.
+    Sends grouped notifications to Slack, Citadel, TheHive or Email based on data_leak_group.
+    If the application is TheHive, individual notifications are sent for each alert.
 
-    :param keyword: Matched Keyword.
-    :param alerts_number: Number of alerts.
+    :param keyword: The keyword or term associated with the data leak.
+    :param alerts_number: The total number of alerts in the group.
+    :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
-    emails_to = list()
-    # Get all subscribers email
-    for subscriber in Subscriber.objects.all():
-        emails_to.append(subscriber.user_rec.email)
+    subscribers = Subscriber.objects.filter(
+        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
+    )
 
-    # If there is at least one subscriber
-    if len(emails_to) > 0:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.EMAIL_FROM
-            msg['To'] = ','.join(emails_to)
-            msg['Subject'] = str("[" + str(alerts_number) + " ALERTS] Data Leak")
-            body = get_group_template(keyword, alerts_number)
-            msg.attach(MIMEText(body, 'html', _charset='utf-8'))
-            text = msg.as_string()
-            smtp_server = smtplib.SMTP(settings.SMTP_SERVER)
-            smtp_server.sendmail(settings.EMAIL_FROM, emails_to, text)
-            smtp_server.quit()
 
-        except Exception as e:
-            # Print any error messages to stdout
-            print(str(timezone.now()) + " - Email Error : ", e)
-        finally:
-            for email in emails_to:
-                print(str(timezone.now()) + " - Email sent to ", email)
-    else:
-        print(str(timezone.now()) + " - No subscriber, no email sent.")
+    if not subscribers.exists():
+        print(f"{timezone.now()} - No subscribers for Data Leak group, no message sent.")
+        return
+
+    context_data_group = {
+        'keyword': keyword,
+        'alerts_number': alerts_number, 
+    }
+
+    send_app_specific_notifications_group('data_leak_group', context_data_group, subscribers)
+
+    for index, alert in enumerate(alerts):
+
+        context_data_thehive = {
+            'alert': alert,  
+        }
+
+        send_only_thehive_notifications('data_leak', context_data_thehive, subscribers)

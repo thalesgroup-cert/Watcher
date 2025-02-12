@@ -4,8 +4,8 @@ LABEL title='Watcher' \
         description='Watcher is a Django & React JS automated platform for discovering new potentially cybersecurity threats targeting your organisation.' \
         documentation='https://thalesgroup-cert.github.io/Watcher/' \
         source='https://github.com/thalesgroup-cert/Watcher' \
-        maintainer='felix@herrenschmidt.pro'
-
+        maintainer='ygalnezri@icloud.com'
+        
 # Adding backend directory to make absolute filepaths consistent across services
 WORKDIR /app/
 # Add the rest of the code
@@ -42,4 +42,3 @@ EXPOSE 9002
 # Be sure to use 0.0.0.0 for the host within the Docker container,
 # otherwise the browser won't be able to find it
 CMD ["python", "manage.py", "runserver", "0.0.0.0:9002"]
-

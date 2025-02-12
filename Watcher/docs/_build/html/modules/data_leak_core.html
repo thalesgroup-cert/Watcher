@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Leak - Core Algorithm &mdash; Watcher 1.2.13 documentation</title>
+  <title>Data Leak - Core Algorithm &mdash; Watcher 2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=250a84ee"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="shortcut icon" href="../_static/Watcher-favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=c4a36953"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -33,8 +32,9 @@
 
           
           
-          <a href="../index.html" class="icon icon-home">
-            Watcher
+          <a href="../index.html">
+            
+              <img src="../_static/Watcher-logo-documentation.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -51,7 +51,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../README.html#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_misp.html">MISP API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="site_monitoring_thehive.html">TheHive API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Data Leak - Core Algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.check_keywords"><code class="docutils literal notranslate"><span class="pre">check_keywords()</span></code></a></li>
@@ -60,8 +60,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.check_urls"><code class="docutils literal notranslate"><span class="pre">check_urls()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.main_data_leak"><code class="docutils literal notranslate"><span class="pre">main_data_leak()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.send_email"><code class="docutils literal notranslate"><span class="pre">send_email()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.send_group_email"><code class="docutils literal notranslate"><span class="pre">send_group_email()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.send_data_leak_notifications"><code class="docutils literal notranslate"><span class="pre">send_data_leak_notifications()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.send_data_leak_notifications_group"><code class="docutils literal notranslate"><span class="pre">send_data_leak_notifications_group()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
 </ul>
 </li>
@@ -180,25 +180,27 @@
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.send_email">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_email" title="Link to this definition"></a></dt>
-<dd><p>Send e-mail alert.</p>
+<dt class="sig sig-object py" id="Watcher.data_leak.core.send_data_leak_notifications">
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_data_leak_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_data_leak_notifications" title="Link to this definition"></a></dt>
+<dd><p>Sends notifications to Slack, Citadel, TheHive or Email based on Data Leak.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>alert</strong> – Alert object.</p>
+<dd class="field-odd"><p><strong>alert</strong> – Alert Object.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.send_group_email">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_group_email</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_group_email" title="Link to this definition"></a></dt>
-<dd><p>Send group e-mail for a specific keyword.</p>
+<dt class="sig sig-object py" id="Watcher.data_leak.core.send_data_leak_notifications_group">
+<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_data_leak_notifications_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts_number</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_data_leak_notifications_group" title="Link to this definition"></a></dt>
+<dd><p>Sends grouped notifications to Slack, Citadel, TheHive or Email based on data_leak_group.
+If the application is TheHive, individual notifications are sent for each alert.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> – Matched Keyword.</p></li>
-<li><p><strong>alerts_number</strong> – Number of alerts.</p></li>
+<li><p><strong>keyword</strong> – The keyword or term associated with the data leak.</p></li>
+<li><p><strong>alerts_number</strong> – The total number of alerts in the group.</p></li>
+<li><p><strong>alerts</strong> – The list of individual alerts to be processed and sent to TheHive.</p></li>
 </ul>
 </dd>
 </dl>
@@ -229,7 +231,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2023 - Thales CERT.</p>
+    <p>&#169; Copyright 2025 - Thales CERT.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
