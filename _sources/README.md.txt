@@ -203,7 +203,7 @@ Follow these steps to get the required information:
 
 1. Choose your email provider (example: Gmail, Outlook...).
 2. Go to the email provider’s settings and generate the **SMTP configuration**:
-   - For **Gmail**, detailed instructions can be found in [Google SMTP documentation](https://support.google.com/a/answer/176600?hl=en).
+   - For **Gmail**, detailed instructions can be found in [Google's SMTP documentation](https://support.google.com/a/answer/176600?hl=en).
    - For **Outlook**, you can refer to the [Outlook SMTP documentation](https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-for-outlook-com-d088b986-291d-42b8-9564-9c414e2aa040) for more information.
 3. Follow the instructions to retrieve the SMTP server, email port, and other necessary credentials.
 4. Save these values in your `.env` file.
@@ -288,10 +288,11 @@ To configure Citadel, you need the following variables, in the `.env` file:
 
 Follow these steps to get the required information:
 
-1. Create a **New Room**.
-2. Retrieve the `CITADEL_ROOM_ID` from the room's settings. Copy the room's link, then extract the ID after `/#/room/` and add it to your .env file.
-3. Next, visit this link: [Citadel Team Website](https://cds.thalesgroup.com/en/ercom/citadel) to request your `CITADEL_API_TOKEN`. This token will allow you to send automatic notifications.
-4. For the `CITADEL_URL` variable, if you're using a public instance, the URL should be: [https://join.citadel.team/](https://join.citadel.team/). Otherwise, enter your customized instance URL.
+1. If you don't have an account, go to this link to create one: Citadel Team Documentation.
+2. Create a **New Room**.
+3. Retrieve the `CITADEL_ROOM_ID` from the room's settings. Copy the room's link, then extract the ID after `/#/room/` and add it to your .env file.
+4. Next, visit this link: [Citadel Team Website](https://cds.thalesgroup.com/en/ercom/citadel) to request your `CITADEL_API_TOKEN`. This token will allow you to send automatic notifications.
+5. For the `CITADEL_URL` variable, if you're using a public instance, the URL should be: [https://join.citadel.team/](https://join.citadel.team/). Otherwise, enter your customized instance URL.
 
 Now, you can restart your instance and the parameters will be taken into account:
 
