@@ -43,7 +43,7 @@ def post_to_thehive(url, data, headers, proxies):
         return None
 
 
-def send_thehive_alert(title, description, severity, tags, app_name, domain_name, observables=None, customFields=None, thehive_url=None, api_key=None):
+def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, domain_name, observables=None, customFields=None, thehive_url=None, api_key=None):
     from common.core import generate_ref
     """
     Send or update an alert in TheHive based on the application and ticket_id.
@@ -51,8 +51,10 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
     :param title: The title of the alert.
     :param description: The description of the alert.
     :param severity: The severity level of the alert (integer).
+    :param tlp: The Traffic Light Protocol (TLP) level of the alert (integer).
+    :param pap: The Permissible Action Protocol (PAP) level of the alert (integer).
     :param tags: A list of tags associated with the alert.
-    :param app_name: The application triggering the alert (e.g., 'website_monitoring').
+    :param app_name: The application triggering the alert.
     :param domain_name: The domain name related to the alert (used for ticket_id lookup).
     :param observables: Any observables (default is None).
     :param customFields: Custom fields for the alert (default is None).
@@ -95,6 +97,8 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
             title=title,
             description=description,
             severity=severity,
+            tlp=tlp,
+            pap=pap,
             tags=tags,
             app_name=app_name,
             observables=observables,
@@ -114,6 +118,8 @@ def send_thehive_alert(title, description, severity, tags, app_name, domain_name
             title=title,
             description=description,
             severity=severity,
+            tlp=tlp,
+            pap=pap,
             tags=tags,
             app_name=app_name,
             observables=observables,

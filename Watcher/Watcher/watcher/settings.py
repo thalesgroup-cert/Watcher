@@ -126,6 +126,7 @@ if THE_HIVE_VERIFY_SSL == "False":
 THE_HIVE_KEY = os.environ.get('THE_HIVE_KEY', '')
 THE_HIVE_CUSTOM_FIELD = os.environ.get('THE_HIVE_CUSTOM_FIELD', 'watcher-id')
 THE_HIVE_EMAIL_SENDER = os.environ.get('THE_HIVE_EMAIL_SENDER', 'watcher@watcher.com')
+THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")
 
 # MISP Setup
 MISP_URL = os.environ.get('MISP_URL', 'https://127.0.0.1')
