@@ -364,6 +364,16 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
     if site.monitored and alert != 0:
         alert_data = alert_types[alert]
 
+        now = datetime.now()
+
+        one_hour_ago = now - timedelta(hours=3)
+        last_two_alerts = Alert.objects.filter(site=site, created_at__gte=one_hour_ago).order_by('-created_at')[:2]
+
+        for previous_alert in last_two_alerts:
+            if all(getattr(previous_alert, key) == value for key, value in alert_data.items()):
+                return
+
+
         alert_data.update({
             'new_ip': new_ip if new_ip else None,
             'old_ip': site.ip if site.ip else None,
