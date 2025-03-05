@@ -247,6 +247,15 @@ APP_CONFIG_THEHIVE = {
         'tags': settings.THE_HIVE_TAGS
     },
     'dns_finder': {
+        'title': "New Twisted DNS found - {dns_domain_name_sanitized}",
+        'description_template': (
+            "**Alert:**\n"
+            "**New Twisted DNS found:**\n"
+            "*Twisted DNS:* {dns_domain_name_sanitized}\n"
+            "*Corporate Keyword:* {alert.dns_twisted.keyword_monitored}\n"
+            "*Corporate DNS:* {alert.dns_twisted.dns_monitored}\n"
+            "*Fuzzer:* {alert.dns_twisted.fuzzer}\n"
+        ),
         'severity': 1,
         'tlp': 1,
         'pap': 1,
@@ -469,39 +478,70 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 print(f"{timezone.now()} - No valid alert data found or DNS Twisted information missing.")
                 return
 
+            current_time = timezone.now()
+            subdomain = alert.dns_twisted.domain_name
+            parent_domain = '.'.join(subdomain.split('.')[-2:])
+            is_parent_domain = subdomain == parent_domain
+
+            dns_domain_name_sanitized = (
+                getattr(alert.dns_twisted, 'dns_domain_name_sanitized', None) or 
+                alert.dns_twisted.domain_name.replace('.', '[.]')
+            )
+
             if subscribers.filter(thehive=True).exists():
                 source = context_data.get('source')
-                subdomain = alert.dns_twisted.domain_name
-                parent_domain = '.'.join(subdomain.split('.')[-2:])
 
-                try:
-                    parent_site = Site.objects.get(domain_name=parent_domain)
-                    ticket_id = parent_site.ticket_id
-                except Site.DoesNotExist:
-                    ticket_id = None
-
+                parent_site = Site.objects.filter(domain_name=parent_domain).first()
+                ticket_id = parent_site.ticket_id if parent_site else None
                 relevant_ticket_id = ticket_id if ticket_id else parent_ticket_id
-
-                dns_domain_name_sanitized = (
-                    getattr(alert.dns_twisted, 'dns_domain_name_sanitized', None) or
-                    alert.dns_twisted.domain_name.replace('.', '[.]')
-                )
 
                 observables = collect_observables(app_name, context_data)
 
-                subdomain = alert.dns_twisted.domain_name if alert and alert.dns_twisted else None
-                parent_domain = '.'.join(subdomain.split('.')[-2:]) if subdomain else None
+            if is_parent_domain:
 
+                if app_config_thehive:
+                    common_data = {
+                        'alert': alert,
+                        'dns_domain_name_sanitized': dns_domain_name_sanitized,
+                        'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                        'app_name': 'dns_finder'
+                    }
+
+                    formatted_title = app_config_thehive['title'].format(**common_data)
+
+                    send_notification(
+                        channel="thehive",
+                        content_template=app_config_thehive['description_template'],
+                        subscribers_filter={'thehive': True},
+                        send_func=lambda content: send_thehive_alert(
+                            title=formatted_title,
+                            description=content,
+                            severity=app_config_thehive['severity'],
+                            tlp=app_config_thehive['tlp'],
+                            pap=app_config_thehive['pap'],
+                            tags=app_config_thehive['tags'] + [
+                                f"Detected fuzzer: {alert.dns_twisted.fuzzer}",
+                                f"Detected keyword: {alert.dns_twisted.keyword_monitored}",
+                                f"Domain name: {dns_domain_name_sanitized}"
+                            ],
+                            app_name=app_name,
+                            domain_name=parent_domain,
+                            observables=observables
+                        ),
+                        **common_data
+                    )
+
+            else:
                 for observable in observables:
                     if parent_domain:
                         observable["tags"].append(f"parent_domain:{parent_domain}")
 
-                current_time = datetime.now().strftime("%H:%M:%S")
-                current_date = datetime.now().strftime("%Y-%m-%d")
+                current_time_str = current_time.strftime("%H:%M:%S")
+                current_date_str = current_time.strftime("%Y-%m-%d")
 
                 comment = (
-                    f"A change was processed by the {app_name} application at {current_time} on {current_date}.\n\n"
-                    f"A new subdomain has been detected: {subdomain} associated with the parent domain {parent_domain}.\n\n"
+                    f"A change was processed by {app_name} at {current_time_str} on {current_date_str}.\n\n"
+                    f"A new subdomain has been detected: {subdomain}, associated with the parent domain {parent_domain}.\n\n"
                     "The associated observables have been handled in the dedicated section."
                 )
 
@@ -556,7 +596,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                             severity=app_config_thehive['severity'],
                             tlp=app_config_thehive['tlp'],
                             pap=app_config_thehive['pap'],
-                            tags = app_config_thehive['tags'] + [
+                            tags=app_config_thehive['tags'] + [
                                 f"Detected fuzzer: {alert.dns_twisted.fuzzer}",
                                 f"Detected keyword: {alert.dns_twisted.keyword_monitored}",
                                 f"Domain name: {dns_domain_name_sanitized}"
@@ -589,7 +629,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         severity=app_config_thehive['severity'],
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
-                        tags = app_config_thehive['tags'] + [
+                        tags=app_config_thehive['tags'] + [
                             f"Detected fuzzer: {alert.dns_twisted.fuzzer}",
                             f"Detected keyword: {alert.dns_twisted.keyword_monitored}",
                             f"Domain name: {dns_domain_name_sanitized}"
@@ -611,7 +651,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
             common_data = {
                 'alert': alert,
-                'dns_domain_name_sanitized': alert.dns_twisted.domain_name.replace('.', '[.]'),
+                'dns_domain_name_sanitized': dns_domain_name_sanitized,
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder'
             }
@@ -865,6 +905,7 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
 
             common_data = {
                 'alert': alert,
+                'dns_domain_name_sanitized': alert.dns_twisted.domain_name.replace('.', '[.]'),
                 'details_url': settings.WATCHER_URL,
                 'app_name': 'dns_finder'
             }
@@ -890,6 +931,8 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
                         title=formatted_title,
                         description=content,
                         severity=app_config_thehive['severity'],
+                        tlp=app_config_thehive['tlp'],
+                        pap=app_config_thehive['pap'],
                         tags=app_config_thehive['tags'],
                         customFields=app_config_thehive.get('customFields'),
                         app_name=app_name,
@@ -904,6 +947,8 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
                         title=formatted_title,
                         description=app_config_thehive['description_template'].format(**common_data),
                         severity=app_config_thehive['severity'],
+                        tlp=app_config_thehive['tlp'],
+                        pap=app_config_thehive['pap'],
                         tags=app_config_thehive['tags'],
                         app_name=app_name,
                         domain_name=None,
