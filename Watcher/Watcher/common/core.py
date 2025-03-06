@@ -17,7 +17,7 @@ from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_tran
 from .mail_template.dns_finder_group_template import get_dns_finder_group_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert
-
+import tldextract
 
 def generate_ref():
     """
@@ -480,8 +480,18 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
             current_time = timezone.now()
             subdomain = alert.dns_twisted.domain_name
-            parent_domain = '.'.join(subdomain.split('.')[-2:])
-            is_parent_domain = subdomain == parent_domain
+
+            extracted = tldextract.extract(subdomain)
+            subdomain_part = extracted.subdomain
+            domain_part = extracted.domain
+            suffix_part = extracted.suffix
+
+            if suffix_part:
+                parent_domain = f"{domain_part}.{suffix_part}"
+        
+                is_parent_domain = (not subdomain_part)
+            else:
+                return
 
             dns_domain_name_sanitized = (
                 getattr(alert.dns_twisted, 'dns_domain_name_sanitized', None) or 
