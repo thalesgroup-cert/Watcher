@@ -26,6 +26,7 @@ python-tlsh==4.5.0
 dnspython==2.7.0
 dnstwist==20240812
 certstream==1.12
+tldextract==5.1.3
 
 # Environment Configuration
 ipaddress==1.0.23
