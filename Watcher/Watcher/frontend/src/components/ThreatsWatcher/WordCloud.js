@@ -6,6 +6,7 @@ import ReactWordcloud from 'react-wordcloud';
 import PropTypes from "prop-types";
 import {connect} from "react-redux";
 import {getLeads} from "../../actions/leads";
+import { updateDateFilter } from "../../actions/dateFilter";
 
 const options = {
     colors: ['#0288d1', '#005b9f', '#00bcd4', '#008ba3', '#62efff', '#90caf9', '#c3fdff', '#5d99c6'],
@@ -30,8 +31,12 @@ export class WordCloud extends Component {
     }
 
     static propTypes = {
-        leads: PropTypes.array.isRequired
-    };
+      leads: PropTypes.array.isRequired,
+      dateFilter: PropTypes.object.isRequired,
+      getLeads: PropTypes.func.isRequired,
+      updateDateFilter: PropTypes.func.isRequired,
+      setPostUrls: PropTypes.func.isRequired
+  };
 
     getCallback = (callback) => {
         return (word, event) => {
@@ -69,25 +74,46 @@ export class WordCloud extends Component {
     };
 
     render() {
-        const {leads} = this.props;
-
-        const words = leads.map(lead => {
-            return {
-                text: lead.name,
-                value: lead.occurrences,
-            };
-        });
-
-        return (
-            <Fragment>
-                <ReactWordcloud options={options} callbacks={this.callbacks} words={words}/>
-            </Fragment>
-        )
-    }
+      const { leads, dateFilter } = this.props;
+      
+      const filteredLeads = leads.filter(lead => {
+          if (!lead.created_at) return false;
+          
+          const leadDateTime = new Date(lead.created_at);
+          const { startDate, startTime, endDate, endTime } = dateFilter;
+  
+          if (!startDate && !endDate) return true;
+  
+          const startDateTime = startDate 
+              ? new Date(`${startDate}T${startTime}:00`) 
+              : null;
+          const endDateTime = endDate 
+              ? new Date(`${endDate}T${endTime}:59`) 
+              : null;
+  
+          return (!startDateTime || leadDateTime >= startDateTime) && 
+                 (!endDateTime || leadDateTime <= endDateTime);
+      });
+  
+      const words = filteredLeads.map(lead => ({
+          text: lead.name,
+          value: lead.occurrences,
+      }));
+  
+      return (
+          <Fragment>
+              <ReactWordcloud options={options} callbacks={this.callbacks} words={words}/>
+          </Fragment>
+      );
+  }
 }
 
 const mapStateToProps = state => ({
-    leads: state.leads.leads
+  leads: state.leads.leads,
+  dateFilter: state.dateFilter
 });
 
-export default connect(mapStateToProps, {getLeads})(WordCloud);
+export default connect(
+  mapStateToProps, 
+  { getLeads, updateDateFilter }
+)(WordCloud);

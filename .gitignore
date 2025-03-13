@@ -314,4 +314,11 @@ dist
 .dynamodb/
 
 # TernJS port file
-.tern-port
+.tern-port7
+
+
+# Virtual Environment
+Watcher/venv/
+venv/
+**/venv/
+

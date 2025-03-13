@@ -6,6 +6,7 @@ import errors from "./errors";
 import DataLeak from "./DataLeak";
 import SiteMonitoring from "./SiteMonitoring";
 import DnsFinder from "./DnsFinder";
+import dateFilter from './dateFilter';
 
 export default combineReducers({
     leads,
@@ -14,6 +15,7 @@ export default combineReducers({
     DnsFinder,
     errors,
     messages,
-    auth
+    auth,
+    dateFilter
 });
 
