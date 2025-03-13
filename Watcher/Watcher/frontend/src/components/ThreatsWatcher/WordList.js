@@ -2,7 +2,7 @@ import React, { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { getLeads, deleteLead, addBannedWord } from "../../actions/leads";
-import { updateDateFilter } from "../../actions/dateFilter";  // ✅ Ajout de l'action pour filtrer
+import { updateDateFilter } from "../../actions/dateFilter";  
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 
@@ -22,9 +22,9 @@ export class WordList extends Component {
         getLeads: PropTypes.func.isRequired,
         deleteLead: PropTypes.func.isRequired,
         addBannedWord: PropTypes.func.isRequired,
-        updateDateFilter: PropTypes.func.isRequired,  // ✅ Ajout du filtre Redux
+        updateDateFilter: PropTypes.func.isRequired,  
         auth: PropTypes.object.isRequired,
-        dateFilter: PropTypes.object.isRequired // ✅ Vérifier la présence du filtre
+        dateFilter: PropTypes.object.isRequired 
     };
 
     componentDidMount() {
@@ -107,7 +107,7 @@ export class WordList extends Component {
             <Fragment>
                 <h4>Trendy Words</h4>
 
-                {/* ✅ Ajout du formulaire de filtre de date */}
+               
                 <div className="filters mb-3" style={{
                     padding: '15px',
                     backgroundColor: 'rgba(30, 30, 30, 0.5)',
@@ -198,7 +198,7 @@ export class WordList extends Component {
 }
 
 const mapStateToProps = state => ({
-    dateFilter: state.dateFilter, // ✅ Assurer que Redux transmet bien le filtre
+    dateFilter: state.dateFilter, 
     leads: state.leads.leads,
     auth: state.auth
 });
