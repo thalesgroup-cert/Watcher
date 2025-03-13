@@ -22,7 +22,6 @@ const TrendChart = ({ word, postUrls }) => {
   const drawChart = () => {
     if (!word || !postUrls?.length) return;
 
-  
     const groupedData = postUrls.reduce((acc, element) => {
       const date = new Date(element.split(",", 2)[1].split(" ", 2)[0]);
       const dateKey = date.toISOString().split("T")[0];
@@ -30,7 +29,6 @@ const TrendChart = ({ word, postUrls }) => {
       return acc;
     }, {});
 
-   
     const dataTable = [
       ["Date", "Posts"],
       ...Object.entries(groupedData).map(([date, count]) => [new Date(date), count])
@@ -46,6 +44,7 @@ const TrendChart = ({ word, postUrls }) => {
       titleTextStyle: { color: "#FFFFFF", fontSize: 16 },
       backgroundColor: { fill: 'transparent' },
       chartArea: { 
+        backgroundColor: "#22252a",
         width: '80%',
         height: '70%'
       },
@@ -64,7 +63,7 @@ const TrendChart = ({ word, postUrls }) => {
       },
       legend: { position: "none" },
       lineWidth: 2,
-      colors: ["#0288D1"],
+      colors: ["#03a9f4"],  
       curveType: "function",
       pointSize: 4,
       animation: {
@@ -89,6 +88,7 @@ const TrendChart = ({ word, postUrls }) => {
         style={{ 
           width: "100%", 
           height: "400px",
+          backgroundColor: "#222222", 
           borderRadius: '5px',
           overflow: 'hidden'
         }}
