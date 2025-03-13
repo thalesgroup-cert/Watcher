@@ -1,91 +1,105 @@
-import React, {Component, Fragment} from 'react';
-import Chart from "chart.js";
-import moment from 'moment';
+import React, { useEffect } from "react";
+import PropTypes from 'prop-types';
 
-export class TrendChart extends Component {
-
-    chartRef = React.createRef();
-    myChartRef;
-
-    componentDidMount() {
-        this.myChartRef = this.chartRef.current.getContext("2d");
+const TrendChart = ({ word, postUrls }) => {
+  useEffect(() => {
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = 'https://www.gstatic.com/charts/loader.js';
+      script.async = true;
+      script.onload = () => initChart();
+      document.head.appendChild(script);
+    } else {
+      initChart();
     }
+  }, [word, postUrls]);
 
-    render() {
-        if (this.props.word) {
-            let postUrlsFormatted = [];
-            let dot = {}, formattedDate = {};
-            this.props.postUrls.forEach(element => {
-                formattedDate = {
-                    date: moment(new Date(element.split(',', 2)[1].split(' ', 2)[0])).format("YYYY-MM-DD"),
-                };
-                postUrlsFormatted.push(formattedDate)
-            });
-            const groupBy = key => array =>
-                array.reduce((objectsByKeyValue, obj) => {
-                    const value = obj[key];
-                    objectsByKeyValue[value] = (objectsByKeyValue[value] || []).concat(obj);
-                    return objectsByKeyValue;
-                }, {});
+  const initChart = () => {
+    window.google.charts.load("current", { packages: ["corechart"] });
+    window.google.charts.setOnLoadCallback(drawChart);
+  };
 
-            const func = groupBy('date');
-            postUrlsFormatted = func(postUrlsFormatted);
-            
-            const postsByDate = [];
-            for (let [key, value] of Object.entries(postUrlsFormatted)) {
-                dot = {
-                    x: key,
-                    y: value.length
-                };
-                postsByDate.push(dot);
-            }
+  const drawChart = () => {
+    if (!word || !postUrls?.length) return;
 
-            const chart = new Chart(this.myChartRef, {
-                type: 'line',
-                data: {
-                    datasets: [
-                        {
-                            label: `${this.props.word} trend`,
-                            data: postsByDate,
-                            fill: true,
-                            borderColor: 'rgba(2,136,209,1)',
-                            backgroundColor: 'rgba(2,136,209,0.4)',
-                            lineTension: 0.15,
-                            borderJoinStyle: 'round'
-                        }
-                    ]
-                },
-                options: {
-                    events: null,
-                    scales: {
-                        xAxes: [{
-                            type: 'time',
-                            time: {
-                                unit: 'day'
-                            }
-                        }],
-                        yAxes: [{
-                            ticks: {
-                                stepSize: 1,
-                            }
-                        }]
-                    }
-                }
-            });
-        }
-        return (
-            <Fragment>
-                <div className="row">
-                    <canvas id="myChart" ref={this.chartRef} height="50"
-                            style={{
-                                background: 'white',
-                                display: this.props.word ? 'block' : 'none',
-                                borderRadius: 5
-                            }}></canvas>
-                </div>
-            </Fragment>
-        )
-    }
-}
+  
+    const groupedData = postUrls.reduce((acc, element) => {
+      const date = new Date(element.split(",", 2)[1].split(" ", 2)[0]);
+      const dateKey = date.toISOString().split("T")[0];
+      acc[dateKey] = (acc[dateKey] || 0) + 1;
+      return acc;
+    }, {});
 
-export default (TrendChart);
+   
+    const dataTable = [
+      ["Date", "Posts"],
+      ...Object.entries(groupedData).map(([date, count]) => [new Date(date), count])
+    ];
+
+    const data = new window.google.visualization.DataTable();
+    data.addColumn('date', 'Date');
+    data.addColumn('number', 'Posts');
+    data.addRows(dataTable.slice(1));
+
+    const options = {
+      title: `${word} trend`,
+      titleTextStyle: { color: "#FFFFFF", fontSize: 16 },
+      backgroundColor: { fill: 'transparent' },
+      chartArea: { 
+        width: '80%',
+        height: '70%'
+      },
+      hAxis: {
+        title: "Date",
+        textStyle: { color: "#FFFFFF" },
+        titleTextStyle: { color: "#FFFFFF" },
+        gridlines: { color: "#444" }
+      },
+      vAxis: {
+        title: "Posts",
+        textStyle: { color: "#FFFFFF" },
+        titleTextStyle: { color: "#FFFFFF" },
+        gridlines: { color: "#444" },
+        minValue: 0
+      },
+      legend: { position: "none" },
+      lineWidth: 2,
+      colors: ["#0288D1"],
+      curveType: "function",
+      pointSize: 4,
+      animation: {
+        startup: true,
+        duration: 1000,
+        easing: 'out'
+      }
+    };
+
+    const chart = new window.google.visualization.LineChart(
+      document.getElementById("chart_div")
+    );
+    chart.draw(data, options);
+  };
+
+  if (!word) return null;
+
+  return (
+    <div className="row">
+      <div 
+        id="chart_div" 
+        style={{ 
+          width: "100%", 
+          height: "400px",
+          borderRadius: '5px',
+          overflow: 'hidden'
+        }}
+      />
+    </div>
+  );
+};
+
+TrendChart.propTypes = {
+  word: PropTypes.string,
+  postUrls: PropTypes.arrayOf(PropTypes.string)
+};
+
+export default TrendChart;

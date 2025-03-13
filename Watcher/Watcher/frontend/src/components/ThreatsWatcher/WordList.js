@@ -1,13 +1,12 @@
-import React, {Component, Fragment} from 'react';
-import {connect} from 'react-redux';
+import React, { Component, Fragment } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import {getLeads, deleteLead, addBannedWord} from "../../actions/leads";
+import { getLeads, deleteLead, addBannedWord } from "../../actions/leads";
+import { updateDateFilter } from "../../actions/dateFilter";  
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 
-
 export class WordList extends Component {
-
     constructor(props) {
         super(props);
         this.state = {
@@ -15,7 +14,7 @@ export class WordList extends Component {
             id: 0,
             word: "",
             name: ""
-        }
+        };
     }
 
     static propTypes = {
@@ -23,12 +22,12 @@ export class WordList extends Component {
         getLeads: PropTypes.func.isRequired,
         deleteLead: PropTypes.func.isRequired,
         addBannedWord: PropTypes.func.isRequired,
-        auth: PropTypes.object.isRequired
+        updateDateFilter: PropTypes.func.isRequired,  
+        auth: PropTypes.object.isRequired,
+        dateFilter: PropTypes.object.isRequired 
     };
 
-    // Called when this component is load on the dashboard
     componentDidMount() {
-        // Remember that getLeads() send HTTP GET request to the Backend API
         this.props.getLeads();
     }
 
@@ -41,24 +40,17 @@ export class WordList extends Component {
     };
 
     modal = () => {
-        let handleClose;
-        handleClose = () => {
-            this.setState({
-                show: false
-            });
+        let handleClose = () => {
+            this.setState({ show: false });
         };
 
-        let onSubmit;
-        onSubmit = e => {
+        let onSubmit = e => {
             e.preventDefault();
             const name = this.state.word;
-            const banned_word = {name};
+            const banned_word = { name };
             this.props.deleteLead(this.state.id, this.state.word);
             this.props.addBannedWord(banned_word);
-            this.setState({
-                word: "",
-                id: 0
-            });
+            this.setState({ word: "", id: 0 });
             handleClose();
         };
 
@@ -83,55 +75,132 @@ export class WordList extends Component {
         );
     };
 
-    render() {
-        const {isAuthenticated} = this.props.auth;
+    handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        this.props.updateDateFilter({ ...this.props.dateFilter, [name]: value });
+    };
 
-        const authLinks = (id, name) => (
-            <button onClick={() => {
-                this.displayModal(id, name)
-            }}
-                    className="btn btn-outline-primary btn-sm">Delete & BlockList
-            </button>
-        );
+    render() {
+        const { leads, dateFilter, auth: { isAuthenticated } } = this.props;
+
+      
+        const filteredLeads = leads.filter(lead => {
+            if (!lead.created_at) return false;
+
+            const leadDateTime = new Date(lead.created_at);
+            const { startDate, startTime, endDate, endTime } = dateFilter;
+
+            if (!startDate && !endDate) return true;
+
+            const startDateTime = startDate 
+                ? new Date(`${startDate}T${startTime}:00`) 
+                : null;
+            const endDateTime = endDate 
+                ? new Date(`${endDate}T${endTime}:59`) 
+                : null;
+
+            return (!startDateTime || leadDateTime >= startDateTime) && 
+                   (!endDateTime || leadDateTime <= endDateTime);
+        });
 
         return (
             <Fragment>
                 <h4>Trendy Words</h4>
-                <div style={{height: '415px', overflow: 'auto'}}>
+
+              
+                <div className="filters mb-3" style={{
+                    padding: '15px',
+                    backgroundColor: 'rgba(30, 30, 30, 0.5)',
+                    borderRadius: '5px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '15px'
+                }}>
+                    <div>
+                        <label style={{ color: '#fff', marginRight: '10px' }}>
+                            Start Date:
+                            <input
+                                type="date"
+                                name="startDate"
+                                value={dateFilter.startDate || ''}
+                                onChange={this.handleFilterChange}
+                                style={{
+                                    marginLeft: '5px',
+                                    backgroundColor: "#1e1e1e",
+                                    color: "#ffffff",
+                                    border: "1px solid #0288d1",
+                                    borderRadius: "4px",
+                                    padding: "4px"
+                                }}
+                            />
+                        </label>
+                    </div>
+                    <div>
+                        <label style={{ color: '#fff', marginRight: '10px' }}>
+                            End Date:
+                            <input
+                                type="date"
+                                name="endDate"
+                                value={dateFilter.endDate || ''}
+                                onChange={this.handleFilterChange}
+                                style={{
+                                    marginLeft: '5px',
+                                    backgroundColor: "#1e1e1e",
+                                    color: "#ffffff",
+                                    border: "1px solid #0288d1",
+                                    borderRadius: "4px",
+                                    padding: "4px"
+                                }}
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                <div style={{ height: '415px', overflow: 'auto' }}>
                     <table className="table table-striped table-hover">
                         <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Caught</th>
-                            <th>Found</th>
-                            <th/>
-                        </tr>
+                            <tr>
+                                <th>Name</th>
+                                <th>Caught</th>
+                                <th>Found</th>
+                                <th />
+                            </tr>
                         </thead>
                         <tbody>
-                        {this.props.leads.map(lead => (
-                            <tr key={lead.id}>
-                                <td onClick={() => {
-                                    this.props.setPostUrls(lead.posturls, lead.name)
-                                }}><h5>{lead.name}</h5></td>
-                                <td className="text-center">{lead.occurrences}</td>
-                                <td>{new Date(lead.created_at).toLocaleString()}</td>
-                                <td>
-                                    {isAuthenticated && authLinks(lead.id, lead.name)}
-                                </td>
-                            </tr>
-                        ))}
+                            {filteredLeads.map(lead => (
+                                <tr key={lead.id}>
+                                    <td onClick={() => {
+                                        this.props.setPostUrls(lead.posturls, lead.name);
+                                    }}>
+                                        <h5>{lead.name}</h5>
+                                    </td>
+                                    <td className="text-center">{lead.occurrences}</td>
+                                    <td>{new Date(lead.created_at).toLocaleString()}</td>
+                                    <td>
+                                        {isAuthenticated && (
+                                            <button
+                                                onClick={() => this.displayModal(lead.id, lead.name)}
+                                                className="btn btn-danger btn-sm"
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
                 {this.modal()}
             </Fragment>
-        )
+        );
     }
 }
 
 const mapStateToProps = state => ({
+    dateFilter: state.dateFilter, 
     leads: state.leads.leads,
     auth: state.auth
 });
 
-export default connect(mapStateToProps, {getLeads, deleteLead, addBannedWord})(WordList);
+export default connect(mapStateToProps, { getLeads, deleteLead, addBannedWord, updateDateFilter })(WordList);
