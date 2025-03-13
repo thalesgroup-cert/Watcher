@@ -316,4 +316,4 @@ dist
 # TernJS port file
 .tern-port7
 
-Watcher/Watcher/venv
+.Watcher/venv
