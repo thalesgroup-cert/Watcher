@@ -216,18 +216,19 @@ WSGI_APPLICATION = 'watcher.wsgi.application'
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 # SECURITY WARNING: In production please set DB_USER and DB_PASSWORD environment variables in the .env file.
 DATABASES = {
-   'default': {
-       'ENGINE': 'django.db.backends.mysql',
-       'CONN_MAX_AGE': 3600,
-       'NAME': 'db_watcher',
-       'USER': 'watcher',
-       'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
-       'HOST': 'db_watcher',
-       'PORT': '3306',
-       'OPTIONS': {
-           'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-       },
-   }
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'CONN_MAX_AGE': 3600,
+        'NAME': 'db_watcher',
+        'USER': os.environ.get('DB_USER', 'watcher'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
+        'HOST': 'db_watcher',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
+        },
+    }
 }
 
 # Password validation
