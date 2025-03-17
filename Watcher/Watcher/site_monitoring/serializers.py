@@ -19,11 +19,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Site Serializer
 class SiteSerializer(serializers.ModelSerializer):
-
     def create(self, validated_data):
-        site = Site.objects.create(**validated_data)
+        site = super().create(validated_data)
         monitoring_init(site)
-        site = Site.objects.get(pk=site.pk)
         return site
 
     class Meta:
