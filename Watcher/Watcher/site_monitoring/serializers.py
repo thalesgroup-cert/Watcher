@@ -13,12 +13,20 @@ from pymisp import ExpandedPyMISP, MISPEvent
 from .misp import update_attributes, create_misp_tags, create_attributes
 
 import urllib3
+import tldextract
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 # Site Serializer
 class SiteSerializer(serializers.ModelSerializer):
+    def validate_domain_name(self, value):
+        extracted = tldextract.extract(value)
+        
+        if not extracted.domain or not extracted.suffix:
+            raise serializers.ValidationError("The domain name is not valid")
+        
+        return value
 
     def create(self, validated_data):
         site = Site.objects.create(**validated_data)
