@@ -13,6 +13,7 @@ class Source(models.Model):
     Stores Source RSS Feed Url which will be used to find new words tendencies in **threats_watcher/apps.py** Algorithms.
     """
     url = models.URLField(max_length=350, unique=True)
+    confident = models.IntegerField(default=1)
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -25,6 +26,7 @@ class PostUrl(models.Model):
     Related to severals :model:`threats_watcher.TrendyWord`.
     """
     url = models.URLField(max_length=1000, default="")
+    title = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -40,6 +42,7 @@ class TrendyWord(models.Model):
     Related to severals :model:`threats_watcher.PostUrl`.
     """
     name = models.CharField(max_length=100)
+    fiability_score = models.IntegerField(default=0)
     occurrences = models.IntegerField(default=1,
                                       help_text="Incremented by one when the same word is found in another post from RSS Feeds.")
     posturls = models.ManyToManyField(PostUrl)

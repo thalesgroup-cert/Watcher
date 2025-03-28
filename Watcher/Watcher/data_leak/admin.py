@@ -39,7 +39,7 @@ class AlertResource(resources.ModelResource):
 class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'keyword', 'url', 'status', 'created_at']
     list_filter = ('keyword', ('status', custom_titled_filter('Active Status')))
-    search_fields = ['id', 'url', 'keyword']
+    search_fields = ['id', 'url', 'keyword__name']
     resource_class = AlertResource
 
     def has_add_permission(self, request):
