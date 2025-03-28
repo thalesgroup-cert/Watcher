@@ -23,7 +23,7 @@ class AlertResource(resources.ModelResource):
 class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'dns_twisted', 'status', 'created_at']
     list_filter = ('created_at', ('status', custom_titled_filter('Active Status')))
-    search_fields = ['id', 'dns_twisted']
+    search_fields = ['id', 'dns_twisted__domain_name']  
     resource_class = AlertResource
 
     def has_add_permission(self, request):
