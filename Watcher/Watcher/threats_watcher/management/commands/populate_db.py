@@ -32,8 +32,10 @@ class Command(BaseCommand, ABC):
                 confident = int(row['confident']) if row['confident'].isdigit() else 1
                 url = row['url'].strip()
 
-                if not Source.objects.filter(url=url).exists():
-                    Source.objects.create(url=url, confident=confident)
+                Source.objects.update_or_create(
+                    url=url,
+                    defaults={'confident': confident}
+                )
             print(str(timezone.now()) + " - Updated RSS Sources.")
 
         # Init User Groups

@@ -25,7 +25,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10,
                       replace_existing=True)
 
@@ -74,7 +74,16 @@ def main_watch():
 
     focus_five_letters()
     focus_on_top(settings.WORDS_OCCURRENCE)
+    relativity_score()
     send_threats_watcher_notifications(email_words)
+
+
+
+def get_confidence_score(confidence):
+    """
+    Converts a confidence level (1, 2 or 3) to a percentage.   
+    """
+    return {1: 100, 2: 50, 3: 20}.get(confidence, 0)
 
 
 def load_feeds():
@@ -83,15 +92,11 @@ def load_feeds():
     """
     global rss_urls
     global feeds
-    global url_confidence_map
     sources = Source.objects.all().order_by('id')
     rss_urls = list()
     feeds = []
-    url_confidence_map = {}
-    sources = Source.objects.all().order_by('id')
     for source in sources:
         rss_urls.append(source.url)
-        url_confidence_map[source.url] = source.confident
     # print("RSS : ", rss_urls)
 
 
@@ -137,56 +142,25 @@ def fetch_last_posts(nb_max_post):
         posts[string.lower()] = url
         # print("title lower : " + string.lower() + " url: " + url)
 
-def normalize_title(title):
-    title = title.lower()
-    title = re.sub(r"[^a-zA-Z0-9\s]", "", title)
-    return title.strip()
-
 
 def tokenize_count_urls():
     """
-    Tokenize phrases to words, count **unique** word occurrences per title,
-    and keep the word post source urls + fiability scores.
+    Tokenize phrases to words, Count word occurences and keep the word post source urls.
     """
     global posts_words
     global wordurl
-    global word_confidence_score
-    global word_seen_titles
     posts_words = dict()
     wordurl = dict()
-    word_confidence_score = dict()
-    word_seen_titles = dict()
 
     for title, url in posts.items():
-        word_tokens = set(word_tokenize(title)) 
-        normalized_title = normalize_title(title)
-
-        matched_confidence = 1
-        for feed_url in rss_urls:
-            if url.startswith(feed_url):
-                matched_confidence = url_confidence_map.get(feed_url, 1)
-                break
-
-        score = {1: 5, 2: 2, 3: 1}.get(matched_confidence, 1)
-
+        word_tokens = word_tokenize(title)
         for word in word_tokens:
-            if word not in word_seen_titles:
-                word_seen_titles[word] = set()
-            
-            if normalized_title in word_seen_titles[word]:
-                continue  
-
-            word_seen_titles[word].add(normalized_title)
-
-            # Ajouter les occurrences et URLs
             if word in posts_words:
                 posts_words[word] += 1
                 wordurl[word + "_url"] = wordurl[word + "_url"] + ', ' + url
-                word_confidence_score[word] += score
             else:
                 posts_words[word] = 1
                 wordurl[word + "_url"] = url
-                word_confidence_score[word] = score
 
 
 def remove_banned_words():
@@ -282,8 +256,7 @@ def focus_on_top(words_occurrence):
                                     print(str(timezone.now()) + " - " + word, " appeared in a new post!")
                                     # Increase occurences number of 1
                                     TrendyWord.objects.filter(name=word).update(
-                                        occurrences=(TrendyWord.objects.get(name=word).occurrences + 1),
-                                        fiability_score=(TrendyWord.objects.get(name=word).fiability_score + word_confidence_score.get(word, 0)))
+                                        occurrences=(TrendyWord.objects.get(name=word).occurrences + 1))
 
                                     if date != "no-date":
                                         # Add new post
@@ -310,7 +283,7 @@ def focus_on_top(words_occurrence):
                                     else:
                                         PostUrl.objects.create(url=url)
 
-                    word_db = TrendyWord.objects.create(name=word, occurrences=occurrences, fiability_score=word_confidence_score.get(word, 0))
+                    word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
 
                     # Link created words with new posts
                     for url in wordurl[word + "_url"].split(', '):
@@ -320,6 +293,50 @@ def focus_on_top(words_occurrence):
                         "<a href=" + settings.WATCHER_URL + ">" + word + "</a> :<b> " + str(occurrences) + "</b>")
                 except KeyError:
                     pass
+
+
+def relativity_score():
+    """
+    Calculates the reliability score for each word in the database, based on the sources of its associated articles.
+    """
+    trendy_words = TrendyWord.objects.prefetch_related('posturls').all()
+
+    for word in trendy_words:
+        post_urls = word.posturls.all()
+        score_list = []
+
+        for post in word.posturls.all():
+            try:
+                domain = post.url.split('/')[2]  
+                source = Source.objects.filter(url__icontains=domain).first()
+                print(f"[relativity_score] → {post.url} → domaine : {domain}")
+
+                if source:
+                    print(f"Source : {source.url} → confident : {source.confident}")
+                    score_list.append(get_confidence_score(source.confident))
+            except Exception as e:
+                print(f"[{timezone.now()}] - Error for '{word.name}' '{post.url}': {e}")
+
+        if score_list:
+            avg_score = sum(score_list) / len(score_list)
+            word.score = avg_score
+            word.save()
+            print(f"[{timezone.now()}] - '{word.name}' => fiability score : {avg_score:.2f}% on {len(score_list)} sources.")
+
+    print(f"[{timezone.now()}]")
+    confidences = []
+    for post in word.posturls:
+        domain = get_domain(post.url)
+        source = session.query(Source).filter(Source.url.like(f"%{domain}%")).first()
+        if source:
+            score = get_confidence_score(source.confident)
+            confidences.append(source.confident)
+            total_score += score
+            count += 1
+    if count > 0:
+        avg_score = total_score / count
+        print(f"[DEBUG] '{word.name}' → confidences : {confidences} → score = {avg_score}")
+        word.score = avg_score
 
 
 def send_threats_watcher_notifications(email_words):

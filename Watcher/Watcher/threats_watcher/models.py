@@ -26,7 +26,6 @@ class PostUrl(models.Model):
     Related to severals :model:`threats_watcher.TrendyWord`.
     """
     url = models.URLField(max_length=1000, default="")
-    title = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -42,9 +41,9 @@ class TrendyWord(models.Model):
     Related to severals :model:`threats_watcher.PostUrl`.
     """
     name = models.CharField(max_length=100)
-    fiability_score = models.IntegerField(default=0)
     occurrences = models.IntegerField(default=1,
                                       help_text="Incremented by one when the same word is found in another post from RSS Feeds.")
+    score = models.FloatField(default=0, help_text="Average confidence score from source (1=100%, 2=50%, 3=20%)")
     posturls = models.ManyToManyField(PostUrl)
     created_at = models.DateTimeField(default=timezone.now)
 
