@@ -25,6 +25,10 @@ const options = {
 
 export class WordCloud extends Component {
 
+    constructor(props) {
+        super(props);
+    }
+
     static propTypes = {
         leads: PropTypes.array.isRequired
     };
@@ -50,24 +54,29 @@ export class WordCloud extends Component {
     };
 
     callbacks = {
+        //getWordColor: word => (word.value > 50 ? 'orange' : 'purple'),
         getWordTooltip: word =>
-            `The word "${word.text}" has a fiability score of ${word.value}.`,
+            `The word "${word.text}" caught ${word.value} times.`,
         onWordClick: this.getCallback('onWordClick'),
         onWordMouseOut: this.getCallback('onWordMouseOut'),
         onWordMouseOver: this.getCallback('onWordMouseOver'),
     };
 
+    // Called when this component is load on the dashboard
     componentDidMount() {
+        // Remember that getLeads() send HTTP GET request to the Backend API
         this.props.getLeads();
     };
 
     render() {
         const {leads} = this.props;
 
-        const words = leads.map(lead => ({
-            text: lead.name,
-            value: lead.fiability_score,  
-        }));
+        const words = leads.map(lead => {
+            return {
+                text: lead.name,
+                value: lead.occurrences,
+            };
+        });
 
         return (
             <Fragment>
