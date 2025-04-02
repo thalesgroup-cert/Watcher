@@ -12,12 +12,21 @@ from pymisp import ExpandedPyMISP, MISPEvent
 from site_monitoring.misp import create_misp_tags, create_attributes, update_attributes
 
 import urllib3
+import tldextract
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 # DnsMonitored Serializer
 class DnsMonitoredSerializer(serializers.ModelSerializer):
+    def validate_domain_name(self, value):
+        extracted = tldextract.extract(value)
+                
+        if not extracted.domain or not extracted.suffix:
+            raise serializers.ValidationError("The domain name is not valid")
+
+        return value
+
     class Meta:
         model = DnsMonitored
         fields = '__all__'

@@ -186,7 +186,7 @@ export class SuspiciousSites extends Component {
                                         <Col sm="8">
                                             <Form.Control required ref={this.inputDomainRef} size="md"
                                                           type="text"
-                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(?:\.[a-zA-Z]{2,})*$"
                                                           placeholder="example.com"
                                                           defaultValue={this.state.domainName}
                                                           onChange={handleOnChange}/>
@@ -196,7 +196,7 @@ export class SuspiciousSites extends Component {
                                             <Form.Control
                                                 ref={this.inputTicketRef} size="md"
                                                 type="text"
-                                                pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
                                                 placeholder="240529-2e0a2"
                                                 defaultValue={this.state.ticketId}/>
                                         </Col>
@@ -310,13 +310,14 @@ export class SuspiciousSites extends Component {
                                         <Col sm="8">
                                             <Form.Control required ref={this.inputDomainRef} size="md"
                                                           type="text"
-                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
-                                                          placeholder="example.com"/>
+                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(?:\.[a-zA-Z]{2,})*$"
+                                                          placeholder="example.com"
+                                                          />
                                         </Col>
                                         <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
                                             <Form.Control ref={this.inputTicketRef} size="md" type="text"
-                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
                                                           placeholder="230509-200a2"
                                                           defaultValue={this.state.ticketId}/>
                                         </Col>
