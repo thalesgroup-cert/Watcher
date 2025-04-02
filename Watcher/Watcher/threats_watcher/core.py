@@ -25,7 +25,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10,
                       replace_existing=True)
 
@@ -83,15 +83,11 @@ def load_feeds():
     """
     global rss_urls
     global feeds
-    global url_confidence_map
     sources = Source.objects.all().order_by('id')
     rss_urls = list()
     feeds = []
-    url_confidence_map = {}
-    sources = Source.objects.all().order_by('id')
     for source in sources:
         rss_urls.append(source.url)
-        url_confidence_map[source.url] = source.confident
     # print("RSS : ", rss_urls)
 
 
@@ -137,56 +133,25 @@ def fetch_last_posts(nb_max_post):
         posts[string.lower()] = url
         # print("title lower : " + string.lower() + " url: " + url)
 
-def normalize_title(title):
-    title = title.lower()
-    title = re.sub(r"[^a-zA-Z0-9\s]", "", title)
-    return title.strip()
-
 
 def tokenize_count_urls():
     """
-    Tokenize phrases to words, count **unique** word occurrences per title,
-    and keep the word post source urls + fiability scores.
+    Tokenize phrases to words, Count word occurences and keep the word post source urls.
     """
     global posts_words
     global wordurl
-    global word_confidence_score
-    global word_seen_titles
     posts_words = dict()
     wordurl = dict()
-    word_confidence_score = dict()
-    word_seen_titles = dict()
 
     for title, url in posts.items():
-        word_tokens = set(word_tokenize(title)) 
-        normalized_title = normalize_title(title)
-
-        matched_confidence = 1
-        for feed_url in rss_urls:
-            if url.startswith(feed_url):
-                matched_confidence = url_confidence_map.get(feed_url, 1)
-                break
-
-        score = {1: 5, 2: 2, 3: 1}.get(matched_confidence, 1)
-
+        word_tokens = word_tokenize(title)
         for word in word_tokens:
-            if word not in word_seen_titles:
-                word_seen_titles[word] = set()
-            
-            if normalized_title in word_seen_titles[word]:
-                continue  
-
-            word_seen_titles[word].add(normalized_title)
-
-            # Ajouter les occurrences et URLs
             if word in posts_words:
                 posts_words[word] += 1
                 wordurl[word + "_url"] = wordurl[word + "_url"] + ', ' + url
-                word_confidence_score[word] += score
             else:
                 posts_words[word] = 1
                 wordurl[word + "_url"] = url
-                word_confidence_score[word] = score
 
 
 def remove_banned_words():
@@ -282,8 +247,7 @@ def focus_on_top(words_occurrence):
                                     print(str(timezone.now()) + " - " + word, " appeared in a new post!")
                                     # Increase occurences number of 1
                                     TrendyWord.objects.filter(name=word).update(
-                                        occurrences=(TrendyWord.objects.get(name=word).occurrences + 1),
-                                        fiability_score=(TrendyWord.objects.get(name=word).fiability_score + word_confidence_score.get(word, 0)))
+                                        occurrences=(TrendyWord.objects.get(name=word).occurrences + 1))
 
                                     if date != "no-date":
                                         # Add new post
@@ -310,7 +274,7 @@ def focus_on_top(words_occurrence):
                                     else:
                                         PostUrl.objects.create(url=url)
 
-                    word_db = TrendyWord.objects.create(name=word, occurrences=occurrences, fiability_score=word_confidence_score.get(word, 0))
+                    word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
 
                     # Link created words with new posts
                     for url in wordurl[word + "_url"].split(', '):
