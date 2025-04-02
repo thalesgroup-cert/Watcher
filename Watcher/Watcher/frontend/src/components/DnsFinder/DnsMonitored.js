@@ -133,7 +133,7 @@ export class DnsMonitored extends Component {
                                         <Col sm="7">
                                             <Form.Control required ref={this.inputRef} size="md"
                                                           type="text"
-                                                          pattern="(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
                                                           placeholder="example.com"
                                                           defaultValue={this.state.word}
                                                           onChange={handleOnChange}/>
