@@ -310,7 +310,7 @@ export class SuspiciousSites extends Component {
                                         <Col sm="8">
                                             <Form.Control required ref={this.inputDomainRef} size="md"
                                                           type="text"
-                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
+                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(?:\.[a-zA-Z]{2,})*$"
                                                           placeholder="example.com"
                                                           />
                                         </Col>
