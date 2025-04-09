@@ -61,8 +61,7 @@ ALLOWED_HOSTS = [
     '0.0.0.0',
     '127.0.0.1',
     'localhost',
-    os.environ.get('ALLOWED_HOST', '')
-]
+] + os.environ.get('ALLOWED_HOSTS', '').split(',')
 
 if os.environ.get('CSRF_TRUSTED_ORIGINS', '') != '':
     CSRF_TRUSTED_ORIGINS = [
