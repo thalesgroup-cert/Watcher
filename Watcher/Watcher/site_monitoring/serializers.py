@@ -14,6 +14,7 @@ from .misp import update_attributes, create_misp_tags, create_attributes
 
 import urllib3
 import tldextract
+import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -28,9 +29,16 @@ class SiteSerializer(serializers.ModelSerializer):
         
         return value
 
+    def to_internal_value(self, data):
+        # Convert "" to None for expiry
+        if data.get("expiry") == "":
+            data["expiry"] = None
+        return super().to_internal_value(data)
+
     def create(self, validated_data):
         site = super().create(validated_data)
-        monitoring_init(site)
+        thread = threading.Thread(target=monitoring_init, args=(site,))
+        thread.start()
         return site
 
     class Meta:
