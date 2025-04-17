@@ -14,6 +14,7 @@ import re
 from django.db import close_old_connections
 from common.core import send_app_specific_notifications
 from django.db.models import Q
+from urllib.parse import urlparse
 
 
 def start_scheduler():
@@ -74,7 +75,16 @@ def main_watch():
 
     focus_five_letters()
     focus_on_top(settings.WORDS_OCCURRENCE)
+    reliability_score()
     send_threats_watcher_notifications(email_words)
+
+
+
+def get_confidence_score(confidence):
+    """
+    Converts a confidence level (1, 2 or 3) to a percentage.   
+    """
+    return {1: 100, 2: 50, 3: 20}.get(confidence, 0)
 
 
 def load_feeds():
@@ -234,49 +244,34 @@ def focus_on_top(words_occurrence):
 
     for word, occurrences in posts_five_letters.items():
         if occurrences >= words_occurrence:
-
-            # If word is already created, update occurences number
             if TrendyWord.objects.filter(name=word):
-                print(str(timezone.now()) + " - " + word + " : ", occurrences, " (in database)")
                 try:
                     for posturl in wordurl[word + "_url"].split(', '):
                         for url_, date in posts_published.items():
                             if posturl == url_:
-                                # If word is in a new post
                                 if not PostUrl.objects.filter(url=posturl):
-                                    print(str(timezone.now()) + " - " + word, " appeared in a new post!")
-                                    # Increase occurences number of 1
                                     TrendyWord.objects.filter(name=word).update(
                                         occurrences=(TrendyWord.objects.get(name=word).occurrences + 1))
-
                                     if date != "no-date":
-                                        # Add new post
                                         PostUrl.objects.create(url=posturl, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=posturl)
-
-                                    # Link created word with new posts
                                     TrendyWord.objects.get(name=word).posturls.add(PostUrl.objects.get(url=posturl))
                                     new_posts[word] = new_posts.get(word, 0) + 1
                 except KeyError:
                     pass
             else:
-                print(str(timezone.now()) + " - " + word + " : ", occurrences)
-                # Add urls in DB
                 try:
                     for url in wordurl[word + "_url"].split(', '):
                         for url_, date in posts_published.items():
                             if url == url_:
                                 if not PostUrl.objects.filter(url=url):
                                     if date != "no-date":
-                                        # Add new post
                                         PostUrl.objects.create(url=url, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=url)
 
                     word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
-
-                    # Link created words with new posts
                     for url in wordurl[word + "_url"].split(', '):
                         word_db.posturls.add(PostUrl.objects.get(url=url))
 
@@ -284,6 +279,65 @@ def focus_on_top(words_occurrence):
                         "<a href=" + settings.WATCHER_URL + ">" + word + "</a> :<b> " + str(occurrences) + "</b>")
                 except KeyError:
                     pass
+
+
+def get_pre_redirect_domain(url):
+    """
+    Retrieves the domain of the URL before the redirect.
+    """
+    try:
+        response = requests.get(url, timeout=10)
+        if response.history:
+            original_url = response.history[-1].url
+        else:
+            original_url = url
+    except Exception as e:
+        print(f"Error retrieving pre-redirect URL for {url} : {e}")
+        original_url = url
+    domain = get_normalized_domain(original_url)
+    return domain
+
+
+def get_normalized_domain(url):
+    """
+    Extracts and normalizes the domain from a URL without a network query (for Source objects).
+    """
+    parsed = urlparse(url)
+    domain = parsed.netloc.lower()
+    if domain.startswith('www.'):
+        domain = domain[4:]
+    return domain
+
+
+def reliability_score():
+    """
+    Calculates the reliability score for each TrendyWord by scanning its associated PostUrls.
+    """
+    trendy_words = TrendyWord.objects.prefetch_related('posturls').all()
+
+    for word in trendy_words:
+        score_list = []
+        for post in word.posturls.all():
+            try:
+                post_domain = get_pre_redirect_domain(post.url)
+                source_match = None
+                for source in Source.objects.all():
+                    source_domain = get_normalized_domain(source.url)
+                    if post_domain == source_domain:
+                        source_match = source
+                        break
+                if source_match:
+                    conf_score = get_confidence_score(source_match.confident)
+                    score_list.append(conf_score)
+            except Exception as e:
+                print(f"Error for {post.url} word : '{word.name}' : {e}")
+
+        if score_list:
+            avg_score = sum(score_list) / len(score_list)
+            word.score = avg_score
+            word.save()
+        else:
+            print(f"[{timezone.now()}] - '{word.name}' : No fiability score.")
 
 
 def send_threats_watcher_notifications(email_words):
