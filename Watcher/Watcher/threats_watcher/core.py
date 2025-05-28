@@ -15,7 +15,61 @@ from django.db import close_old_connections
 from common.core import send_app_specific_notifications
 from django.db.models import Q
 from urllib.parse import urlparse
+from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 
+
+tokenizer_ner = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
+model_ner     = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
+ner_pipe      = pipeline(
+    "ner",
+    model=model_ner,
+    tokenizer=tokenizer_ner,
+    grouped_entities=True
+)
+
+# Group of hackers
+ATTACKER_PATTERNS = [
+    r"\bAPT\d+\b",
+    r"\bFIN\d+\b",
+    r"\bHFG\d+\b",
+]
+
+def extract_entities_and_threats(title: str) -> dict:
+    """
+    Extrait de `title` :
+      - persons, organizations, locations via NER
+      - cves   via regex CVE-YYYY-NNNN…
+      - attackers via ATTACKER_PATTERNS
+    """
+    ner_results = ner_pipe(title)
+
+    persons       = set()
+    organizations = set()
+    locations     = set()
+    products = set()
+
+    for ent in ner_results:
+        grp  = ent["entity_group"]
+        text = ent["word"]
+        if   grp == "PER": persons.add(text)
+        elif grp == "ORG": organizations.add(text)
+        elif grp == "LOC": locations.add(text)
+        elif grp == "MISC": products.add(text)
+
+    cves = re.findall(r"\bCVE-\d{4}-\d{4,7}\b", title)
+
+    attackers = []
+    for pat in ATTACKER_PATTERNS:
+        attackers += re.findall(pat, title)
+
+    return {
+        "persons":       list(persons),
+        "organizations": list(organizations),
+        "locations":     list(locations),
+        "product":       list(products),
+        "cves":          list(set(cves)),
+        "attackers":     list(set(attackers)),
+    }
 
 def start_scheduler():
     """
@@ -140,28 +194,44 @@ def fetch_last_posts(nb_max_post):
 
     for title, url in tmp_posts.items():
         string = title.replace(u'\xa0', u' ')
-        posts[string.lower()] = url
+        posts[string] = url
         # print("title lower : " + string.lower() + " url: " + url)
 
 
 def tokenize_count_urls():
     """
-    Tokenize phrases to words, Count word occurences and keep the word post source urls.
+    For each title (≤ 30 days), extract only the entities and threats, then count their occurrences and aggregate the associated URLs.
     """
-    global posts_words
-    global wordurl
-    posts_words = dict()
-    wordurl = dict()
+    global posts_words, wordurl
+    posts_words = {}
+    wordurl     = {}
+    threshold = timezone.now() - timedelta(days=30)
 
     for title, url in posts.items():
-        word_tokens = word_tokenize(title)
-        for word in word_tokens:
-            if word in posts_words:
-                posts_words[word] += 1
-                wordurl[word + "_url"] = wordurl[word + "_url"] + ', ' + url
+
+        post_date = posts_published.get(url, "no-date")
+
+        if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
+            continue
+
+        ents     = extract_entities_and_threats(title)
+        all_items = (
+            ents["persons"]
+          + ents["organizations"]
+          + ents["locations"]
+          + ents["product"]
+          + ents["cves"]
+          + ents["attackers"]
+        )
+
+        for item in all_items:
+            key = item + "_url"
+            if item in posts_words:
+                posts_words[item] += 1
+                wordurl[key]     += ", " + url
             else:
-                posts_words[word] = 1
-                wordurl[word + "_url"] = url
+                posts_words[item] = 1
+                wordurl[key]      = url
 
 
 def remove_banned_words():
