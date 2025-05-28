@@ -15,10 +15,12 @@ import {
 const initialState = {
     dnsMonitored: [],
     keywordMonitored: [],
-    alerts: []
+    alerts: [],
+    loading: {},
+    mispMessage: null
 };
 
-export default function (state = initialState, action) {
+export default function(state = initialState, action) {
     switch (action.type) {
         case GET_DNS_MONITORED:
             return {
@@ -33,22 +35,21 @@ export default function (state = initialState, action) {
         case ADD_DNS_MONITORED:
             return {
                 ...state,
-                dnsMonitored: [...state.dnsMonitored, action.payload].sort(function (a, b) {
-                    let rv;
-                    rv = a.domain_name.localeCompare(b.domain_name);
-                    return rv;
+                dnsMonitored: [...state.dnsMonitored, action.payload].sort((a, b) => {
+                    return a.domain_name.localeCompare(b.domain_name);
                 })
             };
         case PATCH_DNS_MONITORED:
-            state.dnsMonitored.map(dns_monitored => {
-                if (dns_monitored.id === action.payload.id) {
-                    dns_monitored.domain_name = action.payload.domain_name
-                }
-            });
             return {
                 ...state,
-                dnsMonitored: [...state.dnsMonitored]
+                dnsMonitored: state.dnsMonitored.map(dns_monitored => {
+                    if (dns_monitored.id === action.payload.id) {
+                        return { ...dns_monitored, ...action.payload };
+                    }
+                    return dns_monitored;
+                })
             };
+            
         case GET_KEYWORD_MONITORED:
             return {
                 ...state,
@@ -62,21 +63,19 @@ export default function (state = initialState, action) {
         case ADD_KEYWORD_MONITORED:
             return {
                 ...state,
-                keywordMonitored: [...state.keywordMonitored, action.payload].sort(function (a, b) {
-                    let rv;
-                    rv = a.name.localeCompare(b.name);
-                    return rv;
+                keywordMonitored: [...state.keywordMonitored, action.payload].sort((a, b) => {
+                    return a.name.localeCompare(b.name);
                 })
             };
         case PATCH_KEYWORD_MONITORED:
-            state.keywordMonitored.map(keyword_monitored => {
-                if (keyword_monitored.id === action.payload.id) {
-                    keyword_monitored.name = action.payload.name
-                }
-            });
             return {
                 ...state,
-                keywordMonitored: [...state.keywordMonitored]
+                keywordMonitored: state.keywordMonitored.map(keyword_monitored => {
+                    if (keyword_monitored.id === action.payload.id) {
+                        return { ...keyword_monitored, ...action.payload };
+                    }
+                    return keyword_monitored;
+                })
             };
         case GET_DNS_FINDER_ALERTS:
             return {
@@ -84,24 +83,32 @@ export default function (state = initialState, action) {
                 alerts: action.payload
             };
         case UPDATE_DNS_FINDER_ALERT:
-            state.alerts.map(alert => {
-                if (alert.id === action.payload.id) {
-                    alert.status = action.payload.status
-                }
-            });
             return {
                 ...state,
-                alerts: [...state.alerts]
+                alerts: state.alerts.map(alert => {
+                    if (alert.id === action.payload.id) {
+                        return { ...alert, ...action.payload };
+                    }
+                    return alert;
+                })
             };
+            
         case EXPORT_MISP_DNS_FINDER:
-            state.alerts.map(alert => {
-                if (alert.id === action.payload.id) {
-                    alert.dns_twisted.misp_event_id = action.payload.misp_event_id;
-                }
-            });
             return {
                 ...state,
-                alerts: [...state.alerts]
+                alerts: state.alerts.map(alert => {
+                    if (alert.dns_twisted && alert.dns_twisted.id === action.payload.id) {
+                        return {
+                            ...alert,
+                            dns_twisted: {
+                                ...alert.dns_twisted,
+                                misp_event_uuid: action.payload.misp_event_uuid
+                            }
+                        };
+                    }
+                    return alert;
+                }),
+                mispMessage: action.payload.message
             };
         default:
             return state;

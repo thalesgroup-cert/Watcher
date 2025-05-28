@@ -6,11 +6,13 @@ import {
     PATCH_SITE,
     UPDATE_SITE_ALERT,
     EXPORT_MISP
-} from '../actions/types.js';
+} from '../actions/types';
 
 const initialState = {
     sites: [],
-    alerts: []
+    alerts: [],
+    mispMessage: null,
+    loading: {}
 };
 
 
@@ -34,47 +36,35 @@ export default function (state = initialState, action) {
         case ADD_SITE:
             return {
                 ...state,
-                sites: [...state.sites, action.payload].sort(function sortNumber(a, b) {
-                    return b.rtir - a.rtir;
-                })
+                sites: [...state.sites, action.payload].sort((a, b) => b.rtir - a.rtir)
             };
         case PATCH_SITE:
-            state.sites.map(site => {
-                if (site.id === action.payload.id) {
-                    site.domain_name = action.payload.domain_name;
-                    site.ticket_id = action.payload.ticket_id;
-                    site.rtir = action.payload.rtir;
-                    site.expiry = action.payload.expiry;
-                    site.ip_monitoring = action.payload.ip_monitoring;
-                    site.content_monitoring = action.payload.content_monitoring;
-                    site.mail_monitoring = action.payload.mail_monitoring;
-                }
-            });
             return {
                 ...state,
-                sites: [...state.sites].sort(function sortNumber(a, b) {
-                    return b.rtir - a.rtir;
-                })
+                sites: state.sites.map(site =>
+                    site.id === action.payload.id
+                        ? { ...site, ...action.payload }
+                        : site
+                )
             };
         case UPDATE_SITE_ALERT:
-            state.alerts.map(alert => {
-                if (alert.id === action.payload.id) {
-                    alert.status = action.payload.status
-                }
-            });
             return {
                 ...state,
-                alerts: [...state.alerts]
+                alerts: state.alerts.map(alert => 
+                    alert.id === action.payload.id
+                        ? { ...alert, ...action.payload }
+                        : alert
+                )
             };
         case EXPORT_MISP:
-            state.sites.map(site => {
-                if (site.id === action.payload.id) {
-                    site.misp_event_id = action.payload.misp_event_id;
-                }
-            });
             return {
                 ...state,
-                sites: [...state.sites]
+                sites: state.sites.map(site =>
+                    site.id === action.payload.id
+                        ? { ...site, misp_event_uuid: action.payload.misp_event_uuid }
+                        : site
+                ),
+                mispMessage: action.payload.message
             };
         default:
             return state;

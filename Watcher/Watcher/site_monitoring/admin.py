@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import Alert, Site, Subscriber
 from import_export import resources
 from import_export.admin import ExportMixin
+from common.misp import get_misp_uuid
 
 
 def custom_titled_filter(title):
@@ -61,20 +62,33 @@ class SiteResource(resources.ModelResource):
     class Meta:
         model = Site
         exclude = (
-        'misp_event_id', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring',
+        'misp_event_uuid', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring',
         'ip_monitoring')
 
 
 @admin.register(Site)
 class Site(ExportMixin, admin.ModelAdmin):
-    list_display = ['rtir', 'domain_name', 'ticket_id','ip', 'ip_second', 'monitored', 'web_status', 'misp_event_id',
+    list_display = ['rtir', 'domain_name', 'ticket_id','ip', 'ip_second', 'monitored', 'web_status', 'display_misp_uuid',
                     'created_at', 'expiry']
     list_filter = ['created_at', 'expiry', 'monitored', 'web_status']
-    search_fields = ['rtir', 'domain_name', 'ip', 'ip_second', 'misp_event_id']
+    search_fields = ['rtir', 'domain_name', 'ip', 'ip_second']
     resource_class = SiteResource
+    readonly_fields = ['display_misp_uuid']
 
     def has_add_permission(self, request):
         return False
+
+    def display_misp_uuid(self, obj):
+        uuid = get_misp_uuid(obj.domain_name)
+        if not uuid:
+            return "-"
+        
+        if len(uuid) == 1:
+            return uuid[0]
+        else:
+            return ", ".join(uuid)
+
+    display_misp_uuid.short_description = "MISP Event UUID"
 
 
 @admin.register(Subscriber)
