@@ -15,8 +15,7 @@ import {
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
-
-// Here you will find all the API Requests
+import {getSites} from "./SiteMonitoring";
 
 // GET DNS MONITORED
 export const getDnsMonitored = () => (dispatch, getState) => {
@@ -173,17 +172,35 @@ export const updateAlertStatus = (id, status) => (dispatch, getState) => {
 };
 
 // EXPORT TO MISP
-export const exportToMISP = (site) => (dispatch, getState) => {
+export const exportToMISP = (payload) => (dispatch, getState) => {
     axios
-        .post(`/api/dns_finder/misp/`, site, tokenConfig(getState))
+        .post("/api/dns_finder/misp/", payload, tokenConfig(getState))
         .then(res => {
-            dispatch(createMessage({add: `Twisted DNS Exported to MISP`}));
+            const message = res.data.message || "DNS twisted exported to MISP";
+            
+            dispatch(createMessage({add: message}));
+            
             dispatch({
                 type: EXPORT_MISP_DNS_FINDER,
-                payload: res.data
+                payload: {
+                    id: dnsTwistedId,
+                    misp_event_uuid: res.data.misp_event_uuid,
+                    message: message
+                }
             });
+            
+            dispatch(getSites());
+            dispatch(getAlerts());
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            const errorMsg = err.response?.data?.message || 'Failed to export to MISP';
+            dispatch(returnErrors(err.response.data, err.response.status));
+            dispatch(createMessage({error: errorMsg}));
+        })
+        .finally(() => {
+            dispatch({ 
+                type: 'RESET_EXPORT_LOADING', 
+                payload: dnsTwistedId 
+            });
+        });
 };
