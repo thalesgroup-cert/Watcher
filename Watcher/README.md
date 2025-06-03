@@ -585,6 +585,7 @@ Then, follow the steps below:
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
+- **Install Torch cpu dependencies:** `pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
