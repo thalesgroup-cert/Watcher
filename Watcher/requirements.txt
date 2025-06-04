@@ -38,10 +38,10 @@ shadow-useragent==0.0.17
 pymisp==2.5.3
 
 # NER-BERT modèle
-transformers>=4.0.0
+transformers==4.30.0
 
 # PyTorch CPU-only
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch
+torch==2.2.0
 torchvision
 torchaudio

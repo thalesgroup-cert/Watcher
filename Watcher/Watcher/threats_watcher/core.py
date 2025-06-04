@@ -135,7 +135,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
                       max_instances=10,
                       replace_existing=True)
 
@@ -255,8 +255,7 @@ def fetch_last_posts(nb_max_post):
 
 def tokenize_count_urls():
     """
-    For each title (≤ 30 days), extract only the entities and threats, then count their occurrences and aggregate the associated URLs.
-
+    For each title (< 30 days), extract entities/threats and count each word only once.
     """
     global posts_words, wordurl
     posts_words = {}
@@ -266,42 +265,11 @@ def tokenize_count_urls():
     for title, url in posts.items():
 
         post_date = posts_published.get(url, "no-date")
-
         if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
             continue
-
-        ents     = extract_entities_and_threats(title)
-        all_items = (
-            ents["persons"]
-          + ents["organizations"]
-          + ents["locations"]
-          + ents["product"]
-          + ents["cves"]
-          + ents["attackers"]
-        )
-
-        for item in all_items:
-            key = item + "_url"
-            if item in posts_words:
-                posts_words[item] += 1
-                wordurl[key]     += ", " + url
-            else:
-                posts_words[item] = 1
-                wordurl[key]      = url
-
-    threshold = timezone.now() - timedelta(days=30)
-
-    for title, url in posts.items():
-        post_date = posts_published.get(url, "no-date")
-        if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
-            continue
-
-        raw_ner = ner_pipe(title)
-        for ent in raw_ner:
-            ent['score'] = float(ent['score'])
 
         ents = extract_entities_and_threats(title)
-        retained = (
+        all_items = (
               ents["persons"]
             + ents["organizations"]
             + ents["locations"]
@@ -310,14 +278,14 @@ def tokenize_count_urls():
             + ents["attackers"]
         )
 
-        for item in retained:
+        for item in all_items:
             key = f"{item}_url"
-            posts_words[item] = posts_words.get(item, 0) + 1
-            if key in wordurl:
-                wordurl[key] += ", " + url
+            if item in posts_words:
+                posts_words[item] += 1
+                wordurl[key]     += ", " + url
             else:
-                wordurl[key] = url
-
+                posts_words[item] = 1
+                wordurl[key]      = url
 
 
 def remove_banned_words():
@@ -370,6 +338,9 @@ def remove_banned_words():
         word = re.sub(r"\b\d+(?:\.\d+){2,}\b", "", word)
         # Remove version numbers in the format vx.x.x
         word = re.sub(r"v\d+(?:\.\d+){2,}", "", word)
+
+        if word.startswith("#"):
+            word = ""
 
         if word:
             posts_without_banned[word] = count
