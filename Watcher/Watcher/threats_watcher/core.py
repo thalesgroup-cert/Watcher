@@ -14,7 +14,117 @@ import re
 from django.db import close_old_connections
 from common.core import send_app_specific_notifications
 from django.db.models import Q
+from urllib.parse import urlparse
+from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 
+
+
+tokenizer_ner = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
+model_ner     = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
+ner_pipe      = pipeline(
+    "ner",
+    model=model_ner,
+    tokenizer=tokenizer_ner,
+    grouped_entities=True
+)
+
+# Group of hackers
+ATTACKER_PATTERNS = [
+    r"\bAPT\d+\b",
+    r"\bFIN\d+\b",
+    r"\bHFG\d+\b",
+]
+
+def extract_entities_and_threats(title: str) -> dict:
+    ner_results = ner_pipe(title)
+
+    persons       = set()
+    organizations = set()
+    locations     = set()
+    products      = set()
+
+    for ent in ner_results:
+        grp  = ent["entity_group"]
+        text = ent["word"]
+        if   grp == "PER":
+            persons.add(text)
+        elif grp == "ORG":
+            for token in text.split():
+                organizations.add(token)
+        elif grp == "LOC":
+            locations.add(text)
+        elif grp == "MISC":
+            for token in text.split():
+                products.add(token)
+
+    cves = re.findall(r"\bCVE-\d{4}-\d{4,7}\b", title)
+
+    attackers = []
+    for pat in ATTACKER_PATTERNS:
+        attackers += re.findall(pat, title)
+
+    return {
+        "persons":       list(persons),
+        "organizations": list(organizations),
+        "locations":     list(locations),
+        "product":       list(products),
+        "cves":          list(set(cves)),
+        "attackers":     list(set(attackers)),
+    }
+
+
+tokenizer_ner = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
+model_ner     = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
+ner_pipe      = pipeline(
+    "ner",
+    model=model_ner,
+    tokenizer=tokenizer_ner,
+    grouped_entities=True
+)
+
+# Group of hackers
+ATTACKER_PATTERNS = [
+    r"\bAPT\d+\b",
+    r"\bFIN\d+\b",
+    r"\bHFG\d+\b",
+]
+
+def extract_entities_and_threats(title: str) -> dict:
+    """
+    Extrait de `title` :
+      - persons, organizations, locations via NER
+      - cves   via regex CVE-YYYY-NNNN…
+      - attackers via ATTACKER_PATTERNS
+    """
+    ner_results = ner_pipe(title)
+
+    persons       = set()
+    organizations = set()
+    locations     = set()
+    products = set()
+
+    for ent in ner_results:
+        grp  = ent["entity_group"]
+        text = ent["word"]
+        if   grp == "PER": persons.add(text)
+        elif grp == "ORG": organizations.add(text)
+        elif grp == "LOC": locations.add(text)
+        elif grp == "MISC": products.add(text)
+
+    cves = re.findall(r"\bCVE-\d{4}-\d{4,7}\b", title)
+
+    attackers = []
+    for pat in ATTACKER_PATTERNS:
+        attackers += re.findall(pat, title)
+
+    return {
+        "persons":       list(persons),
+        "organizations": list(organizations),
+        "locations":     list(locations),
+        "product":       list(products),
+        "cves":          list(set(cves)),
+        "attackers":     list(set(attackers)),
+    }
 
 def start_scheduler():
     """
@@ -74,7 +184,16 @@ def main_watch():
 
     focus_five_letters()
     focus_on_top(settings.WORDS_OCCURRENCE)
+    reliability_score()
     send_threats_watcher_notifications(email_words)
+
+
+
+def get_confidence_score(confidence):
+    """
+    Converts a confidence level (1, 2 or 3) to a percentage.   
+    """
+    return {1: 100, 2: 50, 3: 20}.get(confidence, 0)
 
 
 def load_feeds():
@@ -130,28 +249,75 @@ def fetch_last_posts(nb_max_post):
 
     for title, url in tmp_posts.items():
         string = title.replace(u'\xa0', u' ')
-        posts[string.lower()] = url
+        posts[string] = url
         # print("title lower : " + string.lower() + " url: " + url)
 
 
 def tokenize_count_urls():
     """
-    Tokenize phrases to words, Count word occurences and keep the word post source urls.
+    For each title (≤ 30 days), extract only the entities and threats, then count their occurrences and aggregate the associated URLs.
+
     """
-    global posts_words
-    global wordurl
-    posts_words = dict()
-    wordurl = dict()
+    global posts_words, wordurl
+    posts_words = {}
+    wordurl     = {}
+    threshold = timezone.now() - timedelta(days=30)
 
     for title, url in posts.items():
-        word_tokens = word_tokenize(title)
-        for word in word_tokens:
-            if word in posts_words:
-                posts_words[word] += 1
-                wordurl[word + "_url"] = wordurl[word + "_url"] + ', ' + url
+
+        post_date = posts_published.get(url, "no-date")
+
+        if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
+            continue
+
+        ents     = extract_entities_and_threats(title)
+        all_items = (
+            ents["persons"]
+          + ents["organizations"]
+          + ents["locations"]
+          + ents["product"]
+          + ents["cves"]
+          + ents["attackers"]
+        )
+
+        for item in all_items:
+            key = item + "_url"
+            if item in posts_words:
+                posts_words[item] += 1
+                wordurl[key]     += ", " + url
             else:
-                posts_words[word] = 1
-                wordurl[word + "_url"] = url
+                posts_words[item] = 1
+                wordurl[key]      = url
+
+    threshold = timezone.now() - timedelta(days=30)
+
+    for title, url in posts.items():
+        post_date = posts_published.get(url, "no-date")
+        if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
+            continue
+
+        raw_ner = ner_pipe(title)
+        for ent in raw_ner:
+            ent['score'] = float(ent['score'])
+
+        ents = extract_entities_and_threats(title)
+        retained = (
+              ents["persons"]
+            + ents["organizations"]
+            + ents["locations"]
+            + ents["product"]
+            + ents["cves"]
+            + ents["attackers"]
+        )
+
+        for item in retained:
+            key = f"{item}_url"
+            posts_words[item] = posts_words.get(item, 0) + 1
+            if key in wordurl:
+                wordurl[key] += ", " + url
+            else:
+                wordurl[key] = url
+
 
 
 def remove_banned_words():
@@ -193,7 +359,7 @@ def remove_banned_words():
         ".com", ".org", ".net", ".edu", ".gov", ".mil", 
         ".biz", ".info", ".name", ".pro", ".coop", ".museum", ".aero", ".int", ".jobs", ".mobi", ".tel", ".travel", 
         ".fr", ".uk", ".de", ".jp", ".cn", ".it", ".us", ".es", ".ca", ".au", ".nl", ".ru", ".br", ".pl", ".in", ".be", ".ch", ".se", ".mx", ".at", ".dk", ".no", ".fi", ".ie", ".nz", ".sg", ".hk", ".my", ".za", ".ar", ".tw", ".kr", ".vn", ".tr", ".ua", ".gr", ".pt", ".cz", ".hu", ".cl", ".ro", ".id", ".il", ".co", ".ae", ".th", ".sk", ".bg", ".ph", ".hr", ".lt", ".si", ".lv", ".ee", ".rs", ".is", ".ir", ".sa", ".pe", ".ma", ".by", ".gt", ".do", ".ng", ".cr", ".ve", ".ec", ".py", ".sv", ".hn", ".pa", ".bo", ".kz", ".lu", ".uy", ".dz", ".uz", ".ke", ".np", ".kh", ".zm", ".ug", ".cy", ".mm", ".et", ".ni", ".al", ".kg", ".bd", ".tn", ".np", ".la", ".gh", ".iq", ".bj", ".gm", ".tg", ".lk", ".jo", ".zw", ".sn", ".km", ".mw", ".md", ".mr", ".tn", ".bf", ".bi", ".sc", ".er", ".sl", ".cf", ".ss", ".td", ".cg", ".gq", ".dj", ".rw", ".so", ".ne", ".yt", ".re", ".pm", ".wf", ".tf", ".gs", ".ai", ".aw", ".bb", ".bm", ".vg", ".ky", ".fk", ".fo", ".gl", ".gp", ".gg", ".gi", ".je", ".im", ".mq", ".ms", ".nc", ".pf", ".pn", ".sh", ".sb", ".gs", ".tc", ".tk", ".vg", ".vi", ".um", ".cx", ".cc", ".ac", ".eu", ".ad", ".ax", ".gg", ".gi", ".im", ".je", ".mc", ".me", ".sm", ".va", ".rs", ".ps", ".asia", ".cat", ".coop", ".jobs", ".mobi", ".tel", ".travel"  # Domaines de premier niveau géographiques (ccTLD)
-        ]  
+        ]
         if any(word.endswith(ext) for ext in domain_extensions):
             word = ""
         
@@ -234,49 +400,34 @@ def focus_on_top(words_occurrence):
 
     for word, occurrences in posts_five_letters.items():
         if occurrences >= words_occurrence:
-
-            # If word is already created, update occurences number
             if TrendyWord.objects.filter(name=word):
-                print(str(timezone.now()) + " - " + word + " : ", occurrences, " (in database)")
                 try:
                     for posturl in wordurl[word + "_url"].split(', '):
                         for url_, date in posts_published.items():
                             if posturl == url_:
-                                # If word is in a new post
                                 if not PostUrl.objects.filter(url=posturl):
-                                    print(str(timezone.now()) + " - " + word, " appeared in a new post!")
-                                    # Increase occurences number of 1
                                     TrendyWord.objects.filter(name=word).update(
                                         occurrences=(TrendyWord.objects.get(name=word).occurrences + 1))
-
                                     if date != "no-date":
-                                        # Add new post
                                         PostUrl.objects.create(url=posturl, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=posturl)
-
-                                    # Link created word with new posts
                                     TrendyWord.objects.get(name=word).posturls.add(PostUrl.objects.get(url=posturl))
                                     new_posts[word] = new_posts.get(word, 0) + 1
                 except KeyError:
                     pass
             else:
-                print(str(timezone.now()) + " - " + word + " : ", occurrences)
-                # Add urls in DB
                 try:
                     for url in wordurl[word + "_url"].split(', '):
                         for url_, date in posts_published.items():
                             if url == url_:
                                 if not PostUrl.objects.filter(url=url):
                                     if date != "no-date":
-                                        # Add new post
                                         PostUrl.objects.create(url=url, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=url)
 
                     word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
-
-                    # Link created words with new posts
                     for url in wordurl[word + "_url"].split(', '):
                         word_db.posturls.add(PostUrl.objects.get(url=url))
 
@@ -284,6 +435,65 @@ def focus_on_top(words_occurrence):
                         "<a href=" + settings.WATCHER_URL + ">" + word + "</a> :<b> " + str(occurrences) + "</b>")
                 except KeyError:
                     pass
+
+
+def get_pre_redirect_domain(url):
+    """
+    Retrieves the domain of the URL before the redirect.
+    """
+    try:
+        response = requests.get(url, timeout=10)
+        if response.history:
+            original_url = response.history[-1].url
+        else:
+            original_url = url
+    except Exception as e:
+        print(f"Error retrieving pre-redirect URL for {url} : {e}")
+        original_url = url
+    domain = get_normalized_domain(original_url)
+    return domain
+
+
+def get_normalized_domain(url):
+    """
+    Extracts and normalizes the domain from a URL without a network query (for Source objects).
+    """
+    parsed = urlparse(url)
+    domain = parsed.netloc.lower()
+    if domain.startswith('www.'):
+        domain = domain[4:]
+    return domain
+
+
+def reliability_score():
+    """
+    Calculates the reliability score for each TrendyWord by scanning its associated PostUrls.
+    """
+    trendy_words = TrendyWord.objects.prefetch_related('posturls').all()
+
+    for word in trendy_words:
+        score_list = []
+        for post in word.posturls.all():
+            try:
+                post_domain = get_pre_redirect_domain(post.url)
+                source_match = None
+                for source in Source.objects.all():
+                    source_domain = get_normalized_domain(source.url)
+                    if post_domain == source_domain:
+                        source_match = source
+                        break
+                if source_match:
+                    conf_score = get_confidence_score(source_match.confident)
+                    score_list.append(conf_score)
+            except Exception as e:
+                print(f"Error for {post.url} word : '{word.name}' : {e}")
+
+        if score_list:
+            avg_score = sum(score_list) / len(score_list)
+            word.score = avg_score
+            word.save()
+        else:
+            print(f"[{timezone.now()}] - '{word.name}' : No fiability score.")
 
 
 def send_threats_watcher_notifications(email_words):
