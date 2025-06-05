@@ -37,11 +37,12 @@ shadow-useragent==0.0.17
 # Cybersecurity and Incident Response
 pymisp==2.5.3
 
-# NER-BERT modèle
+# NER-BERT model
 transformers==4.30.0
 
 # PyTorch CPU-only
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.0
-torchvision
-torchaudio
+torchvision==0.17.0
+torchaudio==2.2.0
+numpy==1.24.4

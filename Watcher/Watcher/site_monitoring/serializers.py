@@ -67,12 +67,6 @@ class MISPSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        print("=" * 50)
-        print(f"MISP_URL: {settings.MISP_URL}")
-        print(f"MISP_KEY: {settings.MISP_KEY}")
-        print(f"MISP_VERIFY_SSL: {settings.MISP_VERIFY_SSL}")
-        print("=" * 50)
-        
         self.misp_api = PyMISP(
             settings.MISP_URL,
             settings.MISP_KEY,
