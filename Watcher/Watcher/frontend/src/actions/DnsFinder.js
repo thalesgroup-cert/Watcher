@@ -180,14 +180,16 @@ export const exportToMISP = (payload) => (dispatch, getState) => {
             
             dispatch(createMessage({add: message}));
             
-            dispatch({
-                type: EXPORT_MISP_DNS_FINDER,
-                payload: {
-                    id: dnsTwistedId,
-                    misp_event_uuid: res.data.misp_event_uuid,
-                    message: message
-                }
-            });
+            if (res.data.misp_event_uuid) {
+                dispatch({
+                    type: EXPORT_MISP_DNS_FINDER,
+                    payload: {
+                        id: payload.id,
+                        misp_event_uuid: res.data.misp_event_uuid,
+                        message: message
+                    }
+                });
+            }
             
             dispatch(getSites());
             dispatch(getAlerts());
@@ -200,7 +202,7 @@ export const exportToMISP = (payload) => (dispatch, getState) => {
         .finally(() => {
             dispatch({ 
                 type: 'RESET_EXPORT_LOADING', 
-                payload: dnsTwistedId 
+                payload: payload.id 
             });
         });
 };

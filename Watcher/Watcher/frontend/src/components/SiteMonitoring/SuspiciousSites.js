@@ -399,7 +399,11 @@ export class SuspiciousSites extends Component {
     
       exportModal = () => {
         const handleClose = () => {
-          this.setState({ showExportModal: false, eventUuid: '', showHelp: false });
+          this.setState({ 
+            showExportModal: false, 
+            eventUuid: '', 
+            showHelp: false 
+        });
         };
     
         const currentSite = this.props.sites.find((site) => site.id === this.state.id);

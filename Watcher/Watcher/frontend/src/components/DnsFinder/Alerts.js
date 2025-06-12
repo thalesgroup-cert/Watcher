@@ -314,16 +314,25 @@ export class Alerts extends Component {
             e.preventDefault();
             const id = this.state.id;
             
+            const alert = this.props.alerts.find(a => a.dns_twisted.id === id);
+            if (!alert) return;
+            
+            const dnsTwisted = alert.dns_twisted;
+            const uuid = this.extractUUID(dnsTwisted.misp_event_uuid);
+            const latestUuid = uuid.length > 0 ? uuid[uuid.length - 1] : '';
+
+            const isUpdate = Boolean(uuid.length) || Boolean(this.state.eventUuid.trim());
+            
             const payload = {
                 id: id
             };
             
-            if (this.state.eventUuid && this.state.eventUuid.trim()) {
+            if (this.state.eventUuid.trim()) {
                 payload.event_uuid = this.state.eventUuid.trim();
+            } else if (isUpdate && latestUuid) {
+                payload.event_uuid = latestUuid;
             }
-            
-            console.log("Submitting MISP export with payload:", payload);
-            
+        
             this.props.exportToMISP(payload);
             this.setState({
                 exportLoadingMISPTh: id
@@ -397,7 +406,10 @@ export class Alerts extends Component {
                             type="text"
                             placeholder="Enter MISP event UUID to update an existing event"
                             value={this.state.eventUuid}
-                            onChange={(e) => this.setState({ eventUuid: e.target.value })}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/[\[\]'\"\s]/g, '');
+                                if (/^[a-f0-9-]*$/.test(value)) this.setState({ eventUuid: value });
+                            }}
                             pattern="^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
                             className="mb-3"
                         />

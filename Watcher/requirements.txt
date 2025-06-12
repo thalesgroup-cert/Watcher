@@ -35,7 +35,7 @@ ipaddress==1.0.23
 shadow-useragent==0.0.17
 
 # Cybersecurity and Incident Response
-pymisp==2.5.3
+pymisp==2.5.12
 
 # NER-BERT model
 transformers==4.30.0
