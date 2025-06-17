@@ -89,43 +89,6 @@ ATTACKER_PATTERNS = [
     r"\bHFG\d+\b",
 ]
 
-def extract_entities_and_threats(title: str) -> dict:
-    """
-    Extrait de `title` :
-      - persons, organizations, locations via NER
-      - cves   via regex CVE-YYYY-NNNN…
-      - attackers via ATTACKER_PATTERNS
-    """
-    ner_results = ner_pipe(title)
-
-    persons       = set()
-    organizations = set()
-    locations     = set()
-    products = set()
-
-    for ent in ner_results:
-        grp  = ent["entity_group"]
-        text = ent["word"]
-        if   grp == "PER": persons.add(text)
-        elif grp == "ORG": organizations.add(text)
-        elif grp == "LOC": locations.add(text)
-        elif grp == "MISC": products.add(text)
-
-    cves = re.findall(r"\bCVE-\d{4}-\d{4,7}\b", title)
-
-    attackers = []
-    for pat in ATTACKER_PATTERNS:
-        attackers += re.findall(pat, title)
-
-    return {
-        "persons":       list(persons),
-        "organizations": list(organizations),
-        "locations":     list(locations),
-        "product":       list(products),
-        "cves":          list(set(cves)),
-        "attackers":     list(set(attackers)),
-    }
-
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
@@ -135,7 +98,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
                       max_instances=10,
                       replace_existing=True)
 
@@ -254,40 +217,16 @@ def fetch_last_posts(nb_max_post):
 
 
 def tokenize_count_urls():
+ 
     """
-    For each title (≤ 30 days), extract only the entities and threats, then count their occurrences and aggregate the associated URLs.
-
+    For each title (≤ 30 days):
+    - Run NER and threat extraction,
+    - Cast the scores to float,
+    - Count occurrences and aggregate the associated URLs.
     """
     global posts_words, wordurl
     posts_words = {}
     wordurl     = {}
-    threshold = timezone.now() - timedelta(days=30)
-
-    for title, url in posts.items():
-
-        post_date = posts_published.get(url, "no-date")
-
-        if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
-            continue
-
-        ents     = extract_entities_and_threats(title)
-        all_items = (
-            ents["persons"]
-          + ents["organizations"]
-          + ents["locations"]
-          + ents["product"]
-          + ents["cves"]
-          + ents["attackers"]
-        )
-
-        for item in all_items:
-            key = item + "_url"
-            if item in posts_words:
-                posts_words[item] += 1
-                wordurl[key]     += ", " + url
-            else:
-                posts_words[item] = 1
-                wordurl[key]      = url
 
     threshold = timezone.now() - timedelta(days=30)
 
@@ -295,7 +234,6 @@ def tokenize_count_urls():
         post_date = posts_published.get(url, "no-date")
         if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
             continue
-
         raw_ner = ner_pipe(title)
         for ent in raw_ner:
             ent['score'] = float(ent['score'])
@@ -309,7 +247,6 @@ def tokenize_count_urls():
             + ents["cves"]
             + ents["attackers"]
         )
-
         for item in retained:
             key = f"{item}_url"
             posts_words[item] = posts_words.get(item, 0) + 1
@@ -370,6 +307,9 @@ def remove_banned_words():
         word = re.sub(r"\b\d+(?:\.\d+){2,}\b", "", word)
         # Remove version numbers in the format vx.x.x
         word = re.sub(r"v\d+(?:\.\d+){2,}", "", word)
+
+        if word.startswith("#"):
+            word = ""
 
         if word:
             posts_without_banned[word] = count
