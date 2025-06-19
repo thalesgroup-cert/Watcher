@@ -239,7 +239,7 @@ def tokenize_count_urls():
             ent['score'] = float(ent['score'])
 
         ents = extract_entities_and_threats(title)
-        retained = (
+        all_items = (
               ents["persons"]
             + ents["organizations"]
             + ents["locations"]
@@ -249,12 +249,12 @@ def tokenize_count_urls():
         )
         for item in retained:
             key = f"{item}_url"
-            posts_words[item] = posts_words.get(item, 0) + 1
-            if key in wordurl:
-                wordurl[key] += ", " + url
+            if item in posts_words:
+                posts_words[item] += 1
+                wordurl[key]     += ", " + url
             else:
-                wordurl[key] = url
-
+                posts_words[item] = 1
+                wordurl[key]      = url
 
 
 def remove_banned_words():

@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
-
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 class DnsMonitored(models.Model):
     """
@@ -43,7 +44,6 @@ class DnsTwisted(models.Model):
     dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE, blank=True, null=True)
     keyword_monitored = models.ForeignKey(KeywordMonitored, on_delete=models.CASCADE, blank=True, null=True)
     fuzzer = models.CharField(max_length=100, blank=True, null=True)
-    misp_event_id = models.IntegerField(unique=True, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -84,3 +84,13 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+
+@receiver(post_delete, sender=DnsTwisted)
+def handle_dns_twisted_deletion(sender, instance, **kwargs):
+    """
+    Signal triggered after deleting a twisted DNS domain.
+    Checks if the domain is still being monitored elsewhere, otherwise removes the MISP mapping.
+    """
+    from common.models import MISPEventUuidLink
+    MISPEventUuidLink.check_and_delete_unused_domain(instance.domain_name)
