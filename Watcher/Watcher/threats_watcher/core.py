@@ -247,7 +247,7 @@ def tokenize_count_urls():
             + ents["cves"]
             + ents["attackers"]
         )
-        for item in retained:
+        for item in all_items:
             key = f"{item}_url"
             if item in posts_words:
                 posts_words[item] += 1
