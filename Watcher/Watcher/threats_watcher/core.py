@@ -98,7 +98,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/10', id='main_watch_job',
                       max_instances=10,
                       replace_existing=True)
 
@@ -217,12 +217,11 @@ def fetch_last_posts(nb_max_post):
 
 
 def tokenize_count_urls():
- 
     """
     For each title (≤ 30 days):
-    - Run NER and threat extraction,
-    - Cast the scores to float,
-    - Count occurrences and aggregate the associated URLs.
+        - Runs NER and threat extraction,
+        - Casts scores to float,
+        - Counts occurrences and aggregates associated URLs.
     """
     global posts_words, wordurl
     posts_words = {}
@@ -237,9 +236,8 @@ def tokenize_count_urls():
         raw_ner = ner_pipe(title)
         for ent in raw_ner:
             ent['score'] = float(ent['score'])
-
         ents = extract_entities_and_threats(title)
-        all_items = (
+        retained = (
               ents["persons"]
             + ents["organizations"]
             + ents["locations"]
@@ -247,15 +245,13 @@ def tokenize_count_urls():
             + ents["cves"]
             + ents["attackers"]
         )
-        for item in all_items:
+        for item in retained:
             key = f"{item}_url"
-            if item in posts_words:
-                posts_words[item] += 1
-                wordurl[key]     += ", " + url
+            posts_words[item] = posts_words.get(item, 0) + 1
+            if key in wordurl:
+                wordurl[key] += ", " + url
             else:
-                posts_words[item] = 1
-                wordurl[key]      = url
-
+                wordurl[key] = url
 
 def remove_banned_words():
     """
@@ -369,7 +365,8 @@ def focus_on_top(words_occurrence):
 
                     word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
                     for url in wordurl[word + "_url"].split(', '):
-                        word_db.posturls.add(PostUrl.objects.get(url=url))
+                        post_url, _ = PostUrl.objects.get_or_create(url=url)
+                        word_db.posturls.add(post_url)
 
                     email_words.append(
                         "<a href=" + settings.WATCHER_URL + ">" + word + "</a> :<b> " + str(occurrences) + "</b>")
