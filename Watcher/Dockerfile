@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libsasl2-dev \
     libldap2-dev \
     libssl-dev \
-    libmysqlclient-dev \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
