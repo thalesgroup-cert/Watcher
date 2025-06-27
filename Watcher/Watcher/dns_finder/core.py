@@ -22,7 +22,7 @@ def start_scheduler():
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
-    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', minute='*/2', id='main_dns_twist',
+    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)
     scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
