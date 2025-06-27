@@ -19,23 +19,29 @@ export class Alerts extends Component {
         super(props);
         this.state = {
             show: false,
+            showAddModal: false,
             showExportModal: false,
             id: 0,
             exportLoading: false,
             exportLoadingMISPTh: false,
-            mispEventId: null,
-            domainName: ""
+            domainName: "",
+            eventUuid: "",
+            showHelp: false,
+            showAllUuid: false,
+            showMispMessage: false,
+            mispMessage: ""
         };
-        this.inputRtirRef = React.createRef();
+        this.inputTicketRef = React.createRef();
         this.ipMonitoringRef = React.createRef();
         this.webContentMonitoringRef = React.createRef();
         this.emailMonitoringRef = React.createRef();
+        this.mispMessageTimeout = null;
     }
 
     static propTypes = {
         sites: PropTypes.array.isRequired,
         addSite: PropTypes.func.isRequired,
-        getSite: PropTypes.func.isRequired,
+        getSites: PropTypes.func.isRequired,
         alerts: PropTypes.array.isRequired,
         getAlerts: PropTypes.func.isRequired,
         updateAlertStatus: PropTypes.func.isRequired,
@@ -147,12 +153,12 @@ export class Alerts extends Component {
         onSubmit = e => {
             e.preventDefault();
             const domain_name = this.state.domainName;
-            const rtir = this.inputRtirRef.current.value ? this.inputRtirRef.current.value : getMax(this.props.sites, "rtir").rtir+1;
+            const ticket_id = this.inputTicketRef.current.value;
             const expiry = this.state.day;
             const ip_monitoring = this.ipMonitoringRef.current.checked;
             const content_monitoring = this.webContentMonitoringRef.current.checked;
             const mail_monitoring = this.emailMonitoringRef.current.checked;
-            const site = expiry ? {domain_name, rtir, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, rtir, ip_monitoring, content_monitoring, mail_monitoring};
+            const site = expiry ? {domain_name, ticket_id, expiry, ip_monitoring, content_monitoring, mail_monitoring} : {domain_name, ticket_id, ip_monitoring, content_monitoring, mail_monitoring};
 
             this.props.addSite(site);
             this.setState({
@@ -180,8 +186,9 @@ export class Alerts extends Component {
                                         </Col>
                                         <Form.Label column sm="4">Ticket ID</Form.Label>
                                         <Col sm="8">
-                                            <Form.Control ref={this.inputRtirRef} size="md"
-                                                          type="number" placeholder="number"/>
+                                            <Form.Control ref={this.inputTicketRef} size="md" type="text"
+                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
+                                                          placeholder="230509-200a2"/>
                                         </Col>
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
@@ -265,74 +272,280 @@ export class Alerts extends Component {
         return back;
     };
 
-    displayExportModal = (id, domainName, mispEventId) => {
+    extractUUID = (raw, domainName = this.state.domainName) => {
+        if (!raw) {
+            // Check if domain exists in Site Monitoring
+            const site = this.props.sites.find(site => site.domain_name === domainName);
+            if (site && site.misp_event_uuid) {
+                raw = site.misp_event_uuid;
+            } else {
+                return [];
+            }
+        }
+        
+        if (Array.isArray(raw)) return raw.filter(uuid => uuid && uuid.trim() !== '');
+        return raw.replace(/[\[\]'"\s]/g, '').split(',').filter(Boolean);
+    };
+
+    displayExportModal = (id, domainName) => {
+        const dnsTwisted = this.props.alerts
+            .find(alert => alert.dns_twisted.id === id)?.dns_twisted;
+        
+        if (!dnsTwisted) return;
+        
+        const uuid = Array.isArray(dnsTwisted?.misp_event_uuid) ? dnsTwisted.misp_event_uuid :
+                     (dnsTwisted?.misp_event_uuid ? this.extractUUID(dnsTwisted.misp_event_uuid) : []);
+        
         this.setState({
             showExportModal: true,
-            id: id,
-            domainName: domainName,
-            mispEventId: mispEventId
+            id,
+            domainName,
+            eventUuid: uuid.length > 0 ? uuid[uuid.length - 1] : ''
         });
     };
 
     exportModal = () => {
-        let handleClose;
-        handleClose = () => {
+        const handleClose = () => {
             this.setState({
                 showExportModal: false
             });
         };
 
-        let onSubmitMisp;
-        onSubmitMisp = e => {
+        const onSubmitMisp = e => {
             e.preventDefault();
             const id = this.state.id;
-            const site = {id};
+            
+            const alert = this.props.alerts.find(a => a.dns_twisted.id === id);
+            if (!alert) return;
+            
+            const dnsTwisted = alert.dns_twisted;
+            const uuid = this.extractUUID(dnsTwisted.misp_event_uuid);
+            const latestUuid = uuid.length > 0 ? uuid[uuid.length - 1] : '';
 
-            this.props.exportToMISP(site);
+            const isUpdate = Boolean(uuid.length) || Boolean(this.state.eventUuid.trim());
+            
+            const payload = {
+                id: id
+            };
+            
+            if (this.state.eventUuid.trim()) {
+                payload.event_uuid = this.state.eventUuid.trim();
+            } else if (isUpdate && latestUuid) {
+                payload.event_uuid = latestUuid;
+            }
+        
+            this.props.exportToMISP(payload);
             this.setState({
-                domainName: "",
-                id: 0,
                 exportLoadingMISPTh: id
             });
             handleClose();
         };
 
-        const mispExportButton = (
-            <Button type="submit" className="btn-misp">
-                Export to MISP
-            </Button>);
-        const mispUpdateButton = (
-            <Button type="submit" className="btn-misp">
-                Update MISP IOCs
-            </Button>);
+        const alert = this.props.alerts.find(a => a.dns_twisted.id === this.state.id);
+        if (!alert) return null;
+        
+        const dnsTwisted = alert.dns_twisted;
+        const uuid = this.extractUUID(dnsTwisted.misp_event_uuid);
+        const isUpdate = Boolean(uuid.length) || Boolean(this.state.eventUuid.trim());
 
         return (
-            <Modal show={this.state.showExportModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Container fluid>
-                        <Row className="show-grid">
-                            <Col md={{span: 12}}>
-                                <Modal.Title>Action Requested</Modal.Title>
-                            </Col>
-                            <Col md={{span: 12}} style={{paddingTop: 12, marginLeft: 20}} className="my-auto">
-                                <img src="/static/img/misp_logo.png" style={{maxWidth: "30%", maxHeight: "30%"}}
-                                     className="mx-auto d-block"
-                                     alt="MISP Logo"/>
-                            </Col>
-                        </Row>
-                    </Container>
+            <Modal show={this.state.showExportModal} onHide={handleClose} size="lg" centered>
+                <Modal.Header closeButton className="d-flex align-items-center">
+                    <img
+                        src="/static/img/misp_logo.png"
+                        alt="MISP Logo"
+                        className="me-4 rounded-circle"
+                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                    />
+                    <Modal.Title className="h4 text-white mb-0">
+                        &nbsp;Export <strong>{this.state.domainName}</strong> & <strong>IOCs</strong> to{' '}
+                        <strong><u>MISP</u></strong>
+                    </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
-                    <p>Export <b>{this.state.domainName}</b> & <b>IOCs</b> to <b><u>MISP</u></b>.
-                    </p>
+
+                <Modal.Body className="px-4">
+                    <div className="mb-4">
+                        <div
+                            className="d-flex align-items-center cursor-pointer user-select-none"
+                            onClick={() => this.setState((prev) => ({ showHelp: !prev.showHelp }))}
+                        >
+                            <i className="material-icons text-info me-2">
+                                {this.state.showHelp ? 'expand_less' : 'expand_more'}
+                            </i>
+                            <span className="text-white">Need help with MISP export?</span>
+                        </div>
+
+                        {this.state.showHelp && (
+                            <div className="mt-3 ps-4 border-start border-info cursor-pointer">
+                                <div className="text-white">
+                                    <ul className="mb-0 ps-3">
+                                        {!isUpdate ? (
+                                            <>
+                                                <li>To create a new MISP event: leave the Event UUID field empty</li>
+                                                <li>To update an existing event: provide its Event UUID</li>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <li>The latest event will automatically be updated if no new Event UUID is provided</li>
+                                                <li>To update an existing event: provide its Event UUID</li>
+                                            </>
+                                        )}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <Form.Group>
+                        <Form.Label className="d-flex align-items-center">
+                            <strong>MISP Event UUID</strong>
+                            <span className={`ms-2 badge ${isUpdate ? 'bg-success' : 'bg-primary'}`}>
+                                {isUpdate ? 'Update' : 'Create'}
+                            </span>
+                        </Form.Label>
+                        <Form.Control
+                            type="text"
+                            placeholder="Enter MISP event UUID to update an existing event"
+                            value={this.state.eventUuid}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/[\[\]'\"\s]/g, '');
+                                if (/^[a-f0-9-]*$/.test(value)) this.setState({ eventUuid: value });
+                            }}
+                            pattern="^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                            className="mb-3"
+                        />
+
+                        {uuid.length > 0 && (
+                            <div className="mt-4">
+                                <label className="form-label fw-semibold">Event UUID History:</label>
+                                <div className="list-group">
+                                    {uuid
+                                        .slice()
+                                        .reverse()
+                                        .slice(0, this.state.showAllUuid ? uuid.length : 2)
+                                        .map((uuid, index) => (
+                                            <div
+                                                key={index}
+                                                className="list-group-item d-flex justify-content-between align-items-center"
+                                            >
+                                                {uuid}
+                                                {index === 0 && <span className="badge bg-secondary">Latest</span>}
+                                            </div>
+                                        ))}
+
+                                    {uuid.length > 2 && (
+                                        <div
+                                            className="list-group-item text-center cursor-pointer user-select-none"
+                                            onClick={() => this.setState((prev) => ({ showAllUuid: !prev.showAllUuid }))}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <i className="material-icons align-middle">
+                                                {this.state.showAllUuid ? 'remove_circle_outline' : 'add_circle_outline'}
+                                            </i>
+                                            <span className="ms-2">
+                                                {this.state.showAllUuid ? 'Show Less' : `Show ${uuid.length - 2} More`}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </Form.Group>
                 </Modal.Body>
+
                 <Modal.Footer>
-                    <form onSubmit={onSubmitMisp}>
-                        {this.state.mispEventId ? mispUpdateButton : mispExportButton}
-                    </form>
+                    <Button
+                        variant={isUpdate ? 'success' : 'primary'}
+                        onClick={onSubmitMisp}
+                        className="min-width-140"
+                        disabled={this.state.exportLoadingMISPTh === this.state.id}
+                    >
+                        {this.state.exportLoadingMISPTh === this.state.id ? (
+                            <div className="loader">Loading...</div>
+                        ) : isUpdate ? (
+                            'Update MISP Event'
+                        ) : (
+                            'Create MISP Event'
+                        )}
+                    </Button>
                 </Modal.Footer>
             </Modal>
         );
+    };
+
+    exportButtonMISPTh = alert => {
+        const dnsTwisted = alert.dns_twisted;
+        
+        const hasMispEvent = dnsTwisted.misp_event_uuid && 
+                            (Array.isArray(dnsTwisted.misp_event_uuid) ? 
+                                dnsTwisted.misp_event_uuid.length > 0 : 
+                                this.extractUUID(dnsTwisted.misp_event_uuid).length > 0);
+        
+        return (
+            <button 
+                className={`btn btn-sm mr-2 ${
+                    this.state.exportLoadingMISPTh === dnsTwisted.id ? 
+                    'btn-outline-secondary disabled' : 
+                    hasMispEvent ? 'btn-outline-success' : 'btn-outline-primary'
+                }`}
+                data-toggle="tooltip"
+                data-placement="top" 
+                title={hasMispEvent ? "Update MISP" : "Export to MISP"}
+                onClick={() => this.displayExportModal(dnsTwisted.id, dnsTwisted.domain_name)}
+                disabled={this.state.exportLoadingMISPTh === dnsTwisted.id}
+            >
+                {this.state.exportLoadingMISPTh === dnsTwisted.id ? (
+                    <div className="loader">Loading...</div>
+                ) : (
+                    <i className="material-icons"
+                       style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>
+                      {hasMispEvent ? 'cloud_done' : 'cloud_upload'}
+                    </i>
+                )}
+            </button>
+        );
+    };
+
+    renderMispNotification = () => {
+        if (!this.state.showMispMessage) return null;
+        
+        return (
+            <div 
+                className="position-fixed top-0 end-0 p-3" 
+                style={{ zIndex: 1050, maxWidth: '400px', marginTop: '60px', marginRight: '20px' }}
+            >
+                <div className="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
+                    <img 
+                        src="/static/img/misp_logo.png" 
+                        alt="MISP Logo" 
+                        className="me-3 rounded-circle"
+                        style={{ width: '30px', height: '30px', objectFit: 'cover' }}
+                    />
+                    <div>
+                        <strong className="me-2">MISP:</strong>
+                        {this.state.mispMessage}
+                    </div>
+                    <button 
+                        type="button" 
+                        className="btn-close" 
+                        onClick={() => this.setState({ showMispMessage: false })}
+                        aria-label="Close"
+                    />
+                </div>
+            </div>
+        );
+    };
+
+    getMispStatusBadge = (dns) => {
+        const uuid = this.extractUUID(dns.misp_event_uuid);
+        return uuid.length ? (
+            <span className="badge bg-info me-2" title="MISP Events">
+                <i className="material-icons align-middle me-1" style={{ fontSize: 14 }}>
+                    cloud_done
+                </i>
+                {uuid.length}
+            </span>
+        ) : null;
     };
 
     render() {
@@ -375,22 +588,7 @@ export class Alerts extends Component {
                                                                  }}>playlist_add</i>}
                 </button>)
         );
-        const exportButtonMISPTh = alert => (
-            <button className="btn btn-outline-primary btn-sm mr-2"
-                    data-toggle="tooltip"
-                    data-placement="top" title="Export" onClick={() => {
-                this.displayExportModal(alert.dns_twisted.id, alert.dns_twisted.domain_name, alert.dns_twisted.misp_event_id)
-            }} disabled={this.state.exportLoadingMISPTh === alert.id}>
-
-                {this.state.exportLoadingMISPTh === alert.id && (
-                    <div className="loader">Loading...</div>
-                )}
-                {this.state.exportLoadingMISPTh !== alert.id && (
-                    <i className="material-icons"
-                       style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>cloud_upload</i>
-                )}
-            </button>
-        );
+        
         return (
             <Fragment>
                 <div className="row">
@@ -432,7 +630,7 @@ export class Alerts extends Component {
                                                     }}
                                                             className="btn btn-outline-primary btn-sm mr-2">Disable
                                                     </button>
-                                                    {exportButtonMISPTh(alert)}
+                                                    {this.exportButtonMISPTh(alert)}
                                                     {exportButton(alert)}
                                                 </td>
                                             </tr>);
@@ -446,6 +644,7 @@ export class Alerts extends Component {
                 {this.modal()}
                 {this.addModal()}
                 {this.exportModal()}
+                {this.renderMispNotification()}
             </Fragment>
         )
     }

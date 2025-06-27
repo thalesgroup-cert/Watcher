@@ -3,7 +3,7 @@ from django.db import models
 from django.utils import timezone
 from django_mysql.models import ListCharField
 from django.contrib.auth.models import User
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
 
 class Site(models.Model):
@@ -29,7 +29,6 @@ class Site(models.Model):
     content_monitoring = models.BooleanField(default=True)
     monitored = models.BooleanField(default=False, blank=True, null=True)
     web_status = models.IntegerField(blank=True, null=True)
-    misp_event_id = models.IntegerField(unique=True, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
     expiry = models.DateTimeField(blank=True, null=True)
 
@@ -103,3 +102,13 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+
+@receiver(post_delete, sender=Site)
+def handle_site_deletion(sender, instance, **kwargs):
+    """
+    Signal triggered after deleting a site.
+    Checks if the domain is still monitored elsewhere, otherwise removes the MISP mapping.
+    """
+    from common.models import MISPEventUuidLink
+    MISPEventUuidLink.check_and_delete_unused_domain(instance.domain_name)

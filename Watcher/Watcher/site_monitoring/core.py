@@ -38,7 +38,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/15', id='weekend_job',
+    scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/2', id='weekend_job',
                       max_instances=10,
                       replace_existing=True)
     
