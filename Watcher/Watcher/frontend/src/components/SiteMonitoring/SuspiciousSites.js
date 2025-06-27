@@ -31,7 +31,10 @@ export class SuspiciousSites extends Component {
             emailMonitoring: null,
             mispEventId: null,
             addLoading: false,
-            exportLoading: false
+            exportLoading: false,
+            eventUuid: "",
+            showHelp: false,
+            showAllUuid: false
         };
         this.inputDomainRef = React.createRef();
         this.inputTicketRef = React.createRef();
@@ -49,7 +52,7 @@ export class SuspiciousSites extends Component {
         patchSite: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
-        error: PropTypes.object.isRequired,
+        error: PropTypes.object.isRequired
     };
  
     componentDidMount() {
@@ -57,21 +60,35 @@ export class SuspiciousSites extends Component {
     }
  
     componentDidUpdate(prevProps) {
-        if (this.props.sites !== prevProps.sites) {
-            this.setState({
-                addLoading: false,
-                exportLoading: false
-            });
-        }
-        if (this.props.error !== prevProps.error) {
-            if (this.props.error.status !== null) {
-                this.setState({
-                    addLoading: false,
-                    exportLoading: false
-                });
+        const { sites, error } = this.props;
+    
+        if (sites !== prevProps.sites) {
+            if (this.state.showExportModal) {
+                const currentSite = sites.find((s) => s.id === this.state.id);
+                if (currentSite) {
+                    const uuid = this.extractUUID(currentSite?.misp_event_uuid);
+                    this.setState({
+                        eventUuid: uuid.at(-1) || ''
+                    });
+                }
             }
+            this.setState({ addLoading: false, exportLoading: false });
+        }
+    
+        if (error !== prevProps.error && error.status !== null) {
+            this.setState({ addLoading: false, exportLoading: false });
+        }
+    
+        if (sites !== prevProps.sites || error !== prevProps.error) {
+            this.setState({ exportLoading: null });
         }
     }
+
+    extractUUID = (raw) => {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw.filter(uuid => uuid && uuid.trim() !== '');
+        return raw.replace(/[\[\]'"\s]/g, '').split(',').filter(Boolean);
+    };
  
     displayDeleteModal = (id, domainName) => {
         this.setState({
@@ -367,82 +384,208 @@ export class SuspiciousSites extends Component {
             </Modal>
         );
     };
-    
- 
- 
-    displayExportModal = (id, domainName, ticketId, mispEventId) => {
+
+    displayExportModal = (id, domainName, ticketId) => {
+        const site = this.props.sites.find((s) => s.id === id);
+        const uuid = this.extractUUID(site?.misp_event_uuid);
         this.setState({
-            showExportModal: true,
-            id: id,
-            domainName: domainName,
-            ticketId: ticketId,
-            mispEventId: mispEventId
+          showExportModal: true,
+          id,
+          domainName,
+          ticketId,
+          eventUuid: uuid.at(-1) || ''
         });
-    };
- 
-    exportModal = () => {
-        let handleClose;
-        handleClose = () => {
-            this.setState({
-                showExportModal: false
-            });
+      };
+    
+      exportModal = () => {
+        const handleClose = () => {
+          this.setState({ 
+            showExportModal: false, 
+            eventUuid: '', 
+            showHelp: false 
+        });
         };
- 
-        let onSubmitMisp;
-        onSubmitMisp = e => {
-            e.preventDefault();
-            const id = this.state.id;
-            const site = {id};
- 
-            this.props.exportToMISP(site);
-            this.setState({
-                domainName: "",
-                ticketId: "",
-                id: 0,
-                exportLoading: id
-            });
-            handleClose();
-        };
- 
-        const mispExportButton = (
-            <Button type="submit" className="btn-misp">
-                Export to MISP
-            </Button>);
-        const mispUpdateButton = (
-            <Button type="submit" className="btn-misp">
-                Update MISP IOCs
-            </Button>);
- 
+    
+        const currentSite = this.props.sites.find((site) => site.id === this.state.id);
+        const uuid = this.extractUUID(currentSite?.misp_event_uuid);
+        const latestUuid = uuid.at(-1) || '';
+        
+        const isUpdate = Boolean(uuid.length) || Boolean(this.state.eventUuid.trim());
+    
         return (
-            <Modal show={this.state.showExportModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Container fluid>
-                        <Row className="show-grid">
-                            <Col md={{span: 12}}>
-                                <Modal.Title>Action Requested</Modal.Title>
-                            </Col>
-                            <Col md={{span: 12}} style={{paddingTop: 12, marginLeft: 20}} className="my-auto">
-                                <img src="/static/img/misp_logo.png" style={{maxWidth: "30%", maxHeight: "30%"}}
-                                     className="mx-auto d-block"
-                                     alt="MISP Logo"/>
-                            </Col>
-                        </Row>
-                    </Container>
-                </Modal.Header>
-                <Modal.Body>
-                    <p>Export <b>{this.state.domainName}</b> & <b>IOCs</b> to <b><u>MISP</u></b>.
-                    </p>
-                </Modal.Body>
-                <Modal.Footer>
-                    <form onSubmit={onSubmitMisp}>
-                        {this.state.mispEventId ? mispUpdateButton : mispExportButton}
-                    </form>
-                </Modal.Footer>
-            </Modal>
+          <Modal show={this.state.showExportModal} onHide={handleClose} size="lg" centered>
+            <Modal.Header closeButton className="d-flex align-items-center">
+              <img
+                src="/static/img/misp_logo.png"
+                alt="MISP Logo"
+                className="me-4 rounded-circle"
+                style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+              />
+              <Modal.Title className="h4 text-white mb-0">
+                &nbsp;Export <strong>{this.state.domainName}</strong> & <strong>IOCs</strong> to{' '}
+                <strong><u>MISP</u></strong>
+              </Modal.Title>
+            </Modal.Header>
+    
+            <Modal.Body className="px-4">
+              <div className="mb-4">
+                <div
+                  className="d-flex align-items-center cursor-pointer user-select-none"
+                  onClick={() => this.setState((prev) => ({ showHelp: !prev.showHelp }))}
+                >
+                  <i className="material-icons text-info me-2">
+                    {this.state.showHelp ? 'expand_less' : 'expand_more'}
+                  </i>
+                  <span className="text-white">Need help with MISP export?</span>
+                </div>
+    
+                {this.state.showHelp && (
+                  <div className="mt-3 ps-4 border-start border-info cursor-pointer">
+                    <div className="text-white">
+                      <ul className="mb-0 ps-3">
+                        {!isUpdate ? (
+                          <>
+                            <li>To create a new MISP event: leave the Event UUID field empty</li>
+                            <li>To update an existing event: provide its Event UUID</li>
+                          </>
+                        ) : (
+                          <>
+                            <li>The latest event will automatically be updated if no new Event UUID is provided</li>
+                            <li>To update an existing event: provide its Event UUID</li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+    
+              <Form.Group>
+                <Form.Label className="d-flex align-items-center">
+                  <strong>MISP Event UUID</strong>
+                  <span className={`ms-2 badge ${isUpdate ? 'bg-success' : 'bg-primary'}`}>
+                    {isUpdate ? 'Update' : 'Create'}
+                  </span>
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter MISP event UUID to update an existing event"
+                  value={this.state.eventUuid}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[\[\]'\"\s]/g, '');
+                    if (/^[a-f0-9-]*$/.test(value)) this.setState({ eventUuid: value });
+                  }}
+                  pattern="^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                  className="mb-3"
+                />
+    
+                {uuid.length > 0 && (
+                  <div className="mt-4">
+                    <label className="form-label fw-semibold">Event UUID History:</label>
+                    <div className="list-group">
+                      {uuid
+                        .slice()
+                        .reverse()
+                        .slice(0, this.state.showAllUuid ? uuid.length : 2)
+                        .map((uuid, index) => (
+                          <div
+                            key={index}
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                          >
+                            {uuid}
+                            {index === 0 && <span className="badge bg-secondary">Latest</span>}
+                          </div>
+                        ))}
+    
+                      {uuid.length > 2 && (
+                        <div
+                          className="list-group-item text-center cursor-pointer user-select-none"
+                          onClick={() => this.setState((prev) => ({ showAllUuid: !prev.showAllUuid }))}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <i className="material-icons align-middle">
+                            {this.state.showAllUuid ? 'remove_circle_outline' : 'add_circle_outline'}
+                          </i>
+                          <span className="ms-2">
+                            {this.state.showAllUuid ? 'Show Less' : `Show ${uuid.length - 2} More`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Form.Group>
+            </Modal.Body>
+    
+            <Modal.Footer>
+              <Button
+                variant={isUpdate ? 'success' : 'primary'}
+                onClick={() => {
+                  const site = { 
+                    id: this.state.id, 
+                    event_uuid: (this.state.eventUuid.trim() || (isUpdate ? latestUuid : ''))
+                  };
+                  this.setState({ exportLoading: this.state.id });
+                  this.props.exportToMISP(site);
+                  handleClose();
+                }}
+                className="min-width-140"
+                disabled={this.state.exportLoading === this.state.id}
+              >
+                {this.state.exportLoading === this.state.id ? (
+                  <div className="loader">Loading...</div>
+                ) : isUpdate ? (
+                  'Update MISP Event'
+                ) : (
+                  'Create MISP Event'
+                )}
+              </Button>
+            </Modal.Footer>
+          </Modal>
+        );
+      };
+    
+      getMispStatusBadge = (site) => {
+        const uuid = this.extractUUID(site.misp_event_uuid);
+        return uuid.length ? (
+          <span className="badge bg-info me-2" title="MISP Events">
+            <i className="material-icons align-middle me-1" style={{ fontSize: 14 }}>
+              cloud_done
+            </i>
+            {uuid.length}
+          </span>
+        ) : null;
+      };
+
+      exportButton = site => {
+        const uuid = this.extractUUID(site.misp_event_uuid);
+        const hasUuid = uuid.length > 0;
+        
+        return (
+            <button 
+                className={`btn btn-sm mr-2 ${
+                    this.state.exportLoading === site.id ? 
+                    'btn-outline-secondary disabled' : 
+                    hasUuid ? 'btn-outline-success' : 'btn-outline-primary'
+                }`}
+                data-toggle="tooltip"
+                data-placement="top" 
+                title={hasUuid ? "Update MISP" : "Export to MISP"}
+                onClick={() => this.displayExportModal(site.id, site.domain_name, site.ticket_id)}
+                disabled={this.state.exportLoading === site.id}
+            >
+                {this.state.exportLoading === site.id ? (
+                    <div className="loader">Loading...</div>
+                ) : (
+                    <i className="material-icons"
+                    style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>
+                    {hasUuid ? 'cloud_done' : 'cloud_upload'}
+                    </i>
+                )}
+            </button>
         );
     };
- 
- 
+
     render() {
         const yes_monitoring = (
             <i className="material-icons text-success mt-1 col-lg-12"
@@ -463,22 +606,6 @@ export class SuspiciousSites extends Component {
             <i className="material-icons text-danger mt-1 col-lg-12"
                data-toggle="tooltip" data-placement="top" title={status === null ? "Website unreachable" : status}
                style={{fontSize: 21}}>error</i>
-        );
-        const exportButton = site => (
-            <button className="btn btn-outline-primary btn-sm mr-2"
-                    data-toggle="tooltip"
-                    data-placement="top" title="Export" onClick={() => {
-                this.displayExportModal(site.id, site.domain_name, site.ticket_id, site.misp_event_id)
-            }} disabled={this.state.exportLoading === site.id}>
- 
-                {this.state.exportLoading === site.id && (
-                    <div className="loader">Loading...</div>
-                )}
-                {this.state.exportLoading !== site.id && (
-                    <i className="material-icons"
-                       style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>cloud_upload</i>
-                )}
-            </button>
         );
  
         return (
@@ -538,7 +665,7 @@ export class SuspiciousSites extends Component {
                                         <td>{(new Date(site.created_at)).toDateString()}</td>
                                         <td>{site.expiry ? (new Date(site.expiry)).toDateString() : "-"}</td>
                                         <td className="text-right" style={{whiteSpace: 'nowrap'}}>
-                                            {site.monitored ? exportButton(site) : null}
+                                            {site.monitored ? this.exportButton(site) : null}
                                             <button className="btn btn-outline-warning btn-sm mr-2"
                                                     data-toggle="tooltip"
                                                     data-placement="top" title="Edit" onClick={() => {
@@ -574,7 +701,8 @@ export class SuspiciousSites extends Component {
 const mapStateToProps = state => ({
     sites: state.SiteMonitoring.sites,
     auth: state.auth,
-    error: state.errors
+    error: state.errors,
+    mispMessage: state.SiteMonitoring.mispMessage
 });
  
 export default connect(mapStateToProps, {
