@@ -496,7 +496,7 @@ Watcher provides comprehensive MISP integration with intelligent cloud button in
 
 - **Automatic Object Creation**: When exporting to MISP for the first time, Watcher automatically creates MISP objects during the export process.
 
-- **Attribute Updates**: For domains already present in MISP, Watcher updates existing attributes to maintain data consistency.
+- **Attribute Updates**: For domains already present in MISP, Watcher does not automatically overwrite existing attributes but allows users to manually add new IOC's. The user must manually trigger the update to add new IOC's to MISP, and Watcher only appends them without removing or overwriting current data to maintain data consistency.
 
 - **Manual UUID Support**: During export, you can manually specify an existing MISP Event UUID to link your data to a specific MISP event.
 
