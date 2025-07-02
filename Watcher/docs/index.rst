@@ -8,8 +8,7 @@ Welcome to Watcher's documentation!
    :caption: Contents:
 
    /README.md
-   modules/site_monitoring_misp
-   modules/common_core
+   modules/common_misp
    modules/threats_watcher_core
    modules/data_leak_core
    modules/site_monitoring_core
