@@ -1,6 +1,6 @@
 # Web Framework and Application Enhancements
 mysqlclient==2.1.1
-django==5.0.11
+django==5.2.3
 django-mysql==4.15.0
 djangorestframework==3.15.2
 django-rest-knox==4.2.0
@@ -35,4 +35,4 @@ ipaddress==1.0.23
 shadow-useragent==0.0.17
 
 # Cybersecurity and Incident Response
-pymisp==2.5.3
+pymisp==2.5.12

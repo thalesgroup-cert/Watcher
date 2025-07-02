@@ -34,7 +34,7 @@ except Exception as e:
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
-        - Fire monitoring_check from Monday to Sunday : minute='*/6'
+        - Fire `monitoring_check` every 6 minutes from Monday to Sunday
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
