@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 2.1.2 documentation</title>
+  <title>Install Watcher &mdash; Watcher 2.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
@@ -14,13 +14,13 @@
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=b3e23499"></script>
+      <script src="_static/documentation_options.js?v=b21de401"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="MISP API" href="modules/site_monitoring_misp.html" />
+    <link rel="next" title="MISP API" href="modules/common_misp.html" />
     <link rel="prev" title="Welcome to Watcher’s documentation!" href="index.html" /> 
 </head>
 
@@ -84,6 +84,9 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#misp-export">MISP Export</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#from-website-monitoring">From Website Monitoring</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#from-dns-finder">From DNS Finder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#misp-export-features">MISP Export Features</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id1">Troubleshooting</a></li>
 </ul>
 </li>
@@ -109,8 +112,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#build-the-documentation">Build the documentation</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_misp.html">MISP API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/common_core.html">Common - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/common_misp.html">MISP API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
@@ -164,8 +166,8 @@
 watcher          | Performing system checks...
 watcher          | 
 watcher          | System check identified no issues (0 silenced).
-watcher          | January 08, 2025 - 11:43:02
-watcher          | Django version 5.0.10, using settings &#39;watcher.settings&#39;
+watcher          | July 02, 2025 - 10:23:00
+watcher          | Django version 5.2.3, using settings &#39;watcher.settings&#39;
 watcher          | Starting development server at http://0.0.0.0:9002/
 watcher          | Quit the server with CONTROL-C.
 </pre></div>
@@ -677,12 +679,40 @@ docker compose up
 </section>
 <section id="misp-export">
 <h2>MISP Export<a class="headerlink" href="#misp-export" title="Link to this heading"></a></h2>
-<p>You can export <strong>monitored DNS</strong> to <a class="reference external" href="https://www.misp-project.org/">MISP</a>:</p>
+<p>You can export monitored domains to <a class="reference external" href="https://www.misp-project.org/">MISP</a> from two different modules:</p>
+<section id="from-website-monitoring">
+<h3>From Website Monitoring<a class="headerlink" href="#from-website-monitoring" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>Go to <strong>/website_monitoring</strong> page.</p></li>
-<li><p>Add new DNS to monitored.</p></li>
-<li><p>Click on the <strong>blue upload/cloud button</strong>.</p></li>
+<li><p>Add new domains to monitored list.</p></li>
+<li><p>Click on the <strong>cloud button</strong> next to each domain.</p></li>
 </ul>
+</section>
+<section id="from-dns-finder">
+<h3>From DNS Finder<a class="headerlink" href="#from-dns-finder" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Go to <strong>/dns_finder</strong> page.</p></li>
+<li><p>View detected DNS alerts.</p></li>
+<li><p>Click on the <strong>cloud button</strong> next to each DNS finding.</p></li>
+</ul>
+</section>
+<section id="misp-export-features">
+<h3>MISP Export Features<a class="headerlink" href="#misp-export-features" title="Link to this heading"></a></h3>
+<p>Watcher provides comprehensive MISP integration with intelligent cloud button indicators and the following capabilities:</p>
+<ul class="simple">
+<li><p><strong>Smart Cloud Button Status</strong>: The cloud button appearance changes based on the domain’s MISP status:</p>
+<ul>
+<li><p><strong>Blue cloud button</strong>: Domain is not yet exported to MISP.</p></li>
+<li><p><strong>Green cloud button</strong>: Domain already exists in MISP and is linked to an event.</p></li>
+</ul>
+</li>
+<li><p><strong>Automatic Object Creation</strong>: When exporting to MISP for the first time, Watcher automatically creates MISP objects during the export process.</p></li>
+<li><p><strong>Attribute Updates</strong>: For domains already present in MISP, Watcher does not automatically overwrite existing attributes but allows users to manually add new IOC’s. The user must manually trigger the update to add new IOC’s to MISP, and Watcher only appends them without removing or overwriting current data to maintain data consistency.</p></li>
+<li><p><strong>Manual UUID Support</strong>: During export, you can manually specify an existing MISP Event UUID to link your data to a specific MISP event.</p></li>
+<li><p><strong>UUID Display</strong>: If a domain is already linked to a MISP event, Watcher displays the existing UUID for reference in the export dialog.</p></li>
+</ul>
+<p>This enhanced MISP integration ensures seamless threat intelligence sharing and maintains proper relationships between your monitored assets and MISP events.</p>
+</section>
 <section id="id1">
 <h3>Troubleshooting<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
 <p>If the export do not work as expected, this may be related with
@@ -927,7 +957,7 @@ Otherwise, it will create <strong>several unnecessary migration files</strong>.<
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Welcome to Watcher’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="modules/site_monitoring_misp.html" class="btn btn-neutral float-right" title="MISP API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="modules/common_misp.html" class="btn btn-neutral float-right" title="MISP API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

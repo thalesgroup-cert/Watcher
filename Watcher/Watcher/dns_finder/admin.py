@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import DnsMonitored, DnsTwisted, Alert, Subscriber, KeywordMonitored
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
+from common.misp import get_misp_uuid
 
 
 def custom_titled_filter(title):
@@ -88,13 +89,26 @@ class DnsMonitored(ImportExportModelAdmin):
 
 @admin.register(DnsTwisted)
 class DnsTwisted(ExportMixin, admin.ModelAdmin):
-    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'created_at']
+    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'display_misp_uuid', 'created_at']
     list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer']
     search_fields = ['domain_name']
+    readonly_fields = ['display_misp_uuid']
     resource_class = DnsTwistedResource
 
     def has_add_permission(self, request):
         return False
+    
+    def display_misp_uuid(self, obj):
+        uuid = get_misp_uuid(obj.domain_name)
+        if not uuid:
+            return "-"
+        
+        if len(uuid) == 1:
+            return uuid[0]
+        else:
+            return ", ".join(uuid)
+
+    display_misp_uuid.short_description = "MISP Event UUID"
 
 
 @admin.register(Subscriber)
