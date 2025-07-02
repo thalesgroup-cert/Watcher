@@ -19,8 +19,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | January 08, 2025 - 11:43:02
-    watcher          | Django version 5.0.10, using settings 'watcher.settings'
+    watcher          | July 02, 2025 - 10:23:00
+    watcher          | Django version 5.2.3, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
@@ -474,11 +474,35 @@ Following this pattern, you can easily navigate and retrieve specific informatio
 
 
 ## MISP Export
-You can export **monitored DNS** to [MISP](https://www.misp-project.org/):
+You can export monitored domains to [MISP](https://www.misp-project.org/) from two different modules:
 
-  - Go to **/website_monitoring** page.
-  - Add new DNS to monitored.
-  - Click on the **blue upload/cloud button**.
+### From Website Monitoring
+- Go to **/website_monitoring** page.
+- Add new domains to monitored list.
+- Click on the **cloud button** next to each domain.
+
+### From DNS Finder
+- Go to **/dns_finder** page.
+- View detected DNS alerts.
+- Click on the **cloud button** next to each DNS finding.
+
+### MISP Export Features
+
+Watcher provides comprehensive MISP integration with intelligent cloud button indicators and the following capabilities:
+
+- **Smart Cloud Button Status**: The cloud button appearance changes based on the domain's MISP status:
+  - **Blue cloud button**: Domain is not yet exported to MISP.
+  - **Green cloud button**: Domain already exists in MISP and is linked to an event.
+
+- **Automatic Object Creation**: When exporting to MISP for the first time, Watcher automatically creates MISP objects during the export process.
+
+- **Attribute Updates**: For domains already present in MISP, Watcher does not automatically overwrite existing attributes but allows users to manually add new IOC's. The user must manually trigger the update to add new IOC's to MISP, and Watcher only appends them without removing or overwriting current data to maintain data consistency.
+
+- **Manual UUID Support**: During export, you can manually specify an existing MISP Event UUID to link your data to a specific MISP event.
+
+- **UUID Display**: If a domain is already linked to a MISP event, Watcher displays the existing UUID for reference in the export dialog.
+
+This enhanced MISP integration ensures seamless threat intelligence sharing and maintains proper relationships between your monitored assets and MISP events.
 
 ### Troubleshooting
 If the export do not work as expected, this may be related with 

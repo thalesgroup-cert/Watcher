@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MISP API &mdash; Watcher 2.1.2 documentation</title>
+  <title>MISP API &mdash; Watcher 2.2.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="../_static/Watcher-favicon.ico"/>
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=b3e23499"></script>
+      <script src="../_static/documentation_options.js?v=b21de401"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -50,13 +50,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../README.html#use-watcher">Use Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">MISP API</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.site_monitoring.misp.create_attributes"><code class="docutils literal notranslate"><span class="pre">create_attributes()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.site_monitoring.misp.create_misp_tags"><code class="docutils literal notranslate"><span class="pre">create_misp_tags()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.site_monitoring.misp.search_attributes"><code class="docutils literal notranslate"><span class="pre">search_attributes()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.site_monitoring.misp.update_attributes"><code class="docutils literal notranslate"><span class="pre">update_attributes()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">MISP API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_leak_core.html">Data Leak - Core Algorithm</a></li>
@@ -88,82 +82,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-Watcher.site_monitoring.misp">
-<span id="misp-api"></span><h1>MISP API<a class="headerlink" href="#module-Watcher.site_monitoring.misp" title="Link to this heading"></a></h1>
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.site_monitoring.misp.create_attributes">
-<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.misp.</span></span><span class="sig-name descname"><span class="pre">create_attributes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.create_attributes" title="Link to this definition"></a></dt>
-<dd><p>Create MISP IOCs attributes.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>misp_api</strong> – MISP Object API.</p></li>
-<li><p><strong>event_id</strong> – MISP Event ID.</p></li>
-<li><p><strong>site</strong> – Site Object.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.site_monitoring.misp.create_misp_tags">
-<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.misp.</span></span><span class="sig-name descname"><span class="pre">create_misp_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.create_misp_tags" title="Link to this definition"></a></dt>
-<dd><p>Check if all tags exist in the MISP instance and if one is not, create it.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>misp_api</strong> – MISP Object API.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Tags created.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>list</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.site_monitoring.misp.search_attributes">
-<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.misp.</span></span><span class="sig-name descname"><span class="pre">search_attributes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attribute_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.search_attributes" title="Link to this definition"></a></dt>
-<dd><p>Search MISP Event Attributes.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>site_id</strong> – Site Object ID.</p></li>
-<li><p><strong>misp_api</strong> – MISP Object API.</p></li>
-<li><p><strong>event_id</strong> – MISP Event ID.</p></li>
-<li><p><strong>attribute_value</strong> – Attribute Value.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>True if there is MISP Event Attributes.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>bool</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.site_monitoring.misp.update_attributes">
-<span class="sig-prename descclassname"><span class="pre">Watcher.site_monitoring.misp.</span></span><span class="sig-name descname"><span class="pre">update_attributes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.site_monitoring.misp.update_attributes" title="Link to this definition"></a></dt>
-<dd><p>Update MISP IOCs attributes.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>misp_api</strong> – MISP Object API.</p></li>
-<li><p><strong>site</strong> – Site Object.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p></p>
-</dd>
-</dl>
-</dd></dl>
-
+  <section id="misp-api">
+<h1>MISP API<a class="headerlink" href="#misp-api" title="Link to this heading"></a></h1>
 </section>
 
 
