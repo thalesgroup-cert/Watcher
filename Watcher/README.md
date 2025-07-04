@@ -19,8 +19,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | July 02, 2025 - 10:23:00
-    watcher          | Django version 5.2.3, using settings 'watcher.settings'
+    watcher          | January 08, 2025 - 11:43:02
+    watcher          | Django version 5.0.10, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
@@ -474,35 +474,11 @@ Following this pattern, you can easily navigate and retrieve specific informatio
 
 
 ## MISP Export
-You can export monitored domains to [MISP](https://www.misp-project.org/) from two different modules:
+You can export **monitored DNS** to [MISP](https://www.misp-project.org/):
 
-### From Website Monitoring
-- Go to **/website_monitoring** page.
-- Add new domains to monitored list.
-- Click on the **cloud button** next to each domain.
-
-### From DNS Finder
-- Go to **/dns_finder** page.
-- View detected DNS alerts.
-- Click on the **cloud button** next to each DNS finding.
-
-### MISP Export Features
-
-Watcher provides comprehensive MISP integration with intelligent cloud button indicators and the following capabilities:
-
-- **Smart Cloud Button Status**: The cloud button appearance changes based on the domain's MISP status:
-  - **Blue cloud button**: Domain is not yet exported to MISP.
-  - **Green cloud button**: Domain already exists in MISP and is linked to an event.
-
-- **Automatic Object Creation**: When exporting to MISP for the first time, Watcher automatically creates MISP objects during the export process.
-
-- **Attribute Updates**: For domains already present in MISP, Watcher does not automatically overwrite existing attributes but allows users to manually add new IOC's. The user must manually trigger the update to add new IOC's to MISP, and Watcher only appends them without removing or overwriting current data to maintain data consistency.
-
-- **Manual UUID Support**: During export, you can manually specify an existing MISP Event UUID to link your data to a specific MISP event.
-
-- **UUID Display**: If a domain is already linked to a MISP event, Watcher displays the existing UUID for reference in the export dialog.
-
-This enhanced MISP integration ensures seamless threat intelligence sharing and maintains proper relationships between your monitored assets and MISP events.
+  - Go to **/website_monitoring** page.
+  - Add new DNS to monitored.
+  - Click on the **blue upload/cloud button**.
 
 ### Troubleshooting
 If the export do not work as expected, this may be related with 
@@ -604,11 +580,14 @@ Then, follow the steps below:
 
 - **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
 - **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
+- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
 - **Pull Watcher code:** `git clone <your_forked_repository.git>`
 - **Move to the following directory:** `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
+- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
+- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
