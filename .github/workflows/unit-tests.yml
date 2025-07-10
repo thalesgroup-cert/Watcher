@@ -65,27 +65,7 @@ jobs:
       name: Install Node.js dependencies
       working-directory: ./Watcher/
       run: npm install
-    
-    -
-      name: Run Django migrations
-      working-directory: ./Watcher/Watcher
-      run: python manage.py migrate
-      env:
-        DATABASE_HOST: 127.0.0.1
-        DATABASE_PORT: 3306
-    
-    -
-      name: Create Django superuser for tests
-      working-directory: ./Watcher/Watcher
-      run: |
-        python manage.py shell -c "
-        from django.contrib.auth.models import User;
-        User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher')
-        "
-      env:
-        DATABASE_HOST: 127.0.0.1
-        DATABASE_PORT: 3306
-    
+
     -
       name: Run Django tests
       working-directory: ./Watcher/Watcher
