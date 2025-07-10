@@ -2,12 +2,8 @@ name: Unit Tests
 
 on:
   push:
-    paths:
-    - 'Watcher/**'
     branches: [ feature/unit-tests ]
   pull_request:
-    paths:
-    - 'Watcher/**'
     branches: [ feature/unit-tests ]
   workflow_dispatch:
 
@@ -44,7 +40,7 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: 'Watcher/Watcher/package-lock.json'
+        cache-dependency-path: 'Watcher/package-lock.json'
     
     -
       name: Install system dependencies
@@ -55,19 +51,19 @@ jobs:
     
     -
       name: Install Python dependencies
-      working-directory: ./Watcher/Watcher
+      working-directory: ./Watcher/
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
     -
       name: Install NLTK dependencies
-      working-directory: ./Watcher/Watcher
+      working-directory: ./Watcher/
       run: python nltk_dependencies.py
     
     -
       name: Install Node.js dependencies
-      working-directory: ./Watcher/Watcher
+      working-directory: ./Watcher/
       run: npm install
     
     -
