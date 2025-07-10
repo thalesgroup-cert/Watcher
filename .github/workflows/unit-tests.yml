@@ -1,0 +1,119 @@
+name: Unit Tests
+
+on:
+  push:
+    paths:
+    - 'Watcher/**'
+    branches: [ feature/unit-tests ]
+  pull_request:
+    paths:
+    - 'Watcher/**'
+    branches: [ feature/unit-tests ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: db_watcher
+          MYSQL_USER: watcher
+          MYSQL_PASSWORD: Ee5kZm4fWWAmE9hs!
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+    -
+      name: Checkout code
+      uses: actions/checkout@v3
+    
+    -
+      name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    -
+      name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'Watcher/Watcher/package-lock.json'
+    
+    -
+      name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libsasl2-dev python3-dev libldap2-dev libssl-dev
+        sudo apt install -y default-libmysqlclient-dev
+    
+    -
+      name: Install Python dependencies
+      working-directory: ./Watcher/Watcher
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    -
+      name: Install NLTK dependencies
+      working-directory: ./Watcher/Watcher
+      run: python nltk_dependencies.py
+    
+    -
+      name: Install Node.js dependencies
+      working-directory: ./Watcher/Watcher
+      run: npm install
+    
+    -
+      name: Run Django migrations
+      working-directory: ./Watcher/Watcher
+      run: python manage.py migrate
+      env:
+        DATABASE_HOST: 127.0.0.1
+        DATABASE_PORT: 3306
+    
+    -
+      name: Create Django superuser for tests
+      working-directory: ./Watcher/Watcher
+      run: |
+        python manage.py shell -c "
+        from django.contrib.auth.models import User;
+        User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher')
+        "
+      env:
+        DATABASE_HOST: 127.0.0.1
+        DATABASE_PORT: 3306
+    
+    -
+      name: Run Django tests
+      working-directory: ./Watcher/Watcher
+      run: python manage.py test --verbosity=1
+      env:
+        DATABASE_HOST: 127.0.0.1
+        DATABASE_PORT: 3306
+    
+    -
+      name: Start Django server in background
+      working-directory: ./Watcher/Watcher
+      run: |
+        python manage.py runserver 127.0.0.1:8000 &
+        sleep 10
+      env:
+        DATABASE_HOST: 127.0.0.1
+        DATABASE_PORT: 3306
+    
+    -
+      name: Wait for server to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://127.0.0.1:8000; do sleep 2; done'
+    
+    -
+      name: Run Cypress tests
+      working-directory: ./Watcher/Watcher
+      run: npm run cypress:run
