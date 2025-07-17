@@ -1,0 +1,64 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ feature/unit-tests ]
+  pull_request:
+    branches: [ feature/unit-tests ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0.42
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: db_watcher
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      working-directory: ./Watcher/
+      run: |
+        # System dependencies
+        sudo apt update && sudo apt install -y libsasl2-dev python3-dev libldap2-dev libssl-dev default-libmysqlclient-dev &
+        echo "127.0.0.1 db_watcher" | sudo tee -a /etc/hosts
+        wait
+        
+        # Project dependencies
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt &
+        npm install &
+        wait  
+    
+    - name: Run back-end tests
+      working-directory: ./Watcher/Watcher
+      run: python manage.py test
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+
+    - name: Run front-end tests
+      working-directory: ./Watcher/Watcher
+      run: |
+        python manage.py migrate
+        python manage.py shell -c "
+        from django.contrib.auth.models import User
+        User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher')
+        "
+        python manage.py runserver 127.0.0.1:8000 &
+        sleep 10
+        timeout 60 bash -c 'until curl -f http://127.0.0.1:8000; do sleep 2; done'
+        npm run cypress:run
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+      continue-on-error: true
