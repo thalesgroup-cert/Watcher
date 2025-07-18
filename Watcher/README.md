@@ -473,6 +473,41 @@ By making a GET request to this URL using your web browser, CURL, or any HTTP cl
 Following this pattern, you can easily navigate and retrieve specific information for any item in the system, ensuring efficient use of the available API endpoints.
 
 
+## TheHive Export
+
+Watcher provides automatic integration with [TheHive](https://strangebee.com/thehive/) for streamlined case management and incident response across multiple modules:
+
+### Automatic Export from All Modules
+- **Threats Watcher**: Automatically exports trending cybersecurity threats and buzzwords.
+- **Data Leak**: Automatically creates alerts when data leaks are detected via keywords.
+- **Website Monitoring**: Automatically creates alerts in TheHive when site changes are detected.
+- **DNS Finder**: Automatically exports twisted DNS findings and certificate transparency alerts.
+
+### TheHive Integration Features
+
+Watcher provides comprehensive TheHive integration with intelligent automation and the following capabilities:
+
+- **Automatic Alert Creation**: When threats are detected, Watcher automatically creates alerts in TheHive without manual intervention, ensuring immediate incident response workflow initiation.
+
+- **Smart Case Management**: For existing cases, Watcher intelligently updates alerts by adding new observables and comments rather than creating duplicate alerts, maintaining case consistency and reducing noise.
+
+- **Observable Enrichment**: Watcher automatically populates alerts with relevant observables (domains, IPs, URLs) and contextual tags based on the detection source and type, providing analysts with enriched threat intelligence.
+
+- **Custom Field Integration**: Watcher uses custom fields to maintain proper relationships between alerts and the originating Watcher instance, enabling seamless cross-platform tracking.
+
+- **Ticket ID Correlation**: For website monitoring, Watcher correlates alerts with existing ticket IDs to group related incidents and maintain proper case lineage.
+
+This automated TheHive integration ensures immediate threat visibility and accelerates incident response workflows by eliminating manual alert creation and maintaining proper case relationships.
+
+### Troubleshooting
+If the export does not work as expected, this may be related to the configuration of your TheHive instance.
+
+Ensure that your TheHive API configuration is properly set up in the `.env` file and that the custom fields are correctly configured:
+
+- Verify TheHive connectivity and API permissions.
+- Check custom field configuration in your TheHive instance.
+
+
 ## MISP Export
 You can export monitored domains to [MISP](https://www.misp-project.org/) from two different modules:
 
@@ -673,7 +708,7 @@ Watcher includes comprehensive unit tests to ensure code quality and reliability
 
 The test suite covers all 4 main modules of Watcher:
 
-- **Back-End Tests**: Python's standard `unittest` module
+- **Back-End Tests**: Python's standard unittest module
   - `common/tests.py`
   - `watcher/tests.py`
   - Module-specific test files for each component
