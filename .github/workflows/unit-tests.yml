@@ -41,12 +41,7 @@ jobs:
     
     - name: Run back-end tests
       working-directory: ./Watcher/Watcher
-      run: |
-        python manage.py test watcher
-        python manage.py test threats_watcher
-        python manage.py test data_leak
-        python manage.py test site_monitoring
-        python manage.py test dns_finder
+      run: python manage.py test
       env:
         DB_USER: root
         DB_PASSWORD: root
