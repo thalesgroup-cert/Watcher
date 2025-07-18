@@ -61,4 +61,3 @@ jobs:
       env:
         DB_USER: root
         DB_PASSWORD: root
-      continue-on-error: true
