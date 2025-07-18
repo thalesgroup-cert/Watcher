@@ -1,10 +1,10 @@
-name: Docker Image Test
+name: Unit Tests
 
 on:
   push:
-    paths:
-    - 'Watcher/**'
-    branches: [ test ]
+    branches: [ feature/unit-tests ]
+  pull_request:
+    branches: [ feature/unit-tests ]
   workflow_dispatch:
 
 jobs:
@@ -28,10 +28,12 @@ jobs:
     - name: Install dependencies
       working-directory: ./Watcher/
       run: |
+        # System dependencies
         sudo apt update && sudo apt install -y libsasl2-dev python3-dev libldap2-dev libssl-dev default-libmysqlclient-dev &
         echo "127.0.0.1 db_watcher" | sudo tee -a /etc/hosts
         wait
         
+        # Project dependencies
         python -m pip install --upgrade pip
         pip install -r requirements.txt &
         npm install &
@@ -59,29 +61,3 @@ jobs:
       env:
         DB_USER: root
         DB_PASSWORD: root
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build and push
-      id: docker_build
-      uses: docker/build-push-action@v3
-      with:
-        context: "{{defaultContext}}:Watcher"
-        push: true
-        tags: felix83000/watcher:test
-        labels: ${{ steps.meta.outputs.labels }}
