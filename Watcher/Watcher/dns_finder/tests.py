@@ -248,12 +248,3 @@ class PerformanceTest(TestCase):
         for keyword in valid_keywords:
             kw = KeywordMonitored.objects.create(name=f"test-{keyword}")
             self.assertEqual(kw.name, f"test-{keyword}")
-
-
-class DnsFinderTestCase(TestCase):
-    def test_dns_monitored_creation(self):
-        self.assertEqual(1, 2, "Test failed")
-        
-    def test_keyword_monitored_creation(self):
-        keyword = KeywordMonitored.objects.create(name="test-keyword")
-        self.assertEqual(keyword.name, "test-keyword")
