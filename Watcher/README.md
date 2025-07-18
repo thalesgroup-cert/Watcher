@@ -604,14 +604,11 @@ Then, follow the steps below:
 
 - **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
 - **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
-- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
 - **Pull Watcher code:** `git clone <your_forked_repository.git>`
 - **Move to the following directory:** `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
-- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
-- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
@@ -666,7 +663,109 @@ If you are working on a test environment and willing to have email alerts, here 
 - Modify the mail settings in the environment variables: `vi /.env`
     - `SMTP_SERVER=localhost`
     - `EMAIL_FROM=from@from.com`
-- Launch Watcher: `python3 Watcher/Watcher/manage.py runserver` 
+- Launch Watcher: `python Watcher/Watcher/manage.py runserver` 
+
+## Unit Testing
+
+Watcher includes comprehensive unit tests to ensure code quality and reliability. **When contributing new features, you must include corresponding unit tests.**
+
+### Test Coverage & Technologies
+
+The test suite covers all 4 main modules of Watcher:
+
+- **Back-End Tests**: Python's standard `unittest` module
+  - `common/tests.py`
+  - `watcher/tests.py`
+  - Module-specific test files for each component
+
+- **Front-End Tests**: Cypress framework for JavaScript testing
+  - Cypress tests for all 4 modules
+  - End-to-end testing scenarios
+
+### Automated CI/CD Testing
+
+All tests are **automatically executed** in our CI/CD pipeline using **GitHub Actions**:
+
+- **Triggered on**: Push, Pull Requests, and manual workflow dispatch
+- **Execution**: Both back-end and front-end tests run automatically
+- **Coverage**: Full test suite validation before code integration
+
+The CI/CD workflow ensures that:
+- No broken code reaches the main branch
+- All new features are properly tested
+- Regression testing is performed automatically
+- Test results are visible in Pull Request status checks
+
+You can view the workflow file at `.github/workflows/unit-tests.yml` and monitor test results in the **Actions** tab of the GitHub repository.
+
+
+### The commands
+
+**IMPORTANT**: All test commands must be executed from the `Watcher/Watcher` directory:
+
+```bash
+cd Watcher/Watcher
+```
+
+#### Back-End Tests
+To run all Django unit tests:
+
+```bash
+python manage.py test
+```
+
+To run tests for a specific module:
+
+```bash
+python manage.py test <module_name>
+```
+
+To run with verbose output:
+
+```bash
+python manage.py test --verbosity=2
+```
+
+#### Front-End Tests
+
+To run with an interactive Cypress Test Runner:
+
+```bash
+npm run cypress:open
+```
+
+To run in headless mode (CI/CD):
+
+```bash
+npm run test:e2e
+```
+
+### Development Guidelines
+
+Here is the file structure of the test files in Watcher:
+```
+Watcher/
+├── common/
+│   └── tests.py
+├── watcher/
+│   └── tests.py
+├── [module_name]/
+│   └── tests.py
+└── cypress/
+    ├── e2e/
+    └── support/
+```
+
+- **For new modules**, create a `tests.py` file following Django's testing conventions.
+- **For frontend features**, add Cypress tests in the appropriate `cypress/e2e/` directory.
+
+**When developing new features**, ensure your tests cover:
+- Happy path scenarios
+- Edge cases
+- Error handling
+- Input validation
+
+<span style="color:red">**[IMPORTANT]** All Pull Requests must include tests for new functionality. PRs without adequate test coverage may be rejected.</span>
 
 ## Modify the frontend
 If you need to modify the frontend `/Watcher/Watcher/frontend`:

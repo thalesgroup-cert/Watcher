@@ -74,7 +74,7 @@ if os.environ.get('CSRF_TRUSTED_ORIGINS', '') != '':
 
 # Feed Parser Configuration
 POSTS_DEPTH = 30
-WORDS_OCCURRENCE = 5
+WORDS_OCCURRENCE = 7
 # Example for daily watch : PostsDepth = 30 et WordsOccurrence = 5
 # Example for a continuous watch : PostsDepth = 3 et WordsOccurrence = 8
 # Example for a Monday morning watch : PostsDepth = 50 et WordsOccurrence = 0

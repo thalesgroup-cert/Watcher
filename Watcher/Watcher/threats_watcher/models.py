@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+
 from django.db import models
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
@@ -12,7 +13,6 @@ class Source(models.Model):
     Stores Source RSS Feed Url which will be used to find new words tendencies in **threats_watcher/apps.py** Algorithms.
     """
     url = models.URLField(max_length=350, unique=True)
-    confident = models.IntegerField(default=1)
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -42,7 +42,6 @@ class TrendyWord(models.Model):
     name = models.CharField(max_length=100)
     occurrences = models.IntegerField(default=1,
                                       help_text="Incremented by one when the same word is found in another post from RSS Feeds.")
-    score = models.FloatField(default=0, help_text="Average confidence score from source (1=100%, 2=50%, 3=20%)")
     posturls = models.ManyToManyField(PostUrl)
     created_at = models.DateTimeField(default=timezone.now)
 

@@ -11,30 +11,15 @@ WORKDIR /app/
 # Add the rest of the code
 COPY ./ /app/
 
-# Install system libraries for mysqlclient, ldap, etc.
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    build-essential \
-    libsasl2-dev \
-    libldap2-dev \
-    libssl-dev \
-    curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-
-# Install Rust (for tokenizers, etc)
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
-    . $HOME/.cargo/env && \
-    export PATH="$HOME/.cargo/bin:$PATH"
-
-# Copy requirements.txt (for Docker cache)
-COPY requirements.txt .
+# Install python-ldap dependencies
+RUN apt-get update && apt-get install --no-install-recommends  -y \
+    libsasl2-dev=2.1.28* \
+    libldap2-dev=2.5.13* \
+    libssl-dev=3.0.15* && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install torch, torchvision, torchaudio separately via their repo
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0
 
 # Install nltk.tokenize dependencies
 RUN python ./nltk_dependencies.py

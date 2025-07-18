@@ -26,16 +26,11 @@ class Command(BaseCommand, ABC):
             print(str(timezone.now()) + " - Updated Blocklist.")
 
         # Init Source DB with common sources from CSV File
-        with open('threats_watcher/datas/sources.csv', newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile, delimiter=';') 
+        with open('threats_watcher/datas/sources.csv') as csvfile:
+            reader = csv.DictReader(csvfile)
             for row in reader:
-                confident = int(row['confident']) if row['confident'].isdigit() else 1
-                url = row['url'].strip()
-
-                Source.objects.update_or_create(
-                    url=url,
-                    defaults={'confident': confident}
-                )
+                if not Source.objects.filter(url=row['source']):
+                    Source.objects.create(url=row['source'])
             print(str(timezone.now()) + " - Updated RSS Sources.")
 
         # Init User Groups

@@ -36,8 +36,3 @@ shadow-useragent==0.0.17
 
 # Cybersecurity and Incident Response
 pymisp==2.5.12
-
-# NER-BERT model
-transformers==4.36.0
-tokenizers>=0.15.2
-numpy==1.26.4
