@@ -983,10 +983,8 @@ systemctl status mysql.service
 <ul class="simple">
 <li><p>No broken code reaches the main branch</p></li>
 <li><p>All new features are properly tested</p></li>
-<li><p>Regression testing is performed automatically</p></li>
-<li><p>Test results are visible in Pull Request status checks</p></li>
 </ul>
-<p>You can view the workflow file at <code class="docutils literal notranslate"><span class="pre">.github/workflows/unit-tests.yml</span></code> and monitor test results in the <strong>Actions</strong> tab of the GitHub repository.</p>
+<p>You can view the workflow file at <code class="docutils literal notranslate"><span class="pre">.github/workflows/docker-image-latest.yml</span></code> and monitor test results in the <strong>Actions</strong> tab of the GitHub repository.</p>
 </section>
 <section id="the-commands">
 <h3>The commands<a class="headerlink" href="#the-commands" title="Link to this heading"></a></h3>
@@ -1011,6 +1009,24 @@ systemctl status mysql.service
 </section>
 <section id="front-end-tests">
 <h4>Front-End Tests<a class="headerlink" href="#front-end-tests" title="Link to this heading"></a></h4>
+<p>Before running front-end tests, you need to create a test superuser:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<span class="s2">from django.contrib.auth.models import User</span>
+<span class="s2">User.objects.create_superuser(&#39;Watcher&#39;, &#39;cypress@watcher.com&#39;, &#39;Watcher&#39;, first_name=&#39;Unit-Test Cypress&#39;, last_name=&#39;Watcher&#39;)</span>
+<span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p><strong>Alternative</strong>: If you already have a superuser account, you can use it for testing by updating the test credentials in <code class="docutils literal notranslate"><span class="pre">cypress.config.js</span></code>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">testCredentials</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">username</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_name&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">password</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_password&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">email</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_email&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">firstName</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_first_name&#39;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 <p>To run with an interactive Cypress Test Runner:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>npm<span class="w"> </span>run<span class="w"> </span>cypress:open
 </pre></div>

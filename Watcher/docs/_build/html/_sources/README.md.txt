@@ -728,10 +728,8 @@ All tests are **automatically executed** in our CI/CD pipeline using **GitHub Ac
 The CI/CD workflow ensures that:
 - No broken code reaches the main branch
 - All new features are properly tested
-- Regression testing is performed automatically
-- Test results are visible in Pull Request status checks
 
-You can view the workflow file at `.github/workflows/unit-tests.yml` and monitor test results in the **Actions** tab of the GitHub repository.
+You can view the workflow file at `.github/workflows/docker-image-latest.yml` and monitor test results in the **Actions** tab of the GitHub repository.
 
 
 ### The commands
@@ -762,6 +760,28 @@ python manage.py test --verbosity=2
 ```
 
 #### Front-End Tests
+
+Before running front-end tests, you need to create a test superuser:
+
+```bash
+python manage.py shell -c "
+from django.contrib.auth.models import User
+User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher', first_name='Unit-Test Cypress', last_name='Watcher')
+"
+```
+
+**Alternative**: If you already have a superuser account, you can use it for testing by updating the test credentials in `cypress.config.js`:
+
+```javascript
+env: {
+  testCredentials: {
+    username: 'your_superuser_name',
+    password: 'your_superuser_password',
+    email: 'your_superuser_email',
+    firstName: 'your_first_name'
+  }
+}
+```
 
 To run with an interactive Cypress Test Runner:
 
