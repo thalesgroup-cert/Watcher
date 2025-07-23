@@ -1,0 +1,26 @@
+name: Auto-assign Issues and PRs
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  auto-assign:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: 'Auto-assign issue'
+        if: github.event_name == 'issues'
+        uses: pozil/auto-assign-issue@v2
+        with:
+          assignees: ygalnezri
+          
+      - name: 'Auto-assign PR'
+        if: github.event_name == 'pull_request'
+        uses: pozil/auto-assign-issue@v2
+        with:
+          assignees: ygalnezri
