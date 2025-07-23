@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 2.2.0 documentation</title>
+  <title>Install Watcher &mdash; Watcher 2.3 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=b21de401"></script>
+      <script src="_static/documentation_options.js?v=57236720"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -83,11 +83,17 @@
 <li class="toctree-l3"><a class="reference internal" href="#specific-details">Specific Details</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#thehive-export">TheHive Export</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#automatic-export-from-all-modules">Automatic Export from All Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#thehive-integration-features">TheHive Integration Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Troubleshooting</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#misp-export">MISP Export</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#from-website-monitoring">From Website Monitoring</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#from-dns-finder">From DNS Finder</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#misp-export-features">MISP Export Features</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id1">Troubleshooting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Troubleshooting</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#remove-add-to-blocklist">Remove &amp; Add to Blocklist</a></li>
@@ -103,9 +109,20 @@
 <li class="toctree-l2"><a class="reference internal" href="#open-a-pull-request-pr-to-contribute-to-this-project">Open a Pull Request (PR) to contribute to this project</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#setup-watcher-environment">Setup Watcher environment</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications">Deploy a simple SMTP server to test the email notifications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#unit-testing">Unit Testing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#test-coverage-technologies">Test Coverage &amp; Technologies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#automated-ci-cd-testing">Automated CI/CD Testing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-commands">The commands</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#back-end-tests">Back-End Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#front-end-tests">Front-End Tests</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#development-guidelines">Development Guidelines</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#migrations-change-the-database-schema">Migrations: Change the database schema</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#the-commands">The commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">The commands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#change-a-model-adding-a-field-deleting-a-model-etc">Change a model (adding a field, deleting a model, etc.)</a></li>
 </ul>
 </li>
@@ -166,7 +183,7 @@
 watcher          | Performing system checks...
 watcher          | 
 watcher          | System check identified no issues (0 silenced).
-watcher          | July 02, 2025 - 10:23:00
+watcher          | July 21, 2025 - 08:26:00
 watcher          | Django version 5.2.3, using settings &#39;watcher.settings&#39;
 watcher          | Starting development server at http://0.0.0.0:9002/
 watcher          | Quit the server with CONTROL-C.
@@ -677,6 +694,40 @@ docker compose up
 <p>Following this pattern, you can easily navigate and retrieve specific information for any item in the system, ensuring efficient use of the available API endpoints.</p>
 </section>
 </section>
+<section id="thehive-export">
+<h2>TheHive Export<a class="headerlink" href="#thehive-export" title="Link to this heading"></a></h2>
+<p>Watcher provides automatic integration with <a class="reference external" href="https://strangebee.com/thehive/">TheHive</a> for streamlined case management and incident response across multiple modules:</p>
+<section id="automatic-export-from-all-modules">
+<h3>Automatic Export from All Modules<a class="headerlink" href="#automatic-export-from-all-modules" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Threats Watcher</strong>: Automatically exports trending cybersecurity threats and buzzwords.</p></li>
+<li><p><strong>Data Leak</strong>: Automatically creates alerts when data leaks are detected via keywords.</p></li>
+<li><p><strong>Website Monitoring</strong>: Automatically creates alerts in TheHive when site changes are detected.</p></li>
+<li><p><strong>DNS Finder</strong>: Automatically exports twisted DNS findings and certificate transparency alerts.</p></li>
+</ul>
+</section>
+<section id="thehive-integration-features">
+<h3>TheHive Integration Features<a class="headerlink" href="#thehive-integration-features" title="Link to this heading"></a></h3>
+<p>Watcher provides comprehensive TheHive integration with intelligent automation and the following capabilities:</p>
+<ul class="simple">
+<li><p><strong>Automatic Alert Creation</strong>: When threats are detected, Watcher automatically creates alerts in TheHive without manual intervention, ensuring immediate incident response workflow initiation.</p></li>
+<li><p><strong>Smart Case Management</strong>: For existing cases, Watcher intelligently updates alerts by adding new observables and comments rather than creating duplicate alerts, maintaining case consistency and reducing noise.</p></li>
+<li><p><strong>Observable Enrichment</strong>: Watcher automatically populates alerts with relevant observables (domains, IPs, URLs) and contextual tags based on the detection source and type, providing analysts with enriched threat intelligence.</p></li>
+<li><p><strong>Custom Field Integration</strong>: Watcher uses custom fields to maintain proper relationships between alerts and the originating Watcher instance, enabling seamless cross-platform tracking.</p></li>
+<li><p><strong>Ticket ID Correlation</strong>: For website monitoring, Watcher correlates alerts with existing ticket IDs to group related incidents and maintain proper case lineage.</p></li>
+</ul>
+<p>This automated TheHive integration ensures immediate threat visibility and accelerates incident response workflows by eliminating manual alert creation and maintaining proper case relationships.</p>
+</section>
+<section id="id1">
+<h3>Troubleshooting<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p>If the export does not work as expected, this may be related to the configuration of your TheHive instance.</p>
+<p>Ensure that your TheHive API configuration is properly set up in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file and that the custom fields are correctly configured:</p>
+<ul class="simple">
+<li><p>Verify TheHive connectivity and API permissions.</p></li>
+<li><p>Check custom field configuration in your TheHive instance.</p></li>
+</ul>
+</section>
+</section>
 <section id="misp-export">
 <h2>MISP Export<a class="headerlink" href="#misp-export" title="Link to this heading"></a></h2>
 <p>You can export monitored domains to <a class="reference external" href="https://www.misp-project.org/">MISP</a> from two different modules:</p>
@@ -713,8 +764,8 @@ docker compose up
 </ul>
 <p>This enhanced MISP integration ensures seamless threat intelligence sharing and maintains proper relationships between your monitored assets and MISP events.</p>
 </section>
-<section id="id1">
-<h3>Troubleshooting<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<section id="id2">
+<h3>Troubleshooting<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
 <p>If the export do not work as expected, this may be related with
 the version of your MISP instance.</p>
 <p>In fact, if you are using an outdated MISP instance, the client API version will not correspond with your MISP instance version:</p>
@@ -895,8 +946,125 @@ systemctl status mysql.service
 <li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM=from&#64;from.com</span></code></p></li>
 </ul>
 </li>
-<li><p>Launch Watcher: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">Watcher/Watcher/manage.py</span> <span class="pre">runserver</span></code></p></li>
+<li><p>Launch Watcher: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">Watcher/Watcher/manage.py</span> <span class="pre">runserver</span></code></p></li>
 </ul>
+</section>
+<section id="unit-testing">
+<h2>Unit Testing<a class="headerlink" href="#unit-testing" title="Link to this heading"></a></h2>
+<p>Watcher includes comprehensive unit tests to ensure code quality and reliability. <strong>When contributing new features, you must include corresponding unit tests.</strong></p>
+<section id="test-coverage-technologies">
+<h3>Test Coverage &amp; Technologies<a class="headerlink" href="#test-coverage-technologies" title="Link to this heading"></a></h3>
+<p>The test suite covers all 4 main modules of Watcher:</p>
+<ul class="simple">
+<li><p><strong>Back-End Tests</strong>: Python’s standard unittest module</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">common/tests.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">watcher/tests.py</span></code></p></li>
+<li><p>Module-specific test files for each component</p></li>
+</ul>
+</li>
+<li><p><strong>Front-End Tests</strong>: Cypress framework for JavaScript testing</p>
+<ul>
+<li><p>Cypress tests for all 4 modules</p></li>
+<li><p>End-to-end testing scenarios</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="automated-ci-cd-testing">
+<h3>Automated CI/CD Testing<a class="headerlink" href="#automated-ci-cd-testing" title="Link to this heading"></a></h3>
+<p>All tests are <strong>automatically executed</strong> in our CI/CD pipeline using <strong>GitHub Actions</strong>:</p>
+<ul class="simple">
+<li><p><strong>Triggered on</strong>: Push, Pull Requests, and manual workflow dispatch</p></li>
+<li><p><strong>Execution</strong>: Both back-end and front-end tests run automatically</p></li>
+<li><p><strong>Coverage</strong>: Full test suite validation before code integration</p></li>
+</ul>
+<p>The CI/CD workflow ensures that:</p>
+<ul class="simple">
+<li><p>No broken code reaches the main branch</p></li>
+<li><p>All new features are properly tested</p></li>
+</ul>
+<p>You can view the workflow file at <code class="docutils literal notranslate"><span class="pre">.github/workflows/docker-image-latest.yml</span></code> and monitor test results in the <strong>Actions</strong> tab of the GitHub repository.</p>
+</section>
+<section id="the-commands">
+<h3>The commands<a class="headerlink" href="#the-commands" title="Link to this heading"></a></h3>
+<p><strong>IMPORTANT</strong>: All test commands must be executed from the <code class="docutils literal notranslate"><span class="pre">Watcher/Watcher</span></code> directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>Watcher/Watcher
+</pre></div>
+</div>
+<section id="back-end-tests">
+<h4>Back-End Tests<a class="headerlink" href="#back-end-tests" title="Link to this heading"></a></h4>
+<p>To run all Django unit tests:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span>
+</pre></div>
+</div>
+<p>To run tests for a specific module:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span><span class="w"> </span>&lt;module_name&gt;
+</pre></div>
+</div>
+<p>To run with verbose output:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--verbosity<span class="o">=</span><span class="m">2</span>
+</pre></div>
+</div>
+</section>
+<section id="front-end-tests">
+<h4>Front-End Tests<a class="headerlink" href="#front-end-tests" title="Link to this heading"></a></h4>
+<p>Before running front-end tests, you need to create a test superuser:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<span class="s2">from django.contrib.auth.models import User</span>
+<span class="s2">User.objects.create_superuser(&#39;Watcher&#39;, &#39;cypress@watcher.com&#39;, &#39;Watcher&#39;, first_name=&#39;Unit-Test Cypress&#39;, last_name=&#39;Watcher&#39;)</span>
+<span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p><strong>Alternative</strong>: If you already have a superuser account, you can use it for testing by updating the test credentials in <code class="docutils literal notranslate"><span class="pre">cypress.config.js</span></code>:</p>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">testCredentials</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">username</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_name&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">password</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_password&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">email</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_email&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">firstName</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_first_name&#39;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>To run with an interactive Cypress Test Runner:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>npm<span class="w"> </span>run<span class="w"> </span>cypress:open
+</pre></div>
+</div>
+<p>To run in headless mode (CI/CD):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>npm<span class="w"> </span>run<span class="w"> </span>test:e2e
+</pre></div>
+</div>
+</section>
+</section>
+<section id="development-guidelines">
+<h3>Development Guidelines<a class="headerlink" href="#development-guidelines" title="Link to this heading"></a></h3>
+<p>Here is the file structure of the test files in Watcher:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Watcher/
+├── common/
+│   └── tests.py
+├── watcher/
+│   └── tests.py
+├── [module_name]/
+│   └── tests.py
+└── cypress/
+    ├── e2e/
+    └── support/
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>For new modules</strong>, create a <code class="docutils literal notranslate"><span class="pre">tests.py</span></code> file following Django’s testing conventions.</p></li>
+<li><p><strong>For frontend features</strong>, add Cypress tests in the appropriate <code class="docutils literal notranslate"><span class="pre">cypress/e2e/</span></code> directory.</p></li>
+</ul>
+<p><strong>When developing new features</strong>, ensure your tests cover:</p>
+<ul class="simple">
+<li><p>Happy path scenarios</p></li>
+<li><p>Edge cases</p></li>
+<li><p>Error handling</p></li>
+<li><p>Input validation</p></li>
+</ul>
+<p><span style="color:red"><strong>[IMPORTANT]</strong> All Pull Requests must include tests for new functionality. PRs without adequate test coverage may be rejected.</span></p>
+</section>
 </section>
 <section id="modify-the-frontend">
 <h2>Modify the frontend<a class="headerlink" href="#modify-the-frontend" title="Link to this heading"></a></h2>
@@ -917,8 +1085,8 @@ Now, when modifying some frontend ReactJs files it will automatically build them
 <p>Migrations are Django’s way of propagating changes you make to your models
 (adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic,
 but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.</p>
-<section id="the-commands">
-<h3>The commands<a class="headerlink" href="#the-commands" title="Link to this heading"></a></h3>
+<section id="id3">
+<h3>The commands<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
 <p>There are several commands which you will use to interact with migrations and Django’s handling of database schema:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>, which is responsible for applying and unapplying migrations.</p></li>
