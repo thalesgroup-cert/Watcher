@@ -19,7 +19,7 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | July 02, 2025 - 10:23:00
+    watcher          | July 21, 2025 - 08:26:00
     watcher          | Django version 5.2.3, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
@@ -473,6 +473,41 @@ By making a GET request to this URL using your web browser, CURL, or any HTTP cl
 Following this pattern, you can easily navigate and retrieve specific information for any item in the system, ensuring efficient use of the available API endpoints.
 
 
+## TheHive Export
+
+Watcher provides automatic integration with [TheHive](https://strangebee.com/thehive/) for streamlined case management and incident response across multiple modules:
+
+### Automatic Export from All Modules
+- **Threats Watcher**: Automatically exports trending cybersecurity threats and buzzwords.
+- **Data Leak**: Automatically creates alerts when data leaks are detected via keywords.
+- **Website Monitoring**: Automatically creates alerts in TheHive when site changes are detected.
+- **DNS Finder**: Automatically exports twisted DNS findings and certificate transparency alerts.
+
+### TheHive Integration Features
+
+Watcher provides comprehensive TheHive integration with intelligent automation and the following capabilities:
+
+- **Automatic Alert Creation**: When threats are detected, Watcher automatically creates alerts in TheHive without manual intervention, ensuring immediate incident response workflow initiation.
+
+- **Smart Case Management**: For existing cases, Watcher intelligently updates alerts by adding new observables and comments rather than creating duplicate alerts, maintaining case consistency and reducing noise.
+
+- **Observable Enrichment**: Watcher automatically populates alerts with relevant observables (domains, IPs, URLs) and contextual tags based on the detection source and type, providing analysts with enriched threat intelligence.
+
+- **Custom Field Integration**: Watcher uses custom fields to maintain proper relationships between alerts and the originating Watcher instance, enabling seamless cross-platform tracking.
+
+- **Ticket ID Correlation**: For website monitoring, Watcher correlates alerts with existing ticket IDs to group related incidents and maintain proper case lineage.
+
+This automated TheHive integration ensures immediate threat visibility and accelerates incident response workflows by eliminating manual alert creation and maintaining proper case relationships.
+
+### Troubleshooting
+If the export does not work as expected, this may be related to the configuration of your TheHive instance.
+
+Ensure that your TheHive API configuration is properly set up in the `.env` file and that the custom fields are correctly configured:
+
+- Verify TheHive connectivity and API permissions.
+- Check custom field configuration in your TheHive instance.
+
+
 ## MISP Export
 You can export monitored domains to [MISP](https://www.misp-project.org/) from two different modules:
 
@@ -663,7 +698,129 @@ If you are working on a test environment and willing to have email alerts, here 
 - Modify the mail settings in the environment variables: `vi /.env`
     - `SMTP_SERVER=localhost`
     - `EMAIL_FROM=from@from.com`
-- Launch Watcher: `python3 Watcher/Watcher/manage.py runserver` 
+- Launch Watcher: `python Watcher/Watcher/manage.py runserver` 
+
+## Unit Testing
+
+Watcher includes comprehensive unit tests to ensure code quality and reliability. **When contributing new features, you must include corresponding unit tests.**
+
+### Test Coverage & Technologies
+
+The test suite covers all 4 main modules of Watcher:
+
+- **Back-End Tests**: Python's standard unittest module
+  - `common/tests.py`
+  - `watcher/tests.py`
+  - Module-specific test files for each component
+
+- **Front-End Tests**: Cypress framework for JavaScript testing
+  - Cypress tests for all 4 modules
+  - End-to-end testing scenarios
+
+### Automated CI/CD Testing
+
+All tests are **automatically executed** in our CI/CD pipeline using **GitHub Actions**:
+
+- **Triggered on**: Push, Pull Requests, and manual workflow dispatch
+- **Execution**: Both back-end and front-end tests run automatically
+- **Coverage**: Full test suite validation before code integration
+
+The CI/CD workflow ensures that:
+- No broken code reaches the main branch
+- All new features are properly tested
+
+You can view the workflow file at `.github/workflows/docker-image-latest.yml` and monitor test results in the **Actions** tab of the GitHub repository.
+
+
+### The commands
+
+**IMPORTANT**: All test commands must be executed from the `Watcher/Watcher` directory:
+
+```bash
+cd Watcher/Watcher
+```
+
+#### Back-End Tests
+To run all Django unit tests:
+
+```bash
+python manage.py test
+```
+
+To run tests for a specific module:
+
+```bash
+python manage.py test <module_name>
+```
+
+To run with verbose output:
+
+```bash
+python manage.py test --verbosity=2
+```
+
+#### Front-End Tests
+
+Before running front-end tests, you need to create a test superuser:
+
+```bash
+python manage.py shell -c "
+from django.contrib.auth.models import User
+User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher', first_name='Unit-Test Cypress', last_name='Watcher')
+"
+```
+
+**Alternative**: If you already have a superuser account, you can use it for testing by updating the test credentials in `cypress.config.js`:
+
+```javascript
+env: {
+  testCredentials: {
+    username: 'your_superuser_name',
+    password: 'your_superuser_password',
+    email: 'your_superuser_email',
+    firstName: 'your_first_name'
+  }
+}
+```
+
+To run with an interactive Cypress Test Runner:
+
+```bash
+npm run cypress:open
+```
+
+To run in headless mode (CI/CD):
+
+```bash
+npm run test:e2e
+```
+
+### Development Guidelines
+
+Here is the file structure of the test files in Watcher:
+```
+Watcher/
+├── common/
+│   └── tests.py
+├── watcher/
+│   └── tests.py
+├── [module_name]/
+│   └── tests.py
+└── cypress/
+    ├── e2e/
+    └── support/
+```
+
+- **For new modules**, create a `tests.py` file following Django's testing conventions.
+- **For frontend features**, add Cypress tests in the appropriate `cypress/e2e/` directory.
+
+**When developing new features**, ensure your tests cover:
+- Happy path scenarios
+- Edge cases
+- Error handling
+- Input validation
+
+<span style="color:red">**[IMPORTANT]** All Pull Requests must include tests for new functionality. PRs without adequate test coverage may be rejected.</span>
 
 ## Modify the frontend
 If you need to modify the frontend `/Watcher/Watcher/frontend`:
