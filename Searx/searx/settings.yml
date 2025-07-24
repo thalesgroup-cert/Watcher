@@ -20,7 +20,7 @@ search:
     max_ban_time_on_fail : 120 # max ban time in seconds after engine errors
 
 server:
-    port : 8888
+    port : 8080
     bind_address : "127.0.0.1" # address to listen on
     secret_key : "d5f697fc9a0430509271f3f9b9eb93af9ffa101015b74d8b73591f6ea05d5cf2" # change this!
     base_url : https://10.10.10.3:8080/ # Set custom base_url. Possible values: False or "https://your.custom.host/location/"
