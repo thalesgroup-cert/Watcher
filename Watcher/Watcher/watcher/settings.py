@@ -74,7 +74,7 @@ if os.environ.get('CSRF_TRUSTED_ORIGINS', '') != '':
 
 # Feed Parser Configuration
 POSTS_DEPTH = 30
-WORDS_OCCURRENCE = 7
+WORDS_OCCURRENCE = 5
 # Example for daily watch : PostsDepth = 30 et WordsOccurrence = 5
 # Example for a continuous watch : PostsDepth = 3 et WordsOccurrence = 8
 # Example for a Monday morning watch : PostsDepth = 50 et WordsOccurrence = 0
@@ -113,7 +113,7 @@ HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
 CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io')
 
 # Link to Searx Server API
-DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8080/')
+DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8888/')
 
 # The Hive Setup
 THE_HIVE_URL = os.environ.get('THE_HIVE_URL', '')
