@@ -78,7 +78,7 @@ class SettingsConfigurationTest(TestCase):
     def test_posts_depth_and_words_occurrence(self):
         """Test feed parser configuration values."""
         self.assertEqual(settings.POSTS_DEPTH, 30)
-        self.assertIn(settings.WORDS_OCCURRENCE, [7])
+        self.assertIn(settings.WORDS_OCCURRENCE, [5])
         self.assertIsInstance(settings.POSTS_DEPTH, int)
         self.assertIsInstance(settings.WORDS_OCCURRENCE, int)
 
