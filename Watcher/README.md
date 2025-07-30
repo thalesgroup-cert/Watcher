@@ -639,11 +639,14 @@ Then, follow the steps below:
 
 - **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
 - **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
+- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
 - **Pull Watcher code:** `git clone <your_forked_repository.git>`
 - **Move to the following directory:** `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
+- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
+- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
