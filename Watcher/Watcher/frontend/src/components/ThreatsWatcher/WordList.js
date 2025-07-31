@@ -5,6 +5,17 @@ import {getLeads, deleteLead, addBannedWord} from "../../actions/leads";
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 
+const InfoTooltip = ({ text }) => (
+    <i
+        className="material-icons text-info ml-1"
+        style={{ fontSize: '16px', verticalAlign: 'middle', cursor: 'pointer' }}
+        title={text}
+        aria-label={text}
+        tabIndex={0}
+    >
+        info
+    </i>
+);
 
 export class WordList extends Component {
     constructor(props) {
@@ -80,6 +91,13 @@ export class WordList extends Component {
             </button>
         );
 
+        const infoTexts = {
+            name: "The word identified as trending",
+            caught: "Number of times this word has been detected",
+            reliability: "Indicates how reliable this word is, based on the average reliability of its sources",
+            found: "Date and time this word first appeared on Watcher"
+        };        
+
         return (
             <Fragment>
                 <h4>Trendy Words</h4>
@@ -87,10 +105,22 @@ export class WordList extends Component {
                     <table className="table table-striped table-hover">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Caught</th>
-                                <th>Reliability</th>
-                                <th>Found</th>
+                                <th>
+                                    Name
+                                    <InfoTooltip text={infoTexts.name} />
+                                </th>
+                                <th>
+                                    Caught
+                                    <InfoTooltip text={infoTexts.caught} />
+                                </th>
+                                <th>
+                                    Reliability
+                                    <InfoTooltip text={infoTexts.reliability} />
+                                </th>
+                                <th>
+                                    Found
+                                    <InfoTooltip text={infoTexts.found} />
+                                </th>
                                 <th />
                             </tr>
                         </thead>
