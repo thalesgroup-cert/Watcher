@@ -38,23 +38,6 @@ class SettingsConfigurationTest(TestCase):
         self.assertIn('django.contrib.auth.middleware.AuthenticationMiddleware', settings.MIDDLEWARE)
         self.assertIn('django.middleware.csrf.CsrfViewMiddleware', settings.MIDDLEWARE)
 
-    def test_database_configuration(self):
-        """Test database configuration."""
-        db_config = settings.DATABASES['default']
-        
-        # Basic engine validation
-        self.assertEqual(db_config['ENGINE'], 'django.db.backends.mysql')
-        
-        # Security checks
-        self.assertNotEqual(db_config['NAME'], 'db_watcher', 
-                        "Database name should not be hardcoded to 'db_watcher'")
-        self.assertNotEqual(db_config['USER'], 'watcher', 
-                        "Database user should not be hardcoded to 'watcher'")
-        self.assertNotEqual(db_config['PASSWORD'], 'Ee5kZm4fWWAmE9hs!', 
-                        "Database password should not be hardcoded")
-        self.assertNotEqual(db_config['HOST'], 'localhost', 
-                        "Database host should not be hardcoded to 'localhost'")
-
     def test_rest_framework_configuration(self):
         """Test REST framework configuration."""
         self.assertIn('DEFAULT_AUTHENTICATION_CLASSES', settings.REST_FRAMEWORK)

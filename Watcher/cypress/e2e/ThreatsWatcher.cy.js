@@ -8,6 +8,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       body: [
         {
           id: 1, name: "test-malware", occurrences: 45,
+          score: 92.5,
           posturls: [
             "https://watcher.com/malware-report,2025-06-19T14:30:00Z",
             "https://watcher.com/malware-analysis,2025-06-19T12:15:00Z"
@@ -16,6 +17,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
         },
         {
           id: 2, name: "e2e-ransomware", occurrences: 32,
+          score: 80.0,
           posturls: [
             "https://watcher.com/ransomware-attack,2025-06-19T11:20:00Z",
             "https://watcher.com/ransomware-news,2025-06-18T09:30:00Z"
@@ -24,6 +26,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
         },
         {
           id: 3, name: "test-phishing", occurrences: 28,
+          score: 67.3,
           posturls: [
             "https://watcher.com/phishing-campaign,2025-06-19T08:45:00Z",
             "https://watcher.com/phishing-trends,2025-06-18T14:20:00Z"
@@ -177,10 +180,10 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     it('should display word tooltips on hover', () => {
       cy.get('body').then(($body) => {
-        const tooltipElements = $body.find('[title*="caught"], [title*="times"]');
+        const tooltipElements = $body.find('[title*="Number of times"], [title*="times"], [title*="detected"]');
         if (tooltipElements.length > 0) {
           cy.log('Word tooltips with occurrence count found');
-          cy.wrap(tooltipElements.first()).should('have.attr', 'title').and('include', 'caught');
+          cy.wrap(tooltipElements.first()).should('have.attr', 'title').and('include', 'Number of times');
         } else {
           cy.log('Tooltips may work differently');
         }
@@ -219,6 +222,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       cy.get('table thead').within(() => {
         cy.get('th').should('contain', 'Name');
         cy.get('th').should('contain', 'Caught');
+        cy.get('th').should('contain', 'Reliability');
         cy.get('th').should('contain', 'Found');
       });
     });
