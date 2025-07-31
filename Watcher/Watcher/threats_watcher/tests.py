@@ -218,6 +218,67 @@ class IntegrationTest(TestCase):
             scheduler_ok = False
         self.assertTrue(scheduler_ok)
 
+class EntityExtractionTest(TestCase):
+    """Test NER-BERT entity extraction and threat detection."""
+    @patch('threats_watcher.core.ner_pipe')
+    def test_extract_entities_and_threats(self, mock_ner_pipe):
+        # Simulate NER output
+        mock_ner_pipe.return_value = [
+            {"entity_group": "PER", "word": "Alice"},
+            {"entity_group": "ORG", "word": "Acme Corp"},
+            {"entity_group": "LOC", "word": "Paris"},
+            {"entity_group": "MISC", "word": "Windows"},
+        ]
+        from threats_watcher.core import extract_entities_and_threats
+        title = "Alice from Acme Corp detected CVE-2023-1234 in Windows at Paris. APT28 involved."
+        result = extract_entities_and_threats(title)
+        assert "Alice" in result["persons"]
+        assert "Acme" in result["organizations"] or "Corp" in result["organizations"]
+        assert "Paris" in result["locations"]
+        assert "Windows" in result["product"]
+        assert "CVE-2023-1234" in result["cves"]
+        assert "APT28" in result["attackers"]
+
+class ReliabilityScoreTest(TestCase):
+    """Test reliability score computation."""
+    def setUp(self):
+        self.source = Source.objects.create(url="https://trusted-source.com/feed.xml", confident=1)
+        self.word = TrendyWord.objects.create(name="testword", occurrences=2)
+        self.post1 = PostUrl.objects.create(url="https://trusted-source.com/post1")
+        self.post2 = PostUrl.objects.create(url="https://trusted-source.com/post2")
+        self.word.posturls.add(self.post1, self.post2)
+
+    @patch('threats_watcher.core.get_pre_redirect_domain')
+    def test_reliability_score(self, mock_pre_redirect):
+        mock_pre_redirect.return_value = "trusted-source.com"
+        from threats_watcher.core import reliability_score
+        reliability_score()
+        updated_word = TrendyWord.objects.get(pk=self.word.pk)
+        assert updated_word.score == 100  # confident=1 gives 100
+
+class TrendingAlgorithmTest(TestCase):
+    """Test trending words algorithm and occurrence filter."""
+    def setUp(self):
+        self.wordurl = {
+            "malware_url": "https://example.com/1, https://example.com/2"
+        }
+        self.posts_published = {
+            "https://example.com/1": timezone.now(),
+            "https://example.com/2": timezone.now(),
+        }
+
+    def test_focus_on_top(self):
+        import threats_watcher.core
+        # Injecte les variables globales nécessaires dans le module
+        setattr(threats_watcher.core, 'wordurl', self.wordurl)
+        setattr(threats_watcher.core, 'posts_published', self.posts_published)
+        setattr(threats_watcher.core, 'posts_five_letters', {"malware": 2})
+
+        from threats_watcher.core import focus_on_top
+        TrendyWord.objects.create(name="malware", occurrences=2)
+        focus_on_top(2)
+        word = TrendyWord.objects.get(name="malware")
+        assert word.posturls.count() > 0
 
 class PerformanceTest(TestCase):
     """Test performance and cleanup."""
