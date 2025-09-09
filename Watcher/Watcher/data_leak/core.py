@@ -236,8 +236,17 @@ def check_keywords(keywords):
                     send_data_leak_notifications(alert)
             # if there is too many alerts, we send a group email
             if len(results) >= 6:
-                send_data_leak_notifications_group(keyword, len(results), results)
+                alerts_obj = []
+                for result in results:
+                    alert = Alert.objects.create(
+                        keyword=Keyword.objects.get(name=keyword),
+                        url=result
+                    )
+                    alerts_obj.append(alert)
 
+                send_data_leak_notifications_group(keyword, len(alerts_obj), alerts_obj)
+
+    
     # now we check Pastebin for new pastes
     result = check_pastebin(keywords)
 
