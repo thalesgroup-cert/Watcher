@@ -2,20 +2,67 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+import re
+
+
+def validate_regex(value):
+    """
+    Validate that the provided string is a valid regex pattern.
+    """
+    if value:
+        try:
+            re.compile(value)
+        except re.error as e:
+            raise ValidationError(f'Invalid regex pattern: {e}')
 
 
 class Keyword(models.Model):
     """
-    Stores a word which will be use to search data_leaks.
+    Stores a word or regex pattern which will be used to search data_leaks.
     """
     name = models.CharField(max_length=100, unique=True)
+    is_regex = models.BooleanField(default=False, verbose_name="Use as Regex Pattern")
+    regex_pattern = models.CharField(
+        max_length=500, 
+        blank=True, 
+        null=True,
+        validators=[validate_regex],
+        help_text="Optional regex pattern. If provided and 'Use as Regex Pattern' is checked, this will be used instead of the name field.",
+        verbose_name="Regex Pattern"
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["name"]
         verbose_name_plural = 'Keywords Monitored'
 
+    def clean(self):
+        """
+        Custom validation to ensure regex pattern is provided when is_regex is True.
+        """
+        super().clean()
+        if self.is_regex and not self.regex_pattern:
+            raise ValidationError("Regex pattern is required when 'Use as Regex Pattern' is enabled.")
+        
+        # Test the regex pattern if provided
+        if self.regex_pattern:
+            try:
+                re.compile(self.regex_pattern)
+            except re.error as e:
+                raise ValidationError(f'Invalid regex pattern: {e}')
+
+    def get_search_pattern(self):
+        """
+        Returns the pattern to use for searching (either name or regex_pattern).
+        """
+        if self.is_regex and self.regex_pattern:
+            return self.regex_pattern
+        return self.name
+
     def __str__(self):
+        if self.is_regex and self.regex_pattern:
+            return f"{self.name} (regex: {self.regex_pattern})"
         return self.name
 
 
