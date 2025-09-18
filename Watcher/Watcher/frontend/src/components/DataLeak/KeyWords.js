@@ -19,9 +19,13 @@ export class KeyWords extends Component {
             showEditModal: false,
             showAddModal: false,
             id: 0,
-            word: ""
+            word: "",
+            isRegex: false,
+            regexPattern: ""
         };
         this.inputRef = React.createRef();
+        this.regexInputRef = React.createRef();
+        this.regexCheckboxRef = React.createRef();
     }
 
     static propTypes = {
@@ -85,11 +89,13 @@ export class KeyWords extends Component {
         );
     };
 
-    displayEditModal = (id, word) => {
+    displayEditModal = (id, word, isRegex = false, regexPattern = "") => {
         this.setState({
             showEditModal: true,
             id: id,
             word: word,
+            isRegex: isRegex,
+            regexPattern: regexPattern
         });
     };
 
@@ -105,11 +111,21 @@ export class KeyWords extends Component {
         onSubmit = e => {
             e.preventDefault();
             const name = this.inputRef.current.value;
-            const json_name = {name}; // Object { name: "..." }
-            this.props.patchKeyWord(this.state.id, json_name);
+            const isRegex = this.regexCheckboxRef.current.checked;
+            const regexPattern = this.regexInputRef.current.value;
+            
+            const updateData = {
+                name,
+                is_regex: isRegex,
+                regex_pattern: regexPattern
+            };
+            
+            this.props.patchKeyWord(this.state.id, updateData);
             this.setState({
                 word: "",
-                id: 0
+                id: 0,
+                isRegex: false,
+                regexPattern: ""
             });
             handleClose();
         };
@@ -130,12 +146,35 @@ export class KeyWords extends Component {
                             <Col md={{span: 12}}>
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row}>
-                                        <Form.Label column sm="5">Keyword (exact match)</Form.Label>
+                                        <Form.Label column sm="5">Keyword Name</Form.Label>
                                         <Col sm="7">
                                             <Form.Control ref={this.inputRef} size="md"
                                                           type="text" placeholder="leak, data leak, data.leak.com..."
                                                           defaultValue={this.state.word}
                                                           onChange={handleOnChange}/>
+                                        </Col>
+                                    </Form.Group>
+                                    <Form.Group as={Row}>
+                                        <Col sm={{span: 7, offset: 5}}>
+                                            <Form.Check 
+                                                ref={this.regexCheckboxRef}
+                                                type="checkbox" 
+                                                label="Use as Regex Pattern" 
+                                                defaultChecked={this.state.isRegex}
+                                            />
+                                        </Col>
+                                    </Form.Group>
+                                    <Form.Group as={Row}>
+                                        <Form.Label column sm="5">Regex Pattern</Form.Label>
+                                        <Col sm="7">
+                                            <Form.Control ref={this.regexInputRef} size="md"
+                                                          type="text" 
+                                                          placeholder="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                                                          defaultValue={this.state.regexPattern}
+                                                          onChange={handleOnChange}/>
+                                            <Form.Text className="text-muted">
+                                                Optional: Only used when "Use as Regex Pattern" is checked
+                                            </Form.Text>
                                         </Col>
                                     </Form.Group>
                                     <Col md={{span: 6, offset: 7}}>
@@ -173,7 +212,15 @@ export class KeyWords extends Component {
         onSubmit = e => {
             e.preventDefault();
             const name = this.inputRef.current.value;
-            const word = {name};
+            const isRegex = this.regexCheckboxRef.current.checked;
+            const regexPattern = this.regexInputRef.current.value;
+            
+            const word = {
+                name,
+                is_regex: isRegex,
+                regex_pattern: regexPattern
+            };
+            
             this.props.addKeyWord(word);
             handleClose();
         };
@@ -189,10 +236,30 @@ export class KeyWords extends Component {
                             <Col md={{span: 12}}>
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row}>
-                                        <Form.Label column sm="5">Keyword (exact match)</Form.Label>
+                                        <Form.Label column sm="5">Keyword Name</Form.Label>
                                         <Col sm="7">
                                             <Form.Control required ref={this.inputRef} size="md"
                                                           type="text" placeholder="leak, data leak, data.leak.com..."/>
+                                        </Col>
+                                    </Form.Group>
+                                    <Form.Group as={Row}>
+                                        <Col sm={{span: 7, offset: 5}}>
+                                            <Form.Check 
+                                                ref={this.regexCheckboxRef}
+                                                type="checkbox" 
+                                                label="Use as Regex Pattern" 
+                                            />
+                                        </Col>
+                                    </Form.Group>
+                                    <Form.Group as={Row}>
+                                        <Form.Label column sm="5">Regex Pattern</Form.Label>
+                                        <Col sm="7">
+                                            <Form.Control ref={this.regexInputRef} size="md"
+                                                          type="text" 
+                                                          placeholder="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"/>
+                                            <Form.Text className="text-muted">
+                                                Optional: Only used when "Use as Regex Pattern" is checked
+                                            </Form.Text>
                                         </Col>
                                     </Form.Group>
                                     <Col md={{span: 5, offset: 8}}>
@@ -238,6 +305,8 @@ export class KeyWords extends Component {
                                 <thead>
                                 <tr>
                                     <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Pattern</th>
                                     <th>Created At</th>
                                     <th/>
                                 </tr>
@@ -246,12 +315,24 @@ export class KeyWords extends Component {
                                 {this.props.keywords.map(keyword => (
                                     <tr key={keyword.id}>
                                         <td><h5>{keyword.name}</h5></td>
+                                        <td>
+                                            {keyword.is_regex ? 
+                                                <span className="badge badge-info">Regex</span> : 
+                                                <span className="badge badge-secondary">Exact</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            {keyword.is_regex && keyword.regex_pattern ? 
+                                                <code style={{fontSize: '0.8em'}}>{keyword.regex_pattern}</code> : 
+                                                <span className="text-muted">-</span>
+                                            }
+                                        </td>
                                         <td>{(new Date(keyword.created_at)).toDateString()}</td>
                                         <td className="text-right" style={{whiteSpace: 'nowrap'}}>
                                             <button className="btn btn-outline-warning btn-sm mr-2"
                                                     data-toggle="tooltip"
                                                     data-placement="top" title="Edit" onClick={() => {
-                                                this.displayEditModal(keyword.id, keyword.name)
+                                                this.displayEditModal(keyword.id, keyword.name, keyword.is_regex, keyword.regex_pattern)
                                             }}>
                                                 <i className="material-icons"
                                                    style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>

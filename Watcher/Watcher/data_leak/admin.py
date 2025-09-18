@@ -78,7 +78,20 @@ class KeywordResource(resources.ModelResource):
 
 @admin.register(Keyword)
 class Keyword(ImportExportModelAdmin):
-    list_display = ['name', 'created_at']
-    list_filter = ['created_at']
-    search_fields = ['name']
+    list_display = ['name', 'is_regex', 'regex_pattern', 'created_at']
+    list_filter = ['created_at', 'is_regex']
+    search_fields = ['name', 'regex_pattern']
     resource_class = KeywordResource
+    
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'created_at')
+        }),
+        ('Regular Expression Settings', {
+            'fields': ('is_regex', 'regex_pattern'),
+            'description': 'Enable regex mode for advanced pattern matching. When enabled, provide a valid regex pattern.',
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ('created_at',)

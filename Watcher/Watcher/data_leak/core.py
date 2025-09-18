@@ -1,6 +1,7 @@
 # coding=utf-8
 from .models import Keyword, Alert, PasteId, Subscriber
 import requests
+import re
 from django.db import close_old_connections
 from django.utils import timezone
 from datetime import timedelta
@@ -102,12 +103,20 @@ def check_searx(keyword):
     hits = []
     urls = []
 
-    # double quote for exact match
-    keyword = '"' + str(keyword) + '"'
-    params = {'q': keyword, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
+    # Use the search pattern from the keyword model
+    search_pattern = keyword.get_search_pattern()
+    
+    # For regex patterns, we need to search for the literal name but apply regex later
+    # For exact matches, use double quotes
+    if keyword.is_regex:
+        search_term = str(keyword.name)  # Use the name for initial search
+    else:
+        search_term = '"' + str(keyword.name) + '"'  # Exact match with quotes
+    
+    params = {'q': search_term, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
               'format': 'json'}
 
-    print(str(timezone.now()) + " - Querying Searx for: ", keyword)
+    print(str(timezone.now()) + " - Querying Searx for: ", search_term)
 
     # send the request off to searx
     try:
@@ -122,9 +131,25 @@ def check_searx(keyword):
         if len(results['results']):
 
             for result in results['results']:
-
                 if result['url'] not in urls:
-                    urls.append(result['url'])
+                    # For regex keywords, perform additional regex validation on content
+                    if keyword.is_regex and keyword.regex_pattern:
+                        # Try to get the page title or snippet for regex matching
+                        content_to_check = (result.get('title', '') + ' ' + 
+                                          result.get('content', '') + ' ' + 
+                                          result.get('url', '')).lower()
+                        
+                        import re
+                        try:
+                            if re.search(keyword.regex_pattern, content_to_check, re.IGNORECASE):
+                                urls.append(result['url'])
+                        except re.error as e:
+                            print(f"{timezone.now()} - Regex error for {keyword.regex_pattern}: {e}")
+                            # Fallback to simple string match
+                            if str(keyword.name).lower() in content_to_check:
+                                urls.append(result['url'])
+                    else:
+                        urls.append(result['url'])
 
             hits = check_urls(keyword, urls)
     except JSONDecodeError as e:
@@ -187,8 +212,23 @@ def check_pastebin(keywords):
                         keyword_hits = []
 
                         for keyword in keywords:
-                            if bytes(str(keyword).lower(), 'utf8') in paste_body_lower:
-                                keyword_hits.append(keyword)
+                            # Check if keyword matches using regex or simple string match
+                            if keyword.is_regex and keyword.regex_pattern:
+                                try:
+                                    import re
+                                    # Convert bytes to string for regex matching
+                                    paste_text = paste_body_lower.decode('utf-8', errors='ignore')
+                                    if re.search(keyword.regex_pattern, paste_text, re.IGNORECASE):
+                                        keyword_hits.append(keyword)
+                                except (re.error, UnicodeDecodeError) as e:
+                                    print(f"{timezone.now()} - Error processing regex for {keyword.name}: {e}")
+                                    # Fallback to simple string match
+                                    if bytes(str(keyword.name).lower(), 'utf8') in paste_body_lower:
+                                        keyword_hits.append(keyword)
+                            else:
+                                # Original simple string matching
+                                if bytes(str(keyword.name).lower(), 'utf8') in paste_body_lower:
+                                    keyword_hits.append(keyword)
 
                         if len(keyword_hits):
                             # We stored the first matched keyword, others are pointless
