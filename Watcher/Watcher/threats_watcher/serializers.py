@@ -1,7 +1,7 @@
 from abc import ABC
 
 from rest_framework import serializers
-from .models import TrendyWord, PostUrl, BannedWord
+from .models import TrendyWord, PostUrl, BannedWord, Summary
 
 
 class TrackListingField(serializers.RelatedField, ABC):
@@ -24,4 +24,10 @@ class TrendyWordSerializer(serializers.ModelSerializer):
 class BannedWordSerializer(serializers.ModelSerializer):
     class Meta:
         model = BannedWord
+        fields = '__all__'
+
+# Summary Serializer
+class SummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Summary
         fields = '__all__'

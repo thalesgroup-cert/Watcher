@@ -48,7 +48,7 @@ export class Login extends Component {
                 <div className="card card-body mt-5">
                     <h2 className="text-center">Login</h2>
                     <form onSubmit={this.onSubmit}>
-                        <div className="form-group">
+                        <div className="mb-3">
                             <label>Username</label>
                             <input
                                 type="text"
@@ -58,7 +58,8 @@ export class Login extends Component {
                                 value={username}
                             />
                         </div>
-                        <div className="form-group">
+                        <div style={{ marginBottom: "1.5rem" }} />
+                        <div className="mb-3">
                             <label>Password</label>
                             <input
                                 type="password"
@@ -69,7 +70,8 @@ export class Login extends Component {
                                 maxLength="30"
                             />
                         </div>
-                        <div className="form-group">
+                        <div style={{ marginBottom: "1.5rem" }} />
+                        <div className="mb-3">
                             <button type="submit" className="btn btn-primary"
                                     disabled={this.state.username === "" || this.state.password === ""}>
                                 Login

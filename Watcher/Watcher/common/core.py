@@ -1,14 +1,19 @@
+import logging
 from .utils.send_slack_messages import send_slack_message
 from .utils.send_citadel_messages import send_citadel_message
 from .utils.send_email_notifications import send_email_notifications
+from .utils.rdap import update_domain_registrar_info
 from django.utils import timezone
 from django.conf import settings
 import re
 from html import unescape
 from site_monitoring.models import Site
+from common.models import LegitimateDomain
 from datetime import datetime  
 from secrets import token_hex  
 from .mail_template.threats_watcher_template import get_threats_watcher_template
+from .mail_template.threats_watcher_weeklysummary_template import get_threats_watcher_weeklysummary_template
+from .mail_template.threats_watcher_breakingnews_template import get_threats_watcher_breakingnews_template
 from .mail_template.data_leak_template import get_data_leak_template
 from .mail_template.data_leak_group_template import get_data_leak_group_template
 from .mail_template.site_monitoring_template import get_site_monitoring_template
@@ -16,8 +21,35 @@ from .mail_template.dns_finder_template import get_dns_finder_template
 from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_transparency_template
 from .mail_template.dns_finder_group_template import get_dns_finder_group_template
 from .utils.send_thehive_alerts import send_thehive_alert
-from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert
+from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 import tldextract
+from apscheduler.schedulers.background import BackgroundScheduler
+import tzlocal
+from django.db import close_old_connections
+
+
+# Configure logger
+logger = logging.getLogger('watcher.common')
+
+
+def start_scheduler():
+    """
+    Launch multiple planning tasks in background:
+        - Fire WHOIS discovery every 30 minute from Monday to Sunday
+        - Fire Legitimate Domains RDAP/WHOIS every 15 minutes
+    """
+    scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+
+    scheduler.add_job(update_domain_registrar_info, 'cron', day_of_week='mon-sun', minute='*/30', id='whois_job',
+                      max_instances=10,
+                      replace_existing=True)
+
+    scheduler.add_job(update_legitimate_domains_rdap_data, 'cron', day_of_week='mon-sun', minute='*/30', id='legitimate_rdap_job',
+                      max_instances=1,
+                      replace_existing=True)
+
+    scheduler.start()
+
 
 def generate_ref():
     """
@@ -38,6 +70,27 @@ APP_CONFIG_SLACK = {
             "Dear team,\n\n"
             "Please find the new trendy word(s) detected below:\n\n"
             "{words_list}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/',
+    },
+    'threats_watcher_weeklysummary': {
+        'content_template': (
+            "*📊 Cyber Threat Intelligence Report 📊*\n\n"
+            "Dear team, here is the weekly threat intelligence summary:\n\n"
+            "{summary_text}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/',
+    },
+
+    'threats_watcher_breakingnews': {
+        'content_template': (
+            "*🚨 Critical Threat Alert 🚨*\n\n"
+            "Dear team, Watcher has detected a new critical threat alert. Please review the breaking news summary below:\n\n"
+            "{summary_text}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
         'channel': SLACK_CHANNEL,
@@ -118,6 +171,26 @@ APP_CONFIG_CITADEL = {
             "<p>Dear team,</p>"
             "<p>Please find the new trendy word(s) detected below:</p>"
             "<ul><strong>{words_list}</strong></ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/',
+    },
+    'threats_watcher_weeklysummary': {
+        'content_template': (
+            "<p><strong><h4>📊 Cyber Threat Intelligence Report 📊</h4></strong></p>"
+            "<p>Dear team, here is the weekly threat intelligence summary:</p>"
+            "<p>{summary_text}</p>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/',
+    },
+    'threats_watcher_breakingnews': {
+        'content_template': (
+            "<p><strong><h4>🚨 Critical Threat Alert 🚨</h4></strong></p>"
+            "<p>Dear team, Watcher has detected a new critical threat alert. Please review the breaking news summary below:</p>"
+            "<p>{summary_text}</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
         'citadel_room_id': CITADEL_ROOM_ID,
@@ -270,6 +343,14 @@ APP_CONFIG_EMAIL = {
         'subject': "[WARNING] Threats Watcher buzzword detected",
         'template_func': get_threats_watcher_template,
     },
+    'threats_watcher_weeklysummary': {
+        'subject': "[REPORT] Weekly Cyber Threat Intelligence Summary",
+        'template_func': get_threats_watcher_weeklysummary_template,
+    },
+    'threats_watcher_breakingnews': {
+        'subject': "[ALERT] Breaking News – Critical Threat Detected",
+        'template_func': get_threats_watcher_breakingnews_template,
+    },
     'data_leak': {
         'subject': "[ALERT #{alert_pk}] Data Leak",
         'template_func': get_data_leak_template,
@@ -355,16 +436,40 @@ def collect_observables(app_name, context_data):
 
     elif app_name == 'dns_finder':
         alert = context_data.get('alert')
-        if alert:
-            observable = {"dataType": "domain", "data": alert.dns_twisted.domain_name, "tags": []}
-            if alert.dns_twisted.fuzzer:
-                observable["tags"].append(f"fuzzer:{alert.dns_twisted.fuzzer}")
-            if alert.dns_twisted.dns_monitored:
-                observable["tags"].append(f"corporate_dns:{alert.dns_twisted.dns_monitored.domain_name}")
-            if alert.dns_twisted.keyword_monitored:
-                observable["tags"].append(f"corporate_keyword:{alert.dns_twisted.keyword_monitored.name}")
+        if alert and alert.dns_twisted:
+            subdomain = alert.dns_twisted.domain_name
+            
+            extracted = tldextract.extract(subdomain)
+            domain_part = extracted.domain
+            suffix_part = extracted.suffix
+            
+            if domain_part and suffix_part:
+                parent_domain = f"{domain_part}.{suffix_part}"
+                
+                subdomain_observable = {"dataType": "domain", "data": subdomain, "tags": []}
+                
+                if alert.dns_twisted.fuzzer:
+                    subdomain_observable["tags"].append(f"fuzzer:{alert.dns_twisted.fuzzer}")
+                if alert.dns_twisted.dns_monitored:
+                    subdomain_observable["tags"].append(f"corporate_dns:{alert.dns_twisted.dns_monitored.domain_name}")
+                if alert.dns_twisted.keyword_monitored:
+                    subdomain_observable["tags"].append(f"corporate_keyword:{alert.dns_twisted.keyword_monitored.name}")
+                
+                subdomain_observable["tags"].append(f"parent_domain:{parent_domain}")
+                subdomain_observable["tags"].append(f"subdomain:{subdomain}")
 
-            observables.append(observable)
+                observables.append(subdomain_observable)
+                
+                if subdomain != parent_domain:
+                    parent_observable = {
+                        "dataType": "domain", 
+                        "data": parent_domain, 
+                        "tags": [
+                            f"parent_domain:{parent_domain}",
+                            "domain_type:parent"
+                        ]
+                    }
+                    observables.append(parent_observable)
 
     observables = [observable for observable in observables if observable['data'] is not None and observable['data'] != 'None']
 
@@ -384,8 +489,20 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
     Send notifications based on app type (Slack, Citadel, TheHive, Email).
     Collect observables, format content, and send to respective channels.
     """
-    app_config_slack = APP_CONFIG_SLACK.get(app_name)
-    app_config_citadel = APP_CONFIG_CITADEL.get(app_name)
+    template_key = app_name
+
+    # Special handling for threats_watcher to detect notification type
+    if app_name == 'threats_watcher':
+        notification_type = context_data.get('notification_type', 'regular')
+        if notification_type == 'weeklysummary':
+            template_key = 'threats_watcher_weeklysummary'
+        elif notification_type == 'breakingnews':
+            template_key = 'threats_watcher_breakingnews'
+        else:
+            template_key = 'threats_watcher'
+
+    app_config_slack = APP_CONFIG_SLACK.get(template_key)
+    app_config_citadel = APP_CONFIG_CITADEL.get(template_key)
     app_config_thehive = APP_CONFIG_THEHIVE.get(app_name)
     app_config_email = APP_CONFIG_EMAIL.get(app_name)
 
@@ -394,7 +511,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
     if not subscribers.exists():
         return
-    
+
     observables = collect_observables(app_name, context_data)
 
     thehive_url = settings.THE_HIVE_URL
@@ -408,19 +525,56 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
     try:
         common_data = {}
-        
-        if app_name == 'threats_watcher':
-            words_list = '\n'.join([remove_html_tags(unescape(word)) for word in context_data.get('email_words', [])])
-            if not words_list:
-                return
-            common_data = {
-                'words_list': words_list,
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
-                'app_name': 'threats_watcher'
-            }
 
-            email_words = context_data.get('email_words', [])
-            email_body = get_threats_watcher_template(settings.WORDS_OCCURRENCE, email_words)
+        if app_name == 'threats_watcher':
+            notification_type = context_data.get('notification_type', 'regular')
+
+            if notification_type == 'weeklysummary':
+                summary_text = context_data.get('summary_text', '')
+                if not summary_text:
+                    return
+                email_conf = APP_CONFIG_EMAIL['threats_watcher_weeklysummary']
+                subject = email_conf['subject']
+                template_func = email_conf['template_func']
+                email_body = template_func(summary_text)
+                common_data = {
+                    'summary_text': summary_text,
+                    'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                    'app_name': 'threats_watcher'
+                }
+
+            elif notification_type == 'breakingnews':
+                keyword = context_data.get('keyword', '')
+                occurrences = context_data.get('occurrences', 0)
+                summary_text = context_data.get('summary_text', '')
+                if not keyword or not summary_text:
+                    return
+                email_conf = APP_CONFIG_EMAIL['threats_watcher_breakingnews']
+                subject = email_conf['subject']
+                template_func = email_conf['template_func']
+                email_body = template_func(summary_text)
+                common_data = {
+                    'keyword': keyword,
+                    'occurrences': occurrences,
+                    'summary_text': summary_text,
+                    'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                    'app_name': 'threats_watcher'
+                }
+
+            else:
+                words_list = '\n'.join([remove_html_tags(unescape(word)) for word in context_data.get('email_words', [])])
+                if not words_list:
+                    return
+                email_conf = APP_CONFIG_EMAIL['threats_watcher']
+                subject = email_conf['subject']
+                template_func = email_conf['template_func']
+                email_words = context_data.get('email_words', [])
+                email_body = template_func(settings.WORDS_OCCURRENCE, email_words)
+                common_data = {
+                    'words_list': words_list,
+                    'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                    'app_name': 'threats_watcher'
+                }
 
 
         elif app_name == 'website_monitoring':
@@ -472,182 +626,127 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
         elif app_name == 'dns_finder':
             alert = context_data.get('alert')
-            parent_ticket_id = context_data.get('parent_ticket_id')
 
             if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
-                print(f"{timezone.now()} - No valid alert data found or DNS Twisted information missing.")
+                logger.warning(f"No valid alert data found or DNS Twisted information missing.")
                 return
 
-            current_time = timezone.now()
             subdomain = alert.dns_twisted.domain_name
-
-            extracted = tldextract.extract(subdomain)
-            subdomain_part = extracted.subdomain
-            domain_part = extracted.domain
-            suffix_part = extracted.suffix
-
-            if suffix_part:
-                parent_domain = f"{domain_part}.{suffix_part}"
-        
-                is_parent_domain = (not subdomain_part)
-            else:
-                return
-
             dns_domain_name_sanitized = (
                 getattr(alert.dns_twisted, 'dns_domain_name_sanitized', None) or 
                 alert.dns_twisted.domain_name.replace('.', '[.]')
             )
 
-            if subscribers.filter(thehive=True).exists():
-                source = context_data.get('source')
+            if subscribers.filter(thehive=True).exists() and app_config_thehive:
+                current_time = timezone.now()
+                extracted = tldextract.extract(subdomain)
+                subdomain_part = extracted.subdomain
+                domain_part = extracted.domain
+                suffix_part = extracted.suffix
 
+                if not suffix_part:
+                    logger.warning(f"No valid suffix found for domain: {subdomain}")
+                    return
+
+                parent_domain = f"{domain_part}.{suffix_part}"
+                is_parent_domain = (not subdomain_part)
+
+                observables_dns = collect_observables('dns_finder', context_data)
                 parent_site = Site.objects.filter(domain_name=parent_domain).first()
-                ticket_id = parent_site.ticket_id if parent_site else None
-                relevant_ticket_id = ticket_id if ticket_id else parent_ticket_id
+                ticket_id = None
+                existing_item = None
+                item_type = None
 
-                observables = collect_observables(app_name, context_data)
-
-            if is_parent_domain:
-
-                if app_config_thehive:
-                    common_data = {
-                        'alert': alert,
-                        'dns_domain_name_sanitized': dns_domain_name_sanitized,
-                        'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
-                        'app_name': 'dns_finder'
-                    }
-
-                    formatted_title = app_config_thehive['title'].format(**common_data)
-
-                    send_notification(
-                        channel="thehive",
-                        content_template=app_config_thehive['description_template'],
-                        subscribers_filter={'thehive': True},
-                        send_func=lambda content: send_thehive_alert(
-                            title=formatted_title,
-                            description=content,
-                            severity=app_config_thehive['severity'],
-                            tlp=app_config_thehive['tlp'],
-                            pap=app_config_thehive['pap'],
-                            tags=app_config_thehive['tags'] + [
-                                f"Detected fuzzer: {alert.dns_twisted.fuzzer}",
-                                f"Detected keyword: {alert.dns_twisted.keyword_monitored}",
-                                f"Domain name: {dns_domain_name_sanitized}"
-                            ],
-                            app_name=app_name,
-                            domain_name=parent_domain,
-                            observables=observables
-                        ),
-                        **common_data
+                # Step 1: Search for parent domain in Site model
+                if parent_site and parent_site.ticket_id:
+                    ticket_id = parent_site.ticket_id
+                    logger.info(f"Found parent domain {parent_domain} in Site model with ticket_id: {ticket_id}")
+                    
+                    alert_type, alert_item = search_thehive_for_ticket_id(
+                        ticket_id, settings.THE_HIVE_URL, settings.THE_HIVE_KEY, "alert"
                     )
+                    if isinstance(alert_item, list):
+                        alert_item = alert_item[0] if alert_item else None
+                    case_type, case_item = search_thehive_for_ticket_id(
+                        ticket_id, settings.THE_HIVE_URL, settings.THE_HIVE_KEY, "case"
+                    )
+                    if isinstance(case_item, list):
+                        case_item = case_item[0] if case_item else None
+                    
+                    if case_item:
+                        existing_item = case_item
+                        item_type = "case"
+                    elif alert_item:
+                        existing_item = alert_item
+                        item_type = "alert"
+                
+                # Step 2: Search by observables in TheHive
+                if not existing_item:
+                    item_type, item_obj = search_thehive_for_observable(
+                        parent_domain, settings.THE_HIVE_URL, settings.THE_HIVE_KEY
+                    )
+                    if item_obj:
+                        existing_item = item_obj
+                        item_type = item_type
 
-            else:
-                for observable in observables:
-                    if parent_domain:
-                        observable["tags"].append(f"parent_domain:{parent_domain}")
+                # Step 3: If still not found, use generated ticket_id
+                if not ticket_id:
+                    ticket_id = generate_ref() 
 
                 current_time_str = current_time.strftime("%H:%M:%S")
                 current_date_str = current_time.strftime("%Y-%m-%d")
 
                 comment = (
-                    f"A change was processed by {app_name} at {current_time_str} on {current_date_str}.\n\n"
+                    f"A change was processed by dns_finder at {current_time_str} on {current_date_str}.\n\n"
                     f"A new subdomain has been detected: {subdomain}, associated with the parent domain {parent_domain}.\n\n"
                     "The associated observables have been handled in the dedicated section."
                 )
 
-                if relevant_ticket_id:
-                    alert_type, alert_item = search_thehive_for_ticket_id(
-                        relevant_ticket_id,
+                # Update or create
+                if existing_item:
+                    logger.info(f"Updating existing {item_type} for parent domain {parent_domain}")
+                    update_existing_alert_case(
+                        item_type=item_type,
+                        existing_item=existing_item,
+                        observables=observables_dns,
+                        comment=comment,
                         thehive_url=settings.THE_HIVE_URL,
                         api_key=settings.THE_HIVE_KEY,
-                        item_type="alert"
+                        parent_domain=parent_domain,
+                        subdomain=subdomain
                     )
-                    case_type, case_item = search_thehive_for_ticket_id(
-                        relevant_ticket_id,
-                        thehive_url=settings.THE_HIVE_URL,
-                        api_key=settings.THE_HIVE_KEY,
-                        item_type="case"
-                    )
-
-                    if case_item:
-                        print(f"{timezone.now()} - Updating existing case for ticket_id {relevant_ticket_id}")
-                        update_existing_alert_case(
-                            item_type="case",
-                            existing_item=case_item,
-                            observables=observables,
-                            comment=comment,
-                            thehive_url=settings.THE_HIVE_URL,
-                            api_key=settings.THE_HIVE_KEY
-                        )
-                    elif alert_item:
-                        print(f"{timezone.now()} - Updating existing alert for ticket_id {relevant_ticket_id}")
-                        update_existing_alert_case(
-                            item_type="alert",
-                            existing_item=alert_item,
-                            observables=observables,
-                            comment=comment,
-                            thehive_url=settings.THE_HIVE_URL,
-                            api_key=settings.THE_HIVE_KEY
-                        )
-                    else:
-                        print(f"{timezone.now()} - No existing alert or case found for ticket_id {relevant_ticket_id}. Creating new alert.")
-                        create_new_alert(
-                            ticket_id=relevant_ticket_id,
-                            title=f"New Twisted DNS found - {parent_domain}",
-                            description=(
-                                f"**Alert:**\n"
-                                f"**New Twisted DNS Found:**\n"
-                                f"Subdomain: {subdomain}\n"
-                                f"Parent Domain: {parent_domain}\n"
-                                f"Corporate Keyword: {alert.dns_twisted.keyword_monitored}\n"
-                                f"Corporate DNS: {alert.dns_twisted.dns_monitored}\n"
-                                f"Fuzzer: {alert.dns_twisted.fuzzer}\n"
-                            ),
-                            severity=app_config_thehive['severity'],
-                            tlp=app_config_thehive['tlp'],
-                            pap=app_config_thehive['pap'],
-                            tags=app_config_thehive['tags'] + [
-                                f"Detected fuzzer: {alert.dns_twisted.fuzzer}",
-                                f"Detected keyword: {alert.dns_twisted.keyword_monitored}",
-                                f"Domain name: {dns_domain_name_sanitized}"
-                            ],
-                            app_name='dns_finder',
-                            observables=observables,
-                            customFields={
-                                settings.THE_HIVE_CUSTOM_FIELD: {"string": relevant_ticket_id},
-                                "email-sender": {"string": settings.THE_HIVE_EMAIL_SENDER},
-                            },
-                            comment=comment,
-                            thehive_url=settings.THE_HIVE_URL,
-                            api_key=settings.THE_HIVE_KEY
-                        )
-
                 else:
-                    print(f"{timezone.now()} - Parent domain {parent_domain} is not monitored, following standard DNS Finder process.")
-
-                    send_thehive_alert(
-                        title=f"New Twisted DNS found - {subdomain}",
+                    logger.info(f"Creating new alert for parent domain {parent_domain}")
+                    create_new_alert(
+                        ticket_id=ticket_id,
+                        title=f"New Twisted DNS found - {parent_domain}",
                         description=(
                             f"**Alert:**\n"
                             f"**New Twisted DNS Found:**\n"
                             f"Subdomain: {subdomain}\n"
                             f"Parent Domain: {parent_domain}\n"
-                            f"Corporate Keyword: {alert.dns_twisted.keyword_monitored}\n"
-                            f"Corporate DNS: {alert.dns_twisted.dns_monitored}\n"
-                            f"Fuzzer: {alert.dns_twisted.fuzzer}\n"
+                            f"Corporate Keyword: {getattr(alert.dns_twisted, 'keyword_monitored', 'N/A')}\n"
+                            f"Corporate DNS: {getattr(alert.dns_twisted, 'dns_monitored', 'N/A')}\n"
+                            f"Fuzzer: {getattr(alert.dns_twisted, 'fuzzer', 'N/A')}\n"
                         ),
                         severity=app_config_thehive['severity'],
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
-                        tags=app_config_thehive['tags'] + [
-                            f"Detected fuzzer: {alert.dns_twisted.fuzzer}",
-                            f"Detected keyword: {alert.dns_twisted.keyword_monitored}",
-                            f"Domain name: {dns_domain_name_sanitized}"
-                        ],
+                        tags=[
+                            f"Detected fuzzer: {getattr(alert.dns_twisted, 'fuzzer', 'unknown')}",
+                            f"Detected keyword: {getattr(alert.dns_twisted.keyword_monitored, 'name', 'unknown') if alert.dns_twisted.keyword_monitored else 'unknown'}",
+                        ] + (app_config_thehive.get('tags', []) or []),
                         app_name='dns_finder',
-                        domain_name=subdomain,
-                        observables=observables,
-                        customFields=app_config_thehive.get('customFields'),
+                        observables=observables_dns,
+                        customFields={
+                            settings.THE_HIVE_CUSTOM_FIELD: {"string": ticket_id},
+                            "email-sender": {"string": settings.THE_HIVE_EMAIL_SENDER},
+                        },
+                        comment=comment,
+                        thehive_url=settings.THE_HIVE_URL,
+                        api_key=settings.THE_HIVE_KEY,
+                        parent_domain=parent_domain,
+                        subdomain=subdomain
                     )
 
             source = context_data.get('source')
@@ -656,7 +755,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             elif source == 'check_dnstwist':
                 email_body = get_dns_finder_template(alert)
             else:
-                print(f"Warning: Unknown source '{source}' for alert.")
+                logger.warning(f"Unknown source '{source}' for alert.")
                 email_body = "Alert with no specific model defined."
 
             common_data = {
@@ -702,7 +801,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 try:
                     site = Site.objects.get(domain_name=domain_name)
                 except Site.DoesNotExist:
-                    print(f"{timezone.now()} - Site with domain_name {domain_name} not found.")
+                    logger.error(f"Site with domain_name {domain_name} not found.")
                     return
 
                 ticket_id = site.ticket_id
@@ -744,15 +843,23 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
         if app_config_email:
             email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
-            
+
             if email_list:
-                email_subject = app_config_email['subject'].format(**common_data)
+                if app_name == 'threats_watcher':
+                    notification_type = context_data.get('notification_type', 'regular')
+                    if notification_type in ('weeklysummary', 'breakingnews'):
+                        email_subject = subject.format(**common_data)
+                    else:
+                        email_subject = app_config_email['subject'].format(**common_data)
+                else:
+                    email_subject = app_config_email['subject'].format(**common_data)
+
                 send_email_notifications(email_subject, email_body, email_list, app_name)
             else:
                 pass
 
     except Exception as e:
-        print(f"{datetime.now()} - Error sending notifications for {app_name}: {str(e)}")
+        logger.error(f"Error sending notifications for {app_name}: {str(e)}")
 
 
 def send_app_specific_notifications_group(app_name, context_data, subscribers):
@@ -851,20 +958,21 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
                     elif app_name == 'dns_finder_group':
                         email_body = get_dns_finder_group_template(dns_monitored, alerts_number)
                     else:
-                        print(f"Unsupported app_name: {app_name}")
+                        logger.warning(f"Unknown app_name for group email: {app_name}")
                         return
 
                     if not isinstance(email_body, str):
+                        logger.error(f"Email body is not a string for {app_name}: {type(email_body)}")
                         return
 
                     send_email_notifications(email_subject, email_body, email_list, app_name)
 
                 except Exception as e:
-                    print(f"Error sending email: {e}")
+                    logger.error(f"Error sending group email for {app_name}: {e}")
                     return
 
     except Exception as e:
-        print(f"{datetime.now()} - Error sending notifications for {app_name}: {str(e)}")
+        logger.error(f"Error sending group notifications for {app_name}: {str(e)}")
 
 
 def send_only_thehive_notifications(app_name, context_data, subscribers):
@@ -928,7 +1036,7 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
                 try:
                     site = Site.objects.get(domain_name=domain_name)
                 except Site.DoesNotExist:
-                    print(f"{timezone.now()} - Site with domain_name {domain_name} not found.")
+                    logger.error(f"Site with domain_name {domain_name} not found.")
                     return
 
                 ticket_id = site.ticket_id
@@ -969,4 +1077,55 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
                     )
 
     except Exception as e:
-        print(f"{datetime.now()} - Error sending notifications for {app_name}: {str(e)}")
+        logger.error(f"Error sending TheHive notifications for {app_name}: {str(e)}")
+
+
+def update_legitimate_domains_rdap_data():
+    """
+    Update RDAP/WHOIS data for legitimate domains.
+    """
+    close_old_connections()
+    logger.info("CRON TASK: RDAP/WHOIS Lookup for Legitimate Domains")
+
+    domains = LegitimateDomain.objects.all()
+
+    for domain in domains:
+        try:
+            from .utils.rdap import RDAPDiscovery
+            rdap = RDAPDiscovery(domain.domain_name)
+            method = "RDAP"
+
+            if not rdap.fetch_rdap_data():
+                from .utils.whois import WhoisDiscovery
+                whois = WhoisDiscovery(domain.domain_name)
+                if not whois.fetch_whois_data():
+                    logger.warning(f"No RDAP/WHOIS data found for {domain.domain_name}")
+                    continue
+
+                rdap = whois
+                method = "WHOIS"
+
+            expiration_date = rdap.get_expiration_date()
+
+            if expiration_date:
+                try:
+                    new_expiry = datetime.strptime(expiration_date, '%Y-%m-%d').date()
+                except Exception:
+                    # If parsing fails, count as failure and continue
+                    logger.warning(f"Could not parse expiry '{expiration_date}' for {domain.domain_name}")
+                    continue
+
+                if domain.expiry != new_expiry:
+                    old_expiry = domain.expiry
+                    domain.expiry = new_expiry
+                    domain.save(update_fields=['expiry'])
+
+                    logger.info(
+                        f"{method} update for {domain.domain_name}: expiry changed from {old_expiry} to {new_expiry}"
+                    )
+            else:
+                logger.warning(f"No expiration date available for {domain.domain_name}")
+
+
+        except Exception as e:
+            logger.error(f"Error processing {domain.domain_name}: {str(e)}")

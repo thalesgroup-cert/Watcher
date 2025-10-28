@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.db import models
-from django.db.models.signals import pre_delete
+from django.db.models.signals import pre_delete, post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from datetime import timedelta
 from django.contrib.auth.models import User
-
+import logging
 
 class Source(models.Model):
     """
@@ -57,8 +58,15 @@ class TrendyWord(models.Model):
 def cascade_delete_branch(sender, instance, **kwargs):
     """
     Delete unused :model:`threats_watcher.PostUrl` when a :model:`threats_watcher.TrendyWord` is deleted.
-    Also verified if the posts is not reference for another :model:`threats_watcher.TrendyWord`.
+    Also delete related Summary objects and verify if posts are referenced by other TrendyWords.
     """
+    # Delete related summaries first
+    Summary.objects.filter(
+        type='trendy_word_summary',
+        keywords=instance.name
+    ).delete()
+    
+    # Delete unused PostUrls
     for posturl in instance.posturls.all():
         # If posturl is associated to 1 or 0 trendyword, we can remove it
         if TrendyWord.objects.filter(posturls=posturl).count() <= 1:
@@ -78,6 +86,73 @@ class BannedWord(models.Model):
     class Meta:
         verbose_name = 'block word'
         verbose_name_plural = 'Blocklist'
+
+
+class Summary(models.Model):
+    """
+    Stores summaries for both weekly digests and breaking news alerts.
+    """
+    TYPE_CHOICES = (
+        ('weekly_summary', 'Weekly Summary'),
+        ('breaking_news', 'Breaking News'),
+        ('trendy_word_summary', 'Trendy Word Summary'),
+    )
+    
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES, default='weekly_summary')
+    keywords = models.CharField(max_length=500, blank=True)
+    summary_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = 'Summaries'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.get_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+    @classmethod
+    def cleanup_older_than(cls, days: int = 90) -> int:
+        """
+        Delete Summaries older than `days` days.
+        Returns number of deleted rows.
+        """
+        cutoff = timezone.now() - timedelta(days=days)
+        qs = cls.objects.filter(created_at__lt=cutoff)
+        count = qs.count()
+        qs.delete()
+        return count
+
+
+@receiver(post_save, sender=TrendyWord)
+def auto_generate_trendy_word_summary(sender, instance, created, **kwargs):
+    """
+    Auto-generate an AI summary when a TrendyWord is created or updated.
+    """
+    from .summary_manager import generate_trendy_word_summary
+
+    logger = logging.getLogger('watcher.threats_watcher')
+
+    # Check for an existing summary for this keyword
+    existing_summary = Summary.objects.filter(
+        type='trendy_word_summary',
+        keywords=instance.name
+    ).first()
+
+    should_generate = False
+
+    if created and instance.occurrences >= 3:
+        should_generate = True
+        logger.info(f"New TrendyWord '{instance.name}' created with {instance.occurrences} occurrences - generating summary")
+    elif not created and instance.posturls.count() >= 5 and not existing_summary:
+        should_generate = True
+        logger.info(f"TrendyWord '{instance.name}' updated with {instance.posturls.count()} posts - generating summary")
+
+    if should_generate:
+        try:
+            generate_trendy_word_summary(instance.id)
+        except Exception as e:
+            logger.error(f"Failed to auto-generate summary for '{instance.name}': {e}", exc_info=True)
 
 
 class Subscriber(models.Model):

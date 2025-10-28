@@ -49,3 +49,27 @@ class MISPEventUuidLink(models.Model):
                 pass
         
         return False
+
+
+class LegitimateDomain(models.Model):
+    """
+    List of company-approved legitimate domains used.
+    """
+    domain_name = models.CharField(max_length=255, unique=True)
+    ticket_id = models.CharField(max_length=20, blank=True, null=True)
+    contact = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    expiry = models.DateField(blank=True, null=True)
+    repurchased = models.BooleanField(default=False)
+    comments = models.TextField(blank=True, null=True)
+    misp_event_uuid = models.JSONField(blank=True, null=True, default=list)
+    
+    class Meta:
+        verbose_name = 'Legitimate Domain'
+        verbose_name_plural = 'Legitimate Domains'
+    
+    def __str__(self):
+        return self.domain_name
+
+    class Meta:
+        ordering = ['-created_at']

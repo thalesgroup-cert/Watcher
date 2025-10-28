@@ -1,8 +1,12 @@
+import logging
 from django.utils import timezone
 from django.conf import settings
 from rest_framework.exceptions import NotFound
 from pymisp import MISPTag, MISPAttribute, MISPObject
 from .models import MISPEventUuidLink
+
+# Configure logger
+logger = logging.getLogger('watcher.common')
 
 
 def create_misp_tags(misp_api):
@@ -25,7 +29,7 @@ def create_misp_tags(misp_api):
             if tag_name not in existing_tags:
                 tag = MISPTag()
                 tag.name = tag_name
-                print(f"{timezone.now()} - Creating new tag: {tag_name}")
+                logger.info(f"Creating new tag: {tag_name}")
                 misp_api.add_tag(tag)
                 tag_list.append(tag)
             else:
@@ -34,7 +38,7 @@ def create_misp_tags(misp_api):
         return tag_list
         
     except Exception as e:
-        print(f"{timezone.now()} - Error creating MISP tags: {str(e)}")
+        logger.error(f"Error creating MISP tags: {str(e)}")
         raise
 
 
@@ -169,7 +173,7 @@ def find_domain_object(misp_api, event, domain_name):
         return False, None
         
     except Exception as e:
-        print(f"{timezone.now()} - Error searching domain object: {str(e)}")
+        logger.error(f"Error searching domain object: {str(e)}")
         raise
 
 
@@ -188,10 +192,10 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
     """
     try:
         if 'Event' not in event:
-            print(f"{timezone.now()} - Invalid MISP event format - please check the event UUID")
+            logger.error("Invalid MISP event format - please check the event UUID")
             return False, "Invalid MISP event format - please check the event UUID"
 
-        print(f"{timezone.now()} - Processing domain name {site.domain_name} for event {event['Event']['uuid']}")
+        logger.info(f"Processing domain name {site.domain_name} for event {event['Event']['uuid']}")
         
         domain_exists, existing_obj = find_domain_object(misp_api, event, site.domain_name)
         
@@ -200,7 +204,7 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
             objects = create_objects(site, existing_values)
             
             if not objects:
-                print(f"{timezone.now()} - Already on MISP - No changes applied for {site.domain_name}")
+                logger.info(f"Already on MISP - No changes applied for {site.domain_name}")
                 return True, f"Already on MISP - No changes applied for {site.domain_name}"
                             
             if not dry_run:
@@ -219,9 +223,9 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
                                 }
                             )
                             misp_api.update_object(existing_obj)
-                            print(f"{timezone.now()} - Updating MISP object for {site.domain_name} - Added attribute {attr.type}: {attr.value}")
+                            logger.info(f"Updating MISP object for {site.domain_name} - Added attribute {attr.type}: {attr.value}")
                         except Exception as e:
-                            print(f"{timezone.now()} - Error adding attribute to object: {str(e)}")
+                            logger.error(f"Error adding attribute to object: {str(e)}")
                             raise
                     
             return True, f"Successfully updated {site.domain_name} in MISP"
@@ -233,15 +237,15 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
                 for obj in objects:
                     try:
                         misp_api.add_object(event['Event']['id'], obj)
-                        print(f"{timezone.now()} - Added new object with {len(obj.attributes)} attributes")
+                        logger.info(f"Added new object with {len(obj.attributes)} attributes")
                     except Exception as e:
-                        print(f"{timezone.now()} - Error adding object: {str(e)}")
+                        logger.error(f"Error adding object: {str(e)}")
                         raise
                     
             return True, f"Successfully added {site.domain_name} to MISP"
             
     except Exception as e:
-        print(f"{timezone.now()} - Error in create_or_update_objects: {str(e)}")
+        logger.error(f"Error in create_or_update_objects: {str(e)}")
         return False, f"Error: {str(e)}"
 
 
@@ -291,5 +295,5 @@ def update_misp_uuid(domain_name, event_uuid):
         return mapping.misp_event_uuid
         
     except Exception as e:
-        print(f"{timezone.now()} - Error updating MISP UUID: {str(e)}")
+        logger.error(f"Error updating MISP UUID: {str(e)}")
         return []

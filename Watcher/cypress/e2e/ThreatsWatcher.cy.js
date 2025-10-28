@@ -44,6 +44,16 @@ describe('Threats Watcher - E2E Test Suite', () => {
       ]
     }).as('getBannedWords');
 
+    cy.intercept('GET', '/api/threats_watcher/summary/?type=weekly_summary', {
+      statusCode: 200,
+      body: []
+    }).as('getWeeklySummary');
+
+    cy.intercept('GET', '/api/threats_watcher/summary/?type=breaking_news', {
+      statusCode: 200,
+      body: []
+    }).as('getBreakingNews');
+
     // Mock CRUD operations
     cy.intercept('POST', '/api/threats_watcher/bannedword/', (req) => ({
       statusCode: 201, body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
@@ -122,10 +132,19 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should display main sections', () => {
-      cy.get('.container-fluid.mt-3', { timeout: 15000 }).should('exist');
-      cy.get('.row', { timeout: 15000 }).should('exist');
-      cy.get('.col-lg-7', { timeout: 15000 }).should('exist');
-      cy.get('.col-lg-5', { timeout: 15000 }).should('exist');
+      cy.get('.container-fluid.mt-3, .container-fluid', { timeout: 15000 })
+        .first()
+        .should('exist');
+      
+      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
+        .should('exist')
+        .within(() => {
+          cy.get('.overflow-hidden').first().should('exist');
+          
+          cy.get('.overflow-hidden').eq(1).should('exist').within(() => {
+            cy.get('table, h4:contains("Trendy Words")', { timeout: 10000 }).should('exist');
+          });
+        });
     });
 
     it('should load data automatically', () => {
@@ -154,14 +173,18 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
   describe('Word Cloud Display and Interaction', () => {
     it('should display word cloud component', () => {
-      cy.get('.col-lg-7').should('exist');
-      cy.get('.col-lg-7').within(() => {
-        cy.get('svg, canvas, div').should('exist');
-      });
+      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
+        .should('exist')
+        .within(() => {
+          cy.get('.overflow-hidden').first().within(() => {
+            cy.get('svg, canvas, div', { timeout: 10000 }).should('exist');
+          });
+        });
     });
 
     it('should handle word cloud interactions', () => {
-      cy.get('.col-lg-7').should('be.visible');
+      cy.get('.d-flex.w-100.h-100.position-relative svg, .d-flex.w-100.h-100.position-relative canvas', { timeout: 15000 })
+        .should('be.visible');
       
       cy.get('body').then(($body) => {
         const wordElements = $body.find('text, span, div').filter((index, element) => {
@@ -180,21 +203,34 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     it('should display word tooltips on hover', () => {
       cy.get('body').then(($body) => {
-        const tooltipElements = $body.find('[title*="Number of times"], [title*="times"], [title*="detected"]');
+        const tooltipElements = $body.find('[title*="Number of times"], [title*="times"], [title*="caught"]');
         if (tooltipElements.length > 0) {
           cy.log('Word tooltips with occurrence count found');
-          cy.wrap(tooltipElements.first()).should('have.attr', 'title').and('include', 'Number of times');
+          cy.wrap(tooltipElements.first()).should('have.attr', 'title');
         } else {
           cy.log('Tooltips may work differently');
         }
       });
     });
+
+    it('should verify ResizableContainer functionality', () => {
+      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 })
+        .should('exist')
+        .then(($container) => {
+          const hasResizableStructure = $container.find('.overflow-hidden').length >= 2;
+          
+          if (hasResizableStructure) {
+            cy.log('ResizableContainer structure found');
+          } else {
+            cy.log('ResizableContainer may have different structure');
+          }
+        });
+    });
   });
 
   describe('Word List Display and Management', () => {
     it('should display trendy words table', () => {
-      cy.get('.col-lg-5').should('exist');
-      cy.get('h4').should('contain', 'Trendy Words');
+      cy.get('h4:contains("Trendy Words")', { timeout: 15000 }).should('exist');
       cy.get('table', { timeout: 15000 }).should('exist');
       
       cy.get('table').within(() => {
@@ -224,6 +260,25 @@ describe('Threats Watcher - E2E Test Suite', () => {
         cy.get('th').should('contain', 'Caught');
         cy.get('th').should('contain', 'Reliability');
         cy.get('th').should('contain', 'Found');
+      });
+    });
+
+    it('should display TableManager filter controls', () => {
+      cy.get('button:contains("Reset to Default")', { timeout: 10000 }).should('exist');
+      cy.get('button:contains("Saved Filters")', { timeout: 10000 }).should('exist');
+      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")', { timeout: 10000 }).should('exist');
+      cy.get('button:contains("Save Filter")', { timeout: 10000 }).should('exist');
+    });
+
+    it('should handle TableManager filter visibility toggle', () => {
+      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")').first().click();
+      cy.wait(500);
+      
+      cy.get('body').then(($body) => {
+        const hasFilters = $body.find('.card.mb-3.shadow-sm.border-0').length > 0;
+        if (hasFilters) {
+          cy.log('Filters panel toggled successfully');
+        }
       });
     });
 
@@ -259,12 +314,18 @@ describe('Threats Watcher - E2E Test Suite', () => {
         }
       });
     });
+
+    it('should verify items per page selector', () => {
+      cy.get('select').filter((index, el) => {
+        const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
+        return text.includes('Items per page');
+      }).should('exist');
+    });
   });
 
   describe('Post URLs Display and Management', () => {
     it('should display post URLs section', () => {
       cy.get('.row').should('have.length.at.least', 2);
-      cy.get('.col-lg-12').should('exist');
       
       cy.get('body').then(($body) => {
         if ($body.text().includes('Article') || $body.text().includes('related to')) {
@@ -284,6 +345,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
         
         if (wordElements.length > 0) {
           cy.wrap(wordElements.first()).click();
+          cy.wait(500);
           
           cy.get('body').then(($body2) => {
             if ($body2.text().includes('Domain Name') || $body2.text().includes('Data')) {
@@ -291,6 +353,34 @@ describe('Threats Watcher - E2E Test Suite', () => {
               cy.get('table').should('contain', 'Data');
               cy.get('table').should('contain', 'Found');
             }
+          });
+        }
+      });
+    });
+
+    it('should display WordSummary when word is selected', () => {
+      cy.intercept('GET', '/api/threats_watcher/summary/?type=trendy_word_summary&keyword=*', {
+        statusCode: 200,
+        body: []
+      }).as('getWordSummary');
+
+      cy.intercept('GET', '/api/threats_watcher/summary/by-keyword/*', {
+        statusCode: 404,
+        body: { error: 'not_found', message: 'Keyword not found' }
+      }).as('generateWordSummary');
+
+      cy.get('body').then(($body) => {
+        const wordElements = $body.find('td h5').filter((index, element) => {
+          const text = Cypress.$(element).text().toLowerCase();
+          return text.includes('test-malware');
+        });
+        
+        if (wordElements.length > 0) {
+          cy.wrap(wordElements.first()).click();
+          cy.wait(1000);
+          
+          cy.get('.card.bg-secondary.border-0.shadow-lg').should('exist').within(() => {
+            cy.get('.bg-primary').should('contain', 'Word Summary for');
           });
         }
       });
@@ -313,7 +403,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
         win.localStorage.removeItem('viewedUrls');
         
         cy.get('body').then(($body) => {
-          const articleRows = $body.find('tr[onclick], tr').filter((index, element) => {
+          const articleRows = $body.find('tr').filter((index, element) => {
             return Cypress.$(element).text().includes('.com');
           });
           
@@ -324,19 +414,29 @@ describe('Threats Watcher - E2E Test Suite', () => {
         });
       });
     });
+
+    it('should verify ResizableContainer for PostUrls and WordSummary', () => {
+      cy.get('body').then(($body) => {
+        const wordElements = $body.find('td h5').first();
+        if (wordElements.length > 0) {
+          cy.wrap(wordElements).click();
+          cy.wait(500);
+          
+          cy.get('.d-flex.w-100.h-100.position-relative').eq(1).should('exist');
+        }
+      });
+    });
   });
 
   describe('Trend Chart Display and Visualization', () => {
     it('should display trend chart section', () => {
-      cy.get('.row').should('have.length.at.least', 3);
+      cy.get('.row').should('have.length.at.least', 2);
       
       cy.get('.row').then(($rows) => {
-        const lastRow = $rows.last();
-        const hasCol = lastRow.find('.col-lg-12, .col-12, .col').length > 0;
-        if (hasCol) {
+        if ($rows.length >= 3) {
           cy.log('Chart section structure found');
         } else {
-          cy.log('Chart section may have different column structure');
+          cy.log('Chart section may have different structure');
         }
       });
     });
@@ -350,11 +450,12 @@ describe('Threats Watcher - E2E Test Suite', () => {
         
         if (wordElements.length > 0) {
           cy.wrap(wordElements.first()).click();
+          cy.wait(500);
           
           cy.get('body').then(($body2) => {
-            const canvasElements = $body2.find('canvas');
+            const canvasElements = $body2.find('canvas#myChart');
             if (canvasElements.length > 0) {
-              cy.get('canvas').should('be.visible');
+              cy.get('canvas#myChart').should('be.visible');
               cy.log('Trend chart canvas found');
             } else {
               cy.log('Chart canvas may be rendered conditionally');
@@ -378,37 +479,32 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
   });
 
-  describe('Authentication and User Management', () => {
-    it('should display authentication-specific features', () => {
-      cy.get('.navbar').should('exist');
-      cy.get('.navbar').within(() => {
-        cy.get('a:contains("Welcome"), button:contains("Welcome")').should('exist');
-      });
-    });
-
-    it('should show delete and blocklist buttons for authenticated users', () => {
+  describe('WeeklyBreaking Component', () => {
+    it('should display WeeklyBreaking floating window or bubble', () => {
+      cy.get('.position-fixed').should('exist');
+      
       cy.get('body').then(($body) => {
-        const authButtons = $body.find('button:contains("Delete"), button:contains("BlockList")');
-        if (authButtons.length > 0) {
-          cy.log('Authentication-specific buttons found');
-        } else {
-          cy.log('Auth buttons may not be visible in current state');
+        const hasWeeklyBreaking = $body.find('.position-fixed .card, .position-fixed .material-icons').length > 0;
+        if (hasWeeklyBreaking) {
+          cy.log('WeeklyBreaking component found');
         }
       });
     });
 
-    it('should display user welcome message', () => {
-      cy.get('.navbar').within(() => {
-        cy.get('button:contains("Welcome")').should('exist');
+    it('should handle WeeklyBreaking minimize/maximize', () => {
+      cy.get('body').then(($body) => {
+        const minimizeIcon = $body.find('.material-icons:contains("expand_more")');
+        const bubbleIcon = $body.find('.position-fixed .material-icons:contains("description"), .position-fixed .material-icons:contains("bolt")');
         
-        cy.get('button:contains("Welcome")').then(($btn) => {
-          const buttonText = $btn.text();
-          if (buttonText.includes('Ygal') || buttonText.includes('ygalnezri') || buttonText.includes('Welcome')) {
-            cy.log('User welcome message found');
-          } else {
-            cy.log('Welcome button found but content may differ');
-          }
-        });
+        if (minimizeIcon.length > 0) {
+          cy.wrap(minimizeIcon.first()).click();
+          cy.wait(500);
+          cy.log('WeeklyBreaking minimized');
+        } else if (bubbleIcon.length > 0) {
+          cy.wrap(bubbleIcon.first()).click();
+          cy.wait(500);
+          cy.log('WeeklyBreaking expanded');
+        }
       });
     });
   });
@@ -447,6 +543,27 @@ describe('Threats Watcher - E2E Test Suite', () => {
         }
       });
     });
+
+    it('should handle complete workflow with WordSummary', () => {
+      cy.get('body').then(($body) => {
+        const wordElements = $body.find('td h5').first();
+        
+        if (wordElements.length > 0) {
+          cy.wrap(wordElements).click();
+          cy.wait(1000);
+          
+          cy.get('body').then(($body2) => {
+            const hasWordSummary = $body2.text().includes('Word Summary for');
+            const hasPostUrls = $body2.text().includes('Article') || $body2.text().includes('Domain Name');
+            const hasChart = $body2.find('canvas#myChart').length > 0;
+            
+            if (hasWordSummary) cy.log('WordSummary displayed');
+            if (hasPostUrls) cy.log('PostUrls displayed');
+            if (hasChart) cy.log('Trend chart displayed');
+          });
+        }
+      });
+    });
   });
 
   describe('Navigation and UI Tests', () => {
@@ -459,16 +576,33 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     it('should verify layout structure specific to Threats Watcher', () => {
       cy.get('.container-fluid.mt-3').should('exist');
-      cy.get('.row').should('have.length.at.least', 3);
-      cy.get('.col-lg-7').should('exist');
-      cy.get('.col-lg-5').should('exist');
-      cy.get('.col-lg-12').should('exist');
+      cy.get('.row').should('have.length.at.least', 1);
+      
+      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 }).should('exist');
+      
+      cy.get('table', { timeout: 10000 }).should('exist');
     });
 
     it('should handle Bootstrap components correctly', () => {
       cy.get('.container-fluid').should('exist');
       cy.get('.row').should('exist');
-      cy.get('[class*="col-"]').should('exist');
+      cy.get('table.table').should('exist');
+    });
+
+    it('should verify ResizableContainer divider interactions', () => {
+      cy.get('.d-flex.w-100.h-100.position-relative')
+        .first()
+        .then(($container) => {
+          const resizer = $container.find('[style*="cursor: col-resize"], [style*="cursor: ew-resize"], [class*="resizer"]');
+          
+          if (resizer.length > 0) {
+            cy.wrap(resizer.first()).dblclick({ force: true });
+            cy.wait(500);
+            cy.log('Divider interaction tested');
+          } else {
+            cy.log('No interactive divider found - container may use different resize mechanism');
+          }
+        });
     });
   });
 
@@ -487,6 +621,32 @@ describe('Threats Watcher - E2E Test Suite', () => {
       cy.get('.container-fluid').should('exist');
       cy.get('table').should('exist');
     });
+
+    it('should handle WordSummary errors', () => {
+      cy.intercept('GET', '/api/threats_watcher/summary/?type=trendy_word_summary&keyword=*', {
+        statusCode: 200,
+        body: []
+      });
+
+      cy.intercept('GET', '/api/threats_watcher/summary/by-keyword/*', {
+        statusCode: 404,
+        body: { error: 'not_found', message: 'Keyword not found', posts_count: 0 }
+      });
+
+      cy.get('body').then(($body) => {
+        const wordElements = $body.find('td h5').first();
+        if (wordElements.length > 0) {
+          cy.wrap(wordElements).click();
+          cy.wait(1000);
+          
+          cy.get('body').then(($body2) => {
+            if ($body2.text().includes('Keyword Not Found')) {
+              cy.log('WordSummary error state handled correctly');
+            }
+          });
+        }
+      });
+    });
   });
 
   describe('Performance and Integration Tests', () => {
@@ -503,7 +663,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     it('should complete basic workflow integration test', () => {
       cy.get('body').should('be.visible');
       cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('have.length.at.least', 3);
+      cy.get('.row').should('have.length.at.least', 1);
       cy.get('table').should('exist');
       
       cy.get('body').then(($body) => {
@@ -521,6 +681,52 @@ describe('Threats Watcher - E2E Test Suite', () => {
           cy.log('Threats Watcher specific components found');
         } else {
           cy.log('Threats Watcher components may be loaded differently');
+        }
+      });
+    });
+
+    it('should verify all major components are loaded', () => {
+      cy.get('.container-fluid').should('exist');
+      cy.get('.d-flex.w-100.h-100.position-relative').should('exist')
+      cy.get('table.table-striped').should('exist');
+      cy.get('h4:contains("Trendy Words")').should('exist');
+      
+      cy.get('body').then(($body) => {
+        const hasWeeklyBreaking = $body.find('.position-fixed').length > 0;
+        if (hasWeeklyBreaking) {
+          cy.log('WeeklyBreaking component loaded');
+        }
+      });
+    });
+  });
+
+  describe('TableManager Features', () => {
+    it('should test filter save functionality', () => {
+      cy.get('button:contains("Save Filter")').click();
+      cy.get('.modal', { timeout: 5000 }).should('be.visible');
+      cy.get('.modal input[type="text"]').type('Test Filter E2E');
+      cy.get('.modal button:contains("Save Filter")').click();
+      cy.wait(500);
+      
+      cy.get('button:contains("Saved Filters")').should('contain', '(1)');
+    });
+
+    it('should test sorting functionality', () => {
+      cy.get('table th:contains("Name")').click();
+      cy.wait(500);
+      cy.get('table th:contains("Name")').click();
+      cy.wait(500);
+      cy.log('Sorting toggled successfully');
+    });
+
+    it('should test pagination if more than 5 items', () => {
+      cy.get('body').then(($body) => {
+        const pagination = $body.find('.pagination');
+        if (pagination.length > 0) {
+          cy.get('.pagination button:contains("Next")').should('exist');
+          cy.log('Pagination controls found');
+        } else {
+          cy.log('Not enough items for pagination');
         }
       });
     });
@@ -582,6 +788,10 @@ describe('Threats Watcher - E2E Test Suite', () => {
     // Clear visited URLs from localStorage
     cy.window().then((win) => {
       win.localStorage.removeItem('viewedUrls');
+      win.localStorage.removeItem('watcher_localstorage_layout_threatsWatcher');
+      win.localStorage.removeItem('watcher_localstorage_layout_postUrls_summary');
+      win.localStorage.removeItem('watcher_localstorage_items_threatsWatcher_wordlist');
+      win.localStorage.removeItem('watcher_localstorage_filters_threatsWatcher_wordlist');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });

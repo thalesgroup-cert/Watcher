@@ -1,6 +1,10 @@
 import requests
+import logging
 from django.utils import timezone
 from django.conf import settings
+
+# Configure logger
+logger = logging.getLogger('watcher.common')
 
 
 def search_thehive_for_ticket_id(watcher_id, thehive_url, api_key, item_type=None):
@@ -37,8 +41,75 @@ def search_thehive_for_ticket_id(watcher_id, thehive_url, api_key, item_type=Non
         if results:
             return item_type, results[0]
     except requests.exceptions.RequestException as e:
-        print(f"{timezone.now()} - Error searching for {item_type} with {settings.THE_HIVE_CUSTOM_FIELD} {watcher_id}: {e}")
+        logger.error(f"Error searching for {item_type} with {settings.THE_HIVE_CUSTOM_FIELD} {watcher_id}: {e}")
     
+    return None, None
+
+
+def search_thehive_for_observable(observable_value, thehive_url, api_key):
+    """
+    Search for the most recent case for the observable, then the most recent alert if no case is found.
+    Returns (type, object) or (None, None) if nothing is found.
+    """
+    import json
+    import requests
+
+    headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
+    proxies = {"http": None, "https": None}
+
+    query = {
+        "query": [
+            { "_name": "listObservable" },
+            { "_name": "filter", "_eq": { "_field": "data", "_value": observable_value } },
+            { "_name": "sort", "_fields": [ { "_createdAt": "desc" } ] },
+            { "_name": "page", "extraData": [ "links" ], "from": 0, "to": 10 }
+        ]
+    }
+    url = f"{thehive_url}/api/v1/query"
+
+    try:
+        response = requests.post(url, headers=headers, json=query, verify=False, proxies=proxies)
+        response.raise_for_status()
+        results = response.json()
+
+        cases, alerts = [], []
+        for result in results:
+            if "extraData" in result and "links" in result["extraData"]:
+                if "case" in result["extraData"]["links"]:
+                    case_info = result["extraData"]["links"]["case"]
+                    cases.append({
+                        'id': case_info["_id"],
+                        'created_at': case_info.get("_createdAt", 0)
+                    })
+                elif "alert" in result["extraData"]["links"]:
+                    alert_info = result["extraData"]["links"]["alert"]
+                    alerts.append({
+                        'id': alert_info["_id"],
+                        'created_at': alert_info.get("_createdAt", 0)
+                    })
+
+        # Priority: case first, then alert
+        if cases:
+            cases.sort(key=lambda x: x['created_at'], reverse=True)
+            case_id = cases[0]['id']
+            case_url = f"{thehive_url}/api/v1/case/{case_id}"
+            case_resp = requests.get(case_url, headers=headers, verify=False, proxies=proxies)
+            case_resp.raise_for_status()
+            return "case", case_resp.json()
+
+        if alerts:
+            alerts.sort(key=lambda x: x['created_at'], reverse=True)
+            alert_id = alerts[0]['id']
+            alert_url = f"{thehive_url}/api/v1/alert/{alert_id}"
+            alert_resp = requests.get(alert_url, headers=headers, verify=False, proxies=proxies)
+            alert_resp.raise_for_status()
+            return "alert", alert_resp.json()
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error searching with observable '{observable_value}': {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Error response text: {e.response.text}")
+
     return None, None
 
 
@@ -61,12 +132,11 @@ def add_observables_to_item(item_type, item_id, observables_data, thehive_url, a
 
     for observable in observables_data:
         try:
-            # Send a POST request to add each observable to the item
             response = requests.post(url, headers=headers, json=observable, verify=False, proxies=proxies)
             response.raise_for_status()
             added_observables.append(observable['data'])
         except requests.exceptions.RequestException as e:
-            print(f"{timezone.now()} - Error while adding observable {observable['data']}: {e}")
+            logger.error(f"Error while adding observable {observable['data']}: {e}")
 
 
 def add_comment_to_item(item_type, item_id, comment, thehive_url, api_key):
@@ -89,14 +159,16 @@ def add_comment_to_item(item_type, item_id, comment, thehive_url, api_key):
         response = requests.post(url, headers=headers, json=data, verify=False, proxies=proxies)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"{timezone.now()} - Error while adding comment: {e}")
+        logger.error(f"Error while adding comment: {e}")
 
 
-def create_observables(observables):
+def create_observables(observables, parent_domain=None, subdomain=None):
     """
-    Format observables for TheHive API.
+    Format observables for TheHive API with automatic parent_domain and subdomain tags.
 
     :param observables: A list of raw observables.
+    :param parent_domain: The parent domain to add as tag to all observables.
+    :param subdomain: The subdomain to add as tag to all observables.
     :return: A list of formatted observables ready for TheHive.
     :rtype: list
     """
@@ -134,9 +206,10 @@ def create_observables(observables):
     return observables_data
 
 
-def update_existing_alert_case(item_type, existing_item, observables, comment, thehive_url, api_key):
+def update_existing_alert_case(item_type, existing_item, observables, comment, thehive_url, api_key, parent_domain=None, subdomain=None):
     """
     Update an existing alert or case by adding observables and a comment.
+    Automatically adds parent_domain and subdomain tags to observables.
 
     :param item_type: The type of item ("alert" or "case").
     :param existing_item: The existing item to update.
@@ -144,22 +217,25 @@ def update_existing_alert_case(item_type, existing_item, observables, comment, t
     :param comment: The comment to add to the item.
     :param thehive_url: The URL of TheHive instance.
     :param api_key: The API key for authenticating with TheHive.
+    :param parent_domain: The parent domain for tagging.
+    :param subdomain: The subdomain for tagging.
     :return: None
     """
     item_id = existing_item["_id"]
     
     if observables:
-        observables_data = create_observables(observables)
+        observables_data = create_observables(observables, parent_domain, subdomain)
         add_observables_to_item(item_type, item_id, observables_data, thehive_url, api_key)
 
     if comment:
         add_comment_to_item(item_type, item_id, comment, thehive_url, api_key)
 
 
-def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, app_name, observables, customFields, comment, thehive_url, api_key):
+def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, app_name, observables, customFields, comment, thehive_url, api_key, parent_domain=None, subdomain=None):
     from common.core import generate_ref
     """
     Create a new alert in TheHive with the provided details.
+    Automatically adds parent_domain and subdomain tags.
 
     :param ticket_id: The ticket ID for the new alert.
     :param title: The title of the alert.
@@ -174,19 +250,51 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
     :param comment: The comment to add to the alert.
     :param thehive_url: The URL of TheHive instance.
     :param api_key: The API key for authenticating with TheHive.
+    :param parent_domain: The parent domain for tagging.
+    :param subdomain: The subdomain for tagging.
     :return: The created alert if successful, None otherwise.
     :rtype: dict or None
     """
     if ticket_id is None:
         ticket_id = generate_ref()
 
+    enhanced_tags = []
+    if tags:
+        if isinstance(tags, list):
+            enhanced_tags.extend([str(tag) for tag in tags if tag is not None])
+        elif isinstance(tags, str):
+            enhanced_tags.append(tags)
+        else:
+            try:
+                enhanced_tags.extend([str(tag) for tag in list(tags) if tag is not None])
+            except (TypeError, ValueError):
+                logger.warning(f"Unable to convert tags to list: {tags}")
+
+    if parent_domain:
+        tag_pd = f"parent_domain:{parent_domain}"
+        if tag_pd not in enhanced_tags:
+            enhanced_tags.append(tag_pd)
+    if subdomain:
+        tag_sd = f"subdomain:{subdomain}"
+        if tag_sd not in enhanced_tags:
+            enhanced_tags.append(tag_sd)
+
+    clean_tags = []
+    for tag in enhanced_tags:
+        if tag and isinstance(tag, str) and tag.strip():
+            clean_tag = str(tag).strip()
+            if clean_tag not in clean_tags:
+                clean_tags.append(clean_tag)
+    
+    enhanced_tags = clean_tags
+
     alert_data = {
         "title": title,
         "description": description,
-        "severity": severity,
-        "tlp": tlp,
-        "pap": pap,
-        "tags": tags,
+        "severity": int(severity),
+        "tlp": int(tlp),
+        "pap": int(pap),
+        "tags": enhanced_tags,
         "type": app_name,
         "source": "watcher",
         "sourceRef": ticket_id,
@@ -198,17 +306,17 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
 
     headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
     proxies = {"http": None, "https": None}
-
     url = f"{thehive_url}/api/v1/alert"
+
     try:
         response = requests.post(url, headers=headers, json=alert_data, verify=False, proxies=proxies)
         response.raise_for_status()
         alert = response.json()
         alert_id = alert.get('_id')
-        print(f"{timezone.now()} - Alert successfully created on TheHive for {app_name}.")
+        logger.info(f"Alert successfully created on TheHive for {app_name}.")
 
         if observables:
-            observables_data = create_observables(observables)
+            observables_data = create_observables(observables, parent_domain, subdomain)
             add_observables_to_item("alert", alert_id, observables_data, thehive_url, api_key)
 
         if comment:
@@ -217,7 +325,7 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
         return alert
 
     except requests.exceptions.RequestException as e:
-        print(f"{timezone.now()} - Failed to create alert: {e}")
+        logger.error(f"Failed to create alert: {e}")
         return None
 
 
@@ -241,7 +349,7 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
     :return: None
     """
     if app_name != 'website_monitoring':
-        print(f"{timezone.now()} - Unsupported application: {app_name}.")
+        logger.warning(f"Unsupported application: {app_name}.")
         return
 
     # Search in TheHive by customFields.<THE_HIVE_CUSTOM_FIELD>
@@ -249,10 +357,10 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
     case_type, case_item = search_thehive_for_ticket_id(ticket_id, thehive_url, api_key, item_type="case")
 
     if case_item:
-        print(f"{timezone.now()} - Case found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
+        logger.info(f"Case found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
         update_existing_alert_case("case", case_item, observables, comment, thehive_url, api_key)
     elif alert_item:
-        print(f"{timezone.now()} - Alert found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
+        logger.info(f"Alert found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
         update_existing_alert_case("alert", alert_item, observables, comment, thehive_url, api_key)
     else:
         create_new_alert(

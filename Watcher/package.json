@@ -15,13 +15,13 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.13.16",
-    "@babel/preset-env": "^7.13.15",
-    "@babel/preset-react": "^7.13.13",
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
     "babel-loader": "^8.4.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "cypress": "^14.5.2",
-    "webpack": "^5.94.0",
+    "webpack": "^5.101.3",
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
@@ -35,8 +35,9 @@
     "prop-types": "^15.8.1",
     "react": "^16.14.0",
     "react-alert": "^7.0.3",
+    "react-alert-template-basic": "^1.0.2",
     "react-alert-template-oldschool-dark": "^1.0.1",
-    "react-bootstrap": "^1.6.8",
+    "react-bootstrap": "^2.10.10",
     "react-day-picker": "^7.4.10",
     "react-dom": "^16.14.0",
     "react-redux": "^7.2.9",

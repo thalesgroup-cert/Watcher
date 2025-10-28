@@ -3,7 +3,7 @@ import {Link, Redirect} from "react-router-dom";
 import {connect} from "react-redux";
 import PropTypes from "prop-types";
 import {passwordChange} from "../../actions/auth";
-import Button from "react-bootstrap/Button";
+import {Button, Form, Container, Row, Col, Card} from "react-bootstrap";
 
 export class PasswordChange extends Component {
     state = {
@@ -30,52 +30,61 @@ export class PasswordChange extends Component {
         }
         const {old_password, password, confirmed_password} = this.state;
         return (
-            <div className="col-md-6 m-auto">
-                <div className="card card-body mt-5">
-                    <h2 className="text-center">Password Change</h2>
-                    <form onSubmit={this.onSubmit}>
-                        <div className="form-group">
-                            <label>Old Password</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                name="old_password"
-                                onChange={this.onChange}
-                                value={old_password}
-                                maxLength="30"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label>New Password</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                name="password"
-                                onChange={this.onChange}
-                                value={password}
-                                maxLength="30"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label>Confirmed Password</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                name="confirmed_password"
-                                onChange={this.onChange}
-                                value={confirmed_password}
-                                maxLength="30"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <Button type="submit" className="btn btn-primary"
-                                    disabled={(this.state.password !== this.state.confirmed_password) || this.state.password === "" || this.state.confirmed_password === "" || this.state.old_password === ""}>
-                                Change Password
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            <Container>
+                <Row className="justify-content-center mt-5">
+                    <Col md={6}>
+                        <Card>
+                            <Card.Body>
+                                <h2 className="text-center mb-4">Password Change</h2>
+                                <Form onSubmit={this.onSubmit}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Old Password</Form.Label>
+                                        <Form.Control
+                                            type="password"
+                                            name="old_password"
+                                            onChange={this.onChange}
+                                            value={old_password}
+                                            maxLength="30"
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>New Password</Form.Label>
+                                        <Form.Control
+                                            type="password"
+                                            name="password"
+                                            onChange={this.onChange}
+                                            value={password}
+                                            maxLength="30"
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Confirmed Password</Form.Label>
+                                        <Form.Control
+                                            type="password"
+                                            name="confirmed_password"
+                                            onChange={this.onChange}
+                                            value={confirmed_password}
+                                            maxLength="30"
+                                        />
+                                    </Form.Group>
+
+                                    <div className="d-flex justify-content-end">
+                                        <Button 
+                                            type="submit" 
+                                            variant="primary"
+                                            disabled={(password !== confirmed_password) || password === "" || confirmed_password === "" || old_password === ""}
+                                        >
+                                            Change Password
+                                        </Button>
+                                    </div>
+                                </Form>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                </Row>
+            </Container>
         );
     }
 }

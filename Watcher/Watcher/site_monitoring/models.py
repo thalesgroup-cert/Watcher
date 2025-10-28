@@ -29,8 +29,37 @@ class Site(models.Model):
     content_monitoring = models.BooleanField(default=True)
     monitored = models.BooleanField(default=False, blank=True, null=True)
     web_status = models.IntegerField(blank=True, null=True)
+    
+    registrar = models.CharField(max_length=255, blank=True, null=True)
+    legitimacy = models.IntegerField(choices=[
+        (1, "Unknown"),
+        (2, "Suspicious, not harmful"),
+        (3, "Suspicious, likely harmful (registered)"),
+        (4, "Suspicious, likely harmful (available/disabled)"),
+        (5, "Malicious (registered)"),
+        (6, "Malicious (available/disabled)"),
+    ], blank=True, null=True)
+    takedown_request = models.BooleanField(default=False)
+    legal_team = models.BooleanField(default=False)
+    blocking_request = models.BooleanField(default=False)
+    
     created_at = models.DateTimeField(default=timezone.now)
-    expiry = models.DateTimeField(blank=True, null=True)
+    expiry = models.DateTimeField(blank=True, null=True)  # End of monitoring
+    domain_expiry = models.DateField(blank=True, null=True)  # Domain expiration date
+
+    def auto_update_legitimacy_on_registration(self):
+        """
+        Auto-update legitimacy when domain becomes registered (registrar found)
+        """
+        if self.registrar:
+            old_legitimacy = self.legitimacy
+            if self.legitimacy == 6:
+                self.legitimacy = 5
+                return True
+            elif self.legitimacy == 4: 
+                self.legitimacy = 3
+                return True
+        return False
 
     class Meta:
         ordering = ["-rtir"]
@@ -75,6 +104,12 @@ class Alert(models.Model):
         null=True
     )
     old_mail_A_record_ip = models.GenericIPAddressField(blank=True, null=True)
+    
+    new_registrar = models.CharField(max_length=255, blank=True, null=True)
+    old_registrar = models.CharField(max_length=255, blank=True, null=True)
+    new_expiry_date = models.DateField(blank=True, null=True)
+    old_expiry_date = models.DateField(blank=True, null=True)
+    
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -82,7 +117,13 @@ class Alert(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return self.site.domain_name
+        return f"{self.site.domain_name} - {self.type}"
+
+    @property
+    def is_rdap_alert(self):
+        """Check if this is an RDAP/WHOIS alert"""
+        return (self.new_registrar is not None or self.old_registrar is not None or 
+                self.new_expiry_date is not None or self.old_expiry_date is not None)
 
 
 class Subscriber(models.Model):

@@ -3,15 +3,17 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import {getAlerts, updateAlertStatus, exportToMISP} from "../../actions/DnsFinder";
 import {addSite, getSites} from "../../actions/SiteMonitoring";
+import {addLegitimateDomain} from "../../actions/LegitimateDomain";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
-import DayPickerInput from "react-day-picker/DayPickerInput";
-import {formatDate, parseDate} from "react-day-picker/moment";
-
+import DayPickerInput from 'react-day-picker/DayPickerInput';
+import {formatDate, parseDate} from 'react-day-picker/moment';
+import TableManager from '../common/TableManager';
+import ExportModal from '../common/ExportModal';
 
 export class Alerts extends Component {
 
@@ -21,21 +23,16 @@ export class Alerts extends Component {
             show: false,
             showAddModal: false,
             showExportModal: false,
+            exportDomain: null,
+            exportSourceData: null,
             id: 0,
             exportLoading: false,
-            exportLoadingMISPTh: false,
             domainName: "",
-            eventUuid: "",
-            showHelp: false,
-            showAllUuid: false,
-            showMispMessage: false,
-            mispMessage: ""
         };
         this.inputTicketRef = React.createRef();
         this.ipMonitoringRef = React.createRef();
         this.webContentMonitoringRef = React.createRef();
         this.emailMonitoringRef = React.createRef();
-        this.mispMessageTimeout = null;
     }
 
     static propTypes = {
@@ -46,8 +43,11 @@ export class Alerts extends Component {
         getAlerts: PropTypes.func.isRequired,
         updateAlertStatus: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
+        addLegitimateDomain: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
+        globalFilters: PropTypes.object,
+        filteredData: PropTypes.array
     };
 
     componentDidMount() {
@@ -61,16 +61,10 @@ export class Alerts extends Component {
                 exportLoading: false
             });
         }
-        if (this.props.alerts !== prevProps.alerts) {
-            this.setState({
-                exportLoadingMISPTh: false
-            });
-        }
         if (this.props.error !== prevProps.error) {
             if (this.props.error.status !== null) {
                 this.setState({
-                    exportLoading: false,
-                    exportLoadingMISPTh: false
+                    exportLoading: false
                 });
             }
         }
@@ -84,17 +78,15 @@ export class Alerts extends Component {
     };
 
     modal = () => {
-        let handleClose;
-        handleClose = () => {
+        let handleClose = () => {
             this.setState({
                 show: false
             });
         };
 
-        let onSubmit;
-        onSubmit = e => {
+        let onSubmit = e => {
             e.preventDefault();
-            const status = false; // status = false -> Disable the alert
+            const status = false;
             const json_status = {status};
             this.props.updateAlertStatus(this.state.id, json_status);
             this.setState({
@@ -111,7 +103,7 @@ export class Alerts extends Component {
                 <Modal.Body>Are you sure you want to <b><u>disable</u></b> this alert?</Modal.Body>
                 <Modal.Footer>
                     <form onSubmit={onSubmit}>
-                        <Button variant="secondary" className="mr-2" onClick={handleClose}>
+                        <Button variant="secondary" className="me-2" onClick={handleClose}>
                             Close
                         </Button>
                         <Button type="submit" variant="warning">
@@ -132,25 +124,13 @@ export class Alerts extends Component {
     };
 
     addModal = () => {
-        let handleClose;
-        handleClose = () => {
+        let handleClose = () => {
             this.setState({
                 showAddModal: false
             });
         };
 
-        let getMax;
-        getMax = (arr, prop) => {
-            var max;
-            for (var i=0 ; i<arr.length ; i++) {
-                if (max == null || parseInt(arr[i][prop]) > parseInt(max[prop]))
-                    max = arr[i];
-            }
-            return max;
-        };
-
-        let onSubmit;
-        onSubmit = e => {
+        let onSubmit = e => {
             e.preventDefault();
             const domain_name = this.state.domainName;
             const ticket_id = this.inputTicketRef.current.value;
@@ -162,13 +142,11 @@ export class Alerts extends Component {
 
             this.props.addSite(site);
             this.setState({
-                domainName: "",
-                day: "",
-                id: 0,
                 exportLoading: this.state.id
             });
             handleClose();
         };
+
         return (
             <Modal show={this.state.showAddModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
@@ -241,7 +219,7 @@ export class Alerts extends Component {
                                         </Col>
                                     </Form.Group>
                                     <Col md={{span: 5, offset: 8}}>
-                                        <Button variant="secondary" className="mr-2" onClick={handleClose}>
+                                        <Button variant="secondary" className="me-2" onClick={handleClose}>
                                             Close
                                         </Button>
                                         <Button type="submit" variant="success">
@@ -261,7 +239,7 @@ export class Alerts extends Component {
         let back = false;
 
         if (this.state.exportLoading === id) {
-            return true;
+            back = true;
         }
 
         this.props.sites.map(site => {
@@ -272,268 +250,98 @@ export class Alerts extends Component {
         return back;
     };
 
-    extractUUID = (raw, domainName = this.state.domainName) => {
-        if (!raw) {
-            // Check if domain exists in Site Monitoring
-            const site = this.props.sites.find(site => site.domain_name === domainName);
-            if (site && site.misp_event_uuid) {
-                raw = site.misp_event_uuid;
-            } else {
-                return [];
-            }
-        }
-        
+    extractUUID = (raw) => {
+        if (!raw) return [];
         if (Array.isArray(raw)) return raw.filter(uuid => uuid && uuid.trim() !== '');
         return raw.replace(/[\[\]'"\s]/g, '').split(',').filter(Boolean);
     };
 
-    displayExportModal = (id, domainName) => {
-        const dnsTwisted = this.props.alerts
-            .find(alert => alert.dns_twisted.id === id)?.dns_twisted;
+    displayExportModal = (alert) => {
+        const dnsTwisted = alert.dns_twisted;
         
-        if (!dnsTwisted) return;
+        const sourceData = {
+            dns_monitored: dnsTwisted.dns_monitored?.domain_name || null,
+            keyword_monitored: dnsTwisted.keyword_monitored?.name || null,
+            fuzzer: dnsTwisted.fuzzer || null
+        };
         
-        const uuid = Array.isArray(dnsTwisted?.misp_event_uuid) ? dnsTwisted.misp_event_uuid :
-                     (dnsTwisted?.misp_event_uuid ? this.extractUUID(dnsTwisted.misp_event_uuid) : []);
+        const domainData = {
+            id: dnsTwisted.id,
+            domain_name: dnsTwisted.domain_name,
+            misp_event_uuid: dnsTwisted.misp_event_uuid,
+        };
         
         this.setState({
             showExportModal: true,
-            id,
-            domainName,
-            eventUuid: uuid.length > 0 ? uuid[uuid.length - 1] : ''
+            exportDomain: domainData,
+            exportSourceData: sourceData,
+            currentAlertId: alert.id 
         });
     };
 
-    exportModal = () => {
-        const handleClose = () => {
-            this.setState({
-                showExportModal: false
-            });
-        };
+    closeExportModal = () => {
+        this.setState({
+            showExportModal: false,
+            exportDomain: null,
+            exportSourceData: null
+        });
+        
+        this.props.getAlerts();
+    };
 
-        const onSubmitMisp = e => {
-            e.preventDefault();
-            const id = this.state.id;
-            
-            const alert = this.props.alerts.find(a => a.dns_twisted.id === id);
-            if (!alert) return;
-            
-            const dnsTwisted = alert.dns_twisted;
-            const uuid = this.extractUUID(dnsTwisted.misp_event_uuid);
-            const latestUuid = uuid.length > 0 ? uuid[uuid.length - 1] : '';
+    handleMispExport = async ({ id, event_uuid }) => {
+        const alert = this.props.alerts.find(a => a.dns_twisted.id === id);
+        if (!alert) return;
+        
+        await this.props.exportToMISP(id, event_uuid, alert.dns_twisted.domain_name);
+        
+        setTimeout(() => {
+            this.props.getAlerts();
+        }, 1000);
+    };
 
-            const isUpdate = Boolean(uuid.length) || Boolean(this.state.eventUuid.trim());
-            
-            const payload = {
-                id: id
+    handleLegitimateDomainExport = async ({ domain_name, comment }) => {
+        try {
+            const alert = this.props.alerts.find(a => a.dns_twisted.domain_name === domain_name);
+            if (!alert) {
+                throw new Error('Alert not found');
+            }
+    
+            const legitimateDomain = {
+                domain_name: domain_name,
+                ticket_id: '',
+                contact: '',
+                expiry: '',
+                repurchased: false,
+                comments: comment
             };
             
-            if (this.state.eventUuid.trim()) {
-                payload.event_uuid = this.state.eventUuid.trim();
-            } else if (isUpdate && latestUuid) {
-                payload.event_uuid = latestUuid;
+            await this.props.addLegitimateDomain(legitimateDomain);
+        
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            if (this.props.error && this.props.error.status !== null) {
+                throw new Error('Export failed');
             }
-        
-            this.props.exportToMISP(payload);
-            this.setState({
-                exportLoadingMISPTh: id
-            });
-            handleClose();
-        };
-
-        const alert = this.props.alerts.find(a => a.dns_twisted.id === this.state.id);
-        if (!alert) return null;
-        
-        const dnsTwisted = alert.dns_twisted;
-        const uuid = this.extractUUID(dnsTwisted.misp_event_uuid);
-        const isUpdate = Boolean(uuid.length) || Boolean(this.state.eventUuid.trim());
-
-        return (
-            <Modal show={this.state.showExportModal} onHide={handleClose} size="lg" centered>
-                <Modal.Header closeButton className="d-flex align-items-center">
-                    <img
-                        src="/static/img/misp_logo.png"
-                        alt="MISP Logo"
-                        className="me-4 rounded-circle"
-                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                    />
-                    <Modal.Title className="h4 text-white mb-0">
-                        &nbsp;Export <strong>{this.state.domainName}</strong> & <strong>IOCs</strong> to{' '}
-                        <strong><u>MISP</u></strong>
-                    </Modal.Title>
-                </Modal.Header>
-
-                <Modal.Body className="px-4">
-                    <div className="mb-4">
-                        <div
-                            className="d-flex align-items-center cursor-pointer user-select-none"
-                            onClick={() => this.setState((prev) => ({ showHelp: !prev.showHelp }))}
-                        >
-                            <i className="material-icons text-info me-2">
-                                {this.state.showHelp ? 'expand_less' : 'expand_more'}
-                            </i>
-                            <span className="text-white">Need help with MISP export?</span>
-                        </div>
-
-                        {this.state.showHelp && (
-                            <div className="mt-3 ps-4 border-start border-info cursor-pointer">
-                                <div className="text-white">
-                                    <ul className="mb-0 ps-3">
-                                        {!isUpdate ? (
-                                            <>
-                                                <li>To create a new MISP event: leave the Event UUID field empty</li>
-                                                <li>To update an existing event: provide its Event UUID</li>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <li>The latest event will automatically be updated if no new Event UUID is provided</li>
-                                                <li>To update an existing event: provide its Event UUID</li>
-                                            </>
-                                        )}
-                                    </ul>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <Form.Group>
-                        <Form.Label className="d-flex align-items-center">
-                            <strong>MISP Event UUID</strong>
-                            <span className={`ms-2 badge ${isUpdate ? 'bg-success' : 'bg-primary'}`}>
-                                {isUpdate ? 'Update' : 'Create'}
-                            </span>
-                        </Form.Label>
-                        <Form.Control
-                            type="text"
-                            placeholder="Enter MISP event UUID to update an existing event"
-                            value={this.state.eventUuid}
-                            onChange={(e) => {
-                                const value = e.target.value.replace(/[\[\]'\"\s]/g, '');
-                                if (/^[a-f0-9-]*$/.test(value)) this.setState({ eventUuid: value });
-                            }}
-                            pattern="^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                            className="mb-3"
-                        />
-
-                        {uuid.length > 0 && (
-                            <div className="mt-4">
-                                <label className="form-label fw-semibold">Event UUID History:</label>
-                                <div className="list-group">
-                                    {uuid
-                                        .slice()
-                                        .reverse()
-                                        .slice(0, this.state.showAllUuid ? uuid.length : 2)
-                                        .map((uuid, index) => (
-                                            <div
-                                                key={index}
-                                                className="list-group-item d-flex justify-content-between align-items-center"
-                                            >
-                                                {uuid}
-                                                {index === 0 && <span className="badge bg-secondary">Latest</span>}
-                                            </div>
-                                        ))}
-
-                                    {uuid.length > 2 && (
-                                        <div
-                                            className="list-group-item text-center cursor-pointer user-select-none"
-                                            onClick={() => this.setState((prev) => ({ showAllUuid: !prev.showAllUuid }))}
-                                            style={{ cursor: 'pointer' }}
-                                        >
-                                            <i className="material-icons align-middle">
-                                                {this.state.showAllUuid ? 'remove_circle_outline' : 'add_circle_outline'}
-                                            </i>
-                                            <span className="ms-2">
-                                                {this.state.showAllUuid ? 'Show Less' : `Show ${uuid.length - 2} More`}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </Form.Group>
-                </Modal.Body>
-
-                <Modal.Footer>
-                    <Button
-                        variant={isUpdate ? 'success' : 'primary'}
-                        onClick={onSubmitMisp}
-                        className="min-width-140"
-                        disabled={this.state.exportLoadingMISPTh === this.state.id}
-                    >
-                        {this.state.exportLoadingMISPTh === this.state.id ? (
-                            <div className="loader">Loading...</div>
-                        ) : isUpdate ? (
-                            'Update MISP Event'
-                        ) : (
-                            'Create MISP Event'
-                        )}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-        );
+            
+            return { success: true };
+        } catch (err) {
+            console.error('Export to Legitimate Domains failed:', err);
+            throw err;
+        }
     };
 
-    exportButtonMISPTh = alert => {
-        const dnsTwisted = alert.dns_twisted;
-        
-        const hasMispEvent = dnsTwisted.misp_event_uuid && 
-                            (Array.isArray(dnsTwisted.misp_event_uuid) ? 
-                                dnsTwisted.misp_event_uuid.length > 0 : 
-                                this.extractUUID(dnsTwisted.misp_event_uuid).length > 0);
-        
-        return (
-            <button 
-                className={`btn btn-sm mr-2 ${
-                    this.state.exportLoadingMISPTh === dnsTwisted.id ? 
-                    'btn-outline-secondary disabled' : 
-                    hasMispEvent ? 'btn-outline-success' : 'btn-outline-primary'
-                }`}
-                data-toggle="tooltip"
-                data-placement="top" 
-                title={hasMispEvent ? "Update MISP" : "Export to MISP"}
-                onClick={() => this.displayExportModal(dnsTwisted.id, dnsTwisted.domain_name)}
-                disabled={this.state.exportLoadingMISPTh === dnsTwisted.id}
-            >
-                {this.state.exportLoadingMISPTh === dnsTwisted.id ? (
-                    <div className="loader">Loading...</div>
-                ) : (
-                    <i className="material-icons"
-                       style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>
-                      {hasMispEvent ? 'cloud_done' : 'cloud_upload'}
-                    </i>
-                )}
-            </button>
-        );
-    };
-
-    renderMispNotification = () => {
-        if (!this.state.showMispMessage) return null;
-        
-        return (
-            <div 
-                className="position-fixed top-0 end-0 p-3" 
-                style={{ zIndex: 1050, maxWidth: '400px', marginTop: '60px', marginRight: '20px' }}
-            >
-                <div className="alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
-                    <img 
-                        src="/static/img/misp_logo.png" 
-                        alt="MISP Logo" 
-                        className="me-3 rounded-circle"
-                        style={{ width: '30px', height: '30px', objectFit: 'cover' }}
-                    />
-                    <div>
-                        <strong className="me-2">MISP:</strong>
-                        {this.state.mispMessage}
-                    </div>
-                    <button 
-                        type="button" 
-                        className="btn-close" 
-                        onClick={() => this.setState({ showMispMessage: false })}
-                        aria-label="Close"
-                    />
-                </div>
-            </div>
-        );
+    handleDeleteRequest = async (alertId, domainName) => {
+        try {
+            const json_status = { status: false };
+            await this.props.updateAlertStatus(alertId, json_status);
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            await this.props.getAlerts();
+        } catch (err) {
+            console.error('Failed to archive alert:', err);
+        }
     };
 
     getMispStatusBadge = (dns) => {
@@ -548,7 +356,74 @@ export class Alerts extends Component {
         ) : null;
     };
 
+    exportButtonMISPTh = alert => {
+        const dnsTwisted = alert.dns_twisted;
+        
+        const hasMispEvent = dnsTwisted.misp_event_uuid && 
+                            (Array.isArray(dnsTwisted.misp_event_uuid) ? 
+                                dnsTwisted.misp_event_uuid.length > 0 : 
+                                this.extractUUID(dnsTwisted.misp_event_uuid).length > 0);
+        
+        return (
+            <button 
+                className={`btn btn-sm me-2 ${
+                    hasMispEvent ? 'btn-outline-success' : 'btn-outline-primary'
+                }`}
+                data-toggle="tooltip"
+                data-placement="top" 
+                title={hasMispEvent ? "Update MISP or Export to Legitimate Domains" : "Export to MISP or Legitimate Domains"}
+                onClick={() => this.displayExportModal(alert)}
+            >
+                <i className="material-icons"
+                   style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>
+                  {hasMispEvent ? 'cloud_done' : 'cloud_upload'}
+                </i>
+            </button>
+        );
+    };
+
     render() {
+        const { globalFilters, filteredData } = this.props;
+        const dataToUse = filteredData || this.props.alerts;
+
+        const customFilters = (filtered, filters) => {
+            const alertsToFilter = this.props.filteredData || this.props.alerts;
+            const { globalFilters = {} } = this.props;
+            
+            filtered = (alertsToFilter || []).filter(alert => alert.status === true);
+
+            if (globalFilters.search) {
+                const searchTerm = globalFilters.search.toLowerCase();
+                filtered = filtered.filter(alert =>
+                    (alert.dns_twisted?.domain_name || '').toLowerCase().includes(searchTerm) ||
+                    (alert.dns_twisted?.keyword_monitored?.name || '').toLowerCase().includes(searchTerm) ||
+                    (alert.dns_twisted?.dns_monitored?.domain_name || '').toLowerCase().includes(searchTerm) ||
+                    (alert.dns_twisted?.fuzzer || '').toLowerCase().includes(searchTerm) ||
+                    (alert.id || '').toString().includes(searchTerm)
+                );
+            }
+
+            if (globalFilters.domain) {
+                filtered = filtered.filter(alert => 
+                    alert.dns_twisted?.dns_monitored?.domain_name === globalFilters.domain
+                );
+            }
+
+            if (globalFilters.keyword) {
+                filtered = filtered.filter(alert => 
+                    alert.dns_twisted?.keyword_monitored?.name === globalFilters.keyword
+                );
+            }
+
+            if (globalFilters.fuzzer) {
+                filtered = filtered.filter(alert => 
+                    alert.dns_twisted?.fuzzer === globalFilters.fuzzer
+                );
+            }
+
+            return filtered;
+        };
+
         const exportButton = alert => (
             this.isDisabled(alert.dns_twisted.domain_name, alert.id) ?
                 (<button className="btn btn-success btn-sm"
@@ -588,63 +463,136 @@ export class Alerts extends Component {
                                                                  }}>playlist_add</i>}
                 </button>)
         );
-        
+
         return (
             <Fragment>
                 <div className="row">
                     <div className="col-lg-12">
-                        <div className="float-left" style={{marginBottom: 12}}>
+                        <div className="float-start" style={{marginBottom: 12}}>
                             <h4>Alerts</h4>
                         </div>
                     </div>
                 </div>
-                <div className="row">
-                    <div className="col-lg-12">
-                        <div style={{height: '600px', overflow: 'auto'}}>
-                            <table className="table table-striped table-hover">
-                                <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Twisted DNS</th>
-                                    <th>Corporate Keyword</th>
-                                    <th>Corporate DNS</th>
-                                    <th>Fuzzer</th>
-                                    <th>Created At</th>
-                                    <th/>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {this.props.alerts.map(alert => {
-                                    if (alert.status === true) {
-                                        return (
-                                            <tr key={alert.id}>
-                                                <td><h5>#{alert.id}</h5></td>
-                                                <td>{alert.dns_twisted.domain_name}</td>
-                                                <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
-                                                <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
-                                                <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
-                                                <td>{(new Date(alert.created_at)).toLocaleString()}</td>
-                                                <td className="text-right" style={{whiteSpace: 'nowrap'}}>
-                                                    <button onClick={() => {
-                                                        this.displayModal(alert.id)
-                                                    }}
-                                                            className="btn btn-outline-primary btn-sm mr-2">Disable
-                                                    </button>
-                                                    {this.exportButtonMISPTh(alert)}
-                                                    {exportButton(alert)}
-                                                </td>
-                                            </tr>);
-                                    }
-                                })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+
+                <TableManager
+                    data={dataToUse}
+                    filterConfig={[]}
+                    customFilters={customFilters}
+                    searchFields={['dns_twisted.domain_name', 'dns_twisted.keyword_monitored.name', 'dns_twisted.dns_monitored.domain_name', 'dns_twisted.fuzzer', 'id']}
+                    dateFields={['created_at']}
+                    defaultSort="created_at"
+                    globalFilters={globalFilters}
+                    moduleKey="dnsFinder_alerts"
+                >
+                    {({
+                        paginatedData,
+                        renderItemsInfo,
+                        renderPagination,
+                        handleSort,
+                        renderSortIcons,
+                        getTableContainerStyle
+                    }) => (
+                        <Fragment>
+                            {renderItemsInfo()}
+                            
+                            <div className="row">
+                                <div className="col-lg-12">
+                                    <div style={{ ...getTableContainerStyle(),  overflowX: 'auto' }}>
+                                        <table className="table table-striped table-hover">
+                                            <thead>
+                                            <tr>
+                                                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
+                                                    ID{renderSortIcons('id')}
+                                                </th>
+                                                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('dns_twisted.domain_name')}>
+                                                    Twisted DNS{renderSortIcons('dns_twisted.domain_name')}
+                                                </th>
+                                                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('dns_twisted.keyword_monitored.name')}>
+                                                    Corporate Keyword{renderSortIcons('dns_twisted.keyword_monitored.name')}
+                                                </th>
+                                                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('dns_twisted.dns_monitored.domain_name')}>
+                                                    Corporate DNS{renderSortIcons('dns_twisted.dns_monitored.domain_name')}
+                                                </th>
+                                                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('dns_twisted.fuzzer')}>
+                                                    Fuzzer{renderSortIcons('dns_twisted.fuzzer')}
+                                                </th>
+                                                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
+                                                    Created At{renderSortIcons('created_at')}
+                                                </th>
+                                                <th/>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {paginatedData.map(alert => {
+                                                return (
+                                                    <tr key={alert.id}>
+                                                        <td><h5>#{alert.id}</h5></td>
+                                                        <td>
+                                                            <div className="d-flex align-items-center">
+                                                                {this.getMispStatusBadge(alert.dns_twisted)}
+                                                                <span>{alert.dns_twisted.domain_name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            {alert.dns_twisted.keyword_monitored ? 
+                                                                (typeof alert.dns_twisted.keyword_monitored === 'object' ? 
+                                                                    alert.dns_twisted.keyword_monitored.name : 
+                                                                    alert.dns_twisted.keyword_monitored) : 
+                                                                "-"}
+                                                        </td>
+                                                        <td>
+                                                            {alert.dns_twisted.dns_monitored ? 
+                                                                (typeof alert.dns_twisted.dns_monitored === 'object' ? 
+                                                                    alert.dns_twisted.dns_monitored.domain_name : 
+                                                                    alert.dns_twisted.dns_monitored) : 
+                                                                "-"}
+                                                        </td>
+                                                        <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
+                                                        <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                        <td className="text-end" style={{whiteSpace: 'nowrap'}}>
+                                                            <button onClick={() => {
+                                                                this.displayModal(alert.id)
+                                                            }}
+                                                                    className="btn btn-outline-primary btn-sm me-2">Disable
+                                                            </button>
+                                                            {this.exportButtonMISPTh(alert)}
+                                                            {exportButton(alert)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {paginatedData.length === 0 && (
+                                                <tr>
+                                                    <td colSpan="7" className="text-center text-muted py-4">
+                                                        No results found
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {renderPagination()}
+                        </Fragment>
+                    )}
+                </TableManager>
+                
                 {this.modal()}
                 {this.addModal()}
-                {this.exportModal()}
-                {this.renderMispNotification()}
+                
+                <ExportModal
+                    show={this.state.showExportModal}
+                    domain={this.state.exportDomain}
+                    sourceData={this.state.exportSourceData}
+                    alertId={this.state.currentAlertId}
+                    onClose={this.closeExportModal}
+                    onMispExport={this.handleMispExport}
+                    onLegitimateDomainExport={this.handleLegitimateDomainExport}
+                    onDeleteRequest={this.handleDeleteRequest}
+                    mode="dnsFinder"
+                />
             </Fragment>
         )
     }
@@ -657,4 +605,11 @@ const mapStateToProps = state => ({
     error: state.errors
 });
 
-export default connect(mapStateToProps, {getAlerts, updateAlertStatus, addSite, getSites, exportToMISP})(Alerts);
+export default connect(mapStateToProps, {
+    getAlerts, 
+    updateAlertStatus, 
+    addSite, 
+    getSites, 
+    exportToMISP,
+    addLegitimateDomain
+})(Alerts);

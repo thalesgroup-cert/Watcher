@@ -1,7 +1,11 @@
+import logging
 from django.core.mail import EmailMessage
 from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
+
+# Configure logger
+logger = logging.getLogger('watcher.common')
 
 def send_email_notifications(subject, body, emails_to, app_name):
     """
@@ -15,7 +19,7 @@ def send_email_notifications(subject, body, emails_to, app_name):
     """
 
     if not settings.EMAIL_HOST or not settings.EMAIL_FROM:
-        print(f"{str(timezone.now())} - No configuration for Email, notifications disabled. Configure it in the '.env' file.")
+        logger.warning("No configuration for Email, notifications disabled. Configure it in the '.env' file.")
         return
 
     # Filter valid email addresses
@@ -23,7 +27,7 @@ def send_email_notifications(subject, body, emails_to, app_name):
     emails_to = [email for email in emails_to if email] 
 
     if not emails_to:
-        print(f"{datetime.now()} - No valid recipients for {app_name}.")
+        logger.warning(f"No valid recipients for {app_name}.")
         return
 
     try:
@@ -36,6 +40,6 @@ def send_email_notifications(subject, body, emails_to, app_name):
         )
         email.content_subtype = "html" 
         email.send(fail_silently=False)
-        print(f"{datetime.now()} - Email successfully sent for {app_name}.")
+        logger.info(f"Email successfully sent for {app_name}.")
     except Exception as e:
-        print(f"{datetime.now()} - Failed to send email for {app_name}: {e}")
+        logger.error(f"Failed to send email for {app_name}: {e}")
