@@ -147,6 +147,13 @@ CITADEL_API_TOKEN = os.environ.get('CITADEL_API_TOKEN', '')
 CITADEL_ROOM_ID = os.environ.get('CITADEL_ROOM_ID', '')
 CITADEL_URL = os.environ.get('CITADEL_URL', '')
 
+# Weekly Summary Configuration
+WEEKLY_SUMMARY_DAY = os.environ.get('WEEKLY_SUMMARY_DAY', 'Monday')
+WEEKLY_SUMMARY_HOUR = os.environ.get('WEEKLY_SUMMARY_HOUR', '09:30')
+
+# Breaking News Configuration
+BREAKING_NEWS_THRESHOLD = int(os.environ.get('BREAKING_NEWS_THRESHOLD', 15))
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
@@ -266,3 +273,113 @@ USE_TZ = False
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+
+# Create logs directory if it doesn't exist
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
+TRACE_LEVEL = os.environ.get('TRACE_LEVEL', 'INFO')
+
+# Logging configuration
+LOGGING = {
+    "version": 1,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} | {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'console': {
+            'format': '{levelname} {asctime} | {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+        'file_common': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'common.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+        },
+        'file_threats_watcher': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'threats_watcher.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
+        'file_data_leak': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'data_leak.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
+        'file_dns_finder': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'dns_finder.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
+        'file_site_monitoring': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'site_monitoring.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
+    },
+    "loggers": {
+        'watcher.common': {
+            'handlers': ['file_common', 'console'], 
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.threats_watcher': {
+            'handlers': ['file_threats_watcher', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.data_leak': {
+            'handlers': ['file_data_leak', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.dns_finder': {
+            'handlers': ['file_dns_finder', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.site_monitoring': {
+            'handlers': ['file_site_monitoring', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher': {
+            'handlers': ['file_common'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+    },
+    "disable_existing_loggers": False
+}
+
+# Maximum upload size in bytes
+MAX_UPLOAD_SIZE = 5242880  # 5MB
