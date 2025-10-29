@@ -59,9 +59,13 @@ class ExportModal extends Component {
         const { domain, mode, sourceData } = this.props;
         
         switch (mode) {
-            case 'websiteMonitoring':
-                const originalLegitimacy = LEGITIMACY_LABELS[domain.legitimacy]?.label || domain.legitimacy;
-                return `Exported from Website Monitoring - Original legitimacy: ${originalLegitimacy}`;
+            case 'websiteMonitoring': {
+                    const originalLegitimacy = LEGITIMACY_LABELS[domain?.legitimacy]?.label || domain?.legitimacy;
+                if (originalLegitimacy) {
+                    return `Exported from Website Monitoring - Original legitimacy: ${originalLegitimacy}`;
+                }
+                return `Exported from Website Monitoring`;
+            }
             
             case 'dnsFinder':
                 const parts = ['Exported from DNS Finder'];

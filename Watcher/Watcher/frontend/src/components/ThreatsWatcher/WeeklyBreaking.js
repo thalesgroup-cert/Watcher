@@ -491,13 +491,13 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                     >
                         {activeTab === "weekly" && weeklyText && (
                             <div className="card-body">
-                                <div style={{ fontSize: "1.08em", color: "#fff", whiteSpace: "pre-line" }}>
+                                <div style={{ fontSize: "1.08em", color: "inherit", whiteSpace: "pre-line" }}>
                                     <span dangerouslySetInnerHTML={{ __html: weeklyDisplayHTML }} />
                                     {weeklyDisplayHTML !== convertCVELinksToHTML(weeklyText) && (
                                         <span className="blinking-cursor">|</span>
                                     )}
                                 </div>
-                                <div className="mt-2" style={{ fontSize: "0.85em", color: "#fff" }}>
+                                <div className="mt-2" style={{ fontSize: "0.85em", color: "inherit" }}>
                                     Generated at {formatDate(weeklyCreatedAt)}
                                 </div>
                             </div>
@@ -507,10 +507,10 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                             <div className="card-body">
                                 <div
                                     className="card-text"
-                                    style={{ fontSize: "1.08em", whiteSpace: "pre-line", color: "#fff" }}
+                                    style={{ fontSize: "1.08em", whiteSpace: "pre-line", color: "inherit" }}
                                     dangerouslySetInnerHTML={{ __html: breakingNews.summary_text }}
                                 />
-                                <div className="mt-2" style={{ fontSize: "0.85em", color: "#fff" }}>
+                                <div className="mt-2" style={{ fontSize: "0.85em", color: "inherit" }}>
                                     Generated at {formatDate(breakingNews.created_at)}
                                 </div>
                             </div>

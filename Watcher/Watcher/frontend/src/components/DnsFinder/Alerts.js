@@ -3,7 +3,7 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import {getAlerts, updateAlertStatus, exportToMISP} from "../../actions/DnsFinder";
 import {addSite, getSites} from "../../actions/SiteMonitoring";
-import {addLegitimateDomain} from "../../actions/LegitimateDomain";
+import { exportToLegitimateDomains } from '../../actions/Common';
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
@@ -43,7 +43,7 @@ export class Alerts extends Component {
         getAlerts: PropTypes.func.isRequired,
         updateAlertStatus: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
-        addLegitimateDomain: PropTypes.func.isRequired,
+        exportToLegitimateDomains: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
         globalFilters: PropTypes.object,
@@ -306,25 +306,15 @@ export class Alerts extends Component {
             if (!alert) {
                 throw new Error('Alert not found');
             }
-    
-            const legitimateDomain = {
+
+            const domainData = {
                 domain_name: domain_name,
-                ticket_id: '',
-                contact: '',
-                expiry: '',
-                repurchased: false,
-                comments: comment
             };
             
-            await this.props.addLegitimateDomain(legitimateDomain);
-        
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            if (this.props.error && this.props.error.status !== null) {
-                throw new Error('Export failed');
-            }
+            await this.props.exportToLegitimateDomains(domainData, comment);
             
             return { success: true };
+            
         } catch (err) {
             console.error('Export to Legitimate Domains failed:', err);
             throw err;
@@ -611,5 +601,5 @@ export default connect(mapStateToProps, {
     addSite, 
     getSites, 
     exportToMISP,
-    addLegitimateDomain
+    exportToLegitimateDomains
 })(Alerts);

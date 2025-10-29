@@ -17,34 +17,19 @@ const FILTER_CONFIG = [
         key: 'legitimacy',
         type: 'select',
         label: 'Legitimacy',
-        width: 1,
+        width: 2,
         options: []
     },
     {
-        key: 'monitoringStatus',
+        key: 'expiry_status',
         type: 'select',
-        label: 'Monitoring',
+        label: 'Expiry Status',
         width: 1,
         options: [
-            { value: 'true', label: 'Active' },
-            { value: 'false', label: 'Pending' }
-        ]
-    },
-    {
-        key: 'webStatus',
-        type: 'select',
-        label: 'Web Status',
-        width: 1,
-        options: [
-            { value: '200', label: '200 OK' },
-            { value: '301', label: '301 Moved' },
-            { value: '302', label: '302 Found' },
-            { value: '403', label: '403 Forbidden' },
-            { value: '404', label: '404 Not Found' },
-            { value: '500', label: '500 Server Error' },
-            { value: '502', label: '502 Bad Gateway' },
-            { value: '503', label: '503 Service Unavailable' },
-            { value: 'offline', label: 'Offline' }
+            { value: 'expired', label: 'Expired' },
+            { value: 'expiring_soon', label: 'Expiring Soon' },
+            { value: 'valid', label: 'Valid' },
+            { value: 'no_date', label: 'No Date' }
         ]
     },
     {
@@ -95,8 +80,7 @@ class Dashboard extends Component {
             globalFilters: {
                 search: '',
                 legitimacy: '',
-                monitoringStatus: '',
-                webStatus: '',
+                expiry_status: '',
                 takedown: '',
                 legal: '',
                 blocking: ''
@@ -132,8 +116,7 @@ class Dashboard extends Component {
             globalFilters: {
                 search: filters.search || '',
                 legitimacy: filters.legitimacy || '',
-                monitoringStatus: filters.monitoringStatus || '',
-                webStatus: filters.webStatus || '',
+                expiry_status: filters.expiry_status || '',
                 takedown: filters.takedown || '',
                 legal: filters.legal || '',
                 blocking: filters.blocking || ''

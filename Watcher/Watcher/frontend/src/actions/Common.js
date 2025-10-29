@@ -5,13 +5,17 @@ import { GET_WEEKLY_SUMMARY, GET_BREAKING_NEWS, GET_WORD_SUMMARY, GENERATE_WORD_
 
 // EXPORT TO LEGITIMATE DOMAINS
 export const exportToLegitimateDomains = (domain, comment) => (dispatch, getState) => {
+    const defaultComment = domain && domain.legitimacy
+    ? `Exported from Website Monitoring - Original legitimacy: ${domain.legitimacy}`
+    : `Exported from Website Monitoring`;
+
     const legitimatePayload = {
         domain_name: domain.domain_name,
         ticket_id: domain.ticket_id || "",
         contact: "",
         expiry: domain.domain_expiry || "",
         repurchased: false,
-        comments: comment || `Exported from Website Monitoring - Original legitimacy: ${domain.legitimacy}`
+        comments: comment || defaultComment
     };
 
     return axios.post('/api/common/legitimate_domains/', legitimatePayload, tokenConfig(getState))

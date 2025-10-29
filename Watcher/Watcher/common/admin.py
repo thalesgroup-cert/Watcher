@@ -9,7 +9,8 @@ from import_export.admin import ImportExportModelAdmin, ExportMixin
 class LegitimateDomainAdmin(ImportExportModelAdmin):
     list_display = (
         'domain_name', 'ticket_id', 'contact',
-        'created_at', 'expiry', 'repurchased'
+        'domain_created_at', 'created_at', 'expiry',
+        'repurchased', 'comments'
     )
     search_fields = ('domain_name', 'ticket_id', 'contact')
     list_filter = ('repurchased', 'expiry')

@@ -38,13 +38,17 @@ class LegitimateDomains extends Component {
             deleteDomainName: null,
             newDomain: { ...INIT_DOMAIN },
             exportDomain: null,
-            expiry: ''
+            domain_created_at: '',
+            expiry: '',
+            editCommentsLength: 0,
+            addCommentsLength: 0
         };
 
         this.editRefs = {
             domain_name: createRef(),
             ticket_id: createRef(),
             contact: createRef(),
+            domain_created_at: createRef(),
             expiry: createRef(),
             repurchased: createRef(),
             comments: createRef()
@@ -53,6 +57,8 @@ class LegitimateDomains extends Component {
             domain_name: createRef(),
             ticket_id: createRef(),
             contact: createRef(),
+            domain_created_at: createRef(),
+            expiry: createRef(),
             repurchased: createRef(),
             comments: createRef()
         };
@@ -123,7 +129,13 @@ class LegitimateDomains extends Component {
     };
 
     displayEditModal = (domain) => {
-        this.setState({ showEditModal: true, editDomain: { ...domain }, expiry: domain.expiry || "" }, () => {
+        this.setState({ 
+            showEditModal: true, 
+            editDomain: { ...domain }, 
+            expiry: domain.expiry || "",
+            domain_created_at: domain?.domain_created_at || "",
+            editCommentsLength: domain?.comments ? domain.comments.length : 0
+        }, () => {
             Object.keys(this.editRefs).forEach(k => {
                 if (this.editRefs[k].current) {
                     if (k === 'repurchased')
@@ -138,7 +150,7 @@ class LegitimateDomains extends Component {
     displayDeleteModal = (id, domain_name) => this.setState({ showDeleteModal: true, deleteDomainId: id, deleteDomainName: domain_name });
 
     displayAddModal = () => {
-        this.setState({ showAddModal: true, newDomain: { ...INIT_DOMAIN }, expiry: "" }, () => {
+        this.setState({ showAddModal: true, newDomain: { ...INIT_DOMAIN }, expiry: "", domain_created_at: "", addCommentsLength: 0 }, () => {
             Object.keys(this.addRefs).forEach(k => {
                 if (this.addRefs[k].current) {
                     if (k === 'repurchased')
@@ -198,7 +210,7 @@ class LegitimateDomains extends Component {
                 <span 
                     className="badge bg-sm bg-danger" 
                     style={{ fontSize: '12px' }}
-                    title={`Domain expired on ${expiryDate.toLocaleDateString()}`}
+                    title={`Domain expired on ${expiryDate.toDateString()}`}
                 >
                     Expired
                 </span>
@@ -208,7 +220,7 @@ class LegitimateDomains extends Component {
                 <span 
                     className="badge bg-sm bg-warning" 
                     style={{ fontSize: '12px' }}
-                    title={`Domain expires soon (${expiryDate.toLocaleDateString()})`}
+                    title={`Domain expires soon (${expiryDate.toDateString()})`}
                 >
                     Expiring Soon
                 </span>
@@ -218,7 +230,7 @@ class LegitimateDomains extends Component {
                 <span 
                     className="badge bg-sm bg-success" 
                     style={{ fontSize: '12px' }}
-                    title={`Domain valid until ${expiryDate.toLocaleDateString()}`}
+                    title={`Domain valid until ${expiryDate.toDateString()}`}
                 >
                     Valid
                 </span>
@@ -275,13 +287,14 @@ class LegitimateDomains extends Component {
     }
 
     editModal = () => {
-        const handleClose = () => this.setState({ showEditModal: false, editDomain: null });
+        const handleClose = () => this.setState({ showEditModal: false, editDomain: null, domain_created_at: '' });
         const onSubmit = e => {
             e.preventDefault();
             const domain = {
                 domain_name: this.editRefs.domain_name.current.value,
                 ticket_id: this.editRefs.ticket_id.current.value,
                 contact: this.editRefs.contact.current.value,
+                domain_created_at: this.state.domain_created_at,
                 expiry: this.state.expiry,
                 repurchased: this.editRefs.repurchased.current.checked,
                 comments: this.editRefs.comments.current.value
@@ -338,7 +351,28 @@ class LegitimateDomains extends Component {
                                             />
                                         </Col>
                                     </Form.Group>
-                                    
+
+                                    <Form.Group as={Row} className="mb-3">
+                                        <Form.Label column sm="4">Registered At</Form.Label>
+                                        <Col sm="8">
+                                            <DayPickerInput
+                                                style={{ color: "black" }}
+                                                formatDate={formatDate}
+                                                parseDate={parseDate}
+                                                placeholder={editDomain?.domain_created_at ? editDomain.domain_created_at : `${formatDate(new Date())}`}
+                                                value={this.state.expdomain_created_atiry}
+                                                onDayChange={date => {
+                                                    this.setState({ 
+                                                        domain_created_at: date ? date.toISOString().split('T')[0] : '' 
+                                                    });
+                                                }}
+                                            />
+                                            <Form.Text className="text-muted d-block mt-1">
+                                                Will be auto-detected via RDAP/WHOIS
+                                            </Form.Text>                                            
+                                        </Col>
+                                    </Form.Group>
+
                                     <Form.Group as={Row} className="mb-3">
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
@@ -379,18 +413,18 @@ class LegitimateDomains extends Component {
                                                 as="textarea"
                                                 ref={this.editRefs.comments}
                                                 rows={3}
+                                                maxLength={300}
                                                 defaultValue={editDomain?.comments || ""}
-                                                maxLength={700}
                                                 placeholder="Add notes, context, actions taken, or any relevant information about this domain"
                                                 onChange={e => {
-                                                    const remaining = 700 - e.target.value.length;
+                                                    const len = e.target.value.length;
+                                                    const remaining = 300 - len;
                                                     e.target.style.borderColor = remaining < 50 ? '#dc3545' : '';
+                                                    this.setState({ editCommentsLength: len });
                                                 }}
                                             />
                                             <div style={{ fontSize: 12, color: "#888", textAlign: "right" }}>
-                                                {this.editRefs.comments.current
-                                                    ? this.editRefs.comments.current.value.length
-                                                    : (editDomain?.comments ? editDomain.comments.length : 0)}/700
+                                                {this.state.editCommentsLength}/300
                                             </div>
                                         </Col>
                                     </Form.Group>
@@ -415,13 +449,18 @@ class LegitimateDomains extends Component {
     };
 
     addModal = () => {
-        const handleClose = () => this.setState({ showAddModal: false });
+        const handleClose = () => this.setState({ 
+            showAddModal: false, 
+            domain_created_at: '', 
+            expiry: '' 
+        });
         const onSubmit = e => {
             e.preventDefault();
             const domain = {
                 domain_name: this.addRefs.domain_name.current.value,
                 ticket_id: this.addRefs.ticket_id.current.value,
                 contact: this.addRefs.contact.current.value,
+                domain_created_at: this.state.domain_created_at,
                 expiry: this.state.expiry,
                 repurchased: this.addRefs.repurchased.current.checked,
                 comments: this.addRefs.comments.current.value
@@ -465,7 +504,7 @@ class LegitimateDomains extends Component {
                                             />
                                         </Col>
                                     </Form.Group>
-                                    
+
                                     <Form.Group as={Row} className="mb-3">
                                         <Form.Label column sm="4">Contact</Form.Label>
                                         <Col sm="8">
@@ -474,6 +513,27 @@ class LegitimateDomains extends Component {
                                                 type="text"
                                                 placeholder="IT Team, support@example.com" 
                                             />
+                                        </Col>
+                                    </Form.Group>
+
+                                    <Form.Group as={Row} className="mb-3">
+                                        <Form.Label column sm="4">Registered At</Form.Label>
+                                        <Col sm="8">
+                                            <DayPickerInput
+                                                style={{ color: "black" }}
+                                                formatDate={formatDate}
+                                                parseDate={parseDate}
+                                                placeholder={`${formatDate(new Date())}`}
+                                                value={this.state.domain_created_at}
+                                                onDayChange={date => {
+                                                    this.setState({ 
+                                                        domain_created_at: date ? date.toISOString().split('T')[0] : '' 
+                                                    });
+                                                }}
+                                            />
+                                            <Form.Text className="text-muted d-block mt-1">
+                                                Will be auto-detected via RDAP/WHOIS
+                                            </Form.Text>                                            
                                         </Col>
                                     </Form.Group>
                                     
@@ -516,17 +576,17 @@ class LegitimateDomains extends Component {
                                                 as="textarea"
                                                 ref={this.addRefs.comments}
                                                 rows={3}
-                                                maxLength={700}
+                                                maxLength={300}
                                                 placeholder="Add notes, context, actions taken, or any relevant information about this domain"
                                                 onChange={e => {
-                                                    const remaining = 700 - e.target.value.length;
+                                                    const len = e.target.value.length;
+                                                    const remaining = 300 - len;
                                                     e.target.style.borderColor = remaining < 50 ? '#dc3545' : '';
+                                                    this.setState({ addCommentsLength: len });
                                                 }}
                                             />
                                             <div style={{ fontSize: 12, color: "#888", textAlign: "right" }}>
-                                                {this.addRefs.comments.current
-                                                    ? this.addRefs.comments.current.value.length
-                                                    : 0}/700
+                                                {this.state.addCommentsLength}/300
                                             </div>
                                         </Col>
                                     </Form.Group>
@@ -598,7 +658,7 @@ class LegitimateDomains extends Component {
                     data={domains}
                     filterConfig={this.getFilterConfig()}
                     searchFields={['domain_name', 'ticket_id', 'contact']}
-                    dateFields={['created_at', 'expiry']}
+                    dateFields={['domain_created_at', 'created_at', 'expiry']}
                     defaultSort="created_at"
                     customFilters={this.customFilters}
                     onDataFiltered={this.onDataFiltered}
@@ -648,6 +708,10 @@ class LegitimateDomains extends Component {
                                                         Created At
                                                         {renderSortIcons('created_at')}
                                                     </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_created_at')}>
+                                                        Registered At
+                                                        {renderSortIcons('domain_created_at')}
+                                                    </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('expiry')}>
                                                         Expiry
                                                         {renderSortIcons('expiry')}
@@ -680,9 +744,14 @@ class LegitimateDomains extends Component {
                                                         {isAuthenticated && (
                                                             <td>{domain.contact || '-'}</td>
                                                         )}
-                                                        <td>{domain.created_at ? new Date(domain.created_at).toLocaleDateString() : '-'}</td>
+                                                        <td>{domain.created_at ? new Date(domain.created_at).toDateString() : '-'}</td>
                                                         <td>
-                                                            {domain.expiry ? new Date(domain.expiry).toLocaleDateString() : '-'}
+                                                            {domain.domain_created_at
+                                                                ? new Date(domain.domain_created_at).toDateString()
+                                                                : '-'}
+                                                        </td>
+                                                        <td>
+                                                            {domain.expiry ? new Date(domain.expiry).toDateString() : '-'}
                                                             {isAuthenticated && this.getExpiryBadge(domain)}
                                                         </td>
                                                         {isAuthenticated && (
@@ -694,7 +763,20 @@ class LegitimateDomains extends Component {
                                                             </td>
                                                         )}
                                                         {isAuthenticated && (
-                                                            <td>{domain.comments || '-'}</td>
+                                                            // <td>{domain.comments || '-'}</td>
+                                                            <td>
+                                                                <div
+                                                                    style={{
+                                                                    maxWidth: 200,
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis'
+                                                                    }}
+                                                                    title={domain.comments || ''}
+                                                                >
+                                                                    {domain.comments || '-'}
+                                                                </div>
+                                                            </td>
                                                         )}
                                                         {isAuthenticated && (
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>

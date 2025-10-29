@@ -159,6 +159,30 @@ class RDAPDiscovery:
             logger.error(f"Error parsing RDAP expiration date: {str(e)}")
             return None
 
+    def get_registration_date(self):
+        """
+        Extract registration date from RDAP response.
+        
+        :return: Registration date in YYYY-MM-DD format or None if not found
+        :rtype: str or None
+        """
+        if not self.rdap_data:
+            return None
+        
+        try:
+            events = self.rdap_data.get('events', [])
+            for event in events:
+                if event.get('eventAction') == 'registration':
+                    event_date = event.get('eventDate')
+                    if event_date:
+                        return event_date.split('T')[0]
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error parsing RDAP registration date: {str(e)}")
+            return None
+
 
 def perform_single_rdap_lookup(domain):
     """
@@ -179,6 +203,7 @@ def perform_single_rdap_lookup(domain):
         if rdap.fetch_rdap_data():
             registrar = rdap.get_registrar()
             expiration_date = rdap.get_expiration_date()
+            registration_date = rdap.get_registration_date()
             
             updated = False
             update_info = []
@@ -199,6 +224,11 @@ def perform_single_rdap_lookup(domain):
                 domain.domain_expiry = expiration_date
                 updated = True
                 update_info.append(f"domain_expiry='{expiration_date}' (RDAP)")
+            
+            if registration_date:
+                domain.domain_created_at = registration_date
+                updated = True
+                update_info.append(f"domain_created_at='{registration_date}' (RDAP)")
             
             if updated:
                 domain.save()

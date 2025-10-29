@@ -558,17 +558,18 @@ class TableManager extends Component {
     
                 <div className="btn-group">
                     <button 
-                        className="btn btn-secondary"
+                        className={`btn btn-secondary ${savedFilterNames.length > 0 ? 'dropdown-toggle' : ''}`}
                         type="button" 
-                        data-toggle="dropdown" 
-                        aria-haspopup="true" 
-                        aria-expanded="false"
+                        data-toggle={savedFilterNames.length > 0 ? 'dropdown' : undefined}
+                        aria-haspopup={savedFilterNames.length > 0 ? true : undefined}
+                        aria-expanded={savedFilterNames.length > 0 ? false : undefined}
                         disabled={savedFilterNames.length === 0}
+                        style={{ borderRadius: '0.25rem' }}
                     >
                         <i className="material-icons me-1 align-middle" style={{ fontSize: 20 }}>folder_open</i>
                         <span className="align-middle">Saved Filters ({savedFilterNames.length})</span>
                     </button>
-                    <div className="dropdown-menu shadow" style={{ minWidth: '320px' }}>
+                    <div className="dropdown-menu shadow" style={{ minWidth: '320px', borderRadius: '0.25rem' }}>
                         {savedFilterNames.length === 0 ? (
                             <span className="dropdown-item-text text-muted text-center py-3" style={{ fontSize: '15px' }}>
                                 No saved filters

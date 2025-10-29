@@ -124,29 +124,26 @@ export class SuspiciousSites extends Component {
             );
         }
 
-
         if (activeFilters.legitimacy) {
             filtered = filtered.filter(site => 
                 String(site.legitimacy) === activeFilters.legitimacy
             );
         }
 
-        if (activeFilters.monitoringStatus !== '' && typeof activeFilters.monitoringStatus !== 'undefined') {
-            if (activeFilters.monitoringStatus === 'true' || activeFilters.monitoringStatus === 'false') {
-                filtered = filtered.filter(site => 
-                    String(Boolean(site.monitored)) === activeFilters.monitoringStatus
-                );
-            }
-        }
-
-        if (activeFilters.webStatus) {
-            if (activeFilters.webStatus === 'offline') {
-                filtered = filtered.filter(site => !site.web_status && site.web_status !== 0);
-            } else {
-                filtered = filtered.filter(site => 
-                    String(site.web_status) === activeFilters.webStatus
-                );
-            }
+        if (activeFilters.expiry_status) {
+            const now = new Date();
+            const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            filtered = filtered.filter(d => {
+                if (!d.domain_expiry) return activeFilters.expiry_status === 'no_date';
+                const exp = new Date(d.domain_expiry);
+                switch (activeFilters.expiry_status) {
+                    case 'expired': return exp < now;
+                    case 'expiring_soon': return exp >= now && exp <= soon;
+                    case 'valid': return exp > soon;
+                    case 'no_date': return false;
+                    default: return true;
+                }
+            });
         }
 
         if (activeFilters.takedown) {
@@ -1017,26 +1014,14 @@ export class SuspiciousSites extends Component {
 
         const filterConfig = [
             {
-                id: 'monitoringStatus',
-                label: 'Website Monitoring',
+                id: 'expiry_status',
+                label: 'Expiry Status',
                 options: [
                     { value: '', label: 'All' },
-                    { value: 'true', label: 'Active' },
-                    { value: 'false', label: 'Pending' }
-                ]
-            },
-            {
-                id: 'webStatus',
-                label: 'Web Status',
-                options: [
-                    { value: '', label: 'All' },
-                    { value: '200', label: '200 OK' },
-                    { value: '301', label: '301 Moved' },
-                    { value: '302', label: '302 Found' },
-                    { value: '403', label: '403 Forbidden' },
-                    { value: '404', label: '404 Not Found' },
-                    { value: '500', label: '500 Server Error' },
-                    { value: 'offline', label: 'Offline' }
+                    { value: 'expired', label: 'Expired' },
+                    { value: 'expiring_soon', label: 'Expiring Soon' },
+                    { value: 'valid', label: 'Valid' },
+                    { value: 'no_date', label: 'No Date' }
                 ]
             },
             {
@@ -1169,10 +1154,10 @@ export class SuspiciousSites extends Component {
                                                         {this.getTotalAlerts(site)}
                                                     </span>
                                                 </td>
-                                                <td>{new Date(site.created_at).toLocaleDateString()}</td>
+                                                <td>{site.created_at ? new Date(site.created_at).toDateString() : '-'}</td>
                                                 <td>
                                                     <div>
-                                                        {site.domain_expiry ? new Date(site.domain_expiry).toLocaleDateString() : '-'}
+                                                        {site.domain_expiry ? new Date(site.domain_expiry).toDateString() : '-'}
                                                         {this.getDomainExpiryBadge(site)}
                                                     </div>
                                                 </td>

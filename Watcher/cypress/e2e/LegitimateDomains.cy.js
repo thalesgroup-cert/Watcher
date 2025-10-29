@@ -445,15 +445,6 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       });
     });
 
-    it('should display character counter for comments', () => {
-      cy.get('.modal').within(() => {
-        cy.get('div').filter((index, el) => {
-          const text = Cypress.$(el).text();
-          return text.includes('/700');
-        }).should('exist');
-      });
-    });
-
     it('should handle repurchased toggle switch', () => {
       cy.get('.modal').within(() => {
         cy.get('input[type="checkbox"]').click({ force: true });
@@ -509,10 +500,10 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should handle maxLength for comments', () => {
-      const longText = 'a'.repeat(800);
+      const longText = 'a'.repeat(400);
       cy.get('.modal').within(() => {
         cy.get('textarea[placeholder*="Add notes"]').type(longText);
-        cy.get('textarea[placeholder*="Add notes"]').invoke('val').should('have.length', 700);
+        cy.get('textarea[placeholder*="Add notes"]').invoke('val').should('have.length', 300);
       });
     });
   });

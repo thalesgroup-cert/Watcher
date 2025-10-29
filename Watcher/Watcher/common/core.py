@@ -1106,26 +1106,56 @@ def update_legitimate_domains_rdap_data():
                 method = "WHOIS"
 
             expiration_date = rdap.get_expiration_date()
+            registration_date = rdap.get_registration_date()
+            
+            updated_fields = []
 
+            # Update expiration date
             if expiration_date:
                 try:
                     new_expiry = datetime.strptime(expiration_date, '%Y-%m-%d').date()
                 except Exception:
-                    # If parsing fails, count as failure and continue
                     logger.warning(f"Could not parse expiry '{expiration_date}' for {domain.domain_name}")
-                    continue
+                    new_expiry = None
 
-                if domain.expiry != new_expiry:
+                if new_expiry and domain.expiry != new_expiry:
                     old_expiry = domain.expiry
                     domain.expiry = new_expiry
-                    domain.save(update_fields=['expiry'])
-
+                    updated_fields.append('expiry')
                     logger.info(
                         f"{method} update for {domain.domain_name}: expiry changed from {old_expiry} to {new_expiry}"
                     )
             else:
                 logger.warning(f"No expiration date available for {domain.domain_name}")
 
+            # Update registration date
+            if registration_date:
+                try:
+                    new_registered_at = datetime.strptime(registration_date, '%Y-%m-%d').date()
+                except Exception:
+                    logger.warning(f"Could not parse registration date '{registration_date}' for {domain.domain_name}")
+                    new_registered_at = None
+
+                if new_registered_at:
+                    # Convert existing domain_created_at to date if it's a datetime
+                    existing_registered_at = domain.domain_created_at
+                    if isinstance(existing_registered_at, datetime):
+                        existing_registered_at = existing_registered_at.date()
+                    
+                    if existing_registered_at != new_registered_at:
+                        old_registered_at = existing_registered_at
+                        domain.domain_created_at = new_registered_at
+                        updated_fields.append('domain_created_at')
+                        logger.info(
+                            f"{method} update for {domain.domain_name}: registration date changed from {old_registered_at} to {new_registered_at}"
+                        )
+            else:
+                logger.warning(f"No registration date available for {domain.domain_name}")
+
+            # Save only if there are updates
+            if updated_fields:
+                domain.save(update_fields=updated_fields)
+                logger.info(f"Successfully updated {domain.domain_name}: {', '.join(updated_fields)}")
 
         except Exception as e:
             logger.error(f"Error processing {domain.domain_name}: {str(e)}")

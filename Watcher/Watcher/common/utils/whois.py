@@ -131,6 +131,41 @@ class WhoisDiscovery:
         except Exception as e:
             return None
 
+    def get_registration_date(self):
+        """
+        Extract registration date from WHOIS response.
+        
+        Searches for registration date information using multiple patterns
+        to handle different WHOIS response formats. Returns standardized
+        date format for consistent storage.
+        
+        :return: Registration date in YYYY-MM-DD format or None if not found
+        :rtype: str or None
+        """
+        if not self.response or self.response.status_code != 200:
+            return None
+            
+        try:
+            # Common registration date patterns
+            registration_patterns = [
+                r"Creation Date: *(\d{4}-\d{2}-\d{2})",
+                r"Created Date: *(\d{4}-\d{2}-\d{2})",
+                r"Registration Date: *(\d{4}-\d{2}-\d{2})",
+                r"Registered: *(\d{4}-\d{2}-\d{2})",
+                r"created: *(\d{4}-\d{2}-\d{2})",
+                r"Domain Registration Date: *(\d{4}-\d{2}-\d{2})",
+            ]
+            
+            for pattern in registration_patterns:
+                match = re.search(pattern, self.response.text, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+            
+            return None
+            
+        except Exception as e:
+            return None
+
 
 def get_domains_needing_whois():
     """
@@ -178,6 +213,7 @@ def perform_single_whois_lookup(domain):
         if whois.fetch_whois_data():
             registrar = whois.get_registrar()
             expiration_date = whois.get_expiration_date()
+            registration_date = whois.get_registration_date()
             
             updated = False
             update_info = []
@@ -198,6 +234,11 @@ def perform_single_whois_lookup(domain):
                 domain.domain_expiry = expiration_date
                 updated = True
                 update_info.append(f"domain_expiry='{expiration_date}'")
+            
+            if registration_date:
+                domain.domain_created_at = registration_date
+                updated = True
+                update_info.append(f"domain_created_at='{registration_date}'")
             
             if updated:
                 domain.save()
