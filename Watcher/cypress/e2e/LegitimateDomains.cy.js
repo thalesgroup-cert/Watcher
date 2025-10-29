@@ -341,16 +341,37 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should handle domain edit workflow', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
+      cy.get('table tbody').then(($tbody) => {
+        const $matchingRow = $tbody.find('td').filter((i, td) => {
+          return Cypress.$(td).text().trim() === 'watcher-company.com';
+        }).closest('tr');
+    
+        if ($matchingRow.length) {
+          cy.wrap($matchingRow).within(() => {
+            cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
+          });
+    
+          cy.get('.modal', { timeout: 10000 }).should('be.visible');
+          cy.get('.modal-title').should('contain', 'Edit Domain');
+          cy.get('.modal input[placeholder*="example.com"]').first().invoke('val').should('equal', 'watcher-company.com');
+          cy.get('button:contains("Close")').first().click();
+        } else {
+          cy.get('table tbody tr').first().then(($tr) => {
+            const domainFromRow = $tr.find('td').first().text().trim();
+    
+            cy.wrap($tr).within(() => {
+              cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
+            });
+    
+            cy.get('.modal', { timeout: 10000 }).should('be.visible');
+            cy.get('.modal-title').should('contain', 'Edit Domain');
+            cy.get('.modal input[placeholder*="example.com"]').first().invoke('val').should('equal', domainFromRow);
+            cy.get('button:contains("Close")').first().click();
+          });
+        }
       });
-
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal-title').should('contain', 'Edit Domain');
-      cy.get('input[type="text"]').first().should('have.value', 'watcher-company.com');
-      cy.get('button:contains("Close")').first().click();
-    });
-
+    });    
+    
     it('should handle domain deletion workflow', () => {
       cy.get('table tbody tr').first().within(() => {
         cy.get('button[title*="Delete"], i.material-icons:contains("delete")').first().click();
