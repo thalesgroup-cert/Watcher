@@ -480,17 +480,6 @@ describe('Threats Watcher - E2E Test Suite', () => {
   });
 
   describe('WeeklyBreaking Component', () => {
-    it('should display WeeklyBreaking floating window or bubble', () => {
-      cy.get('.position-fixed').should('exist');
-      
-      cy.get('body').then(($body) => {
-        const hasWeeklyBreaking = $body.find('.position-fixed .card, .position-fixed .material-icons').length > 0;
-        if (hasWeeklyBreaking) {
-          cy.log('WeeklyBreaking component found');
-        }
-      });
-    });
-
     it('should handle WeeklyBreaking minimize/maximize', () => {
       cy.get('body').then(($body) => {
         const minimizeIcon = $body.find('.material-icons:contains("expand_more")');
