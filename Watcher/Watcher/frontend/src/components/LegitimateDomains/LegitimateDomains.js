@@ -360,7 +360,7 @@ class LegitimateDomains extends Component {
                                                 formatDate={formatDate}
                                                 parseDate={parseDate}
                                                 placeholder={editDomain?.domain_created_at ? editDomain.domain_created_at : `${formatDate(new Date())}`}
-                                                value={this.state.expdomain_created_atiry}
+                                                value={this.state.domain_created_at}
                                                 onDayChange={date => {
                                                     this.setState({ 
                                                         domain_created_at: date ? date.toISOString().split('T')[0] : '' 
@@ -655,6 +655,7 @@ class LegitimateDomains extends Component {
                 </div>
 
                 <TableManager
+                    key={`${isAuthenticated}-${domains.length}`}
                     data={domains}
                     filterConfig={this.getFilterConfig()}
                     searchFields={['domain_name', 'ticket_id', 'contact']}
@@ -676,7 +677,8 @@ class LegitimateDomains extends Component {
                         renderFilterControls,
                         renderSaveModal,
                         getTableContainerStyle
-                    }) => (
+                    }) => {
+                        return (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
@@ -763,7 +765,6 @@ class LegitimateDomains extends Component {
                                                             </td>
                                                         )}
                                                         {isAuthenticated && (
-                                                            // <td>{domain.comments || '-'}</td>
                                                             <td>
                                                                 <div
                                                                     style={{
@@ -795,7 +796,7 @@ class LegitimateDomains extends Component {
                                                 ))}
                                                 {paginatedData.length === 0 && (
                                                     <tr>
-                                                        <td colSpan={isAuthenticated ? "9" : "3"} className="text-center text-muted py-4">
+                                                        <td colSpan={isAuthenticated ? "9" : "4"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -809,7 +810,8 @@ class LegitimateDomains extends Component {
                             {renderPagination()}
                             {renderSaveModal()}
                         </Fragment>
-                    )}
+                        );
+                    }}
                 </TableManager>
 
                 {this.editModal()}

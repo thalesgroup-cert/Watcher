@@ -20,8 +20,6 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
     def export_to_misp(self, request):
         """
         Export legitimate domain to MISP using DNS Finder's logic.
-        Endpoint: POST /api/common/legitimate_domains/misp/
-        Payload: { "id": <domain_id>, "event_uuid": "<uuid>" }
         """
         from dns_finder.api import MISPViewSet
         from dns_finder.serializers import MISPSerializer
