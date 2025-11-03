@@ -1,6 +1,10 @@
 import requests
+import logging
 from django.conf import settings
 from django.utils import timezone
+
+# Configure logger
+logger = logging.getLogger('watcher.common')
 
 def send_citadel_message(content, room_id, app_name):
     """
@@ -12,7 +16,7 @@ def send_citadel_message(content, room_id, app_name):
     """
     
     if not settings.CITADEL_API_TOKEN or not settings.CITADEL_ROOM_ID:
-        print(f"{str(timezone.now())} - No configuration for Citadel, notifications disabled. Configure it in the '.env' file.")
+        logger.warning("No configuration for Citadel, notifications disabled. Configure it in the '.env' file.")
         return
 
     url = f"{settings.CITADEL_URL}/_matrix/client/r0/rooms/{room_id}/send/m.room.message?access_token={settings.CITADEL_API_TOKEN}"
@@ -31,6 +35,6 @@ def send_citadel_message(content, room_id, app_name):
     response = requests.post(url, headers=headers, json=payload)
 
     if response.status_code == 200:
-        print(f"{str(timezone.now())} - Message sent to Citadel successfully for {app_name}.")
+        logger.info(f"Message sent to Citadel successfully for {app_name}.")
     else:
-        print(f"{str(timezone.now())} - Failed to send message to Citadel: {response.status_code} - {response.text}")
+        logger.error(f"Failed to send message to Citadel: {response.status_code} - {response.text}")

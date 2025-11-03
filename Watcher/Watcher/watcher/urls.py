@@ -8,6 +8,7 @@ urlpatterns = [
     path('', include('site_monitoring.urls')),
     path('', include('dns_finder.urls')),
     path('', include('accounts.urls')),
+    path('', include('common.urls')),
     path('admin/doc/', include('django.contrib.admindocs.urls')),
     path('admin/', admin.site.urls),
 ]

@@ -1,8 +1,12 @@
 import requests
+import logging
 from django.conf import settings
 from django.utils import timezone
 from common.utils.update_thehive import handle_alert_or_case, create_new_alert
 from site_monitoring.models import Site
+
+# Configure logger
+logger = logging.getLogger('watcher.common')
 
 
 def get_ticket_id_for_domain(domain_name):
@@ -17,10 +21,10 @@ def get_ticket_id_for_domain(domain_name):
         domain = Site.objects.get(domain_name=domain_name)
         return domain.ticket_id
     except Site.DoesNotExist:
-        print(f"{timezone.now()} - Domain {domain_name} not found in Watcher database.")
+        logger.warning(f"Domain {domain_name} not found in Watcher database.")
         return None
     except Exception as e:
-        print(f"{timezone.now()} - Error while retrieving ticket_id for domain {domain_name}: {e}")
+        logger.error(f"Error while retrieving ticket_id for domain {domain_name}: {e}")
         return None
 
 
@@ -65,7 +69,7 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
     """
 
     if not settings.THE_HIVE_KEY or not settings.THE_HIVE_URL:
-        print(f"{str(timezone.now())} - No configuration for TheHive, notifications disabled. Configure it in the '.env' file.")
+        logger.warning("No configuration for TheHive, notifications disabled. Configure it in the '.env' file.")
         return
 
     thehive_url = thehive_url or settings.THE_HIVE_URL
@@ -104,15 +108,15 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
             observables=observables,
             customFields=customFields,
             comment=(
-                f"A change was processed by {app_name} application at {current_time} on {current_date}.\n"
+                f"A change was processed by {app_name} application for domain '{domain_name}' "
+                f"at {current_time} on {current_date}.\n"
                 "The associated observables have been handled in the dedicated section."
             ),
             thehive_url=thehive_url,
             api_key=api_key
         )
 
-    # Create a new alert if the application is not 'website_monitoring'
-    else:
+    elif app_name != 'dns_finder':
         create_new_alert(
             ticket_id=ticket_id, 
             title=title,

@@ -48,6 +48,12 @@ export default function (state = initialState, action) {
                     site.ip_monitoring = action.payload.ip_monitoring;
                     site.content_monitoring = action.payload.content_monitoring;
                     site.mail_monitoring = action.payload.mail_monitoring;
+                    site.registrar = action.payload.registrar;
+                    site.legitimacy = action.payload.legitimacy;
+                    site.domain_expiry = action.payload.domain_expiry;
+                    site.takedown_request = action.payload.takedown_request;
+                    site.legal_team = action.payload.legal_team;
+                    site.blocking_request = action.payload.blocking_request;
                 }
             });
             return {

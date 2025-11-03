@@ -37,6 +37,8 @@ class KeywordMonitoredSerializer(serializers.ModelSerializer):
 
 # DnsTwisted Serializer
 class DnsTwistedSerializer(serializers.ModelSerializer):
+    dns_monitored = DnsMonitoredSerializer(read_only=True)
+    keyword_monitored = KeywordMonitoredSerializer(read_only=True)
     misp_event_uuid = serializers.SerializerMethodField()
     
     def get_misp_event_uuid(self, obj):

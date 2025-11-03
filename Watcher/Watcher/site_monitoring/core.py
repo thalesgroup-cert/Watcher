@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import unicode_literals
 import smtplib
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from django.db import close_old_connections
@@ -22,24 +23,45 @@ from common.core import send_app_specific_notifications
 from django.db.models import Q
 import time
 import random
+from common.utils.rdap import RDAPDiscovery
+from common.utils.whois import WhoisDiscovery
+
+# Configure logger
+logger = logging.getLogger('watcher.site_monitoring')
+
+
+LEGITIMACY_LABELS = {
+    1: "Unknown",
+    2: "Suspicious, not harmful",
+    3: "Suspicious, likely harmful (registered)",
+    4: "Suspicious, likely harmful (available/disabled)",
+    5: "Malicious (registered)",
+    6: "Malicious (available/disabled)",
+}
+
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
 except Exception as e:
-    print(str(timezone.now()) + " - ", e)
-    print(str(timezone.now()) + " - ", "Using default User-Agent")
+    logger.error(str(e))
+    logger.info("Using default User-Agent")
     shadow_useragent = False
 
 
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
-        - Fire `monitoring_check` every 6 minutes from Monday to Sunday
+        - Fire `monitoring_check` every 15 minutes from Monday to Sunday
+        - Fire `update_site_monitoring_rdap_data` every 15 minute for RDAP/WHOIS lookup
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
     scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/15', id='weekend_job',
                       max_instances=10,
+                      replace_existing=True)
+    
+    scheduler.add_job(update_site_monitoring_rdap_data, 'cron', day_of_week='mon-sun', minute='*/15', id='site_rdap_job',
+                      max_instances=1,
                       replace_existing=True)
     
     scheduler.start()
@@ -64,6 +86,185 @@ def monitoring_init(site):
         Site.objects.filter(pk=site.pk).update(monitored=True)
     else:
         Site.objects.filter(pk=site.pk).update(monitored=False)
+
+
+def create_rdap_alert(site, alert_code, registrar_data=None, expiry_data=None):
+    """
+    Create RDAP alerts using the same system as monitoring alerts.
+    """
+    try:
+        message_registrar = "RDAP registrar change detected"
+        message_expiry = "RDAP domain expiration change detected"
+        message_registrar_expiry = "RDAP registrar and expiration changes detected"
+        message_rdap_update = "RDAP data update detected"
+
+        rdap_alert_types = {
+            17: {'type': message_registrar, 'new_registrar': None, 'old_registrar': None},
+            18: {'type': message_expiry, 'new_expiry_date': None, 'old_expiry_date': None},
+            19: {'type': message_registrar_expiry, 'new_registrar': None, 'old_registrar': None, 
+                 'new_expiry_date': None, 'old_expiry_date': None},
+            20: {'type': message_rdap_update, 'new_registrar': None, 'old_registrar': None, 
+                 'new_expiry_date': None, 'old_expiry_date': None},
+        }
+
+        if alert_code not in rdap_alert_types:
+            logger.error(f"Invalid RDAP alert code: {alert_code}")
+            return None
+
+        alert_data = rdap_alert_types[alert_code].copy()
+
+        if registrar_data:
+            alert_data['new_registrar'] = registrar_data.get('new')
+            alert_data['old_registrar'] = registrar_data.get('old')
+
+        if expiry_data:
+            alert_data['new_expiry_date'] = expiry_data.get('new')
+            alert_data['old_expiry_date'] = expiry_data.get('old')
+
+        recent_alerts = Alert.objects.filter(
+            site=site,
+            type=alert_data['type'],
+            created_at__gte=timezone.now() - timedelta(hours=1)
+        )
+
+        if recent_alerts.exists():
+            logger.debug(f"Similar RDAP alert already exists for {site.domain_name}, skipping")
+            return None
+
+        with transaction.atomic():
+            alert = Alert.objects.create(site=site, **alert_data)
+
+        logger.info(f"Created RDAP alert #{alert.id}: {alert_data['type']} for {site.domain_name}")
+        return alert
+
+    except Exception as e:
+        logger.error(f"Error creating RDAP alert for {site.domain_name}: {str(e)}")
+        return None
+
+
+def perform_site_rdap_lookup(site):
+    """
+    Perform RDAP lookup for a single site with WHOIS fallback.
+    """
+    try:
+        # Try RDAP first
+        rdap = RDAPDiscovery(site.domain_name)
+        method = "RDAP"
+        
+        if not rdap.fetch_rdap_data():
+            # Fallback to WHOIS
+            logger.info(f"RDAP lookup failed for domain {site.domain_name}, falling back to WHOIS")
+            whois = WhoisDiscovery(site.domain_name)
+            if not whois.fetch_whois_data():
+                logger.warning(f"No RDAP/WHOIS data found for domain {site.domain_name}")
+                return False
+            
+            rdap = whois
+            method = "WHOIS"
+
+        registrar = rdap.get_registrar()
+        expiration_date = rdap.get_expiration_date()
+        
+        if not registrar and not expiration_date:
+            return False
+
+        old_data = {
+            'registrar': site.registrar,
+            'expiry': site.domain_expiry
+        }
+        
+        new_data = {
+            'registrar': registrar,
+            'expiry': datetime.strptime(expiration_date, '%Y-%m-%d').date() if expiration_date else None
+        }
+
+        # Detect changes and create individual alerts
+        registrar_changed = (registrar and site.registrar and site.registrar != registrar)
+        expiry_changed = (new_data['expiry'] and site.domain_expiry and site.domain_expiry != new_data['expiry'])
+        
+        if registrar_changed:
+            create_rdap_alert(
+                site=site,
+                alert_code=17,
+                registrar_data={'old': site.registrar, 'new': registrar}
+            )
+            logger.info(f"{method} Alert: Registrar change for {site.domain_name}")
+            
+        if expiry_changed:
+            create_rdap_alert(
+                site=site,
+                alert_code=18,
+                expiry_data={'old': site.domain_expiry, 'new': new_data['expiry']}
+            )
+            logger.info(f"{method} Alert: Expiration change for {site.domain_name}")
+            
+        if not site.registrar or not site.domain_expiry:
+            create_rdap_alert(
+                site=site,
+                alert_code=20,
+                registrar_data={'old': site.registrar, 'new': registrar} if registrar else None,
+                expiry_data={'old': site.domain_expiry, 'new': new_data['expiry']} if expiration_date else None
+            )
+            logger.info(f"Successfully updated {method} data for {site.domain_name}: registrar='{registrar}', expiration='{expiration_date}'")
+
+        # Update site data
+        updated = False
+        legitimacy_updated = False
+        old_legitimacy = site.legitimacy
+        
+        if registrar:
+            site.registrar = registrar
+            updated = True
+            
+            legitimacy_updated = site.auto_update_legitimacy_on_registration()
+            
+        if new_data['expiry']:
+            site.domain_expiry = new_data['expiry']
+            updated = True
+
+        if updated:
+            site.save()
+            
+            # Create additional alert if legitimacy was auto-updated
+            if legitimacy_updated:
+                old_legitimacy_label = LEGITIMACY_LABELS.get(old_legitimacy, f"Level {old_legitimacy}")
+                new_legitimacy_label = LEGITIMACY_LABELS.get(site.legitimacy, f"Level {site.legitimacy}")
+                
+                create_rdap_alert(
+                    site=site,
+                    alert_code=17,
+                    registrar_data={
+                        'old': f"{old_legitimacy_label}" if old_legitimacy else "Status auto-updated due to registration",
+                        'new': f"{new_legitimacy_label}"
+                    }
+                )
+            
+            return True
+
+        return False
+
+    except Exception as e:
+        logger.error(f"Error processing RDAP/WHOIS for {site.domain_name}: {str(e)}")
+        return False
+
+
+def update_site_monitoring_rdap_data():
+    """
+    Update RDAP/WHOIS data for all sites in Site Monitoring.
+    """
+    close_old_connections()
+    logger.info("CRON TASK : RDAP/WHOIS Lookup for Site Monitoring")
+
+    sites = Site.objects.all()
+    
+    for site in sites:
+        try:
+            perform_site_rdap_lookup(site)
+            time.sleep(1)  # Rate limiting
+        except Exception as e:
+            logger.error(f"Error processing RDAP/WHOIS for {site.domain_name}: {str(e)}")
+
+    logger.info("RDAP/WHOIS lookup process completed for Site Monitoring")
 
 
 def monitoring_check():
@@ -426,7 +627,7 @@ def send_website_monitoring_notifications(site, alert_data):
     )
 
     if not subscribers.exists():
-        print(f"{timezone.now()} - No subscribers for Site Monitoring, no message sent.")
+        logger.info("No subscribers for Site Monitoring, no message sent.")
         return
 
 

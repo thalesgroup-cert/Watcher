@@ -1,6 +1,6 @@
 import time
 import uuid
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.test import TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -8,7 +8,8 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
-from threats_watcher.models import Source, PostUrl, TrendyWord, BannedWord, Subscriber
+from threats_watcher.models import Source, PostUrl, TrendyWord, BannedWord, Subscriber, Summary
+from threats_watcher.serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer
 
 
 class ModelTest(TransactionTestCase):
@@ -16,7 +17,6 @@ class ModelTest(TransactionTestCase):
     
     def test_source_and_posturl(self):
         """Test Source and PostUrl models."""
-        # Utiliser UUID pour garantir l'unicité
         unique_id = str(uuid.uuid4())[:8]
         
         # Source
@@ -38,11 +38,12 @@ class ModelTest(TransactionTestCase):
         post1 = PostUrl.objects.create(url=f"https://test-{unique_id}-1.com")
         post2 = PostUrl.objects.create(url=f"https://test-{unique_id}-2.com")
         
-        trendy = TrendyWord.objects.create(name=f"cyber-{unique_id}", occurrences=3)
+        trendy = TrendyWord.objects.create(name=f"cyber-{unique_id}", occurrences=3, score=85.5)
         trendy.posturls.add(post1, post2)
         
         self.assertEqual(trendy.name, f"cyber-{unique_id}")
         self.assertEqual(trendy.posturls.count(), 2)
+        self.assertEqual(trendy.score, 85.5)
         
         # BannedWord
         banned = BannedWord.objects.create(name=f"spam-{unique_id}")
@@ -51,6 +52,35 @@ class ModelTest(TransactionTestCase):
         with self.assertRaises(Exception):
             BannedWord.objects.create(name=f"spam-{unique_id}")
     
+    def test_summary_model(self):
+        """Test Summary model with different types."""
+        unique_id = str(uuid.uuid4())[:8]
+        
+        # Weekly summary
+        weekly = Summary.objects.create(
+            type='weekly_summary',
+            keywords=f"test-{unique_id}",
+            summary_text="Weekly summary text"
+        )
+        self.assertEqual(weekly.type, 'weekly_summary')
+        self.assertIn('Weekly Summary', str(weekly))
+        
+        # Breaking news
+        breaking = Summary.objects.create(
+            type='breaking_news',
+            keywords=f"urgent-{unique_id}",
+            summary_text="Breaking news text"
+        )
+        self.assertEqual(breaking.type, 'breaking_news')
+        
+        # Trendy word summary
+        trendy_summary = Summary.objects.create(
+            type='trendy_word_summary',
+            keywords=f"malware-{unique_id}",
+            summary_text="Malware analysis summary"
+        )
+        self.assertEqual(trendy_summary.type, 'trendy_word_summary')
+    
     def test_subscriber(self):
         """Test Subscriber model."""
         unique_id = str(uuid.uuid4())[:8]
@@ -58,7 +88,9 @@ class ModelTest(TransactionTestCase):
         subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
         
         self.assertTrue(subscriber.email)
+        self.assertTrue(subscriber.slack)
         self.assertFalse(subscriber.thehive)
+        self.assertFalse(subscriber.citadel)
         self.assertIn(f"user{unique_id}", str(subscriber))
 
 
@@ -87,17 +119,28 @@ class SerializerTest(TestCase):
         
         # TrendyWord
         post = PostUrl.objects.create(url=f"https://serial-{timestamp}.com")
-        trendy = TrendyWord.objects.create(name=f"test-{timestamp}", occurrences=2)
+        trendy = TrendyWord.objects.create(name=f"test-{timestamp}", occurrences=2, score=75.0)
         trendy.posturls.add(post)
         
         trendy_serializer = TrendyWordSerializer(trendy)
         self.assertEqual(trendy_serializer.data['name'], f"test-{timestamp}")
+        self.assertEqual(trendy_serializer.data['score'], 75.0)
         self.assertIn('posturls', trendy_serializer.data)
         
         # BannedWord
         banned = BannedWord.objects.create(name=f"banned-{timestamp}")
         banned_serializer = BannedWordSerializer(banned)
         self.assertEqual(banned_serializer.data['name'], f"banned-{timestamp}")
+        
+        # Summary
+        summary = Summary.objects.create(
+            type='weekly_summary',
+            keywords=f"test-{timestamp}",
+            summary_text="Test summary"
+        )
+        summary_serializer = SummarySerializer(summary)
+        self.assertEqual(summary_serializer.data['type'], 'weekly_summary')
+        self.assertIn('summary_text', summary_serializer.data)
 
 
 class APITest(APITestCase):
@@ -146,8 +189,6 @@ class APITest(APITestCase):
         """Test authentication."""
         self.client.credentials()  # Remove authentication
         response = self.client.get(reverse('trendyword-list'))
-        # Accepter que l'API puisse retourner 200 si elle n'est pas protégée
-        # Ou vérifier si elle retourne bien une erreur d'auth
         self.assertTrue(response.status_code in [200, 401, 403])
 
 
@@ -218,26 +259,24 @@ class IntegrationTest(TestCase):
             scheduler_ok = False
         self.assertTrue(scheduler_ok)
 
-class EntityExtractionTest(TestCase):
-    """Test NER-BERT entity extraction and threat detection."""
-    @patch('threats_watcher.core.ner_pipe')
-    def test_extract_entities_and_threats(self, mock_ner_pipe):
-        # Simulate NER output
-        mock_ner_pipe.return_value = [
-            {"entity_group": "PER", "word": "Alice"},
-            {"entity_group": "ORG", "word": "Acme Corp"},
-            {"entity_group": "LOC", "word": "Paris"},
-            {"entity_group": "MISC", "word": "Windows"},
-        ]
-        from threats_watcher.core import extract_entities_and_threats
-        title = "Alice from Acme Corp detected CVE-2023-1234 in Windows at Paris. APT28 involved."
-        result = extract_entities_and_threats(title)
-        assert "Alice" in result["persons"]
-        assert "Acme" in result["organizations"] or "Corp" in result["organizations"]
-        assert "Paris" in result["locations"]
-        assert "Windows" in result["product"]
-        assert "CVE-2023-1234" in result["cves"]
-        assert "APT28" in result["attackers"]
+
+@patch('threats_watcher.core.get_ner_pipeline')
+def test_extract_entities_and_threats(self, mock_get_ner_pipeline):
+    mock_get_ner_pipeline.return_value = [
+        {"entity_group": "PER", "word": "Alice"},
+        {"entity_group": "ORG", "word": "Acme Corp"},
+        {"entity_group": "LOC", "word": "Paris"},
+        {"entity_group": "MISC", "word": "Windows"},
+    ]
+    from threats_watcher.core import extract_entities_and_threats
+    title = "Alice from Acme Corp detected CVE-2023-1234 in Windows at Paris. APT28 involved."
+    result = extract_entities_and_threats(title)
+    assert "Alice" in result["persons"]
+    assert "Acme" in result["organizations"] or "Corp" in result["organizations"]
+    assert "Paris" in result["locations"]
+    assert "Windows" in result["product"]
+    assert "CVE-2023-1234" in result["cves"]
+    assert "APT28" in result["attackers"]
 
 class ReliabilityScoreTest(TestCase):
     """Test reliability score computation."""
@@ -269,7 +308,6 @@ class TrendingAlgorithmTest(TestCase):
 
     def test_focus_on_top(self):
         import threats_watcher.core
-        # Injecte les variables globales nécessaires dans le module
         setattr(threats_watcher.core, 'wordurl', self.wordurl)
         setattr(threats_watcher.core, 'posts_published', self.posts_published)
         setattr(threats_watcher.core, 'posts_five_letters', {"malware": 2})
@@ -324,7 +362,6 @@ class PerformanceTest(TestCase):
             from threats_watcher.core import cleanup
             unique_id = str(uuid.uuid4())[:8]
             
-            # Simuler la fonction cleanup
             mock_cleanup.return_value = None
             
             # Old word
@@ -335,7 +372,6 @@ class PerformanceTest(TestCase):
             # Recent word
             recent_word = TrendyWord.objects.create(name=f"recent-{unique_id}")
             
-            # Test que la fonction peut être appelée
             try:
                 cleanup()
                 cleanup_works = True
