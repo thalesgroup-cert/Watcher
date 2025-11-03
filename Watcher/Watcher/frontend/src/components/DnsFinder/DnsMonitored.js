@@ -13,7 +13,8 @@ export class DnsMonitored extends Component {
             showEditModal: false,
             showAddModal: false,
             id: 0,
-            word: ""
+            word: "",
+            isLoading: true,
         };
         this.inputRef = React.createRef();
     }
@@ -31,6 +32,12 @@ export class DnsMonitored extends Component {
 
     componentDidMount() {
         this.props.getDnsMonitored();
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.dnsMonitored !== prevProps.dnsMonitored && this.state.isLoading) {
+            this.setState({ isLoading: false });
+        }
     }
 
     customFilters = (filtered, filters) => {
@@ -226,6 +233,19 @@ export class DnsMonitored extends Component {
         const { dnsMonitored, auth, globalFilters } = this.props;
         const { isAuthenticated } = auth;
 
+        const renderLoadingState = () => (
+            <tr>
+                <td colSpan="3" className="text-center py-5">
+                    <div className="d-flex flex-column align-items-center">
+                        <div className="spinner-border text-primary mb-3" role="status">
+                            <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="text-muted mb-0">Loading data...</p>
+                    </div>
+                </td>
+            </tr>
+        );
+
         return (
             <Fragment>
                 <div className="row">
@@ -285,42 +305,45 @@ export class DnsMonitored extends Component {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {paginatedData.map(domain => (
-                                                    <tr key={domain.id}>
-                                                        <td><h5>{domain.domain_name}</h5></td>
-                                                        <td>{(new Date(domain.created_at)).toDateString()}</td>
-                                                        <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
-                                                            {isAuthenticated && (
-                                                                <>
-                                                                    <button
-                                                                        className="btn btn-outline-warning btn-sm me-2"
-                                                                        data-toggle="tooltip"
-                                                                        data-placement="top"
-                                                                        title="Edit"
-                                                                        onClick={() => this.displayEditModal(domain.id, domain.domain_name)}
-                                                                    >
-                                                                        <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>edit</i>
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn btn-outline-danger btn-sm"
-                                                                        data-toggle="tooltip"
-                                                                        data-placement="top"
-                                                                        title="Delete"
-                                                                        onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}
-                                                                    >
-                                                                        <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>delete</i>
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {paginatedData.length === 0 && (
+                                                {this.state.isLoading ? (
+                                                    renderLoadingState()
+                                                ) : paginatedData.length === 0 ? (
                                                     <tr>
                                                         <td colSpan="3" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
+                                                ) : (
+                                                    paginatedData.map(domain => (
+                                                        <tr key={domain.id}>
+                                                            <td><h5>{domain.domain_name}</h5></td>
+                                                            <td>{(new Date(domain.created_at)).toDateString()}</td>
+                                                            <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                                                                {isAuthenticated && (
+                                                                    <>
+                                                                        <button
+                                                                            className="btn btn-outline-warning btn-sm me-2"
+                                                                            data-toggle="tooltip"
+                                                                            data-placement="top"
+                                                                            title="Edit"
+                                                                            onClick={() => this.displayEditModal(domain.id, domain.domain_name)}
+                                                                        >
+                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>edit</i>
+                                                                        </button>
+                                                                        <button
+                                                                            className="btn btn-outline-danger btn-sm"
+                                                                            data-toggle="tooltip"
+                                                                            data-placement="top"
+                                                                            title="Delete"
+                                                                            onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}
+                                                                        >
+                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>delete</i>
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))
                                                 )}
                                             </tbody>
                                         </table>

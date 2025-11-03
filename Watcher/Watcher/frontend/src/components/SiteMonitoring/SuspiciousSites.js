@@ -60,6 +60,7 @@ export class SuspiciousSites extends Component {
             showAlerts: false,
             selectedSiteForAlerts: null,
             filteredSites: [],
+            isLoading: true
         };
 
         this.inputDomainRef = createRef();
@@ -97,11 +98,17 @@ export class SuspiciousSites extends Component {
         const { sites, error } = this.props;
     
         if (sites !== prevProps.sites) {
-            this.setState({ addLoading: false });
+            this.setState({ 
+                addLoading: false,
+                isLoading: false 
+            });
         }
     
         if (error !== prevProps.error && error.status !== null) {
-            this.setState({ addLoading: false });
+            this.setState({ 
+                addLoading: false,
+                isLoading: false 
+            });
         }
     }
 
@@ -1008,6 +1015,19 @@ export class SuspiciousSites extends Component {
         }
     };
 
+    renderLoadingState = () => (
+        <tr>
+            <td colSpan="11" className="text-center py-5">
+                <div className="d-flex flex-column align-items-center">
+                    <div className="spinner-border text-primary mb-3" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="text-muted mb-0">Loading data...</p>
+                </div>
+            </td>
+        </tr>
+    );
+
     render() {
         const { sites, auth, globalFilters, filteredData } = this.props;
         const dataToUse = filteredData || this.state.filteredSites || sites;
@@ -1090,143 +1110,150 @@ export class SuspiciousSites extends Component {
                         <Fragment>
                             {renderItemsInfo()}
 
-                            <div style={{ overflowX: 'auto' }}>
-                                <table className="table table-striped table-hover">
-                                    <thead className="thead-dark">
-                                        <tr>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
-                                                Domain Name{renderSortIcons('domain_name')}
-                                            </th>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('ticket_id')}>
-                                                Ticket ID{renderSortIcons('ticket_id')}
-                                            </th>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('registrar')}>
-                                                Registrar{renderSortIcons('registrar')}
-                                            </th>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('legitimacy')}>
-                                                Legitimacy{renderSortIcons('legitimacy')}
-                                            </th>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('alerts')}>
-                                                Alerts{renderSortIcons('alerts')}
-                                            </th>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
-                                                Created At{renderSortIcons('created_at')}
-                                            </th>
-                                            <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_expiry')}>
-                                                Expiry{renderSortIcons('domain_expiry')}
-                                            </th>
-                                            <th>Takedown</th>
-                                            <th>Legal</th>
-                                            <th>Blocking</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {paginatedData.map(site => (
-                                            <tr 
-                                                key={site.id}
-                                                style={{ cursor: 'pointer' }}
-                                                onClick={() => this.displayAlerts(site)}
-                                                title="Click to view alerts for this domain"
-                                            >
-                                                <td>
-                                                    <div>
-                                                        <strong>{site.domain_name}</strong>
-                                                        {this.getStatusBadges(site)}
-                                                    </div>
-                                                </td>
-                                                <td>{site.ticket_id || '-'}</td>
-                                                <td>{site.registrar || '-'}</td>
-                                                <td>
-                                                    <span 
-                                                        className="badge" 
-                                                        style={{ 
-                                                            backgroundColor: LEGITIMACY_LABELS[site.legitimacy]?.color || '#6c757d',
-                                                            color: LEGITIMACY_LABELS[site.legitimacy]?.textColor || '#000',
-                                                            fontSize: '14px'
-                                                        }}
-                                                    >
-                                                        {LEGITIMACY_LABELS[site.legitimacy]?.label || 'Unknown'}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className="badge bg-primary" style={{ fontSize: '15px' }}>
-                                                        {this.getTotalAlerts(site)}
-                                                    </span>
-                                                </td>
-                                                <td>{site.created_at ? new Date(site.created_at).toDateString() : '-'}</td>
-                                                <td>
-                                                    <div>
-                                                        {site.domain_expiry ? new Date(site.domain_expiry).toDateString() : '-'}
-                                                        {this.getDomainExpiryBadge(site)}
-                                                    </div>
-                                                </td>
-                                                <td 
-                                                    className="text-center"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {site.takedown_request
-                                                        ? <i className="material-icons text-success" style={{ fontSize: 22 }}>check_circle</i>
-                                                        : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
-                                                    }
-                                                </td>
-                                                <td 
-                                                    className="text-center"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {site.legal_team
-                                                        ? <i className="material-icons text-success" style={{ fontSize: 22 }}>check_circle</i>
-                                                        : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
-                                                    }
-                                                </td>
-                                                <td 
-                                                    className="text-center"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {site.blocking_request
-                                                        ? <i className="material-icons text-success" style={{ fontSize: 22 }}>check_circle</i>
-                                                        : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
-                                                    }
-                                                </td>
-                                                <td 
-                                                    className="text-end" 
-                                                    style={{ whiteSpace: 'nowrap' }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <button
-                                                        onClick={() => this.displayDetailsModal(site)}
-                                                        className="btn btn-outline-info btn-sm me-2"
-                                                        title="Technical Details"
-                                                    >
-                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>info</i>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => this.displayEditModal(site)}
-                                                        className="btn btn-outline-warning btn-sm me-2"
-                                                        title="Edit"
-                                                    >
-                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => this.displayDeleteModal(site.id, site.domain_name)}
-                                                        className="btn btn-outline-danger btn-sm me-2"
-                                                        title="Delete"
-                                                    >
-                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
-                                                    </button>
-                                                    {this.exportButton(site)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {paginatedData.length === 0 && (
-                                            <tr>
-                                                <td colSpan="11" className="text-center text-muted py-4">
-                                                    No results found
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                            <div className="row">
+                                <div className="col-lg-12">
+                                    <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
+                                        <table className="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
+                                                        Domain Name{renderSortIcons('domain_name')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('ticket_id')}>
+                                                        Ticket ID{renderSortIcons('ticket_id')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('registrar')}>
+                                                        Registrar{renderSortIcons('registrar')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('legitimacy')}>
+                                                        Legitimacy{renderSortIcons('legitimacy')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('alerts')}>
+                                                        Alerts{renderSortIcons('alerts')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
+                                                        Created At{renderSortIcons('created_at')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_expiry')}>
+                                                        Expiry{renderSortIcons('domain_expiry')}
+                                                    </th>
+                                                    <th>Takedown</th>
+                                                    <th>Legal</th>
+                                                    <th>Blocking</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {this.state.isLoading ? (
+                                                    this.renderLoadingState()
+                                                ) : paginatedData.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="11" className="text-center text-muted py-4">
+                                                            No results found
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    paginatedData.map(site => (
+                                                        <tr 
+                                                            key={site.id}
+                                                            style={{ cursor: 'pointer' }}
+                                                            onClick={() => this.displayAlerts(site)}
+                                                            title="Click to view alerts for this domain"
+                                                        >
+                                                            <td>
+                                                                <div>
+                                                                    <strong>{site.domain_name}</strong>
+                                                                    {this.getStatusBadges(site)}
+                                                                </div>
+                                                            </td>
+                                                            <td>{site.ticket_id || '-'}</td>
+                                                            <td>{site.registrar || '-'}</td>
+                                                            <td>
+                                                                <span 
+                                                                    className="badge" 
+                                                                    style={{ 
+                                                                        backgroundColor: LEGITIMACY_LABELS[site.legitimacy]?.color || '#6c757d',
+                                                                        color: LEGITIMACY_LABELS[site.legitimacy]?.textColor || '#000',
+                                                                        fontSize: '14px'
+                                                                    }}
+                                                                >
+                                                                    {LEGITIMACY_LABELS[site.legitimacy]?.label || 'Unknown'}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <span className="badge bg-primary" style={{ fontSize: '15px' }}>
+                                                                    {this.getTotalAlerts(site)}
+                                                                </span>
+                                                            </td>
+                                                            <td>{site.created_at ? new Date(site.created_at).toDateString() : '-'}</td>
+                                                            <td>
+                                                                <div>
+                                                                    {site.domain_expiry ? new Date(site.domain_expiry).toDateString() : '-'}
+                                                                    {this.getDomainExpiryBadge(site)}
+                                                                </div>
+                                                            </td>
+                                                            <td 
+                                                                className="text-center"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {site.takedown_request
+                                                                    ? <i className="material-icons text-success" style={{ fontSize: 22 }}>check_circle</i>
+                                                                    : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
+                                                                }
+                                                            </td>
+                                                            <td 
+                                                                className="text-center"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {site.legal_team
+                                                                    ? <i className="material-icons text-success" style={{ fontSize: 22 }}>check_circle</i>
+                                                                    : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
+                                                                }
+                                                            </td>
+                                                            <td 
+                                                                className="text-center"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {site.blocking_request
+                                                                    ? <i className="material-icons text-success" style={{ fontSize: 22 }}>check_circle</i>
+                                                                    : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
+                                                                }
+                                                            </td>
+                                                            <td 
+                                                                className="text-end" 
+                                                                style={{ whiteSpace: 'nowrap' }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <button
+                                                                    onClick={() => this.displayDetailsModal(site)}
+                                                                    className="btn btn-outline-info btn-sm me-2"
+                                                                    title="Technical Details"
+                                                                >
+                                                                    <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>info</i>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => this.displayEditModal(site)}
+                                                                    className="btn btn-outline-warning btn-sm me-2"
+                                                                    title="Edit"
+                                                                >
+                                                                    <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => this.displayDeleteModal(site.id, site.domain_name)}
+                                                                    className="btn btn-outline-danger btn-sm me-2"
+                                                                    title="Delete"
+                                                                >
+                                                                    <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
+                                                                </button>
+                                                                {this.exportButton(site)}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
 
                             {renderPagination()}

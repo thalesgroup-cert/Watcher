@@ -28,6 +28,7 @@ export class Alerts extends Component {
             id: 0,
             exportLoading: false,
             domainName: "",
+            isLoading: true,
         };
         this.inputTicketRef = React.createRef();
         this.ipMonitoringRef = React.createRef();
@@ -56,6 +57,10 @@ export class Alerts extends Component {
     }
 
     componentDidUpdate(prevProps) {
+        if (this.props.alerts !== prevProps.alerts && this.state.isLoading) {
+            this.setState({ isLoading: false });
+        }
+
         if (this.props.sites !== prevProps.sites) {
             this.setState({
                 exportLoading: false
@@ -64,7 +69,8 @@ export class Alerts extends Component {
         if (this.props.error !== prevProps.error) {
             if (this.props.error.status !== null) {
                 this.setState({
-                    exportLoading: false
+                    exportLoading: false,
+                    isLoading: false
                 });
             }
         }
@@ -376,6 +382,19 @@ export class Alerts extends Component {
         const { globalFilters, filteredData } = this.props;
         const dataToUse = filteredData || this.props.alerts;
 
+        const renderLoadingState = () => (
+            <tr>
+                <td colSpan="7" className="text-center py-5">
+                    <div className="d-flex flex-column align-items-center">
+                        <div className="spinner-border text-primary mb-3" role="status">
+                            <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="text-muted mb-0">Loading data...</p>
+                    </div>
+                </td>
+            </tr>
+        );
+
         const customFilters = (filtered, filters) => {
             const alertsToFilter = this.props.filteredData || this.props.alerts;
             const { globalFilters = {} } = this.props;
@@ -513,50 +532,53 @@ export class Alerts extends Component {
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            {paginatedData.map(alert => {
-                                                return (
-                                                    <tr key={alert.id}>
-                                                        <td><h5>#{alert.id}</h5></td>
-                                                        <td>
-                                                            <div className="d-flex align-items-center">
-                                                                {this.getMispStatusBadge(alert.dns_twisted)}
-                                                                <span>{alert.dns_twisted.domain_name}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td>
-                                                            {alert.dns_twisted.keyword_monitored ? 
-                                                                (typeof alert.dns_twisted.keyword_monitored === 'object' ? 
-                                                                    alert.dns_twisted.keyword_monitored.name : 
-                                                                    alert.dns_twisted.keyword_monitored) : 
-                                                                "-"}
-                                                        </td>
-                                                        <td>
-                                                            {alert.dns_twisted.dns_monitored ? 
-                                                                (typeof alert.dns_twisted.dns_monitored === 'object' ? 
-                                                                    alert.dns_twisted.dns_monitored.domain_name : 
-                                                                    alert.dns_twisted.dns_monitored) : 
-                                                                "-"}
-                                                        </td>
-                                                        <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
-                                                        <td>{(new Date(alert.created_at)).toLocaleString()}</td>
-                                                        <td className="text-end" style={{whiteSpace: 'nowrap'}}>
-                                                            <button onClick={() => {
-                                                                this.displayModal(alert.id)
-                                                            }}
-                                                                    className="btn btn-outline-primary btn-sm me-2">Disable
-                                                            </button>
-                                                            {this.exportButtonMISPTh(alert)}
-                                                            {exportButton(alert)}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            {paginatedData.length === 0 && (
+                                            {this.state.isLoading ? (
+                                                renderLoadingState()
+                                            ) : paginatedData.length === 0 ? (
                                                 <tr>
                                                     <td colSpan="7" className="text-center text-muted py-4">
                                                         No results found
                                                     </td>
                                                 </tr>
+                                            ) : (
+                                                paginatedData.map(alert => {
+                                                    return (
+                                                        <tr key={alert.id}>
+                                                            <td><h5>#{alert.id}</h5></td>
+                                                            <td>
+                                                                <div className="d-flex align-items-center">
+                                                                    {this.getMispStatusBadge(alert.dns_twisted)}
+                                                                    <span>{alert.dns_twisted.domain_name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                {alert.dns_twisted.keyword_monitored ? 
+                                                                    (typeof alert.dns_twisted.keyword_monitored === 'object' ? 
+                                                                        alert.dns_twisted.keyword_monitored.name : 
+                                                                        alert.dns_twisted.keyword_monitored) : 
+                                                                    "-"}
+                                                            </td>
+                                                            <td>
+                                                                {alert.dns_twisted.dns_monitored ? 
+                                                                    (typeof alert.dns_twisted.dns_monitored === 'object' ? 
+                                                                        alert.dns_twisted.dns_monitored.domain_name : 
+                                                                        alert.dns_twisted.dns_monitored) : 
+                                                                    "-"}
+                                                            </td>
+                                                            <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
+                                                            <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                            <td className="text-end" style={{whiteSpace: 'nowrap'}}>
+                                                                <button onClick={() => {
+                                                                    this.displayModal(alert.id)
+                                                                }}
+                                                                        className="btn btn-outline-primary btn-sm me-2">Disable
+                                                                </button>
+                                                                {this.exportButtonMISPTh(alert)}
+                                                                {exportButton(alert)}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
                                             )}
                                             </tbody>
                                         </table>

@@ -112,7 +112,7 @@ class SummaryViewSet(viewsets.ModelViewSet):
                     'message': 'Not enough valid/extractable content from the available posts to generate an AI summary.',
                     'posts_count': posts_count,
                     'valid_sources': valid_sources,
-                    'sample_valid_urls': sample_valid_urls  # helps debug which URLs were valid (if any)
+                    'sample_valid_urls': sample_valid_urls
                 }, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
             # Try to generate summary

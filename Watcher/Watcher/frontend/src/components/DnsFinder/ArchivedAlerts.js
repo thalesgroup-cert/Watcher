@@ -11,6 +11,7 @@ export class ArchivedAlerts extends Component {
         this.state = {
             show: false,
             id: 0,
+            isLoading: true,
         };
     }
 
@@ -25,6 +26,12 @@ export class ArchivedAlerts extends Component {
 
     componentDidMount() {
         this.props.getAlerts();
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.alerts !== prevProps.alerts && this.state.isLoading) {
+            this.setState({ isLoading: false });
+        }
     }
 
     customFilters = (filtered, filters) => {
@@ -108,6 +115,19 @@ export class ArchivedAlerts extends Component {
         const { globalFilters, filteredData } = this.props;
         const dataToUse = filteredData || this.props.alerts;
 
+        const renderLoadingState = () => (
+            <tr>
+                <td colSpan="7" className="text-center py-5">
+                    <div className="d-flex flex-column align-items-center">
+                        <div className="spinner-border text-primary mb-3" role="status">
+                            <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="text-muted mb-0">Loading data...</p>
+                    </div>
+                </td>
+            </tr>
+        );
+
         return (
             <Fragment>
                 <div className="row">
@@ -167,30 +187,33 @@ export class ArchivedAlerts extends Component {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {paginatedData.map(alert => (
-                                                    <tr key={alert.id}>
-                                                        <td><h5>#{alert.id}</h5></td>
-                                                        <td>{alert.dns_twisted.domain_name}</td>
-                                                        <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
-                                                        <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
-                                                        <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
-                                                        <td>{(new Date(alert.created_at)).toLocaleString()}</td>
-                                                        <td>
-                                                            <button
-                                                                onClick={() => this.displayModal(alert.id)}
-                                                                className="btn btn-outline-primary btn-sm"
-                                                            >
-                                                                Enable
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {paginatedData.length === 0 && (
+                                                {this.state.isLoading ? (
+                                                    renderLoadingState()
+                                                ) : paginatedData.length === 0 ? (
                                                     <tr>
                                                         <td colSpan="7" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
+                                                ) : (
+                                                    paginatedData.map(alert => (
+                                                        <tr key={alert.id}>
+                                                            <td><h5>#{alert.id}</h5></td>
+                                                            <td>{alert.dns_twisted.domain_name}</td>
+                                                            <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
+                                                            <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
+                                                            <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
+                                                            <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                            <td>
+                                                                <button
+                                                                    onClick={() => this.displayModal(alert.id)}
+                                                                    className="btn btn-outline-primary btn-sm"
+                                                                >
+                                                                    Enable
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
                                                 )}
                                             </tbody>
                                         </table>

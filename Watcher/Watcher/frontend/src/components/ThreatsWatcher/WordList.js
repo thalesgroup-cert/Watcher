@@ -47,7 +47,8 @@ export class WordList extends Component {
             id: 0,
             word: "",
             name: "",
-            filteredData: []
+            filteredData: [],
+            isLoading: true
         }
     }
 
@@ -62,6 +63,12 @@ export class WordList extends Component {
 
     componentDidMount() {
         this.props.getLeads();
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.leads !== prevProps.leads && this.state.isLoading) {
+            this.setState({ isLoading: false });
+        }
     }
 
     customFilters = (filtered, filters) => {
@@ -144,6 +151,19 @@ export class WordList extends Component {
             </Modal>
         );
     };
+
+    renderLoadingState = () => (
+        <tr>
+            <td colSpan="5" className="text-center py-5">
+                <div className="d-flex flex-column align-items-center">
+                    <div className="spinner-border text-primary mb-3" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="text-muted mb-0">Loading data...</p>
+                </div>
+            </td>
+        </tr>
+    );
 
     render() {
         const { isAuthenticated } = this.props.auth;
@@ -234,53 +254,56 @@ export class WordList extends Component {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {paginatedData.map(lead => (
-                                                    <tr key={lead.id}>
-                                                        <td
-                                                            onClick={() => this.props.setPostUrls(lead.posturls, lead.name)}
-                                                            role="button"
-                                                            className="align-middle"
-                                                        >
-                                                            <span className="mb-0" style={{ fontSize: '1rem' }}>
-                                                                {lead.name}
-                                                            </span>
-                                                        </td>
-                                                        <td className="text-center align-middle">
-                                                            <span className="badge bg-secondary" style={{ fontSize: 'inherit', padding: '0.35rem 0.6rem' }}>
-                                                                {lead.occurrences}
-                                                            </span>
-                                                        </td>
-                                                        <td className="text-center align-middle">
-                                                            {lead.score ? (
-                                                                (() => {
-                                                                    const badgeBg = lead.score >= 70 ? 'bg-success' : (lead.score >= 40 ? 'bg-warning' : 'bg-danger');
-                                                                    return (
-                                                                        <span
-                                                                            className={`badge ${badgeBg}`}
-                                                                            style={{ fontSize: 'inherit', padding: '0.35rem 0.6rem', color: '#000' }}
-                                                                        >
-                                                                            {lead.score.toFixed(1)}%
-                                                                        </span>
-                                                                    );
-                                                                })()
-                                                            ) : (
-                                                                <span className="text-muted" style={{ fontSize: 'inherit' }}>N/A</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="text-center align-middle">
-                                                            <small style={{ fontSize: '1rem' }}>{new Date(lead.created_at).toLocaleString()}</small>
-                                                        </td>
-                                                        <td className="text-center align-middle">
-                                                            {isAuthenticated && authLinks(lead.id, lead.name)}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {paginatedData.length === 0 && (
+                                                {this.state.isLoading ? (
+                                                    this.renderLoadingState()
+                                                ) : paginatedData.length === 0 ? (
                                                     <tr>
                                                         <td colSpan="5" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
+                                                ) : (
+                                                    paginatedData.map(lead => (
+                                                        <tr key={lead.id}>
+                                                            <td
+                                                                onClick={() => this.props.setPostUrls(lead.posturls, lead.name)}
+                                                                role="button"
+                                                                className="align-middle"
+                                                            >
+                                                                <span className="mb-0" style={{ fontSize: '1rem' }}>
+                                                                    {lead.name}
+                                                                </span>
+                                                            </td>
+                                                            <td className="text-center align-middle">
+                                                                <span className="badge bg-secondary" style={{ fontSize: 'inherit', padding: '0.35rem 0.6rem' }}>
+                                                                    {lead.occurrences}
+                                                                </span>
+                                                            </td>
+                                                            <td className="text-center align-middle">
+                                                                {lead.score ? (
+                                                                    (() => {
+                                                                        const badgeBg = lead.score >= 70 ? 'bg-success' : (lead.score >= 40 ? 'bg-warning' : 'bg-danger');
+                                                                        return (
+                                                                            <span
+                                                                                className={`badge ${badgeBg}`}
+                                                                                style={{ fontSize: 'inherit', padding: '0.35rem 0.6rem', color: '#000' }}
+                                                                            >
+                                                                                {lead.score.toFixed(1)}%
+                                                                            </span>
+                                                                        );
+                                                                    })()
+                                                                ) : (
+                                                                    <span className="text-muted" style={{ fontSize: 'inherit' }}>N/A</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="text-center align-middle">
+                                                                <small style={{ fontSize: '1rem' }}>{new Date(lead.created_at).toLocaleString()}</small>
+                                                            </td>
+                                                            <td className="text-center align-middle">
+                                                                {isAuthenticated && authLinks(lead.id, lead.name)}
+                                                            </td>
+                                                        </tr>
+                                                    ))
                                                 )}
                                             </tbody>
                                         </table>

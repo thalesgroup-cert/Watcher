@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DNS Finder - Core Algorithm &mdash; Watcher 2.3 documentation</title>
+  <title>DNS Finder - Core Algorithm &mdash; Watcher 3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="../_static/Watcher-favicon.ico"/>
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=57236720"></script>
+      <script src="../_static/documentation_options.js?v=110ea713"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -55,7 +55,9 @@
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">DNS Finder - Core Algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.check_dnstwist"><code class="docutils literal notranslate"><span class="pre">check_dnstwist()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.clean_wildcard_domain"><code class="docutils literal notranslate"><span class="pre">clean_wildcard_domain()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.in_dns_monitored"><code class="docutils literal notranslate"><span class="pre">in_dns_monitored()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.is_legitimate_domain"><code class="docutils literal notranslate"><span class="pre">is_legitimate_domain()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.main_certificate_transparency"><code class="docutils literal notranslate"><span class="pre">main_certificate_transparency()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.main_dns_twist"><code class="docutils literal notranslate"><span class="pre">main_dns_twist()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.dns_finder.core.print_callback"><code class="docutils literal notranslate"><span class="pre">print_callback()</span></code></a></li>
@@ -107,12 +109,40 @@
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.clean_wildcard_domain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">clean_wildcard_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.clean_wildcard_domain" title="Link to this definition"></a></dt>
+<dd><p>Remove leading ‘<a href="#id1"><span class="problematic" id="id2">*</span></a>.’ from domain names.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.in_dns_monitored">
 <span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">in_dns_monitored</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.in_dns_monitored" title="Link to this definition"></a></dt>
 <dd><p>Check if domain is a subdomain of one domain of the DnsMonitored list.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>domain</strong> – Domain to search (Str).</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.is_legitimate_domain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">is_legitimate_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.is_legitimate_domain" title="Link to this definition"></a></dt>
+<dd><p>Check if domain or its parent domain is in the Legitimate Domains list.</p>
+<dl class="simple">
+<dt>Example:</dt><dd><ul class="simple">
+<li><p>domain = “subdomain.thalesgroup.com”</p></li>
+<li><p>If “thalesgroup.com” is in LegitimateDomain -&gt; return True</p></li>
+<li><p>If “subdomain.thalesgroup.com” is in LegitimateDomain -&gt; return True</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>domain</strong> – Domain to check (Str).</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool</p>

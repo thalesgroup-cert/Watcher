@@ -41,7 +41,8 @@ class LegitimateDomains extends Component {
             domain_created_at: '',
             expiry: '',
             editCommentsLength: 0,
-            addCommentsLength: 0
+            addCommentsLength: 0,
+            isLoading: true
         };
 
         this.editRefs = {
@@ -76,6 +77,12 @@ class LegitimateDomains extends Component {
 
     componentDidMount() {
         this.props.getLegitimateDomains();
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.domains !== prevProps.domains && this.state.isLoading) {
+            this.setState({ isLoading: false });
+        }
     }
 
     customFilters = (filtered, filters) => {
@@ -638,6 +645,19 @@ class LegitimateDomains extends Component {
         );
     };
 
+    renderLoadingState = () => (
+        <tr>
+            <td colSpan="9" className="text-center py-5">
+                <div className="d-flex flex-column align-items-center">
+                    <div className="spinner-border text-primary mb-3" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="text-muted mb-0">Loading data...</p>
+                </div>
+            </td>
+        </tr>
+    );
+
     render() {
         const domains = this.props.domains;
         const { isAuthenticated } = this.props.auth;
@@ -733,73 +753,76 @@ class LegitimateDomains extends Component {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {paginatedData.map(domain => (
-                                                    <tr key={domain.id}>
-                                                        <td>
-                                                            <h6 className="mb-0">{domain.domain_name || '-'}</h6>
-                                                        </td>
-                                                        {isAuthenticated && (
-                                                            <td>
-                                                                {domain.ticket_id || '-'}
-                                                            </td>
-                                                        )}
-                                                        {isAuthenticated && (
-                                                            <td>{domain.contact || '-'}</td>
-                                                        )}
-                                                        <td>{domain.created_at ? new Date(domain.created_at).toDateString() : '-'}</td>
-                                                        <td>
-                                                            {domain.domain_created_at
-                                                                ? new Date(domain.domain_created_at).toDateString()
-                                                                : '-'}
-                                                        </td>
-                                                        <td>
-                                                            {domain.expiry ? new Date(domain.expiry).toDateString() : '-'}
-                                                            {isAuthenticated && this.getExpiryBadge(domain)}
-                                                        </td>
-                                                        {isAuthenticated && (
-                                                            <td>
-                                                                {domain.repurchased
-                                                                    ? <i className="material-icons text-success" style={{ fontSize: 22, verticalAlign: '-5px' }}>check_circle</i>
-                                                                    : <i className="material-icons text-danger" style={{ fontSize: 22, verticalAlign: '-5px' }}>cancel</i>
-                                                                }
-                                                            </td>
-                                                        )}
-                                                        {isAuthenticated && (
-                                                            <td>
-                                                                <div
-                                                                    style={{
-                                                                    maxWidth: 200,
-                                                                    whiteSpace: 'nowrap',
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis'
-                                                                    }}
-                                                                    title={domain.comments || ''}
-                                                                >
-                                                                    {domain.comments || '-'}
-                                                                </div>
-                                                            </td>
-                                                        )}
-                                                        {isAuthenticated && (
-                                                            <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
-                                                                <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.displayEditModal(domain)}>
-                                                                    <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
-                                                                </button>
-                                                                <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}>
-                                                                    <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
-                                                                </button>
-                                                                <button className="btn btn-outline-primary btn-sm" title="Export" onClick={() => this.displayExportModal(domain)}>
-                                                                    <i className="material-icons" style={{ fontSize: 17 }}>cloud_upload</i>
-                                                                </button>
-                                                            </td>
-                                                        )}
-                                                    </tr>
-                                                ))}
-                                                {paginatedData.length === 0 && (
+                                                {this.state.isLoading ? (
+                                                    this.renderLoadingState()
+                                                ) : paginatedData.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={isAuthenticated ? "9" : "4"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
+                                                ) : (
+                                                    paginatedData.map(domain => (
+                                                        <tr key={domain.id}>
+                                                            <td>
+                                                                <h6 className="mb-0">{domain.domain_name || '-'}</h6>
+                                                            </td>
+                                                            {isAuthenticated && (
+                                                                <td>
+                                                                    {domain.ticket_id || '-'}
+                                                                </td>
+                                                            )}
+                                                            {isAuthenticated && (
+                                                                <td>{domain.contact || '-'}</td>
+                                                            )}
+                                                            <td>{domain.created_at ? new Date(domain.created_at).toDateString() : '-'}</td>
+                                                            <td>
+                                                                {domain.domain_created_at
+                                                                    ? new Date(domain.domain_created_at).toDateString()
+                                                                    : '-'}
+                                                            </td>
+                                                            <td>
+                                                                {domain.expiry ? new Date(domain.expiry).toDateString() : '-'}
+                                                                {isAuthenticated && this.getExpiryBadge(domain)}
+                                                            </td>
+                                                            {isAuthenticated && (
+                                                                <td>
+                                                                    {domain.repurchased
+                                                                        ? <i className="material-icons text-success" style={{ fontSize: 22, verticalAlign: '-5px' }}>check_circle</i>
+                                                                        : <i className="material-icons text-danger" style={{ fontSize: 22, verticalAlign: '-5px' }}>cancel</i>
+                                                                    }
+                                                                </td>
+                                                            )}
+                                                            {isAuthenticated && (
+                                                                <td>
+                                                                    <div
+                                                                        style={{
+                                                                        maxWidth: 200,
+                                                                        whiteSpace: 'nowrap',
+                                                                        overflow: 'hidden',
+                                                                        textOverflow: 'ellipsis'
+                                                                        }}
+                                                                        title={domain.comments || ''}
+                                                                    >
+                                                                        {domain.comments || '-'}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+                                                            {isAuthenticated && (
+                                                                <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                                                                    <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.displayEditModal(domain)}>
+                                                                        <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
+                                                                    </button>
+                                                                    <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}>
+                                                                        <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                                    </button>
+                                                                    <button className="btn btn-outline-primary btn-sm" title="Export" onClick={() => this.displayExportModal(domain)}>
+                                                                        <i className="material-icons" style={{ fontSize: 17 }}>cloud_upload</i>
+                                                                    </button>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ))
                                                 )}
                                             </tbody>
                                         </table>

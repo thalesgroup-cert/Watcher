@@ -15,18 +15,18 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.28.4",
-    "@babel/preset-env": "^7.28.3",
-    "@babel/preset-react": "^7.27.1",
-    "babel-loader": "^8.4.1",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "babel-loader": "^9.2.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
-    "cypress": "^14.5.2",
-    "webpack": "^5.101.3",
-    "webpack-cli": "^4.10.0"
+    "cypress": "^14.5.4",
+    "webpack": "^5.102.1",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "axios": "^1.8.2",
-    "bootstrap": "^5.3.3",
+    "axios": "^1.13.1",
+    "bootstrap": "^5.3.8",
     "chart.js": "^2.9.4",
     "css-loader": "^7.1.2",
     "d3-color": "^3.1.0",
