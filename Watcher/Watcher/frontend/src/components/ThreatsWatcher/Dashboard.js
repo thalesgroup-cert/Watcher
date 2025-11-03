@@ -3,6 +3,9 @@ import PostUrls from "./PostUrls";
 import WordCloud from "./WordCloud";
 import WordList from "./WordList";
 import TrendChart from "./TrendChart";
+import WeeklyBreaking from  "./WeeklyBreaking";
+import WordSummary from "./WordSummary"
+import ResizableContainer from "../common/ResizableContainer";
 import store from "../../store";
 import {setIsPasswordChanged} from "../../actions/auth";
 
@@ -16,7 +19,8 @@ export default class Dashboard extends Component {
         super(props);
         this.state = {
             postUrls: [],
-            word: ""
+            word: "",
+            filteredLeads: []
         }
     }
 
@@ -27,25 +31,61 @@ export default class Dashboard extends Component {
         })
     };
 
+    handleDataFiltered = (filteredData) => {
+        this.setState({ filteredLeads: filteredData });
+    };
+
     render() {
+        const { word } = this.state;
+        
         return (
             <Fragment>
+                <WeeklyBreaking />
                 <div className="container-fluid mt-3">
                     <div className="row">
-                        <div className="col-lg-7 ml-auto">
-                            <WordCloud setPostUrls={this.setPostUrls}/>
-                        </div>
-                        <div className="col-lg-5 ml-auto">
-                            <WordList setPostUrls={this.setPostUrls}/>
+                        <div className="col-12">
+                            <ResizableContainer
+                                leftComponent={
+                                    <WordCloud 
+                                        setPostUrls={this.setPostUrls}
+                                        filteredData={this.state.filteredLeads}
+                                    />
+                                }
+                                rightComponent={
+                                    <WordList 
+                                        setPostUrls={this.setPostUrls}
+                                        onDataFiltered={this.handleDataFiltered}
+                                    />
+                                }
+                                defaultLeftWidth={58}
+                                minLeftWidth={30}
+                                maxLeftWidth={80}
+                                storageKey="watcher_localstorage_layout_threatsWatcher"
+                            />
                         </div>
                     </div>
-                    <div className="row justify-content-lg-center">
-                        <div className="mt-3 col-lg-12 ml-auto">
-                            <PostUrls postUrls={this.state.postUrls} word={this.state.word}/>
+
+                    {word && (
+                        <div className="row mt-3">
+                            <div className="col-12">
+                                <ResizableContainer
+                                    leftComponent={
+                                        <WordSummary word={word}/>
+                                    }
+                                    rightComponent={
+                                        <PostUrls postUrls={this.state.postUrls} word={word}/>
+                                    }
+                                    defaultLeftWidth={36}
+                                    minLeftWidth={30}
+                                    maxLeftWidth={80}
+                                    storageKey="watcher_localstorage_layout_postUrls_summary"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
+                    
                     <div className="row mt-4">
-                        <div className="col-lg-12 ml-auto">
+                        <div className="col-lg-12 ms-auto">
                             <TrendChart postUrls={this.state.postUrls} word={this.state.word}/>
                         </div>
                     </div>

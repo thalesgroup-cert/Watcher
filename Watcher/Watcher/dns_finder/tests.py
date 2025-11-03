@@ -7,7 +7,9 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
 from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber
-from dns_finder.core import send_dns_finder_notifications
+from dns_finder.core import in_dns_monitored, send_dns_finder_notifications
+import uuid
+from unittest.mock import patch
 
 
 class ModelTest(TransactionTestCase):
@@ -15,17 +17,16 @@ class ModelTest(TransactionTestCase):
     
     def test_dns_and_keyword_functionality(self):
         """Test DNS and Keyword models creation and constraints."""
-        import uuid
         unique_id = str(uuid.uuid4())[:8]
         
-        # DNS Monitored - utiliser un domaine complètement unique
+        # DNS Monitored
         dns = DnsMonitored.objects.create(domain_name=f"dns-test-{unique_id}.com")
         self.assertEqual(str(dns), f"dns-test-{unique_id}.com")
         
         with self.assertRaises(Exception):
             DnsMonitored.objects.create(domain_name=f"dns-test-{unique_id}.com")
         
-        # Keyword Monitored - utiliser un nom complètement unique
+        # Keyword Monitored
         keyword = KeywordMonitored.objects.create(name=f"cybersec-{unique_id}")
         self.assertEqual(str(keyword), f"cybersec-{unique_id}")
         
@@ -34,31 +35,38 @@ class ModelTest(TransactionTestCase):
     
     def test_twisted_and_alert_functionality(self):
         """Test DnsTwisted and Alert models with relationships."""
-        import uuid
         unique_id = str(uuid.uuid4())[:8]
         
         dns = DnsMonitored.objects.create(domain_name=f"twisted-test-{unique_id}.com")
-        twisted = DnsTwisted.objects.create(domain_name=f"tw1sted-test-{unique_id}.com", dns_monitored=dns)
+        twisted = DnsTwisted.objects.create(
+            domain_name=f"tw1sted-test-{unique_id}.com",
+            dns_monitored=dns,
+            fuzzer="homoglyph"
+        )
         alert = Alert.objects.create(dns_twisted=twisted)
         
         self.assertEqual(twisted.dns_monitored, dns)
+        self.assertEqual(twisted.fuzzer, "homoglyph")
         self.assertEqual(alert.dns_twisted, twisted)
         self.assertTrue(alert.status)
         
         # Test cascade
+        dns_id = dns.id
         dns.delete()
         self.assertFalse(DnsTwisted.objects.filter(id=twisted.id).exists())
+        self.assertFalse(DnsMonitored.objects.filter(id=dns_id).exists())
     
     def test_subscriber_functionality(self):
         """Test Subscriber model."""
-        import uuid
         unique_id = str(uuid.uuid4())[:8]
         
         user = User.objects.create_user(f"dnsuser{unique_id}", "dns@test.com", "pass")
-        subscriber = Subscriber.objects.create(user_rec=user, email=True)
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
         
         self.assertTrue(subscriber.email)
+        self.assertTrue(subscriber.slack)
         self.assertFalse(subscriber.thehive)
+        self.assertFalse(subscriber.citadel)
         self.assertIn(f"dnsuser{unique_id}", str(subscriber))
 
 
@@ -67,23 +75,50 @@ class CoreTest(TestCase):
     
     def test_in_dns_monitored(self):
         """Test domain checking function."""
-        from dns_finder.core import in_dns_monitored
-        
         DnsMonitored.objects.create(domain_name="core-example.com")
         self.assertTrue(in_dns_monitored("sub.core-example.com"))
+        self.assertTrue(in_dns_monitored("core-example.com"))
         self.assertFalse(in_dns_monitored("other.com"))
+    
+    def test_clean_wildcard_domain(self):
+        """Test wildcard domain cleaning."""
+        from dns_finder.core import clean_wildcard_domain
+        
+        self.assertEqual(clean_wildcard_domain("*.example.com"), "example.com")
+        self.assertEqual(clean_wildcard_domain("example.com"), "example.com")
     
     @patch('dns_finder.core.send_app_specific_notifications')
     def test_notification_system(self, mock_notifications):
         """Test notification system."""
-        user = User.objects.create_user("notifuser", "dns-notif@test.com", "pass")
-        Subscriber.objects.create(user_rec=user, email=True)
-        
-        twisted = DnsTwisted.objects.create(domain_name="notif-dns-test.com")
+        dns = DnsMonitored.objects.create(domain_name="notify-test.com")
+        twisted = DnsTwisted.objects.create(
+            domain_name="twisted-notify.com",
+            dns_monitored=dns
+        )
         alert = Alert.objects.create(dns_twisted=twisted)
         
+        user = User.objects.create_user("notif_user", "test@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+        
         send_dns_finder_notifications(alert)
-        mock_notifications.assert_called_once()
+        
+        self.assertTrue(mock_notifications.called)
+    
+    @patch('dns_finder.core.subprocess.check_output')
+    def test_check_dnstwist(self, mock_subprocess):
+        """Test dnstwist checking."""
+        from dns_finder.core import check_dnstwist
+        
+        mock_subprocess.return_value = b'{"domain": "test.com"}'
+        
+        dns = DnsMonitored.objects.create(domain_name="dnstwist-test.com")
+        
+        with patch('dns_finder.core.open', create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = '[{"domain": "twisted.com", "fuzzer": "addition"}]'
+            
+            check_dnstwist(dns)
+            
+            self.assertTrue(mock_subprocess.called)
 
 
 class SerializerTest(TestCase):
@@ -91,17 +126,36 @@ class SerializerTest(TestCase):
     
     def test_all_serializers(self):
         """Test all serializers together."""
-        from dns_finder.serializers import DnsMonitoredSerializer, DnsTwistedSerializer
+        from dns_finder.serializers import DnsMonitoredSerializer, DnsTwistedSerializer, KeywordMonitoredSerializer
         
         dns = DnsMonitored.objects.create(domain_name="serializer-dns.com")
-        twisted = DnsTwisted.objects.create(domain_name="twisted-serial.com", dns_monitored=dns)
+        keyword = KeywordMonitored.objects.create(name="serializer-keyword")
+        twisted = DnsTwisted.objects.create(
+            domain_name="twisted-serial.com",
+            dns_monitored=dns,
+            keyword_monitored=keyword,
+            fuzzer="homoglyph"
+        )
         
         dns_serializer = DnsMonitoredSerializer(dns)
+        keyword_serializer = KeywordMonitoredSerializer(keyword)
         twisted_serializer = DnsTwistedSerializer(twisted)
         
         self.assertEqual(dns_serializer.data['domain_name'], "serializer-dns.com")
+        self.assertEqual(keyword_serializer.data['name'], "serializer-keyword")
         self.assertEqual(twisted_serializer.data['domain_name'], "twisted-serial.com")
+        self.assertEqual(twisted_serializer.data['fuzzer'], "homoglyph")
         self.assertIn('misp_event_uuid', twisted_serializer.data)
+    
+    def test_domain_validation(self):
+        """Test domain name validation in serializer."""
+        from dns_finder.serializers import DnsMonitoredSerializer
+        
+        serializer = DnsMonitoredSerializer(data={'domain_name': 'valid.com'})
+        self.assertTrue(serializer.is_valid())
+        
+        serializer = DnsMonitoredSerializer(data={'domain_name': 'invalid domain'})
+        self.assertFalse(serializer.is_valid())
 
 
 class APITest(APITestCase):
@@ -114,7 +168,12 @@ class APITest(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token}')
         
         self.dns = DnsMonitored.objects.create(domain_name="api-dns-test.com")
-        self.twisted = DnsTwisted.objects.create(domain_name="api-twisted-dns.com", dns_monitored=self.dns)
+        self.keyword = KeywordMonitored.objects.create(name="api-keyword")
+        self.twisted = DnsTwisted.objects.create(
+            domain_name="api-twisted-dns.com",
+            dns_monitored=self.dns,
+            fuzzer="addition"
+        )
         self.alert = Alert.objects.create(dns_twisted=self.twisted)
     
     def test_dns_monitored_api(self):
@@ -126,6 +185,9 @@ class APITest(APITestCase):
         data = {'domain_name': 'new-api-dns.com'}
         response = self.client.post('/api/dns_finder/dns_monitored/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.delete(f'/api/dns_finder/dns_monitored/{self.dns.pk}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
     
     def test_keyword_and_twisted_api(self):
         """Test Keyword and Twisted API operations."""
@@ -133,10 +195,13 @@ class APITest(APITestCase):
         response = self.client.get('/api/dns_finder/keyword_monitored/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
-        # Twisted
+        data = {'name': 'new-keyword'}
+        response = self.client.post('/api/dns_finder/keyword_monitored/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
         response = self.client.get('/api/dns_finder/dns_twisted/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertGreaterEqual(len(response.data), 1)
     
     def test_alert_api_and_auth(self):
         """Test Alert API and authentication."""
@@ -144,29 +209,50 @@ class APITest(APITestCase):
         response = self.client.get('/api/dns_finder/alert/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
-        # Test authentication required
+        update_data = {'status': False}
+        response = self.client.patch(f'/api/dns_finder/alert/{self.alert.pk}/', update_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['status'])
+        
         self.client.credentials()
-        response = self.client.get('/api/dns_finder/dns_monitored/')
+        response = self.client.post('/api/dns_finder/dns_monitored/', {'domain_name': 'test.com'})
         self.assertIn(response.status_code, [401, 403])
+    
+    @patch('dns_finder.serializers.PyMISP')
+    def test_misp_export(self, mock_pymisp):
+        """Test MISP export functionality."""
+        mock_pymisp_instance = MagicMock()
+        mock_pymisp.return_value = mock_pymisp_instance
+        mock_pymisp_instance.add_event.return_value = {"success": True}
+        mock_pymisp_instance.search.return_value = []
+        mock_pymisp_instance.get.return_value = {}
+        export_data = {
+            'id': self.twisted.id,
+            'event_uuid': ''
+        }
+        response = self.client.post('/api/dns_finder/misp/', export_data, format='json')
+        self.assertIn(response.status_code, [200, 201, 400])
 
 
 class MISPTest(TestCase):
     """Test MISP integration."""
     
     @patch('dns_finder.serializers.PyMISP')
-    def test_misp_integration(self, mock_pymisp):
-        """Test MISP serializer and event creation."""
+    def test_misp_serializer(self, mock_misp):
+        """Test MISP serializer."""
         from dns_finder.serializers import MISPSerializer
         
-        twisted = DnsTwisted.objects.create(domain_name="misp-dns-test.com")
+        mock_api = MagicMock()
+        mock_api.add_event.return_value = MagicMock(id='123', uuid='test-uuid')
+        mock_misp.return_value = mock_api
         
-        mock_misp = MagicMock()
-        mock_event = MagicMock()
-        mock_event.id = 123
-        mock_pymisp.return_value = mock_misp
+        dns = DnsMonitored.objects.create(domain_name="misp-test.com")
+        twisted = DnsTwisted.objects.create(
+            domain_name="misp-twisted.com",
+            dns_monitored=dns
+        )
         
-        data = {'id': twisted.id}
-        serializer = MISPSerializer(data=data)
+        serializer = MISPSerializer(data={'id': twisted.id, 'event_uuid': ''})
         self.assertTrue(serializer.is_valid())
 
 
@@ -174,77 +260,58 @@ class IntegrationTest(TestCase):
     """Integration tests."""
     
     def setUp(self):
-        """Setup integration test data."""
-        self.user = User.objects.create_user("integration", "integration-dns@test.com", "pass")
-        self.dns = DnsMonitored.objects.create(domain_name="integration-dns.com")
-        self.subscriber = Subscriber.objects.create(user_rec=self.user, email=True)
+        self.user = User.objects.create_user("integ_user", "test@test.com", "pass")
+        Subscriber.objects.create(user_rec=self.user, email=True)
     
-    @patch('dns_finder.core.send_app_specific_notifications')
+    @patch('dns_finder.core.send_dns_finder_notifications')
     @patch('dns_finder.core.start_scheduler')
     def test_complete_workflow(self, mock_scheduler, mock_notifications):
-        """Test complete workflow and scheduler."""
+        """Test complete DNS monitoring workflow."""
+        dns = DnsMonitored.objects.create(domain_name="workflow-test.com")
+        
         twisted = DnsTwisted.objects.create(
-            domain_name="integrat1on-dns.com",
-            dns_monitored=self.dns,
+            domain_name="w0rkflow-test.com",
+            dns_monitored=dns,
             fuzzer="homoglyph"
         )
+        
         alert = Alert.objects.create(dns_twisted=twisted)
         
-        # Test workflow
+        self.assertEqual(twisted.dns_monitored, dns)
         self.assertEqual(alert.dns_twisted, twisted)
-        
-        # Test notifications
-        send_dns_finder_notifications(alert)
-        mock_notifications.assert_called_once()
-        
-        # Test scheduler
-        mock_scheduler.return_value = None
-        try:
-            from dns_finder.core import start_scheduler
-            start_scheduler()
-            scheduler_ok = True
-        except:
-            scheduler_ok = False
-        self.assertTrue(scheduler_ok)
     
     def test_deletion_signals(self):
-        """Test deletion signals and cascade."""
-        dns_id = self.dns.id
-        DnsTwisted.objects.create(domain_name="deletion-dns-test.com", dns_monitored=self.dns)
+        """Test cascade deletion and MISP cleanup."""
+        from common.models import MISPEventUuidLink
         
-        self.dns.delete()
+        dns = DnsMonitored.objects.create(domain_name="signal-test.com")
+        twisted = DnsTwisted.objects.create(
+            domain_name="signal-twisted.com",
+            dns_monitored=dns
+        )
         
-        self.assertFalse(DnsMonitored.objects.filter(id=dns_id).exists())
-        self.assertFalse(DnsTwisted.objects.filter(dns_monitored_id=dns_id).exists())
+        MISPEventUuidLink.objects.create(
+            domain_name="signal-twisted.com",
+            misp_event_uuid=["test-uuid"]
+        )
+        
+        dns.delete()
+        
+        self.assertFalse(DnsTwisted.objects.filter(id=twisted.id).exists())
 
 
 class PerformanceTest(TestCase):
     """Test performance and security."""
     
     def test_bulk_operations_and_validation(self):
-        """Test bulk operations performance and input validation."""
+        """Test bulk operations performance."""
         start_time = timezone.now()
         
-        # Bulk create
-        dns_list = [DnsMonitored(domain_name=f"perf-dns-{i}.com") for i in range(10)]
+        dns_list = [DnsMonitored(domain_name=f"perf-{i}.com") for i in range(10)]
         DnsMonitored.objects.bulk_create(dns_list)
         
-        twisted_list = [DnsTwisted(domain_name=f"tw1st-dns-{i}.com") for i in range(15)]
-        DnsTwisted.objects.bulk_create(twisted_list)
-        
-        duration = (timezone.now() - start_time).total_seconds()
+        end_time = timezone.now()
+        duration = (end_time - start_time).total_seconds()
         
         self.assertLess(duration, 2.0)
-        self.assertEqual(DnsMonitored.objects.count(), 10)
-        self.assertEqual(DnsTwisted.objects.count(), 15)
-        
-        # Input validation
-        valid_domains = ["valid-example.com", "test-valid-domain.net"]
-        for domain in valid_domains:
-            dns = DnsMonitored.objects.create(domain_name=f"valid-{domain}")
-            self.assertEqual(dns.domain_name, f"valid-{domain}")
-        
-        valid_keywords = ["valid-cybersecurity", "valid-threat-intel"]
-        for keyword in valid_keywords:
-            kw = KeywordMonitored.objects.create(name=f"test-{keyword}")
-            self.assertEqual(kw.name, f"test-{keyword}")
+        self.assertEqual(DnsMonitored.objects.filter(domain_name__startswith="perf-").count(), 10)

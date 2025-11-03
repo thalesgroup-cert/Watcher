@@ -7,8 +7,17 @@ import PropTypes from "prop-types";
 import {connect} from "react-redux";
 import {getLeads} from "../../actions/leads";
 
+const getBootstrapColor = (className) => {
+    const el = document.createElement("span");
+    el.className = `badge ${className}`;
+    el.style.display = "none";
+    document.body.appendChild(el);
+    const color = window.getComputedStyle(el).backgroundColor;
+    document.body.removeChild(el);
+    return color || "#6c757d";
+};
+
 const options = {
-    colors: ['#0288d1', '#005b9f', '#00bcd4', '#008ba3', '#62efff', '#90caf9', '#c3fdff', '#5d99c6'],
     enableTooltip: true,
     deterministic: false,
     fontFamily: 'arial',
@@ -27,11 +36,66 @@ export class WordCloud extends Component {
 
     constructor(props) {
         super(props);
+        this.state = {
+            key: 0,
+            containerHeight: 'auto',
+            colors: {
+                success: "#28a745",
+                warning: "#ffc107",
+                danger: "#dc3545"
+            }
+        };
+        this.containerRef = React.createRef();
+        this.resizeTimeout = null;
     }
 
     static propTypes = {
-        leads: PropTypes.array.isRequired
+        leads: PropTypes.array.isRequired,
+        filteredData: PropTypes.array,
+        getLeads: PropTypes.func.isRequired
     };
+
+    componentDidMount() {
+        this.props.getLeads();
+
+        this.setState({
+            colors: {
+                success: getBootstrapColor("bg-success"),
+                warning: getBootstrapColor("bg-warning"),
+                danger: getBootstrapColor("bg-danger")
+            }
+        });
+    }
+
+    componentDidUpdate(prevProps) {
+        const prevDataLength = prevProps.filteredData ? prevProps.filteredData.length : prevProps.leads.length;
+        const currentDataLength = this.props.filteredData ? this.props.filteredData.length : this.props.leads.length;
+        
+        if (prevDataLength !== currentDataLength) {
+            if (this.resizeTimeout) {
+                clearTimeout(this.resizeTimeout);
+            }
+
+            const baseHeight = Math.min(Math.max(currentDataLength * 20, 200), 600);
+            
+            this.setState({ 
+                containerHeight: `${baseHeight}px`,
+                key: this.state.key + 1 
+            });
+
+            this.resizeTimeout = setTimeout(() => {
+                this.setState(prevState => ({ 
+                    key: prevState.key + 1 
+                }));
+            }, 150);
+        }
+    }
+
+    componentWillUnmount() {
+        if (this.resizeTimeout) {
+            clearTimeout(this.resizeTimeout);
+        }
+    }
 
     getCallback = (callback) => {
         return (word, event) => {
@@ -41,10 +105,14 @@ export class WordCloud extends Component {
             text
                 .on('click', () => {
                     if (isActive) {
-                        this.props.leads.map(lead => {
+                        const dataToUse = this.props.filteredData || this.props.leads;
+                        dataToUse.map(lead => {
                             if (lead.name === word.text) {
-                                this.props.setPostUrls(lead.posturls, word.text)
+                                if (this.props.setPostUrls) {
+                                    this.props.setPostUrls(lead.posturls, word.text)
+                                }
                             }
+                            return null;
                         });
                     }
                 })
@@ -54,24 +122,28 @@ export class WordCloud extends Component {
     };
 
     callbacks = {
-        //getWordColor: word => (word.value > 50 ? 'orange' : 'purple'),
         getWordTooltip: word =>
             `The word "${word.text}" caught ${word.value} times.`,
         onWordClick: this.getCallback('onWordClick'),
         onWordMouseOut: this.getCallback('onWordMouseOut'),
         onWordMouseOver: this.getCallback('onWordMouseOver'),
-    };
-
-    // Called when this component is load on the dashboard
-    componentDidMount() {
-        // Remember that getLeads() send HTTP GET request to the Backend API
-        this.props.getLeads();
+        getWordColor: word => {
+            const dataToUse = this.props.filteredData || this.props.leads;
+            const lead = dataToUse.find(l => l.name === word.text);
+            const score = lead && (typeof lead.score !== 'undefined') ? Number(lead.score) : null;
+            if (score === null || isNaN(score)) {
+                return this.state.colors.danger;
+            }
+            if (score >= 70) return this.state.colors.success;
+            if (score >= 40) return this.state.colors.warning;
+            return this.state.colors.danger;
+        }
     };
 
     render() {
-        const {leads} = this.props;
+        const dataToUse = this.props.filteredData || this.props.leads;
 
-        const words = leads.map(lead => {
+        const words = dataToUse.map(lead => {
             return {
                 text: lead.name,
                 value: lead.occurrences,
@@ -80,7 +152,23 @@ export class WordCloud extends Component {
 
         return (
             <Fragment>
-                <ReactWordcloud options={options} callbacks={this.callbacks} words={words}/>
+                <div 
+                    ref={this.containerRef} 
+                    style={{ 
+                        width: '100%', 
+                        height: this.state.containerHeight,
+                        minHeight: '200px',
+                        maxHeight: '600px',
+                        overflow: 'hidden'
+                    }}
+                >
+                    <ReactWordcloud 
+                        key={this.state.key} 
+                        options={options} 
+                        callbacks={this.callbacks} 
+                        words={words}
+                    />
+                </div>
             </Fragment>
         )
     }

@@ -1,4 +1,5 @@
 # coding=utf-8
+import logging
 from .models import Keyword, Alert, PasteId, Subscriber
 import requests
 from django.db import close_old_connections
@@ -14,6 +15,8 @@ from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
 from django.db.models import Q
 
+# Configure logger
+logger = logging.getLogger('watcher.data_leak')
 
 def start_scheduler():
     """
@@ -34,7 +37,7 @@ def cleanup():
     Remove 2 hours old, useless, pasteIDs.
     """
     close_old_connections()
-    print(str(timezone.now()) + " - CRON TASK : Remove 2 hours old pasteIDs.")
+    logger.info("CRON TASK : Remove 2 hours old pasteIDs.")
     count = 0
 
     paste_ids = PasteId.objects.all()
@@ -44,7 +47,7 @@ def cleanup():
         if (timezone.now() - paste_id.created_at) >= timedelta(hours=2):
             count += 1
             paste_id.delete()
-    print(str(timezone.now()) + " - Deleted ", count, " useless pasties ID.")
+    logger.info(f"Deleted {count} useless pasties ID.")
 
 
 def main_data_leak():
@@ -55,7 +58,7 @@ def main_data_leak():
             - check_keywords(keywords)
     """
     close_old_connections()
-    print(str(timezone.now()) + " - CRON TASK : Fetch searx & pastebin")
+    logger.info("CRON TASK : Fetch searx & pastebin")
     # read in our list of keywords
     keywords = Keyword.objects.all().order_by(Length('name').desc())
 
@@ -82,7 +85,7 @@ def check_urls(keyword, urls):
         for url in urls:
 
             if url not in stored_urls:
-                print(str(timezone.now()) + " - New URL for", keyword, " discovered: ", url)
+                logger.info(f"New URL for {keyword} discovered: {url}")
 
                 new_urls.append(url)
     else:
@@ -107,13 +110,13 @@ def check_searx(keyword):
     params = {'q': keyword, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
               'format': 'json'}
 
-    print(str(timezone.now()) + " - Querying Searx for: ", keyword)
+    logger.info(f"Querying Searx for: {keyword}")
 
     # send the request off to searx
     try:
         response = requests.get(settings.DATA_LEAK_SEARX_URL, params=params)
     except requests.exceptions.RequestException as e:
-        print(str(timezone.now()) + " - ", e)
+        logger.error(str(e))
         return hits
 
     try:
@@ -129,7 +132,7 @@ def check_searx(keyword):
             hits = check_urls(keyword, urls)
     except JSONDecodeError as e:
         # no JSON returned
-        print(str(timezone.now()) + " - ", e)
+        logger.error(str(e))
         return hits
 
     return hits
@@ -153,7 +156,7 @@ def check_pastebin(keywords):
     try:
         response = requests.get("https://scrape.pastebin.com/api_scraping.php?limit=250")
     except requests.exceptions.RequestException as e:
-        print(str(timezone.now()) + " - ", e)
+        logger.error(str(e))
         return paste_hits
 
     if len(response.text) > 0:
@@ -195,23 +198,20 @@ def check_pastebin(keywords):
                             paste_hits[paste['full_url']] = keyword_hits[0]
                             paste_content_hits[paste['full_url']] = str(paste_body_lower.decode("utf-8"))
 
-                            print(
-                                str(timezone.now()) + " - Hit on Pastebin for ", str(keyword_hits), ": ",
-                                paste['full_url'])
+                            logger.info(f"Hit on Pastebin for {str(keyword_hits)}: {paste['full_url']}")
                     except requests.exceptions.RequestException as e:
-                        print(str(timezone.now()) + " - ", e)
+                        logger.error(str(e))
 
             # store the newly checked IDs
             for pastebin_id in new_ids:
                 PasteId.objects.create(paste_id=pastebin_id)
 
-            print(str(timezone.now()) + " - Successfully processed ", len(new_ids), " Pastebin posts.")
+            logger.info(f"Successfully processed {len(new_ids)} Pastebin posts.")
         else:
-            print(str(
-                timezone.now()) + " - Cannot Pull https://scrape.pastebin.com API. You need a Pastebin Pro Account. "
+            logger.warning("Cannot Pull https://scrape.pastebin.com API. You need a Pastebin Pro Account. "
                                   "Please verify that the software IP is whitelisted: https://pastebin.com/doc_scraping_api")
     else:
-        print(str(timezone.now()) + " - Cannot Pull https://scrape.pastebin.com API. API is in maintenance")
+        logger.warning("Cannot Pull https://scrape.pastebin.com API. API is in maintenance")
 
     return paste_hits
 
@@ -229,30 +229,21 @@ def check_keywords(keywords):
 
         if len(results):
             for result in results:
-                print(str(timezone.now()) + " - Create alert for: ", keyword, "url: ", result)
+                logger.info(f"Create alert for: {keyword} url: {result}")
                 alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=result)
                 # limiting the number of specific email per alert
                 if len(results) < 6:
                     send_data_leak_notifications(alert)
             # if there is too many alerts, we send a group email
             if len(results) >= 6:
-                alerts_obj = []
-                for result in results:
-                    alert = Alert.objects.create(
-                        keyword=Keyword.objects.get(name=keyword),
-                        url=result
-                    )
-                    alerts_obj.append(alert)
+                send_data_leak_notifications_group(keyword, len(results), results)
 
-                send_data_leak_notifications_group(keyword, len(alerts_obj), alerts_obj)
-
-    
     # now we check Pastebin for new pastes
     result = check_pastebin(keywords)
 
     if len(result.keys()):
         for url, keyword in result.items():
-            print(str(timezone.now()) + " - Create alert for: ", keyword, "url: ", url)
+            logger.info(f"Create alert for: {keyword} url: {url}")
             alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=url,
                                          content=paste_content_hits[url])
             send_data_leak_notifications(alert)
@@ -269,7 +260,7 @@ def send_data_leak_notifications(alert):
     )
 
     if not subscribers.exists():
-        print(f"{timezone.now()} - No subscribers for Data Leak, no message sent.")
+        logger.info("No subscribers for Data Leak, no message sent.")
         return    
 
     context_data = {
@@ -294,7 +285,7 @@ def send_data_leak_notifications_group(keyword, alerts_number, alerts):
 
 
     if not subscribers.exists():
-        print(f"{timezone.now()} - No subscribers for Data Leak group, no message sent.")
+        logger.info("No subscribers for Data Leak group, no message sent.")
         return
 
     context_data_group = {
