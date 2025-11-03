@@ -1,28 +1,174 @@
 import React, {Component, Fragment} from 'react';
+import {connect} from 'react-redux';
+import {getAlerts, getKeyWords} from "../../actions/DataLeak";
 import KeyWord from "./KeyWords";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
+import TableManager from '../common/TableManager';
+import ResizableContainer from '../common/ResizableContainer';
 
-export default class Dashboard extends Component {
+const FILTER_CONFIG = [
+    {
+        key: 'search',
+        type: 'search',
+        label: 'Search',
+        placeholder: 'Search keywords, content, ID...',
+        width: 3
+    },
+    {
+        key: 'keyword',
+        type: 'select',
+        label: 'Keyword',
+        width: 2,
+        options: []
+    },
+    {
+        key: 'source',
+        type: 'select',
+        label: 'Source',
+        width: 2,
+        options: []
+    }
+];
+
+class Dashboard extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            globalFilters: {
+                search: '',
+                keyword: '',
+                source: '',
+            },
+            filteredAlerts: []
+        };
+    }
+
+    componentDidMount() {
+        this.props.getAlerts();
+        this.props.getKeyWords();
+    }
+
+    getFilterConfig = () => {
+        const { alerts, keywords } = this.props;
+        const uniqueKeywords = [...new Set((keywords || []).map(k => k.name).filter(Boolean))].sort();
+        const uniqueSources = [...new Set((alerts || []).map(a => {
+            if (!a.url) return null;
+            try {
+                return a.url.split('//', 2)[1].split('/', 20)[0];
+            } catch {
+                return null;
+            }
+        }).filter(Boolean))].sort();
+
+        return FILTER_CONFIG.map(filter => {
+            if (filter.key === 'keyword') {
+                return {
+                    ...filter,
+                    options: uniqueKeywords.map(keyword => ({
+                        value: keyword,
+                        label: keyword
+                    }))
+                };
+            }
+            if (filter.key === 'source') {
+                return {
+                    ...filter,
+                    options: uniqueSources.map(source => ({
+                        value: source,
+                        label: source
+                    }))
+                };
+            }
+            return filter;
+        });
+    };
+
+    handleFilterChange = (filters) => {
+        this.setState({
+            globalFilters: {
+                search: filters.search || '',
+                keyword: filters.keyword || '',
+                source: filters.source || ''
+            }
+        });
+    };
+
+    onDataFiltered = (filteredData) => {
+        this.setState({ filteredAlerts: filteredData });
+    };
+
     render() {
+        const { globalFilters, filteredAlerts } = this.state;
+        const { alerts } = this.props;
+        const filterConfig = this.getFilterConfig();
+
+        const dataToPass = filteredAlerts.length > 0 ? filteredAlerts : alerts;
+
         return (
             <Fragment>
                 <div className="container-fluid mt-4">
+                    <TableManager
+                        data={alerts}
+                        filterConfig={filterConfig}
+                        onFiltersChange={this.handleFilterChange}
+                        onDataFiltered={this.onDataFiltered}
+                        enableDateFilter={true}
+                        dateFields={['created_at']}
+                        dateFilterWidth={3}
+                        searchFields={['keyword.name', 'url', 'id']}
+                        defaultSort="created_at"
+                        moduleKey="dataLeak"
+                    >
+                        {({ renderFilterControls, renderFilters, renderSaveModal }) => (
+                            <Fragment>
+                                {renderFilterControls()}
+                                {renderFilters()}
+                                {renderSaveModal()}
+                            </Fragment>
+                        )}
+                    </TableManager>
+
                     <div className="row">
-                        <div className="col-lg-8 ml-auto">
-                            <Alerts/>
-                        </div>
-                        <div className="col-lg-4 ml-auto">
-                            <KeyWord/>
+                        <div className="col-12">
+                            <ResizableContainer
+                                leftComponent={
+                                    <Alerts 
+                                        globalFilters={globalFilters} 
+                                        filteredData={dataToPass}
+                                    />
+                                }
+                                rightComponent={
+                                    <KeyWord 
+                                        globalFilters={globalFilters}
+                                        filteredData={dataToPass}
+                                    />
+                                }
+                                defaultLeftWidth={70}
+                                minLeftWidth={20}
+                                maxLeftWidth={85}
+                                storageKey="watcher_localstorage_layout_dataLeak"
+                            />
                         </div>
                     </div>
-                    <div className="row">
-                        <div className="col-lg-8 mt-4">
-                            <ArchivedAlerts/>
+
+                    <div className="row mt-4">
+                        <div className="col-12">
+                            <ArchivedAlerts 
+                                globalFilters={globalFilters}
+                                filteredData={dataToPass}
+                            />
                         </div>
                     </div>
                 </div>
             </Fragment>
-        )
+        );
     }
 }
+
+const mapStateToProps = state => ({
+    alerts: state.DataLeak.alerts || [],
+    keywords: state.DataLeak.keywords || []
+});
+
+export default connect(mapStateToProps, { getAlerts, getKeyWords })(Dashboard);

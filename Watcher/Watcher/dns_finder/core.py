@@ -3,17 +3,21 @@ import os
 import six
 import subprocess
 import json
+import logging
 from django.utils import timezone
 from django.conf import settings
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
+from common.models import LegitimateDomain
 import certstream
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
 from django.db.models import Q
 
+# Configure logger
+logger = logging.getLogger('watcher.dns_finder')
 
 def start_scheduler():
     """
@@ -47,6 +51,42 @@ def in_dns_monitored(domain):
     return is_in
 
 
+def is_legitimate_domain(domain):
+    """
+    Check if domain or its parent domain is in the Legitimate Domains list.
+    
+    Example:
+        - domain = "subdomain.thalesgroup.com"
+        - If "thalesgroup.com" is in LegitimateDomain -> return True
+        - If "subdomain.thalesgroup.com" is in LegitimateDomain -> return True
+    
+    :param domain: Domain to check (Str).
+    :rtype: bool
+    """
+    # Get all legitimate domains
+    legitimate_domains = LegitimateDomain.objects.values_list('domain_name', flat=True)
+    
+    # Check exact match
+    if domain in legitimate_domains:
+        logger.info(f"Domain {domain} is in Legitimate Domains (exact match)")
+        return True
+    
+    # Check if any legitimate domain is the parent of this domain
+    for legit_domain in legitimate_domains:
+        if domain.endswith('.' + legit_domain) or domain == legit_domain:
+            logger.info(f"Domain {domain} is a subdomain of legitimate domain {legit_domain}")
+            return True
+    
+    return False
+
+
+def clean_wildcard_domain(domain):
+    """Remove leading '*.' from domain names."""
+    if domain.startswith('*.'):
+        return domain[2:]
+    return domain
+
+
 def print_callback(message, context):
     """
     Runs CertStream scan.
@@ -55,10 +95,18 @@ def print_callback(message, context):
     :param context: parameter from CertStream.
     """
     domain = str(message['data']['leaf_cert']['subject']['CN'])
+    domain = clean_wildcard_domain(domain)
+
     for keyword_monitored in KeywordMonitored.objects.all():
         if keyword_monitored.name in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
                 not in_dns_monitored(domain):
-            print(str(timezone.now()) + " - " + "Keyword", keyword_monitored.name, "detected in :", domain)
+            
+            # Check if domain is legitimate before creating alert
+            if is_legitimate_domain(domain):
+                logger.info(f"Skipping alert for {domain} - domain is in Legitimate Domains")
+                continue
+            
+            logger.info(f"Keyword {keyword_monitored.name} detected in: {domain}")
             dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
             alert = Alert.objects.create(dns_twisted=dns_twisted)
             alert.source = 'print_callback'
@@ -88,8 +136,8 @@ def check_dnstwist(dns_monitored):
     :param dns_monitored: DnsMonitored Object.
     :return:
     """
-    print(str(timezone.now()) + " - " + 'Runs dnstwist for: ', dns_monitored.domain_name)
-    print('-----------------------------')
+    logger.info(f'Runs dnstwist for: {dns_monitored.domain_name}')
+    logger.info('-----------------------------')
     alerts_list = list()
     filepath_out = "./dns_finder/data/list.json"
     filepath_tlds = "./dns_finder/data/abused_tlds.dict"
@@ -110,6 +158,7 @@ def check_dnstwist(dns_monitored):
         try:
             domains = json.load(json_file)
             for twisted_website_dict in domains:
+                twisted_domain = clean_wildcard_domain(twisted_website_dict['domain'])
                 dns_ns = False
                 dns_a = False
                 dns_aaaa = False
@@ -129,6 +178,11 @@ def check_dnstwist(dns_monitored):
                 # Check if there is at least one DNS entry
                 if dns_ns or dns_a or dns_aaaa or dns_mx:
                     if twisted_website_dict['domain'] != dns_monitored.domain_name:
+                        # Check if domain is legitimate before creating alert
+                        if is_legitimate_domain(twisted_domain):
+                            logger.info(f"Skipping alert for {twisted_domain} - domain is in Legitimate Domains")
+                            continue
+                        
                         # If it is a new domain name, we create it
                         if not DnsTwisted.objects.filter(domain_name=twisted_website_dict['domain']):
                             dns_twisted = DnsTwisted.objects.create(domain_name=twisted_website_dict['domain'],
@@ -146,9 +200,9 @@ def check_dnstwist(dns_monitored):
             if len(alerts_list) >= 6:
                 send_dns_finder_notifications_group(dns_monitored, len(alerts_list), alerts_list)
         except ValueError:
-            print('Decoding JSON has failed')
+            logger.error('Decoding JSON has failed')
 
-    print(str(timezone.now()) + " - " + "dnstwist: Successfully processed: ", dns_monitored.domain_name)
+    logger.info(f"dnstwist: Successfully processed: {dns_monitored.domain_name}")
 
 
 def send_dns_finder_notifications(alert):
@@ -162,11 +216,11 @@ def send_dns_finder_notifications(alert):
     )
 
     if not subscribers.exists():
-        print(f"{timezone.now()} - No subscribers for DNS Finder, no message sent.")
+        logger.info("No subscribers for DNS Finder, no message sent.")
         return
 
     if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
-        print(f"Error: Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
+        logger.error(f"Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
         return
 
     source = None
@@ -195,7 +249,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     )
 
     if not subscribers.exists():
-        print(f"{timezone.now()} - No subscribers for DNS Finder group, no message sent.")
+        logger.info("No subscribers for DNS Finder group, no message sent.")
         return
 
     context_data_group = {

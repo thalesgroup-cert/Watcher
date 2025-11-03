@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 2.3 documentation</title>
+  <title>Install Watcher &mdash; Watcher 3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=57236720"></script>
+      <script src="_static/documentation_options.js?v=110ea713"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -79,6 +79,12 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#add-your-rss-source-to-threats-detection">Add your RSS source to Threats Detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#manage-legitimate-domains">Manage Legitimate Domains</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#add-a-legitimate-domain">Add a Legitimate Domain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#convert-monitored-site-to-legitimate-domain">Convert Monitored Site to Legitimate Domain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rdap-alerts-for-legitimate-domains">RDAP Alerts for Legitimate Domains</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#api-key-creation-management">API Key Creation &amp; Management</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#specific-details">Specific Details</a></li>
 </ul>
@@ -97,6 +103,18 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#remove-add-to-blocklist">Remove &amp; Add to Blocklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ai-powered-threat-intelligence">AI-Powered Threat Intelligence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#breaking-news-detection">Breaking News Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#weekly-threat-intelligence-reports">Weekly Threat Intelligence Reports</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#named-entity-recognition-ner">Named Entity Recognition (NER)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#user-interface-customization">User Interface Customization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#theme-switcher">Theme Switcher</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#resizable-dashboard-panels">Resizable Dashboard Panels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#advanced-table-filters">Advanced Table Filters</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#archived-alerts">Archived Alerts</a></li>
 </ul>
 </li>
@@ -183,8 +201,8 @@
 watcher          | Performing system checks...
 watcher          | 
 watcher          | System check identified no issues (0 silenced).
-watcher          | July 21, 2025 - 08:26:00
-watcher          | Django version 5.2.3, using settings &#39;watcher.settings&#39;
+watcher          | November 03, 2025 - 10:57:42
+watcher          | Django version 5.2.7, using settings &#39;watcher.settings&#39;
 watcher          | Starting development server at http://0.0.0.0:9002/
 watcher          | Quit the server with CONTROL-C.
 </pre></div>
@@ -511,6 +529,48 @@ docker compose up
 <li><p>Click on <strong>SAVE</strong>.</p></li>
 </ul>
 </section>
+<section id="manage-legitimate-domains">
+<h2>Manage Legitimate Domains<a class="headerlink" href="#manage-legitimate-domains" title="Link to this heading"></a></h2>
+<p>The <strong>Legitimate Domains</strong> module helps track company-approved domains, monitor expiry dates, and manage domain lifecycle.</p>
+<section id="add-a-legitimate-domain">
+<h3>Add a Legitimate Domain<a class="headerlink" href="#add-a-legitimate-domain" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Navigate to <code class="docutils literal notranslate"><span class="pre">/legitimate_domains</span></code> page</p></li>
+<li><p>Click <strong>Add Legitimate Domain</strong></p></li>
+<li><p>Fill in the following fields:</p>
+<ul class="simple">
+<li><p><strong>Domain</strong>: Company-owned domain (e.g., <code class="docutils literal notranslate"><span class="pre">company.com</span></code>)</p></li>
+<li><p><strong>Legitimacy</strong>: Classification status (Unknown, Legitimate, etc.)</p></li>
+<li><p><strong>Domain Expiry</strong>: Expiration date (YYYY-MM-DD)</p></li>
+<li><p><strong>Registrar</strong>: Current registrar name</p></li>
+<li><p><strong>Repurchase</strong>: Mark if domain needs renewal</p></li>
+<li><p><strong>Contact</strong>: Responsible team/person</p></li>
+</ul>
+</li>
+<li><p>Click <strong>Save</strong></p></li>
+</ol>
+</section>
+<section id="convert-monitored-site-to-legitimate-domain">
+<h3>Convert Monitored Site to Legitimate Domain<a class="headerlink" href="#convert-monitored-site-to-legitimate-domain" title="Link to this heading"></a></h3>
+<p>From the <strong>Website Monitoring</strong> module:</p>
+<ol class="arabic simple">
+<li><p>Go to <code class="docutils literal notranslate"><span class="pre">/site_monitoring</span></code></p></li>
+<li><p>Click on the <strong>blue cloud</strong> next to a monitored domain</p></li>
+<li><p>Fill in legitimacy details in the modal</p></li>
+<li><p>Domain will be tracked in both modules</p></li>
+</ol>
+</section>
+<section id="rdap-alerts-for-legitimate-domains">
+<h3>RDAP Alerts for Legitimate Domains<a class="headerlink" href="#rdap-alerts-for-legitimate-domains" title="Link to this heading"></a></h3>
+<p>Watcher automatically monitors RDAP/WHOIS changes for legitimate domains:</p>
+<ul class="simple">
+<li><p><strong>Registrar changes</strong>: Alerts when domain ownership transfers</p></li>
+<li><p><strong>Expiry date updates</strong>: Notifications 30/15/7 days before expiration</p></li>
+<li><p><strong>Status changes</strong>: Tracks available/disabled/registered transitions</p></li>
+</ul>
+<p>Access alerts at: <code class="docutils literal notranslate"><span class="pre">/legitimate_domains</span></code> → <strong>Alerts</strong> tab</p>
+</section>
+</section>
 <section id="api-key-creation-management">
 <h2>API Key Creation &amp; Management<a class="headerlink" href="#api-key-creation-management" title="Link to this heading"></a></h2>
 <p>Connect to the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page:</p>
@@ -686,6 +746,63 @@ docker compose up
 <li><p><strong>Usage:</strong> Used to get, add, update, or delete current integrations with MISP for DNS.</p></li>
 </ul>
 </details> <br>
+<details>
+<summary>Legitimate Domains</summary> <br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/common/legitimate_domains/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>POST:</strong> Export a domain from Website Monitoring to the legitimate domains list. Payload includes: domain_name, ticket_id, contact, expiry, repurchased (bool), comments.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Add a company-approved domain for expiry/contact monitoring and tracking.</p></li>
+</ul>
+<br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=weekly_summary</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns the weekly summary of threats detected by the watcher.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Fetch and display the weekly summary.</p></li>
+</ul>
+<br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=breaking_news</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns breaking news / high-priority alerts detected by the watcher.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Fetch and display breaking news.</p></li>
+</ul>
+<br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=trendy_word_summary&amp;keyword=&lt;keyword&gt;</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns the existing summary for a given trendy word (keyword).</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Retrieve a previously generated summary for a keyword.</p></li>
+</ul>
+<br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/by-keyword/&lt;keyword&gt;/</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Trigger generation (or regeneration) of a summary for the specified keyword and return the generated result.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Request backend to generate a summary.</p></li>
+</ul>
+</details> <br>
 <section id="specific-details">
 <h3>Specific Details<a class="headerlink" href="#specific-details" title="Link to this heading"></a></h3>
 <p>To obtain detailed information about a specific item, such as an alert, a monitored site, or any other entity in the system, you can access its details by appending <code class="docutils literal notranslate"><span class="pre">/(?P&lt;pk&gt;[^/.]+)/$</span></code> to the end of the corresponding API URL.</p>
@@ -791,6 +908,105 @@ the version of your MISP instance.</p>
 <li><p>Select “<strong>Delete &amp; Blocklist selected trendy words</strong>”.</p></li>
 </ul>
 </section>
+<section id="ai-powered-threat-intelligence">
+<h2>AI-Powered Threat Intelligence<a class="headerlink" href="#ai-powered-threat-intelligence" title="Link to this heading"></a></h2>
+<p>Watcher v3.0 introduces <strong>AI-driven threat analysis</strong> using Hugging Face transformers for automated threat detection and summarization.</p>
+<section id="breaking-news-detection">
+<h3>Breaking News Detection<a class="headerlink" href="#breaking-news-detection" title="Link to this heading"></a></h3>
+<p>Watcher automatically detects rapidly trending cybersecurity keywords:</p>
+<ol class="arabic simple">
+<li><p><strong>Threshold-Based Alerts</strong>: When a keyword appears ≥ <code class="docutils literal notranslate"><span class="pre">BREAKING_NEWS_THRESHOLD</span></code> times (default: 15), a breaking news alert is created</p></li>
+<li><p><strong>Real-Time Notifications</strong>: Floating popup alerts on dashboard with auto-dismiss</p></li>
+<li><p><strong>AI Summarization</strong>: Automatic summary generation with extracted CVEs, threat actors, and organizations</p></li>
+</ol>
+<p><strong>Configure in <code class="docutils literal notranslate"><span class="pre">.env</span></code></strong>:</p>
+<div class="highlight-env notranslate"><div class="highlight"><pre><span></span>BREAKING_NEWS_THRESHOLD=15  # Adjust sensitivity (lower = more alerts)
+</pre></div>
+</div>
+</section>
+<section id="weekly-threat-intelligence-reports">
+<h3>Weekly Threat Intelligence Reports<a class="headerlink" href="#weekly-threat-intelligence-reports" title="Link to this heading"></a></h3>
+<p>Automated weekly summaries of trending threats:</p>
+<ol class="arabic simple">
+<li><p><strong>Scheduled Generation</strong>: Runs every <code class="docutils literal notranslate"><span class="pre">WEEKLY_SUMMARY_DAY</span></code> at <code class="docutils literal notranslate"><span class="pre">WEEKLY_SUMMARY_HOUR</span></code></p></li>
+<li><p><strong>AI-Generated Content</strong>: BART-based summarization of top trending keywords</p></li>
+<li><p><strong>Entity Extraction</strong>: Automatic detection of:</p>
+<ul class="simple">
+<li><p>CVE identifiers</p></li>
+<li><p>Organizations and companies</p></li>
+<li><p>Threat actors and APT groups</p></li>
+<li><p>Geographic locations</p></li>
+<li><p>Malware families</p></li>
+</ul>
+</li>
+</ol>
+<p><strong>Configure in <code class="docutils literal notranslate"><span class="pre">.env</span></code></strong>:</p>
+<div class="highlight-env notranslate"><div class="highlight"><pre><span></span>WEEKLY_SUMMARY_DAY=Monday
+WEEKLY_SUMMARY_HOUR=9:30
+</pre></div>
+</div>
+</section>
+<section id="named-entity-recognition-ner">
+<h3>Named Entity Recognition (NER)<a class="headerlink" href="#named-entity-recognition-ner" title="Link to this heading"></a></h3>
+<p>Watcher uses BERT-based NER for threat intelligence extraction:</p>
+<ul class="simple">
+<li><p><strong>Models Used</strong>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">dslim/bert-base-NER</span></code> for entity recognition</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">facebook/bart-large-cnn</span></code> for summarization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">google/flan-t5-base</span></code> for contextual understanding</p></li>
+</ul>
+</li>
+<li><p><strong>Extracted Entities</strong>:</p>
+<ul>
+<li><p>Persons (PER)</p></li>
+<li><p>Organizations (ORG)</p></li>
+<li><p>Locations (LOC)</p></li>
+<li><p>Miscellaneous (MISC): Products, malware, tools</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="user-interface-customization">
+<h2>User Interface Customization<a class="headerlink" href="#user-interface-customization" title="Link to this heading"></a></h2>
+<section id="theme-switcher">
+<h3>Theme Switcher<a class="headerlink" href="#theme-switcher" title="Link to this heading"></a></h3>
+<p>Watcher offers <strong>5 pre-built themes</strong> with persistent user preferences:</p>
+<ol class="arabic simple">
+<li><p><strong>Darkly</strong> (Default): Modern dark theme</p></li>
+<li><p><strong>Flatly</strong>: Clean light theme</p></li>
+<li><p><strong>Cyborg</strong>: Cyberpunk-inspired dark theme</p></li>
+<li><p><strong>Superhero</strong>: Bold dark theme with vibrant accents</p></li>
+<li><p><strong>Brite</strong>: High-contrast light theme</p></li>
+</ol>
+<p><strong>How to Change Theme</strong>:</p>
+<ol class="arabic simple">
+<li><p>Click on <strong>User Profile</strong> (top-right)</p></li>
+<li><p>Select <strong>Theme Switcher</strong></p></li>
+<li><p>Choose your preferred theme</p></li>
+<li><p>Preference saved in browser localStorage</p></li>
+</ol>
+</section>
+<section id="resizable-dashboard-panels">
+<h3>Resizable Dashboard Panels<a class="headerlink" href="#resizable-dashboard-panels" title="Link to this heading"></a></h3>
+<p>All modules now support <strong>user-customizable panel widths</strong>:</p>
+<ul class="simple">
+<li><p><strong>Drag &amp; Drop</strong>: Resize panels by dragging dividers</p></li>
+<li><p><strong>Persistent Layout</strong>: Saved per-user, per-module</p></li>
+<li><p><strong>Reset Option</strong>: Restore default layout via settings</p></li>
+</ul>
+</section>
+<section id="advanced-table-filters">
+<h3>Advanced Table Filters<a class="headerlink" href="#advanced-table-filters" title="Link to this heading"></a></h3>
+<p>All data tables include <strong>enhanced filtering</strong>:</p>
+<ol class="arabic simple">
+<li><p><strong>Filter Builder</strong>: Click filter icon to add conditions</p></li>
+<li><p><strong>Save Filter Sets</strong>: Name and save custom filters</p></li>
+<li><p><strong>Quick Apply</strong>: Load saved filters with one click</p></li>
+</ol>
+</section>
+</section>
 <section id="archived-alerts">
 <h2>Archived Alerts<a class="headerlink" href="#archived-alerts" title="Link to this heading"></a></h2>
 <p>Once you have processed an alert, you can archive it.</p>
@@ -867,11 +1083,14 @@ python manage.py populate_db
 <ul class="simple">
 <li><p><strong>Update and upgrade your machine:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">update</span> <span class="pre">&amp;&amp;</span> <span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">upgrade</span> <span class="pre">-y</span></code></p></li>
 <li><p><strong>Install Python and Node.js:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">python3</span> <span class="pre">python3-pip</span> <span class="pre">-y</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">nodejs</span> <span class="pre">-y</span></code></p></li>
+<li><p><strong>Create and activate a Python virtual environment:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">venv</span> <span class="pre">.venv</span> <span class="pre">|source</span> <span class="pre">.venv/bin/activate</span></code></p></li>
 <li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
 <li><p><strong>Move to the following directory:</strong> <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev-is-python3</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
+<li><p><strong>Install Rust (for tokenizers, etc)</strong> <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">https://sh.rustup.rs</span> <span class="pre">-sSf</span> <span class="pre">|</span> <span class="pre">sh</span> <span class="pre">-s</span> <span class="pre">--</span> <span class="pre">-y</span> <span class="pre">|source</span> <span class="pre">$HOME/.cargo/env</span></code></p></li>
 <li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
+<li><p><strong>Install Torch and Torchvision dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--extra-index-url</span> <span class="pre">https://download.pytorch.org/whl/cpu</span> <span class="pre">torch==2.2.0</span> <span class="pre">torchvision==0.17.0</span> <span class="pre">torchaudio==2.2.0</span></code></p></li>
 <li><p><strong>Install NLTK/punkt dependency:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
 <ul>
 <li><p>If you have a proxy, you can configure it in <code class="docutils literal notranslate"><span class="pre">nltk_dependencies.py</span></code> script.</p></li>
@@ -954,7 +1173,7 @@ systemctl status mysql.service
 <p>Watcher includes comprehensive unit tests to ensure code quality and reliability. <strong>When contributing new features, you must include corresponding unit tests.</strong></p>
 <section id="test-coverage-technologies">
 <h3>Test Coverage &amp; Technologies<a class="headerlink" href="#test-coverage-technologies" title="Link to this heading"></a></h3>
-<p>The test suite covers all 4 main modules of Watcher:</p>
+<p>The test suite covers all 5 main modules of Watcher:</p>
 <ul class="simple">
 <li><p><strong>Back-End Tests</strong>: Python’s standard unittest module</p>
 <ul>
@@ -965,7 +1184,7 @@ systemctl status mysql.service
 </li>
 <li><p><strong>Front-End Tests</strong>: Cypress framework for JavaScript testing</p>
 <ul>
-<li><p>Cypress tests for all 4 modules</p></li>
+<li><p>Cypress tests for all 5 modules</p></li>
 <li><p>End-to-end testing scenarios</p></li>
 </ul>
 </li>

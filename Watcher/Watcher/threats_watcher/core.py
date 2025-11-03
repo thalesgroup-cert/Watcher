@@ -1,5 +1,6 @@
 # coding=utf-8
-from .models import BannedWord, Source, TrendyWord, PostUrl, Subscriber
+import logging
+from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
@@ -15,18 +16,17 @@ from django.db import close_old_connections
 from common.core import send_app_specific_notifications
 from django.db.models import Q
 from urllib.parse import urlparse
-from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+from .model_manager import get_ner_pipeline
 
-
-
-tokenizer_ner = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
-model_ner     = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
-ner_pipe      = pipeline(
-    "ner",
-    model=model_ner,
-    tokenizer=tokenizer_ner,
-    grouped_entities=True
+# Import summary generation functions
+from .summary_manager import (
+    generate_weekly_summary,
+    generate_breaking_news,
+    generate_trendy_word_summary
 )
+
+# Configure logger
+logger = logging.getLogger('watcher.threats_watcher')
 
 # Group of hackers
 ATTACKER_PATTERNS = [
@@ -36,6 +36,19 @@ ATTACKER_PATTERNS = [
 ]
 
 def extract_entities_and_threats(title: str) -> dict:
+    """Extract and clean entities and threats from title using NER model."""
+    ner_pipe = get_ner_pipeline()
+    if not ner_pipe:
+        logger.error("NER pipeline not available")
+        return {
+            "persons": [],
+            "organizations": [],
+            "locations": [],
+            "product": [],
+            "cves": [],
+            "attackers": [],
+        }
+    
     ner_results = ner_pipe(title)
 
     persons       = set()
@@ -43,19 +56,38 @@ def extract_entities_and_threats(title: str) -> dict:
     locations     = set()
     products      = set()
 
+    # Common noise words to exclude
+    common_noise = ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'are', 'was', 'has', 'have']
+
     for ent in ner_results:
         grp  = ent["entity_group"]
         text = ent["word"]
-        if   grp == "PER":
+        
+        # Skip subword tokens (BERT artifacts)
+        if text.startswith('##'):
+            continue
+        # Skip short tokens or single letters
+        if len(text) <= 2:
+            continue
+        # Skip pure numbers
+        if text.isdigit():
+            continue
+        # Skip common noise words
+        if text.lower() in common_noise:
+            continue
+        
+        if grp == "PER":
             persons.add(text)
         elif grp == "ORG":
             for token in text.split():
-                organizations.add(token)
+                if not token.startswith('##') and len(token) > 2 and not token.isdigit() and token[0].isupper():
+                    organizations.add(token)
         elif grp == "LOC":
             locations.add(text)
         elif grp == "MISC":
             for token in text.split():
-                products.add(token)
+                if not token.startswith('##') and len(token) > 2 and not token.isdigit() and (token[0].isupper() or token.isupper()):
+                    products.add(token)
 
     cves = re.findall(r"\bCVE-\d{4}-\d{4,7}\b", title)
 
@@ -73,36 +105,36 @@ def extract_entities_and_threats(title: str) -> dict:
     }
 
 
-tokenizer_ner = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
-model_ner     = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
-ner_pipe      = pipeline(
-    "ner",
-    model=model_ner,
-    tokenizer=tokenizer_ner,
-    grouped_entities=True
-)
-
-# Group of hackers
-ATTACKER_PATTERNS = [
-    r"\bAPT\d+\b",
-    r"\bFIN\d+\b",
-    r"\bHFG\d+\b",
-]
-
 def start_scheduler():
     """
-    Launch multiple planning tasks in background:
-        - Fire main_watch every 30 minutes from Monday to Friday (daylight only)
-        - Fire main_watch at 18h00 on Saturday
+    Launch planning tasks in background:
+        - Fire main_watch every 30 minutes
         - Fire cleanup every day at 8 am
+        - Fire weekly summary based on settings configuration
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/10', id='main_watch_job',
-                      max_instances=10,
-                      replace_existing=True)
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
+                      max_instances=10, replace_existing=True)
 
-    scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour=8, minute=00, id='day_clean', replace_existing=True)
+    scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour=8, minute=0, id='day_clean', replace_existing=True)
+
+    # Weekly summary
+    day = 'mon'
+    hour, minute = 9, 30
+    try:
+        day = {
+            'monday': 'mon', 'tuesday': 'tue', 'wednesday': 'wed',
+            'thursday': 'thu', 'friday': 'fri', 'saturday': 'sat', 'sunday': 'sun'
+        }.get(settings.WEEKLY_SUMMARY_DAY.lower(), 'mon')
+        hour, minute = map(int, settings.WEEKLY_SUMMARY_HOUR.split(':'))
+    except Exception:
+        pass
+    
+    scheduler.add_job(generate_weekly_summary,'cron', day_of_week=day, hour=hour, minute=minute, id='weekly_summary_job', 
+                      max_instances=1, replace_existing=True
+    )
+    
     scheduler.start()
 
 
@@ -111,11 +143,11 @@ def cleanup():
     Remove words with a creation date greater than 30 days.
     """
     close_old_connections()
-    print(str(timezone.now()) + " - CRON TASK : Remove words with a creation date greater than 30 days")
+    logger.info("CRON TASK : Remove words with a creation date greater than 30 days")
     words = TrendyWord.objects.all()
     for word in words:
         if (timezone.now() - word.created_at) >= timedelta(days=30):
-            print(str(timezone.now()) + " - Delete this trendy word -> ", word.name)
+            logger.info(f"Delete this trendy word -> {word.name}")
             word.delete()
 
 
@@ -133,16 +165,16 @@ def main_watch():
         
     """
     close_old_connections()
-    print(str(timezone.now()) + " - CRON TASK : Main function")
+    logger.info("CRON TASK : Main function")
     load_feeds()
-    print(str(timezone.now()) + " - Loaded feeds.")
+    logger.info("Loaded feeds.")
     fetch_last_posts(settings.POSTS_DEPTH)
-    print(str(timezone.now()) + " - Fetched last posts.")
+    logger.info("Fetched last posts.")
     tokenize_count_urls()
-    print(str(timezone.now()) + " - Tokenized words.")
+    logger.info("Tokenized words.")
     # print("POSTS Before Banned : ", posts_words)
     remove_banned_words()
-    print(str(timezone.now()) + " - Removed banned words.")
+    logger.info("Removed banned words.")
     # print("POSTS Without Banned Words : ", posts_without_banned)
 
     focus_five_letters()
@@ -190,9 +222,9 @@ def fetch_last_posts(nb_max_post):
             if feed_content.status_code == 200:
                 feeds.append(feedparser.parse(feed_content.text))
             else:
-                print(str(timezone.now()) + " - " + "Feed: " + url + " => Error: Status code: ", str(feed_content.status_code))
+                logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
         except requests.exceptions.RequestException as e:
-            print(str(timezone.now()) + " - ", e)
+            logger.error(str(e))
     for feed in feeds:
         count = 1
         for post in feed.entries:
@@ -228,6 +260,11 @@ def tokenize_count_urls():
     wordurl     = {}
 
     threshold = timezone.now() - timedelta(days=30)
+    ner_pipe = get_ner_pipeline()
+    
+    if not ner_pipe:
+        logger.error("NER pipeline not available for tokenization")
+        return
 
     for title, url in posts.items():
         post_date = posts_published.get(url, "no-date")
@@ -326,13 +363,18 @@ def focus_five_letters():
 def focus_on_top(words_occurrence):
     """
     Focus on top words.
-    Populated the database with only words with a minimum occurrence of  "words_occurence" in feeds.
+    Populated the database with only words with a minimum occurrence of "words_occurence" in feeds.
+    Also triggers breaking news when threshold is exceeded.
+    Generates AI summary for newly created or updated words.
 
     :param words_occurrence: Word occurence in feeds.
     """
     global email_words
     email_words = list()
     new_posts = dict()
+    words_to_summarize = []
+    
+    breaking_threshold = settings.BREAKING_NEWS_THRESHOLD
 
     for word, occurrences in posts_five_letters.items():
         if occurrences >= words_occurrence:
@@ -342,14 +384,43 @@ def focus_on_top(words_occurrence):
                         for url_, date in posts_published.items():
                             if posturl == url_:
                                 if not PostUrl.objects.filter(url=posturl):
-                                    TrendyWord.objects.filter(name=word).update(
-                                        occurrences=(TrendyWord.objects.get(name=word).occurrences + 1))
+                                    trendy_word = TrendyWord.objects.get(name=word)
+                                    trendy_word.occurrences += 1
+                                    trendy_word.save()
+                                    
                                     if date != "no-date":
                                         PostUrl.objects.create(url=posturl, created_at=date)
                                     else:
                                         PostUrl.objects.create(url=posturl)
-                                    TrendyWord.objects.get(name=word).posturls.add(PostUrl.objects.get(url=posturl))
+                                    post_url = PostUrl.objects.filter(url=posturl).first()
+                                    if post_url:
+                                        trendy_word.posturls.add(post_url)
                                     new_posts[word] = new_posts.get(word, 0) + 1
+                                    
+                                    # Add to summary queue if it has enough posts and no recent summary
+                                    if trendy_word.posturls.count() >= 3:
+                                        last_24h = timezone.now() - timedelta(hours=24)
+                                        has_recent_summary = Summary.objects.filter(
+                                            type='trendy_word_summary',
+                                            keywords=word,
+                                            created_at__gte=last_24h
+                                        ).exists()
+                                        if not has_recent_summary and trendy_word.id not in words_to_summarize:
+                                            words_to_summarize.append(trendy_word.id)
+                                    
+                                    # Check for breaking news threshold
+                                    if trendy_word.occurrences >= breaking_threshold:
+                                        # Check if we already sent breaking news recently (last 24h)
+                                        last_24h = timezone.now() - timedelta(hours=24)
+                                        recent_breaking = Summary.objects.filter(
+                                            type='breaking_news',
+                                            keywords=word,
+                                            created_at__gte=last_24h
+                                        ).exists()
+                                        
+                                        if not recent_breaking:
+                                            logger.info(f"Breaking news threshold reached for '{word}' ({trendy_word.occurrences} occurrences)")
+                                            generate_breaking_news(trendy_word)
                 except KeyError:
                     pass
             else:
@@ -370,8 +441,27 @@ def focus_on_top(words_occurrence):
 
                     email_words.append(
                         "<a href=" + settings.WATCHER_URL + ">" + word + "</a> :<b> " + str(occurrences) + "</b>")
+                    
+                    # Add newly created word to summary queue if it has enough posts
+                    if word_db.posturls.count() >= 3:
+                        words_to_summarize.append(word_db.id)
+                    
+                    # Check for breaking news on new words
+                    if occurrences >= breaking_threshold:
+                        logger.info(f"New word '{word}' reached breaking news threshold ({occurrences} occurrences)")
+                        generate_breaking_news(word_db)
+                        
                 except KeyError:
                     pass
+    
+    # Generate summaries for all words in queue
+    if words_to_summarize:
+        logger.info(f"Generating summaries for {len(words_to_summarize)} words: {words_to_summarize}")
+        for word_id in words_to_summarize:
+            try:
+                generate_trendy_word_summary(word_id)
+            except Exception as e:
+                logger.error(f"Failed to generate summary for word ID {word_id}: {e}")
 
 
 def get_pre_redirect_domain(url):
@@ -385,7 +475,7 @@ def get_pre_redirect_domain(url):
         else:
             original_url = url
     except Exception as e:
-        print(f"Error retrieving pre-redirect URL for {url} : {e}")
+        logger.error(f"Error retrieving pre-redirect URL for {url} : {e}")
         original_url = url
     domain = get_normalized_domain(original_url)
     return domain
@@ -423,30 +513,50 @@ def reliability_score():
                     conf_score = get_confidence_score(source_match.confident)
                     score_list.append(conf_score)
             except Exception as e:
-                print(f"Error for {post.url} word : '{word.name}' : {e}")
+                logger.error(f"Error for {post.url} word : '{word.name}' : {e}")
 
         if score_list:
             avg_score = sum(score_list) / len(score_list)
             word.score = avg_score
             word.save()
         else:
-            print(f"[{timezone.now()}] - '{word.name}' : No fiability score.")
+            logger.info(f"'{word.name}' : No fiability score.")
 
 
-def send_threats_watcher_notifications(email_words):
+def send_threats_watcher_notifications(content):
     """
-    Sends notifications to Slack, Citadel, TheHive or Email based on Threats Watcher.
+    Send notifications for Threats Watcher events to all enabled subscribers.
+    Detects notification type from content and prepares the context for downstream handlers.
     """
     subscribers = Subscriber.objects.filter(
         (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
     )
 
     if not subscribers.exists():
-        print(f"{timezone.now()} - No subscribers for Threats Watcher, no message sent.")
+        logger.warning(f"{timezone.now()} - No subscribers for Threats Watcher, no message sent.")
         return
 
-    context_data = {
-        'email_words': email_words,
-    }
+    context_data = {}
+    if isinstance(content, dict):
+        context_data = {
+            'notification_type': 'breakingnews',
+            'keyword': content.get('keyword', ''),
+            'occurrences': content.get('occurrences', 0),
+            'summary_text': content.get('summary_text', '')
+        }
+    elif isinstance(content, str):
+        context_data = {
+            'notification_type': 'weeklysummary',
+            'summary_text': content
+        }
+    elif isinstance(content, list):
+        if not content:
+            return
+        context_data = {
+            'notification_type': 'regular',
+            'email_words': content
+        }
+    else:
+        return
 
     send_app_specific_notifications('threats_watcher', context_data, subscribers)

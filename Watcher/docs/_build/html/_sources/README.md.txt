@@ -19,8 +19,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | July 21, 2025 - 08:26:00
-    watcher          | Django version 5.2.3, using settings 'watcher.settings'
+    watcher          | November 03, 2025 - 10:57:42
+    watcher          | Django version 5.2.7, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
@@ -318,6 +318,42 @@ Connect to the `/admin` page:
 - Click on **SAVE**.
 
 
+## Manage Legitimate Domains
+
+The **Legitimate Domains** module helps track company-approved domains, monitor expiry dates, and manage domain lifecycle.
+
+### Add a Legitimate Domain
+
+1. Navigate to `/legitimate_domains` page
+2. Click **Add Legitimate Domain**
+3. Fill in the following fields:
+   - **Domain**: Company-owned domain (e.g., `company.com`)
+   - **Legitimacy**: Classification status (Unknown, Legitimate, etc.)
+   - **Domain Expiry**: Expiration date (YYYY-MM-DD)
+   - **Registrar**: Current registrar name
+   - **Repurchase**: Mark if domain needs renewal
+   - **Contact**: Responsible team/person
+
+4. Click **Save**
+
+### Convert Monitored Site to Legitimate Domain
+
+From the **Website Monitoring** module:
+1. Go to `/site_monitoring`
+2. Click on the **blue cloud** next to a monitored domain
+3. Fill in legitimacy details in the modal
+4. Domain will be tracked in both modules
+
+### RDAP Alerts for Legitimate Domains
+
+Watcher automatically monitors RDAP/WHOIS changes for legitimate domains:
+- **Registrar changes**: Alerts when domain ownership transfers
+- **Expiry date updates**: Notifications 30/15/7 days before expiration
+- **Status changes**: Tracks available/disabled/registered transitions
+
+Access alerts at: `/legitimate_domains` → **Alerts** tab
+
+
 ## API Key Creation & Management
 
 Connect to the `/admin` page:
@@ -461,6 +497,50 @@ Below, you will find our 4 modules with their API functions:
 
 </details> <br>
 
+<details>
+
+<summary>Legitimate Domains</summary> <br>
+
+`^api/common/legitimate_domains/$`
+- **HTTP Method:** GET, POST, PATCH, DELETE
+- **Description:**
+  - **POST:** Export a domain from Website Monitoring to the legitimate domains list. Payload includes: domain_name, ticket_id, contact, expiry, repurchased (bool), comments.
+- **Usage:** Add a company-approved domain for expiry/contact monitoring and tracking.
+
+<br>
+
+`^api/threats_watcher/summary/?type=weekly_summary`
+- **HTTP Method:** GET, POST, PATCH, DELETE
+- **Description:**
+  - **GET:** Returns the weekly summary of threats detected by the watcher.
+- **Usage:** Fetch and display the weekly summary.
+
+<br>
+
+`^api/threats_watcher/summary/?type=breaking_news`
+- **HTTP Method:** GET, POST, PATCH, DELETE
+- **Description:**
+  - **GET:** Returns breaking news / high-priority alerts detected by the watcher.
+- **Usage:** Fetch and display breaking news.
+
+<br>
+
+`^api/threats_watcher/summary/?type=trendy_word_summary&keyword=<keyword>`
+- **HTTP Method:** GET, POST, PATCH, DELETE
+- **Description:**
+  - **GET:** Returns the existing summary for a given trendy word (keyword).
+- **Usage:** Retrieve a previously generated summary for a keyword.
+
+<br>
+
+`^api/threats_watcher/summary/by-keyword/<keyword>/`
+- **HTTP Method:** GET, POST, PATCH, DELETE
+- **Description:**
+  - **GET:** Trigger generation (or regeneration) of a summary for the specified keyword and return the generated result.
+- **Usage:** Request backend to generate a summary.
+
+</details> <br>
+
 
 ### Specific Details
 
@@ -563,6 +643,91 @@ To add **several** words:
 - Click on **Action** dropdown.
 - Select "**Delete & Blocklist selected trendy words**".
 
+## AI-Powered Threat Intelligence
+
+Watcher v3.0 introduces **AI-driven threat analysis** using Hugging Face transformers for automated threat detection and summarization.
+
+### Breaking News Detection
+
+Watcher automatically detects rapidly trending cybersecurity keywords:
+
+1. **Threshold-Based Alerts**: When a keyword appears ≥ `BREAKING_NEWS_THRESHOLD` times (default: 15), a breaking news alert is created
+2. **Real-Time Notifications**: Floating popup alerts on dashboard with auto-dismiss
+3. **AI Summarization**: Automatic summary generation with extracted CVEs, threat actors, and organizations
+
+**Configure in `.env`**:
+```env
+BREAKING_NEWS_THRESHOLD=15  # Adjust sensitivity (lower = more alerts)
+```
+
+### Weekly Threat Intelligence Reports
+
+Automated weekly summaries of trending threats:
+
+1. **Scheduled Generation**: Runs every `WEEKLY_SUMMARY_DAY` at `WEEKLY_SUMMARY_HOUR`
+2. **AI-Generated Content**: BART-based summarization of top trending keywords
+3. **Entity Extraction**: Automatic detection of:
+   - CVE identifiers
+   - Organizations and companies
+   - Threat actors and APT groups
+   - Geographic locations
+   - Malware families
+
+**Configure in `.env`**:
+```env
+WEEKLY_SUMMARY_DAY=Monday
+WEEKLY_SUMMARY_HOUR=9:30
+```
+
+### Named Entity Recognition (NER)
+
+Watcher uses BERT-based NER for threat intelligence extraction:
+
+- **Models Used**:
+  - `dslim/bert-base-NER` for entity recognition
+  - `facebook/bart-large-cnn` for summarization
+  - `google/flan-t5-base` for contextual understanding
+
+- **Extracted Entities**:
+  - Persons (PER)
+  - Organizations (ORG)
+  - Locations (LOC)
+  - Miscellaneous (MISC): Products, malware, tools
+
+## User Interface Customization
+
+### Theme Switcher
+
+Watcher offers **5 pre-built themes** with persistent user preferences:
+
+1. **Darkly** (Default): Modern dark theme
+2. **Flatly**: Clean light theme
+3. **Cyborg**: Cyberpunk-inspired dark theme
+4. **Superhero**: Bold dark theme with vibrant accents
+5. **Brite**: High-contrast light theme
+
+**How to Change Theme**:
+1. Click on **User Profile** (top-right)
+2. Select **Theme Switcher**
+3. Choose your preferred theme
+4. Preference saved in browser localStorage
+
+### Resizable Dashboard Panels
+
+All modules now support **user-customizable panel widths**:
+
+- **Drag & Drop**: Resize panels by dragging dividers
+- **Persistent Layout**: Saved per-user, per-module
+- **Reset Option**: Restore default layout via settings
+
+### Advanced Table Filters
+
+All data tables include **enhanced filtering**:
+
+1. **Filter Builder**: Click filter icon to add conditions
+2. **Save Filter Sets**: Name and save custom filters
+3. **Quick Apply**: Load saved filters with one click
+
 ## Archived Alerts
 Once you have processed an alert, you can archive it.
 
@@ -639,11 +804,14 @@ Then, follow the steps below:
 
 - **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
 - **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
+- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
 - **Pull Watcher code:** `git clone <your_forked_repository.git>`
 - **Move to the following directory:** `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
+- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
+- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
      - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
 - **Install Node.js dependencies:**
@@ -706,7 +874,7 @@ Watcher includes comprehensive unit tests to ensure code quality and reliability
 
 ### Test Coverage & Technologies
 
-The test suite covers all 4 main modules of Watcher:
+The test suite covers all 5 main modules of Watcher:
 
 - **Back-End Tests**: Python's standard unittest module
   - `common/tests.py`
@@ -714,7 +882,7 @@ The test suite covers all 4 main modules of Watcher:
   - Module-specific test files for each component
 
 - **Front-End Tests**: Cypress framework for JavaScript testing
-  - Cypress tests for all 4 modules
+  - Cypress tests for all 5 modules
   - End-to-end testing scenarios
 
 ### Automated CI/CD Testing

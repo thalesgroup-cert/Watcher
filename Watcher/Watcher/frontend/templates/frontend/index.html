@@ -9,14 +9,24 @@
     <link rel="icon" href="{% static 'img/favicon-64.png' %}" sizes="64x64" type="image/png">
     <link rel="icon" href="{% static 'img/favicon-96.png' %}" sizes="96x96" type="image/png">
     <link rel="icon" href="{% static 'img/favicon-196.png' %}" sizes="196x196" type="image/png">
-    <link rel="stylesheet" href="{% static "css/bootstrap.min.css" %}">
-    {#    <link rel="stylesheet" href="https://bootswatch.com/4/litera/bootstrap.min.css">#}
+    <link id="theme-stylesheet" rel="stylesheet" href="{% static 'css/themes/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static "css/material-design-icons.css" %}">
     <link rel="stylesheet" href="{% static "css/day-picker.css" %}">
     <link rel="stylesheet" href="{% static "css/style.css" %}">
 </head>
 <body>
 <div id="app"></div>
+
+<script>
+window.AVAILABLE_THEMES = {
+    'bootstrap': '{% static "css/themes/bootstrap.min.css" %}',
+    'flatly': '{% static "css/themes/flatly.min.css" %}',
+    'cyborg': '{% static "css/themes/cyborg.min.css" %}',
+    'superhero': '{% static "css/themes/superhero.min.css" %}',
+    'brite': '{% static "css/themes/brite.min.css" %}'
+};
+</script>
+
 <script src="{% static "frontend/main.js" %}"></script>
 <script src="{% static "js/jquery-3.4.1.slim.min.js" %}"
         integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"

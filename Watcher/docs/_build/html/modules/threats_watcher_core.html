@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Threats Watcher - Core Algorithm &mdash; Watcher 2.3 documentation</title>
+  <title>Threats Watcher - Core Algorithm &mdash; Watcher 3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="../_static/Watcher-favicon.ico"/>
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=57236720"></script>
+      <script src="../_static/documentation_options.js?v=110ea713"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -53,11 +53,16 @@
 <li class="toctree-l1"><a class="reference internal" href="common_misp.html">MISP API</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Threats Watcher - Core Algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.extract_entities_and_threats"><code class="docutils literal notranslate"><span class="pre">extract_entities_and_threats()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.fetch_last_posts"><code class="docutils literal notranslate"><span class="pre">fetch_last_posts()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.focus_five_letters"><code class="docutils literal notranslate"><span class="pre">focus_five_letters()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.focus_on_top"><code class="docutils literal notranslate"><span class="pre">focus_on_top()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.get_confidence_score"><code class="docutils literal notranslate"><span class="pre">get_confidence_score()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.get_normalized_domain"><code class="docutils literal notranslate"><span class="pre">get_normalized_domain()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.get_pre_redirect_domain"><code class="docutils literal notranslate"><span class="pre">get_pre_redirect_domain()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.load_feeds"><code class="docutils literal notranslate"><span class="pre">load_feeds()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.main_watch"><code class="docutils literal notranslate"><span class="pre">main_watch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.reliability_score"><code class="docutils literal notranslate"><span class="pre">reliability_score()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.remove_banned_words"><code class="docutils literal notranslate"><span class="pre">remove_banned_words()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.send_threats_watcher_notifications"><code class="docutils literal notranslate"><span class="pre">send_threats_watcher_notifications()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#Watcher.threats_watcher.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
@@ -102,6 +107,12 @@
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.extract_entities_and_threats">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">extract_entities_and_threats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#Watcher.threats_watcher.core.extract_entities_and_threats" title="Link to this definition"></a></dt>
+<dd><p>Extract and clean entities and threats from title using NER model.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.fetch_last_posts">
 <span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">fetch_last_posts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nb_max_post</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.fetch_last_posts" title="Link to this definition"></a></dt>
 <dd><p>Fetch the nb last posts for each feed.</p>
@@ -122,12 +133,32 @@
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.focus_on_top">
 <span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">focus_on_top</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">words_occurrence</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.focus_on_top" title="Link to this definition"></a></dt>
 <dd><p>Focus on top words.
-Populated the database with only words with a minimum occurrence of  “words_occurence” in feeds.</p>
+Populated the database with only words with a minimum occurrence of “words_occurence” in feeds.
+Also triggers breaking news when threshold is exceeded.
+Generates AI summary for newly created or updated words.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>words_occurrence</strong> – Word occurence in feeds.</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.get_confidence_score">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">get_confidence_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">confidence</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.get_confidence_score" title="Link to this definition"></a></dt>
+<dd><p>Converts a confidence level (1, 2 or 3) to a percentage.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.get_normalized_domain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">get_normalized_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.get_normalized_domain" title="Link to this definition"></a></dt>
+<dd><p>Extracts and normalizes the domain from a URL without a network query (for Source objects).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.get_pre_redirect_domain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">get_pre_redirect_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.get_pre_redirect_domain" title="Link to this definition"></a></dt>
+<dd><p>Retrieves the domain of the URL before the redirect.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -155,6 +186,12 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="Watcher.threats_watcher.core.reliability_score">
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">reliability_score</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.reliability_score" title="Link to this definition"></a></dt>
+<dd><p>Calculates the reliability score for each TrendyWord by scanning its associated PostUrls.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.remove_banned_words">
 <span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">remove_banned_words</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.remove_banned_words" title="Link to this definition"></a></dt>
 <dd><p>Clean the posts for specific patterns: BannedWord, then english + french common words.</p>
@@ -162,18 +199,19 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.send_threats_watcher_notifications">
-<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">send_threats_watcher_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">email_words</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_threats_watcher_notifications" title="Link to this definition"></a></dt>
-<dd><p>Sends notifications to Slack, Citadel, TheHive or Email based on Threats Watcher.</p>
+<span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">send_threats_watcher_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">content</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.send_threats_watcher_notifications" title="Link to this definition"></a></dt>
+<dd><p>Send notifications for Threats Watcher events to all enabled subscribers.
+Detects notification type from content and prepares the context for downstream handlers.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.start_scheduler">
 <span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.start_scheduler" title="Link to this definition"></a></dt>
 <dd><dl class="simple">
-<dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
-<li><p>Fire main_watch every 30 minutes from Monday to Friday (daylight only)</p></li>
-<li><p>Fire main_watch at 18h00 on Saturday</p></li>
+<dt>Launch planning tasks in background:</dt><dd><ul class="simple">
+<li><p>Fire main_watch every 30 minutes</p></li>
 <li><p>Fire cleanup every day at 8 am</p></li>
+<li><p>Fire weekly summary based on settings configuration</p></li>
 </ul>
 </dd>
 </dl>
@@ -182,7 +220,14 @@ Populated the database with only words with a minimum occurrence of  “words_oc
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.threats_watcher.core.tokenize_count_urls">
 <span class="sig-prename descclassname"><span class="pre">Watcher.threats_watcher.core.</span></span><span class="sig-name descname"><span class="pre">tokenize_count_urls</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.threats_watcher.core.tokenize_count_urls" title="Link to this definition"></a></dt>
-<dd><p>Tokenize phrases to words, Count word occurences and keep the word post source urls.</p>
+<dd><dl class="simple">
+<dt>For each title (≤ 30 days):</dt><dd><ul class="simple">
+<li><p>Runs NER and threat extraction,</p></li>
+<li><p>Casts scores to float,</p></li>
+<li><p>Counts occurrences and aggregates associated URLs.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 </section>

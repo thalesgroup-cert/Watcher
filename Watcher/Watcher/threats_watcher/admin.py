@@ -2,9 +2,10 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, Subscriber
+from .models import Source, TrendyWord, BannedWord, Summary, Subscriber
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
+from django.utils.html import format_html
 
 
 class SourceResource(resources.ModelResource):
@@ -35,6 +36,14 @@ class BannedWordAdmin(ImportExportModelAdmin):
     resource_class = BannedWordResource
 
 
+@admin.register(Summary)
+class SummaryAdmin(admin.ModelAdmin):
+    list_display = ('type', 'keywords', 'created_at')
+    list_filter = ('type', 'created_at')
+    search_fields = ('keywords', 'summary_text')
+    readonly_fields = ('created_at', 'updated_at')
+
+
 class TrendyWordResource(resources.ModelResource):
     class Meta:
         model = TrendyWord
@@ -43,13 +52,43 @@ class TrendyWordResource(resources.ModelResource):
 
 @admin.register(TrendyWord)
 class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
-    list_display = ('name', 'occurrences', 'created_at')
+    list_display = ('name', 'occurrences', 'score', 'created_at', 'has_summary')
     list_filter = ['created_at']
     search_fields = ['name']
     resource_class = TrendyWordResource
+    readonly_fields = ('summary_preview',)
 
     def has_add_permission(self, request):
         return False
+
+    def has_summary(self, obj):
+        """Check if TrendyWord has an associated summary"""
+        return Summary.objects.filter(
+            type='trendy_word_summary',
+            keywords=obj.name
+        ).exists()
+    has_summary.boolean = True
+    has_summary.short_description = 'Summary'
+
+    def summary_preview(self, obj):
+        """Display the associated summary in read-only field (plain text, no design)"""
+        summary = Summary.objects.filter(
+            type='trendy_word_summary',
+            keywords=obj.name
+        ).first()
+        if summary:
+            return summary.summary_text
+        return "-"
+    summary_preview.short_description = 'Associated Summary'
+
+    fieldsets = (
+        ('Word Information', {
+            'fields': ('name', 'occurrences', 'score', 'created_at')
+        }),
+        ('Associated Data', {
+            'fields': ('posturls', 'summary_preview')
+        }),
+    )
 
     def make_delete_blocklist(self, request, queryset):
         rows_updated = 0
