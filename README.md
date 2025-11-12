@@ -2,110 +2,145 @@
     <img alt="Watcher Logo" src="/Watcher/static/watcher-logo-resize.png" height="270" width="270">
 </p>
 
----
+<p align="center">
+    <strong>Automated Cybersecurity Threat Detection Platform</strong>
+</p>
 
-[![Install](/Watcher/static/Install-informational.svg)](https://thalesgroup-cert.github.io/Watcher/README.html)
-[![Documentation](/Watcher/static/Documentation-informational.svg)](https://thalesgroup-cert.github.io/Watcher/)
-[![GitHub Closed Issues](https://img.shields.io/github/issues-closed-raw/thalesgroup-cert/Watcher?logo=github&style=flat-square)](https://github.com/thalesgroup-cert/Watcher/issues?q=is%3Aissue+is%3Aclosed)
-[![LICENSE](https://img.shields.io/github/license/thalesgroup-cert/Watcher?logo=github&style=flat-square)](/LICENSE)
-[![Downloads](https://img.shields.io/docker/pulls/felix83000/watcher?logo=docker&style=flat-square)](https://hub.docker.com/r/felix83000/watcher/tags)
+<p align="center">
+    <a href="https://thalesgroup-cert.github.io/Watcher/README.html">
+        <img src="https://img.shields.io/badge/Install-Guide-informational?style=for-the-badge&logo=docker" alt="Install">
+    </a>
+    <a href="https://thalesgroup-cert.github.io/Watcher/">
+        <img src="https://img.shields.io/badge/Documentation-Read-informational?style=for-the-badge&logo=readthedocs" alt="Documentation">
+    </a>
+    <a href="https://github.com/thalesgroup-cert/Watcher">
+        <img src="https://img.shields.io/github/stars/thalesgroup-cert/Watcher?style=for-the-badge&logo=github" alt="Stars">
+    </a>
+    <a href="https://github.com/thalesgroup-cert/Watcher/issues?q=is%3Aissue+is%3Aclosed">
+        <img src="https://img.shields.io/github/issues-closed-raw/thalesgroup-cert/Watcher?style=for-the-badge&logo=github" alt="Closed Issues">
+    </a>
+    <a href="./LICENSE">
+        <img src="https://img.shields.io/github/license/thalesgroup-cert/Watcher?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License">
+    </a>
+    <a href="https://hub.docker.com/r/felix83000/watcher/tags">
+        <img src="https://img.shields.io/docker/pulls/felix83000/watcher?style=for-the-badge&logo=docker" alt="Docker Pulls">
+    </a>
+</p>
 
-Watcher is a Django & React JS automated platform for discovering new potentially cybersecurity threats targeting your organisation. 
+Watcher is a Django & React JS platform designed to discover and monitor emerging cybersecurity threats. It can be deployed on webservers or quickly run via Docker.
 
-It should be used on webservers and available on Docker.
+## Watcher Capabilities
 
-## Watcher capabilities
+Watcher empowers your security operations with comprehensive threat detection and monitoring:
 
-- Detecting emerging cybersecurity trends like new vulnerabilities, malwares... Via RSS feeds (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
-- Monitor for information leaks, for example in Pastebin & other IT content exchange websites (stackoverflow, github, gitlab, bitbucket, apkmirror, npm...).
-- Monitor malicious domain names for changes (IPs, mail/MX records, web pages using [TLSH](https://github.com/trendmicro/tlsh)).
-- Detecting suspicious domain names targeting your organisation, using:
-     - [dnstwist](https://github.com/elceef/dnstwist) algorithm.
-     - Certificate transparency stream: [certstream](https://github.com/CaliDog/certstream-python)
+- **Emerging Threat Detection** — Monitor cybersecurity trends via RSS feeds from CERT-FR (www.cert.ssi.gouv.fr), CERT-EU (www.cert.europa.eu), US-CERT (www.us-cert.gov), Australian Cyber Security Centre (www.cyber.gov.au), and more. Track new vulnerabilities, malware campaigns, and threat advisories as they appear.
 
-Useful as a bundle regrouping threat hunting/intelligence automated features.
+- **Legitimate Domain Management** — Centralized approved domains with expiry, repurchase status, registrar info, and contacts. Easily convert monitored malicious domains into legitimate ones.
 
-## Additional features
+- **Information Leak Monitoring** — Detect sensitive data exposure across the webs including Pastebin, StackOverflow, GitHub, GitLab, Bitbucket, APKMirror, npm registries, and other platforms. Catch leaked credentials, API keys, and confidential information early.
 
-- Create cases on [TheHive](https://thehive-project.org/) and events on [MISP](https://www.misp-project.org/).
-- Integrated IOCs export to [TheHive](https://thehive-project.org/) and [MISP](https://www.misp-project.org/).
-- LDAP & Local Authentication.
-- Email notifications.
-- Ticketing system feeding.
-- Admin interface.
-- Advance users permissions & groups.
+- **Malicious Domain Surveillance** — Monitor malicious domains for changes in IP addresses, mail/MX records, and web content. Use [TLSH](https://github.com/trendmicro/tlsh) fuzzy hashing to detect modifications. Automatic RDAP/WHOIS checks with registrar and expiry alerts.
+
+- **Suspicious Domain Detection** — Identify potentially malicious domains targeting your organisation via:
+  - **Domain Generation Algorithm Detection** using [dnstwist](https://github.com/elceef/dnstwist) to find typosquatting, homograph attacks, and similar domain variants
+  - **Certificate Transparency Monitoring** via [certstream](https://github.com/CaliDog/certstream-python) to catch newly registered suspicious domains in real-time
+
+## Additional Features
+
+Extend Watcher's capabilities with powerful integrations and management tools:
+
+- **Incident Response Integration** — Automatically create cases on [TheHive](https://thehive-project.org/) and events on [MISP](https://www.misp-project.org/) for streamlined incident handling
+- **IOCs Export** — Seamlessly export Indicators of Compromise (IOCs) to TheHive and MISP for threat intelligence sharing
+- **Flexible Authentication** — Support for both LDAP and local authentication systems
+- **Smart Notifications** — Receive email alerts for critical findings and threshold violations
+- **Ticketing System Integration** — Automatically feed your ticketing system with security findings
+- **Comprehensive Admin Interface** — Manage all aspects of Watcher through Django's powerful admin panel
+- **Advanced Access Control** — Granular user permissions and group management for team collaboration
+- **Modern UI Experience** — A modern interface with customizable themes, resizable dashboard panels, advanced filtering with saved filter sets, and persistent user preferences
 
 ## Involved dependencies
 
-- [certstream](https://github.com/CaliDog/certstream-python)
-- [dnstwist](https://github.com/elceef/dnstwist)
-- [Searx](https://searx.github.io/searx/)
-- [pymisp](https://github.com/MISP/PyMISP)
-- [thehive4py](https://github.com/TheHive-Project/TheHive4py)
-- [TLSH](https://github.com/trendmicro/tlsh)
-- [shadow-useragent](https://github.com/lobstrio/shadow-useragent)
-- [NLTK](https://www.nltk.org/)
+Watcher leverages open source tools and libraries:
+- [**certstream**](https://github.com/CaliDog/certstream-python)
+- [**dnstwist**](https://github.com/elceef/dnstwist)
+- [**Searx**](https://searx.github.io/searx/)
+- [**PyMISP**](https://github.com/MISP/PyMISP)
+- [**TLSH**](https://github.com/trendmicro/tlsh)
+- [**shadow-useragent**](https://github.com/lobstrio/shadow-useragent)
+- [**NLTK**](https://www.nltk.org/)
 
-## Screenshots
-Watcher provides a powerful user interface for data visualization and analysis. This interface can also be used to manage Watcher usage and to monitor its status.
+## App Preview
 
-**Threats detection**
-
+### Threat Detection
 <p align="center">
-    <img alt="Threats detection" src="/Watcher/static/Watcher-threats-detection.png">
+    <img alt="Threats Watcher" src="/Watcher/static/threats-watcher.gif" width="90%">
 </p>
 
-**Data leaks**
-
+### Weekly Summary & Breaking News
 <p align="center">
-    <img alt="Keywords detection" src="/Watcher/static/Watcher-keywords-detection.png">
+    <img alt="Threats Watcher" src="/Watcher/static/weekly-breaking-summary.gif" width="90%">
 </p>
 
-**Malicious domain names monitoring**
-
+### Legitimate Domain List
 <p align="center">
-    <img alt="Malicious domain names monitoring" src="/Watcher/static/Watcher-malicious-domain-names-monitoring.png">
+    <img alt="Legitimate Domain" src="/Watcher/static/legitimate-domain.gif" width="90%">
 </p>
 
-**IOCs export to TheHive & MISP**
-
+### Data Leak Detection
 <p align="center">
-    <img alt="IOCs export to TheHive & MISP" src="/Watcher/static/Watcher-iocs-export.png">
+    <img alt="Data Leak Detection" src="/Watcher/static/data-leak-detection.gif" width="90%">
 </p>
 
-**Suspicious domain names detection**
-
+### Suspicious domain names monitoring
 <p align="center">
-    <img alt="Suspicious domain names detection" src="/Watcher/static/Watcher-suspicious-domain-names-detection.png">
+    <img alt="Suspicious domain names monitoring" src="/Watcher/static/suspicious-domain-names-monitoring.gif" width="90%">
 </p>
 
-Django provides a ready-to-use user interface for administrative activities. We all know how an admin interface is important for a web project: Users management, user group management, Watcher configuration, usage logs...  
+### Suspicious domain names detection
+<p align="center">
+    <img alt="Suspicious domain names detection" src="/Watcher/static/suspicious-domain-names-detection.gif" width="90%">
+</p>
 
-**Admin interface**
+Django provides a ready-to-use user interface for administrative activities. We all know how an admin interface is important for a web project: Users management, user group management, Watcher configuration, usage logs...
+
+### Theme Previews
 
 <p align="center">
-    <img alt="Admin interface" src="/Watcher/static/Watcher-admin-interface.png">
+  <img alt="Theme Preference 1" src="/Watcher/static/theme-preference-1.gif" width="45%">
+  <img alt="Theme Preference 2" src="/Watcher/static/theme-preference-2.gif" width="45%">
+</p>
+
+<p align="center">
+  <img alt="Theme Preference 3" src="/Watcher/static/theme-preference-3.gif" width="45%">
+  <img alt="Theme Preference 4" src="/Watcher/static/theme-preference-4.gif" width="45%">
+</p>
+
+Watcher offers multiple visual themes to match your preferences and working environment. 
+
+### Admin Interface
+<p align="center">
+    <img alt="Admin Interface" src="/Watcher/static/admin-interface.gif" width="90%">
 </p>
 
 ## Installation
 
-Create a new Watcher instance in ten minutes using Docker (see [Installation Guide](https://thalesgroup-cert.github.io/Watcher/README.html)).
+Get Watcher up and running in just **10 minutes** using Docker. **Detailed instructions available in our [Installation Guide](https://thalesgroup-cert.github.io/Watcher/README.html)**
 
-## Platform architecture
+## Platform Architecture
 
 <p align="center">
-    <img alt="Platform architecture" src="/Watcher/static/Platform-architecture.png">
+    <img alt="Platform Architecture" src="/Watcher/static/Platform-architecture.png">
 </p>
 
-## Get involved
-There are many ways to getting involved with Watcher:
+Watcher's modular architecture ensures scalability, reliability, and easy integration with your existing security stack.
 
-- Report bugs by opening [Issues](https://github.com/thalesgroup-cert/Watcher/issues) on GitHub.
-- Request new features or suggest ideas (via [Issues](https://github.com/thalesgroup-cert/Watcher/issues)).
-- Create new features and make pull-requests. Process [here](https://thalesgroup-cert.github.io/Watcher/README.html#developers).
-- Discuss bugs, features, ideas or issues.
-- Share Watcher to your community (Twitter, Facebook...).
+## Contributing
 
-## Pastebin compliant
+We welcome contributions from the security community!
+
+To report bugs, request features, or submit code, please read our full [Contributing Guide](CONTRIBUTING.md).
+
+## Pastebin Compliance
+
 In order to use Watcher pastebin API feature, you need to subscribe to a pastebin pro account and whitelist Watcher public IP (see https://pastebin.com/doc_scraping_api).
 
