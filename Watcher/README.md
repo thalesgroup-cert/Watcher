@@ -1,6 +1,18 @@
 Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 
 ---
+
+> ## ⚠️ Important Notice: Docker Hub Migration Required
+> **Docker Hub support is deprecated and will be completely removed on February 28, 2026**
+> 
+> **Action Required:** All users must migrate to GitHub Container Registry (GHCR) before this date.
+> 
+> **New default registry:** `ghcr.io/thalesgroup-cert/watcher:latest`
+> 
+> If you are currently using Docker Hub (`felix83000/watcher`), please update your `docker-compose.yml` file to use GHCR instead. See the [Installation](#install-watcher) section for details.
+
+---
+
 # Install Watcher
 
 ## Prerequisites
@@ -656,7 +668,7 @@ Watcher automatically detects rapidly trending cybersecurity keywords:
 3. **AI Summarization**: Automatic summary generation with extracted CVEs, threat actors, and organizations
 
 **Configure in `.env`**:
-```env
+```bash
 BREAKING_NEWS_THRESHOLD=15  # Adjust sensitivity (lower = more alerts)
 ```
 
@@ -674,7 +686,7 @@ Automated weekly summaries of trending threats:
    - Malware families
 
 **Configure in `.env`**:
-```env
+```bash
 WEEKLY_SUMMARY_DAY=Monday
 WEEKLY_SUMMARY_HOUR=9:30
 ```
@@ -748,10 +760,36 @@ To archived **several** alerts:
 
 Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
 
+## Migrate from Docker Hub to GHCR (Required for all users)
+
+If you are still using the old Docker Hub image (`felix83000/watcher`), you **must** update your `docker-compose.yml`:
+
+**Old (DEPRECATED):**
+```yaml
+image: felix83000/watcher:latest
+```
+
+**New (REQUIRED):**
+```yaml
+image: ghcr.io/thalesgroup-cert/watcher:latest
+```
+
+## Update Process
+
 To update Watcher image please follow the instructions below:
 
 - Stop all containers: `docker compose down`
-- Remove the old docker images: `docker rmi felix83000/watcher searx/searx`
+- Remove the old docker images: 
+  ```bash
+  # If migrating from Docker Hub
+  docker rmi felix83000/watcher
+  
+  # If already using GHCR
+  docker rmi ghcr.io/thalesgroup-cert/watcher
+  
+  # Also remove Searx image
+  docker rmi searx/searx
+  ```
 - Pull the newer docker images: `docker compose up`
 
 This will update the Watcher project.
