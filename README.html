@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 3.0 documentation</title>
+  <title>Install Watcher &mdash; Watcher 3.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=110ea713"></script>
+      <script src="_static/documentation_options.js?v=dd1205ac"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -119,6 +119,8 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#update-watcher">Update Watcher</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#migrate-from-docker-hub-to-ghcr-required-for-all-users">Migrate from Docker Hub to GHCR (Required for all users)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#update-process">Update Process</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#migrate-populate-the-database-mandatory">Migrate &amp; Populate the database (mandatory)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#managing-breaking-changes-optional">Managing Breaking Changes (optional)</a></li>
 </ul>
@@ -179,6 +181,14 @@
            <div itemprop="articleBody">
              
   <p>Developed by <a class="reference external" href="https://github.com/thalesgroup-cert">Thales Group CERT</a>.</p>
+<hr class="docutils" />
+<blockquote>
+<div><p class="rubric" id="important-notice-docker-hub-migration-required">⚠️ Important Notice: Docker Hub Migration Required</p>
+<p><strong>Docker Hub support is deprecated and will be completely removed on February 28, 2026</strong></p>
+<p><strong>Action Required:</strong> All users must migrate to GitHub Container Registry (GHCR) before this date.</p>
+<p><strong>New default registry:</strong> <code class="docutils literal notranslate"><span class="pre">ghcr.io/thalesgroup-cert/watcher:latest</span></code></p>
+<p>If you are currently using Docker Hub (<code class="docutils literal notranslate"><span class="pre">felix83000/watcher</span></code>), please update your <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code> file to use GHCR instead. See the <a class="reference internal" href="#install-watcher">Installation</a> section for details.</p>
+</div></blockquote>
 <hr class="docutils" />
 <section id="install-watcher">
 <h1>Install Watcher<a class="headerlink" href="#install-watcher" title="Link to this heading"></a></h1>
@@ -920,7 +930,7 @@ the version of your MISP instance.</p>
 <li><p><strong>AI Summarization</strong>: Automatic summary generation with extracted CVEs, threat actors, and organizations</p></li>
 </ol>
 <p><strong>Configure in <code class="docutils literal notranslate"><span class="pre">.env</span></code></strong>:</p>
-<div class="highlight-env notranslate"><div class="highlight"><pre><span></span>BREAKING_NEWS_THRESHOLD=15  # Adjust sensitivity (lower = more alerts)
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">BREAKING_NEWS_THRESHOLD</span><span class="o">=</span><span class="m">15</span><span class="w">  </span><span class="c1"># Adjust sensitivity (lower = more alerts)</span>
 </pre></div>
 </div>
 </section>
@@ -941,8 +951,8 @@ the version of your MISP instance.</p>
 </li>
 </ol>
 <p><strong>Configure in <code class="docutils literal notranslate"><span class="pre">.env</span></code></strong>:</p>
-<div class="highlight-env notranslate"><div class="highlight"><pre><span></span>WEEKLY_SUMMARY_DAY=Monday
-WEEKLY_SUMMARY_HOUR=9:30
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">WEEKLY_SUMMARY_DAY</span><span class="o">=</span>Monday
+<span class="nv">WEEKLY_SUMMARY_HOUR</span><span class="o">=</span><span class="m">9</span>:30
 </pre></div>
 </div>
 </section>
@@ -1028,13 +1038,39 @@ WEEKLY_SUMMARY_HOUR=9:30
 <section id="update-watcher">
 <h1>Update Watcher<a class="headerlink" href="#update-watcher" title="Link to this heading"></a></h1>
 <p>Verify that your local files <code class="docutils literal notranslate"><span class="pre">/.env</span></code>, <code class="docutils literal notranslate"><span class="pre">/docker-compose.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">/Searx/</span></code> are <strong>up-to-date</strong>.</p>
+<section id="migrate-from-docker-hub-to-ghcr-required-for-all-users">
+<h2>Migrate from Docker Hub to GHCR (Required for all users)<a class="headerlink" href="#migrate-from-docker-hub-to-ghcr-required-for-all-users" title="Link to this heading"></a></h2>
+<p>If you are still using the old Docker Hub image (<code class="docutils literal notranslate"><span class="pre">felix83000/watcher</span></code>), you <strong>must</strong> update your <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>:</p>
+<p><strong>Old (DEPRECATED):</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">felix83000/watcher:latest</span>
+</pre></div>
+</div>
+<p><strong>New (REQUIRED):</strong></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/thalesgroup-cert/watcher:latest</span>
+</pre></div>
+</div>
+</section>
+<section id="update-process">
+<h2>Update Process<a class="headerlink" href="#update-process" title="Link to this heading"></a></h2>
 <p>To update Watcher image please follow the instructions below:</p>
-<ul class="simple">
+<ul>
 <li><p>Stop all containers: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">down</span></code></p></li>
-<li><p>Remove the old docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">rmi</span> <span class="pre">felix83000/watcher</span> <span class="pre">searx/searx</span></code></p></li>
+<li><p>Remove the old docker images:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># If migrating from Docker Hub</span>
+docker<span class="w"> </span>rmi<span class="w"> </span>felix83000/watcher
+
+<span class="c1"># If already using GHCR</span>
+docker<span class="w"> </span>rmi<span class="w"> </span>ghcr.io/thalesgroup-cert/watcher
+
+<span class="c1"># Also remove Searx image</span>
+docker<span class="w"> </span>rmi<span class="w"> </span>searx/searx
+</pre></div>
+</div>
+</li>
 <li><p>Pull the newer docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">up</span></code></p></li>
 </ul>
 <p>This will update the Watcher project.</p>
+</section>
 <section id="migrate-populate-the-database-mandatory">
 <h2>Migrate &amp; Populate the database (mandatory)<a class="headerlink" href="#migrate-populate-the-database-mandatory" title="Link to this heading"></a></h2>
 <p>Updates the state of the database in accordance with all current models and migrations. Populate your database with hundred of banned words and RSS sources related to Cyber Security.</p>
