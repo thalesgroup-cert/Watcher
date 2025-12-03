@@ -1,6 +1,6 @@
 # Web Framework and Application Enhancements
 mysqlclient==2.2.7
-django==5.2.8
+django==5.2.9
 django-mysql==4.19.0
 djangorestframework==3.15.2
 django-rest-knox==4.2.0
