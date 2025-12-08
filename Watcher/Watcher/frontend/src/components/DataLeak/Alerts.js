@@ -2,7 +2,7 @@ import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import {getAlerts, updateAlertStatus} from "../../actions/DataLeak";
-import {Button, Modal, InputGroup, FormControl} from 'react-bootstrap';
+import {Button, Modal, Form} from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 
 export class Alerts extends Component {
@@ -143,12 +143,15 @@ export class Alerts extends Component {
                     <Modal.Title><b>#{this.state.id}</b>: <b>{this.state.keyword}</b> was found</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <InputGroup>
-                        <InputGroup.Prepend>
-                            <InputGroup.Text>Raw</InputGroup.Text>
-                        </InputGroup.Prepend>
-                        <FormControl as="textarea" rows={10} value={this.state.content} readOnly={true}/>
-                    </InputGroup>
+                    <Form.Group>
+                        <Form.Label>Raw Content</Form.Label>
+                        <Form.Control 
+                            as="textarea" 
+                            rows={10} 
+                            value={this.state.content} 
+                            readOnly={true}
+                        />
+                    </Form.Group>
                 </Modal.Body>
                 <Modal.Footer>
                     <form onSubmit={onSubmit}>
@@ -231,7 +234,7 @@ export class Alerts extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
                                                         ID{renderSortIcons('id')}
                                                     </th>
-                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword')}>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword.name')}>
                                                         Keyword{renderSortIcons('keyword.name')}
                                                     </th>
                                                     <th>From</th>
@@ -287,7 +290,7 @@ export class Alerts extends Component {
                                                                 <td>
                                                                     <button 
                                                                         onClick={() => this.displayModal(alert.id)}
-                                                                        className="btn btn-outline-primary btn-sm"
+                                                                        className="btn btn-outline-warning btn-sm"
                                                                     >
                                                                         Disable
                                                                     </button>

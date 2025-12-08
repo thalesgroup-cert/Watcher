@@ -1,20 +1,37 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from .models import LegitimateDomain
 from .serializers import LegitimateDomainSerializer
+
+
+# Pagination
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
 
 # LegitimateDomain Viewset
 class LegitimateDomainViewSet(viewsets.ModelViewSet):
     """
     API endpoint for viewing and editing company legitimate domains.
     """
-    queryset = LegitimateDomain.objects.all().order_by('-created_at')
-    serializer_class = LegitimateDomainSerializer
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    serializer_class = LegitimateDomainSerializer
+    pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['domain_name', 'ticket_id', 'contact', 'comments']
     ordering_fields = ['domain_name', 'created_at', 'expiry']
+    
+    def get_queryset(self):
+        return LegitimateDomain.objects.all().order_by('-created_at')
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='misp')
     def export_to_misp(self, request):

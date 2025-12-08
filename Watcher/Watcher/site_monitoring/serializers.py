@@ -26,10 +26,18 @@ class SiteSerializer(serializers.ModelSerializer):
         return get_misp_uuid(obj.domain_name)
         
     def validate_domain_name(self, value):
+        from common.models import LegitimateDomain
+        
         extracted = tldextract.extract(value)
         
         if not extracted.domain or not extracted.suffix:
             raise serializers.ValidationError("The domain name is not valid")
+        
+        # Check if domain exists in Legitimate Domains
+        if LegitimateDomain.objects.filter(domain_name=value).exists():
+            raise serializers.ValidationError(
+                f'{value} Already exists in Legitimate Domains'
+            )
         
         return value
 

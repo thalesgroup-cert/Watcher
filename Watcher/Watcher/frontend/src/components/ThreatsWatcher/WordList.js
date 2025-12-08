@@ -264,12 +264,13 @@ export class WordList extends Component {
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(lead => (
-                                                        <tr key={lead.id}>
-                                                            <td
-                                                                onClick={() => this.props.setPostUrls(lead.posturls, lead.name)}
-                                                                role="button"
-                                                                className="align-middle"
-                                                            >
+                                                        <tr 
+                                                            key={lead.id}
+                                                            onClick={() => this.props.setPostUrls(lead.posturls, lead.name)}
+                                                            role="button"
+                                                            style={{ cursor: 'pointer' }}
+                                                        >
+                                                            <td className="align-middle">
                                                                 <span className="mb-0" style={{ fontSize: '1rem' }}>
                                                                     {lead.name}
                                                                 </span>
@@ -299,7 +300,7 @@ export class WordList extends Component {
                                                             <td className="text-center align-middle">
                                                                 <small style={{ fontSize: '1rem' }}>{new Date(lead.created_at).toLocaleString()}</small>
                                                             </td>
-                                                            <td className="text-center align-middle">
+                                                            <td className="text-center align-middle" onClick={(e) => e.stopPropagation()}>
                                                                 {isAuthenticated && authLinks(lead.id, lead.name)}
                                                             </td>
                                                         </tr>
