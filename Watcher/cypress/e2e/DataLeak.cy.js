@@ -1,51 +1,60 @@
 describe('Data Leak - E2E Test Suite', () => {
   const setupIntercepts = () => {
-    // Setup API mocks
     cy.intercept('GET', '/api/data_leak/keyword/', {
       statusCode: 200,
-      body: [
-        { id: 1, name: "test-confidential", created_at: "2025-06-19T10:00:00Z" },
-        { id: 2, name: "e2e-internal", created_at: "2025-06-18T15:30:00Z" },
-        { id: 3, name: "test-company-data", created_at: "2025-06-17T08:15:00Z" }
-      ]
+      body: {
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, name: "test-confidential", created_at: "2025-06-19T10:00:00Z" },
+          { id: 2, name: "e2e-internal", created_at: "2025-06-18T15:30:00Z" },
+          { id: 3, name: "test-company-data", created_at: "2025-06-17T08:15:00Z" }
+        ]
+      }
     }).as('getKeywords');
 
     cy.intercept('GET', '/api/data_leak/alert/', {
       statusCode: 200,
-      body: [
-        {
-          id: 1,
-          keyword: { id: 1, name: "test-confidential" },
-          url: "https://pastebin.com/test123",
-          content: "Confidential test data found in paste",
-          status: true,
-          created_at: "2025-06-19T14:30:00Z"
-        },
-        {
-          id: 2,
-          keyword: { id: 2, name: "e2e-internal" },
-          url: "https://github.com/test/repo", 
-          content: "Internal documentation exposed",
-          status: true,
-          created_at: "2025-06-19T12:15:00Z"
-        },
-        {
-          id: 3,
-          keyword: { id: 1, name: "test-confidential" },
-          url: "https://pastebin.com/test456",
-          content: "More confidential data leak detected", 
-          status: false,
-          created_at: "2025-06-18T16:45:00Z"
-        },
-        {
-          id: 4,
-          keyword: { id: 3, name: "test-company-data" },
-          url: "https://github.com/test/company",
-          content: "Company data in public repository",
-          status: false,
-          created_at: "2025-06-17T10:20:00Z"
-        }
-      ]
+      body: {
+        count: 4,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            keyword: { id: 1, name: "test-confidential" },
+            url: "https://pastebin.com/test123",
+            content: "Confidential test data found in paste",
+            status: true,
+            created_at: "2025-06-19T14:30:00Z"
+          },
+          {
+            id: 2,
+            keyword: { id: 2, name: "e2e-internal" },
+            url: "https://github.com/test/repo",
+            content: "Internal documentation exposed",
+            status: true,
+            created_at: "2025-06-19T12:15:00Z"
+          },
+          {
+            id: 3,
+            keyword: { id: 1, name: "test-confidential" },
+            url: "https://pastebin.com/test456",
+            content: "More confidential data leak detected",
+            status: false,
+            created_at: "2025-06-18T16:45:00Z"
+          },
+          {
+            id: 4,
+            keyword: { id: 3, name: "test-company-data" },
+            url: "https://github.com/test/company",
+            content: "Company data in public repository",
+            status: false,
+            created_at: "2025-06-17T10:20:00Z"
+          }
+        ]
+      }
     }).as('getAlerts');
 
     // Mock CRUD operations
@@ -752,15 +761,13 @@ describe('Data Leak - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((keyword) => {
-          if (keyword.name && (keyword.name.includes('test-') || keyword.name.includes('e2e-'))) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((keyword) => {
+          if (keyword.name.includes('test-') || keyword.name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
               url: `/api/data_leak/keyword/${keyword.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }

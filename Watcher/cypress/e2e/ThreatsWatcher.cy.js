@@ -5,43 +5,53 @@ describe('Threats Watcher - E2E Test Suite', () => {
     // Setup API mocks
     cy.intercept('GET', '/api/threats_watcher/trendyword/', {
       statusCode: 200,
-      body: [
-        {
-          id: 1, name: "test-malware", occurrences: 45,
-          score: 92.5,
-          posturls: [
-            "https://watcher.com/malware-report,2025-06-19T14:30:00Z",
-            "https://watcher.com/malware-analysis,2025-06-19T12:15:00Z"
-          ],
-          created_at: "2025-06-19T10:00:00Z"
-        },
-        {
-          id: 2, name: "e2e-ransomware", occurrences: 32,
-          score: 80.0,
-          posturls: [
-            "https://watcher.com/ransomware-attack,2025-06-19T11:20:00Z",
-            "https://watcher.com/ransomware-news,2025-06-18T09:30:00Z"
-          ],
-          created_at: "2025-06-18T15:30:00Z"
-        },
-        {
-          id: 3, name: "test-phishing", occurrences: 28,
-          score: 67.3,
-          posturls: [
-            "https://watcher.com/phishing-campaign,2025-06-19T08:45:00Z",
-            "https://watcher.com/phishing-trends,2025-06-18T14:20:00Z"
-          ],
-          created_at: "2025-06-17T08:15:00Z"
-        }
-      ]
+      body: {
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1, name: "test-malware", occurrences: 45,
+            score: 92.5,
+            posturls: [
+              "https://watcher.com/malware-report,2025-06-19T14:30:00Z",
+              "https://watcher.com/malware-analysis,2025-06-19T12:15:00Z"
+            ],
+            created_at: "2025-06-19T10:00:00Z"
+          },
+          {
+            id: 2, name: "e2e-ransomware", occurrences: 32,
+            score: 80.0,
+            posturls: [
+              "https://watcher.com/ransomware-attack,2025-06-19T11:20:00Z",
+              "https://watcher.com/ransomware-news,2025-06-18T09:30:00Z"
+            ],
+            created_at: "2025-06-18T15:30:00Z"
+          },
+          {
+            id: 3, name: "test-phishing", occurrences: 28,
+            score: 67.3,
+            posturls: [
+              "https://watcher.com/phishing-campaign,2025-06-19T08:45:00Z",
+              "https://watcher.com/phishing-trends,2025-06-18T14:20:00Z"
+            ],
+            created_at: "2025-06-17T08:15:00Z"
+          }
+        ]
+      }
     }).as('getTrendyWords');
 
     cy.intercept('GET', '/api/threats_watcher/bannedword/', {
       statusCode: 200,
-      body: [
-        { id: 1, name: "test-spam", created_at: "2025-06-19T10:00:00Z" },
-        { id: 2, name: "e2e-advertisement", created_at: "2025-06-18T15:30:00Z" }
-      ]
+      body: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, name: "test-spam", created_at: "2025-06-19T10:00:00Z" },
+          { id: 2, name: "e2e-advertisement", created_at: "2025-06-18T15:30:00Z" }
+        ]
+      }
     }).as('getBannedWords');
 
     cy.intercept('GET', '/api/threats_watcher/summary/?type=weekly_summary', {
@@ -733,15 +743,13 @@ describe('Threats Watcher - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((word) => {
-          if (word.name && (word.name.includes('test-') || word.name.includes('e2e-'))) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((word) => {
+          if (word.name.includes('test-') || word.name.includes('e2e-') || word.name.includes('Test ')) {
             cy.request({
               method: 'DELETE',
               url: `/api/threats_watcher/bannedword/${word.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }
@@ -758,15 +766,13 @@ describe('Threats Watcher - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((word) => {
-          if (word.name && (word.name.includes('test-') || word.name.includes('e2e-'))) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((word) => {
+          if (word.name.includes('test-') || word.name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
               url: `/api/threats_watcher/trendyword/${word.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }
@@ -774,7 +780,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     });
 
-    // Clear visited URLs from localStorage
+    // Clear localStorage
     cy.window().then((win) => {
       win.localStorage.removeItem('viewedUrls');
       win.localStorage.removeItem('watcher_localstorage_layout_threatsWatcher');

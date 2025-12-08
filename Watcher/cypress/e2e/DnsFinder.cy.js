@@ -3,68 +3,83 @@ describe('DNS Finder - E2E Test Suite', () => {
     // Setup API mocks
     cy.intercept('GET', '/api/dns_finder/dns_monitored/', {
       statusCode: 200,
-      body: [
-        { id: 1, domain_name: "watcher.com", created_at: "2025-06-19T10:00:00Z" },
-        { id: 2, domain_name: "watcher.fr", created_at: "2025-06-18T15:30:00Z" },
-        { id: 3, domain_name: "watcher.org", created_at: "2025-06-17T08:15:00Z" }
-      ]
+      body: {
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, domain_name: "watcher.com", created_at: "2025-06-19T10:00:00Z" },
+          { id: 2, domain_name: "watcher.fr", created_at: "2025-06-18T15:30:00Z" },
+          { id: 3, domain_name: "watcher.org", created_at: "2025-06-17T08:15:00Z" }
+        ]
+      }
     }).as('getDnsMonitored');
 
     cy.intercept('GET', '/api/dns_finder/keyword_monitored/', {
       statusCode: 200,
-      body: [
-        { id: 1, name: "watcher", created_at: "2025-06-19T10:00:00Z" },
-        { id: 2, name: "threat-intel", created_at: "2025-06-18T15:30:00Z" },
-        { id: 3, name: "security-corp", created_at: "2025-06-17T08:15:00Z" }
-      ]
+      body: {
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, name: "watcher", created_at: "2025-06-19T10:00:00Z" },
+          { id: 2, name: "threat-intel", created_at: "2025-06-18T15:30:00Z" },
+          { id: 3, name: "security-corp", created_at: "2025-06-17T08:15:00Z" }
+        ]
+      }
     }).as('getKeywordMonitored');
 
     cy.intercept('GET', '/api/dns_finder/alert/', {
       statusCode: 200,
-      body: [
-        {
-          id: 1,
-          dns_twisted: {
-            id: 101,
-            domain_name: "vvatcher.com",
-            dns_monitored: { id: 1, domain_name: "watcher.com" },
-            keyword_monitored: null,
-            fuzzer: "homoglyph",
-            misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440000']",
+      body: {
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            dns_twisted: {
+              id: 101,
+              domain_name: "vvatcher.com",
+              dns_monitored: { id: 1, domain_name: "watcher.com" },
+              keyword_monitored: null,
+              fuzzer: "homoglyph",
+              misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440000']",
+              created_at: "2025-06-19T14:30:00Z"
+            },
+            status: true,
             created_at: "2025-06-19T14:30:00Z"
           },
-          status: true,
-          created_at: "2025-06-19T14:30:00Z"
-        },
-        {
-          id: 2,
-          dns_twisted: {
-            id: 102,
-            domain_name: "watcher-threat.com",
-            dns_monitored: null,
-            keyword_monitored: { id: 1, name: "watcher" },
-            fuzzer: null,
-            misp_event_uuid: null,
+          {
+            id: 2,
+            dns_twisted: {
+              id: 102,
+              domain_name: "watcher-threat.com",
+              dns_monitored: null,
+              keyword_monitored: { id: 1, name: "watcher" },
+              fuzzer: null,
+              misp_event_uuid: null,
+              created_at: "2025-06-19T12:15:00Z"
+            },
+            status: true,
             created_at: "2025-06-19T12:15:00Z"
           },
-          status: true,
-          created_at: "2025-06-19T12:15:00Z"
-        },
-        {
-          id: 3,
-          dns_twisted: {
-            id: 103,
-            domain_name: "vvatcher.fr",
-            dns_monitored: { id: 2, domain_name: "watcher.fr" },
-            keyword_monitored: null,
-            fuzzer: "bitsquatting",
-            misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440001']",
+          {
+            id: 3,
+            dns_twisted: {
+              id: 103,
+              domain_name: "vvatcher.fr",
+              dns_monitored: { id: 2, domain_name: "watcher.fr" },
+              keyword_monitored: null,
+              fuzzer: "bitsquatting",
+              misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440001']",
+              created_at: "2025-06-18T16:45:00Z"
+            },
+            status: false,
             created_at: "2025-06-18T16:45:00Z"
-          },
-          status: false,
-          created_at: "2025-06-18T16:45:00Z"
-        }
-      ]
+          }
+        ]
+      }
     }).as('getAlerts');
 
     // Mock CRUD operations
@@ -912,15 +927,13 @@ describe('DNS Finder - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((dns) => {
-          if (dns.domain_name && dns.domain_name.includes('test-')) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((dns) => {
+          if (dns.domain_name.includes('test-') || dns.domain_name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
               url: `/api/dns_finder/dns_monitored/${dns.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }
@@ -937,15 +950,13 @@ describe('DNS Finder - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((keyword) => {
-          if (keyword.name && keyword.name.includes('test-')) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((keyword) => {
+          if (keyword.name.includes('test-') || keyword.name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
               url: `/api/dns_finder/keyword_monitored/${keyword.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }

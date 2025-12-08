@@ -3,48 +3,53 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     // Setup API mocks
     cy.intercept('GET', '/api/common/legitimate_domains/', {
       statusCode: 200,
-      body: [
-        {
-          id: 1,
-          domain_name: "watcher-company.com",
-          ticket_id: "240529-1a2b3",
-          contact: "IT Team - it@watcher.com",
-          expiry: "2026-12-31T23:59:59Z",
-          repurchased: true,
-          comments: "Main corporate domain - critical asset",
-          created_at: "2025-06-19T10:00:00Z"
-        },
-        {
-          id: 2,
-          domain_name: "watcher-backup.fr",
-          ticket_id: "240530-4c5d6",
-          contact: "Security Team",
-          expiry: "2025-11-15T23:59:59Z",
-          repurchased: false,
-          comments: "Backup domain for disaster recovery",
-          created_at: "2025-06-18T15:30:00Z"
-        },
-        {
-          id: 3,
-          domain_name: "old-watcher-domain.org",
-          ticket_id: null,
-          contact: "John Doe - john@watcher.com",
-          expiry: "2025-10-20T23:59:59Z",
-          repurchased: false,
-          comments: "Expiring soon - decision pending on renewal",
-          created_at: "2025-06-17T08:15:00Z"
-        },
-        {
-          id: 4,
-          domain_name: "expired-watcher.net",
-          ticket_id: "240528-7e8f9",
-          contact: "Legal Team",
-          expiry: "2025-05-01T23:59:59Z",
-          repurchased: false,
-          comments: "Expired - needs immediate attention",
-          created_at: "2025-06-16T12:00:00Z"
-        }
-      ]
+      body: {
+        count: 4,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            domain_name: "watcher-company.com",
+            ticket_id: "240529-1a2b3",
+            contact: "IT Team - it@watcher.com",
+            expiry: "2026-12-31T23:59:59Z",
+            repurchased: true,
+            comments: "Main corporate domain - critical asset",
+            created_at: "2025-06-19T10:00:00Z"
+          },
+          {
+            id: 2,
+            domain_name: "watcher-backup.fr",
+            ticket_id: "240530-4c5d6",
+            contact: "Security Team",
+            expiry: "2025-11-15T23:59:59Z",
+            repurchased: false,
+            comments: "Backup domain for disaster recovery",
+            created_at: "2025-06-18T15:30:00Z"
+          },
+          {
+            id: 3,
+            domain_name: "old-watcher-domain.org",
+            ticket_id: null,
+            contact: "John Doe - john@watcher.com",
+            expiry: "2025-10-20T23:59:59Z",
+            repurchased: false,
+            comments: "Expiring soon - decision pending on renewal",
+            created_at: "2025-06-17T08:15:00Z"
+          },
+          {
+            id: 4,
+            domain_name: "expired-watcher.net",
+            ticket_id: "240528-7e8f9",
+            contact: "Legal Team",
+            expiry: "2025-05-01T23:59:59Z",
+            repurchased: false,
+            comments: "Expired - needs immediate attention",
+            created_at: "2025-06-16T12:00:00Z"
+          }
+        ]
+      }
     }).as('getDomains');
 
     // Mock CRUD operations
@@ -674,7 +679,7 @@ describe('Legitimate Domains - E2E Test Suite', () => {
 
       cy.get('table', { timeout: 20000 }).should('exist').then(() => {
         const loadTime = Date.now() - startTime;
-        expect(loadTime).to.be.lessThan(25000);
+        expect(loadTime).to be.lessThan(25000);
       });
     });
 
@@ -757,15 +762,13 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((domain) => {
-          if (domain.domain_name && domain.domain_name.includes('test-')) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((domain) => {
+          if (domain.domain_name.includes('test-') || domain.domain_name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
               url: `/api/common/legitimate_domains/${domain.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }
