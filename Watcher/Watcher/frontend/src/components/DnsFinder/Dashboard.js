@@ -1,10 +1,10 @@
 import React, {Component, Fragment} from 'react';
 import { connect } from 'react-redux';
 import { getAlerts, getDnsMonitored, getKeywordMonitored } from "../../actions/DnsFinder";
-import DnsMonitored from "./DnsMonitored";
-import KeywordMonitored from "./KeywordMonitored";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
+import DnsMonitored from "./DnsMonitored";
+import KeywordMonitored from "./KeywordMonitored";
 import TableManager from '../common/TableManager';
 import ResizableContainer from '../common/ResizableContainer';
 
@@ -49,15 +49,108 @@ class Dashboard extends Component {
                 keyword: '',
                 fuzzer: ''
             },
-            filteredAlerts: []
+            filteredAlerts: [],
+            isLoadingInBackground: false,
+            allDataLoaded: false
         };
+        this.loadingTimer = null;
     }
 
     componentDidMount() {
-        this.props.getAlerts();
-        this.props.getDnsMonitored();
-        this.props.getKeywordMonitored();
+        this.loadInitialData();
     }
+
+    componentWillUnmount() {
+        if (this.loadingTimer) {
+            clearTimeout(this.loadingTimer);
+        }
+    }
+
+    loadInitialData = async () => {
+        try {
+            await this.props.getAlerts(1, 100);
+            
+            await Promise.all([
+                this.props.getDnsMonitored(1, 100),
+                this.props.getKeywordMonitored(1, 100)
+            ]);
+
+            this.loadingTimer = setTimeout(() => {
+                this.loadRemainingDataInBackground();
+            }, 500);
+        } catch (error) {
+        }
+    };
+
+    loadRemainingDataInBackground = async () => {
+        const { alertsNext } = this.props;
+        
+        if (!alertsNext) {
+            this.setState({ 
+                allDataLoaded: true,
+                isLoadingInBackground: false
+            });
+            return;
+        }
+
+        this.setState({ isLoadingInBackground: true });
+
+        try {
+            let currentPage = 2;
+            let hasMore = true;
+
+            while (hasMore) {
+                try {
+                    const response = await this.props.getAlerts(currentPage, 100);
+                    hasMore = response.next !== null;
+                    currentPage++;
+
+                    if (hasMore) {
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                } catch (error) {
+                    hasMore = false;
+                }
+            }
+
+            await this.loadRemainingDomainsAndKeywords();
+
+            this.setState({ 
+                allDataLoaded: true,
+                isLoadingInBackground: false
+            });
+
+        } catch (error) {
+            this.setState({ 
+                isLoadingInBackground: false 
+            });
+        }
+    };
+
+    loadRemainingDomainsAndKeywords = async () => {
+        try {
+            const { dnsMonitoredNext, keywordMonitoredNext } = this.props;
+            
+            const promises = [];
+            
+            if (dnsMonitoredNext) {
+                promises.push(
+                    this.props.getDnsMonitored(2, 500).catch(() => {})
+                );
+            }
+            
+            if (keywordMonitoredNext) {
+                promises.push(
+                    this.props.getKeywordMonitored(2, 500).catch(() => {})
+                );
+            }
+            
+            if (promises.length > 0) {
+                await Promise.all(promises);
+            }
+        } catch (error) {
+        }
+    };
 
     getFilterConfig = () => {
         const { alerts, dnsMonitored, keywordMonitored } = this.props;
@@ -146,19 +239,11 @@ class Dashboard extends Component {
                     <div className="row">
                         <div className="col-12">
                             <ResizableContainer
-                                leftComponent={
-                                    <Alerts 
-                                        globalFilters={globalFilters} 
-                                        filteredData={dataToPass}
-                                    />
-                                }
-                                rightComponent={
-                                    <DnsMonitored 
-                                        globalFilters={globalFilters}
-                                        filteredData={dataToPass}
-                                    />
-                                }
+                                leftComponent={<Alerts globalFilters={globalFilters} filteredData={dataToPass} />}
+                                rightComponent={<DnsMonitored globalFilters={globalFilters} filteredData={dataToPass} />}
                                 defaultLeftWidth={65}
+                                minLeftWidth={20}
+                                maxLeftWidth={85}
                                 storageKey="watcher_localstorage_layout_dnsFinder"
                             />
                         </div>
@@ -167,19 +252,11 @@ class Dashboard extends Component {
                     <div className="row mt-4">
                         <div className="col-12">
                             <ResizableContainer
-                                leftComponent={
-                                    <ArchivedAlerts 
-                                        globalFilters={globalFilters}
-                                        filteredData={dataToPass}
-                                    />
-                                }
-                                rightComponent={
-                                    <KeywordMonitored 
-                                        globalFilters={globalFilters}
-                                        filteredData={dataToPass}
-                                    />
-                                }
+                                leftComponent={<ArchivedAlerts globalFilters={globalFilters} filteredData={dataToPass} />}
+                                rightComponent={<KeywordMonitored globalFilters={globalFilters} />}
                                 defaultLeftWidth={65}
+                                minLeftWidth={20}
+                                maxLeftWidth={85}
                                 storageKey="watcher_localstorage_layout_dnsFinder_secondary"
                             />
                         </div>
@@ -192,8 +269,12 @@ class Dashboard extends Component {
 
 const mapStateToProps = state => ({
     alerts: state.DnsFinder.alerts || [],
+    alertsCount: state.DnsFinder.alertsCount || 0,
+    alertsNext: state.DnsFinder.alertsNext || null,
     dnsMonitored: state.DnsFinder.dnsMonitored || [],
-    keywordMonitored: state.DnsFinder.keywordMonitored || []
+    dnsMonitoredNext: state.DnsFinder.dnsMonitoredNext || null,
+    keywordMonitored: state.DnsFinder.keywordMonitored || [],
+    keywordMonitoredNext: state.DnsFinder.keywordMonitoredNext || null
 });
 
 export default connect(mapStateToProps, {getAlerts, getDnsMonitored, getKeywordMonitored})(Dashboard);

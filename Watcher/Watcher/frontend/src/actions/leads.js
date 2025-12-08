@@ -7,17 +7,25 @@ import {tokenConfig} from "./auth";
 // Here you will find all the API Requests
 
 // GET LEADS
-export const getLeads = () => dispatch => {
-    axios.get('/api/threats_watcher/trendyword/')
+export const getLeads = (page = 1, pageSize = 100) => dispatch => {
+    return axios
+        .get(`/api/threats_watcher/trendyword/?page=${page}&page_size=${pageSize}`)
         .then(res => {
             dispatch({
                 type: GET_LEADS,
-                payload: res.data
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
+            return res.data;
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
 };
 
 // DELETE LEAD

@@ -10,78 +10,107 @@ import {
 
 const initialState = {
     sites: [],
-    alerts: []
+    sitesCount: 0,
+    sitesNext: null,
+    sitesPrevious: null,
+    alerts: [],
+    alertsCount: 0,
+    alertsNext: null,
+    alertsPrevious: null
 };
-
 
 export default function (state = initialState, action) {
     switch (action.type) {
-        case GET_SITES:
+        case GET_SITES: {
+            const newResults = action.payload.results || action.payload;
+            
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    sites: newResults,
+                    sitesCount: newResults.length,
+                    sitesNext: null,
+                    sitesPrevious: null
+                };
+            }
+            
+            const existingIds = new Set(state.sites.map(s => s.id));
+            const uniqueNewSites = newResults.filter(site => !existingIds.has(site.id));
+            
             return {
                 ...state,
-                sites: action.payload
+                sites: [...state.sites, ...uniqueNewSites].sort((a, b) => b.rtir - a.rtir),
+                sitesCount: action.payload.count || state.sitesCount,
+                sitesNext: action.payload.next || null,
+                sitesPrevious: action.payload.previous || null
             };
-        case GET_SITE_ALERTS:
+        }
+
+        case GET_SITE_ALERTS: {
+            const newResults = action.payload.results || action.payload;
+            
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    alerts: newResults,
+                    alertsCount: newResults.length,
+                    alertsNext: null,
+                    alertsPrevious: null
+                };
+            }
+            
+            const existingIds = new Set(state.alerts.map(a => a.id));
+            const uniqueNewAlerts = newResults.filter(alert => !existingIds.has(alert.id));
+            
             return {
                 ...state,
-                alerts: action.payload
+                alerts: [...state.alerts, ...uniqueNewAlerts],
+                alertsCount: action.payload.count || state.alertsCount,
+                alertsNext: action.payload.next || null,
+                alertsPrevious: action.payload.previous || null
             };
+        }
+
         case DELETE_SITE:
             return {
                 ...state,
-                sites: state.sites.filter(site => site.id !== action.payload)
+                sites: state.sites.filter(site => site.id !== action.payload),
+                sitesCount: Math.max(0, state.sitesCount - 1)
             };
+
         case ADD_SITE:
             return {
                 ...state,
-                sites: [...state.sites, action.payload].sort(function sortNumber(a, b) {
-                    return b.rtir - a.rtir;
-                })
+                sites: [...state.sites, action.payload].sort((a, b) => b.rtir - a.rtir),
+                sitesCount: state.sitesCount + 1
             };
+
         case PATCH_SITE:
-            state.sites.map(site => {
-                if (site.id === action.payload.id) {
-                    site.domain_name = action.payload.domain_name;
-                    site.ticket_id = action.payload.ticket_id;
-                    site.rtir = action.payload.rtir;
-                    site.expiry = action.payload.expiry;
-                    site.ip_monitoring = action.payload.ip_monitoring;
-                    site.content_monitoring = action.payload.content_monitoring;
-                    site.mail_monitoring = action.payload.mail_monitoring;
-                    site.registrar = action.payload.registrar;
-                    site.legitimacy = action.payload.legitimacy;
-                    site.domain_expiry = action.payload.domain_expiry;
-                    site.takedown_request = action.payload.takedown_request;
-                    site.legal_team = action.payload.legal_team;
-                    site.blocking_request = action.payload.blocking_request;
-                }
-            });
             return {
                 ...state,
-                sites: [...state.sites].sort(function sortNumber(a, b) {
-                    return b.rtir - a.rtir;
-                })
+                sites: state.sites.map(site =>
+                    site.id === action.payload.id ? action.payload : site
+                ).sort((a, b) => b.rtir - a.rtir)
             };
+
         case UPDATE_SITE_ALERT:
-            state.alerts.map(alert => {
-                if (alert.id === action.payload.id) {
-                    alert.status = action.payload.status
-                }
-            });
             return {
                 ...state,
-                alerts: [...state.alerts]
+                alerts: state.alerts.map(alert =>
+                    alert.id === action.payload.id ? action.payload : alert
+                )
             };
+
         case EXPORT_MISP:
-            state.sites.map(site => {
-                if (site.id === action.payload.id) {
-                    site.misp_event_id = action.payload.misp_event_id;
-                }
-            });
             return {
                 ...state,
-                sites: [...state.sites]
+                sites: state.sites.map(site =>
+                    site.id === action.payload.id 
+                        ? { ...site, misp_event_id: action.payload.misp_event_id }
+                        : site
+                )
             };
+
         default:
             return state;
     }

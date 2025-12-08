@@ -9,19 +9,29 @@ import { createMessage, returnErrors } from "./messages";
 import { tokenConfig } from "./auth";
 
 // GET LEGITIMATE DOMAINS
-export const getLegitimateDomains = () => (dispatch, getState) => {
+export const getLegitimateDomains = (page = 1, pageSize = 100) => (dispatch, getState) => {
     const isAuthenticated = getState().auth.isAuthenticated;
     
-    const endpoint = '/api/common/legitimate_domains/';
+    const endpoint = `/api/common/legitimate_domains/?page=${page}&page_size=${pageSize}`;
     
-    const config = isAuthenticated ? tokenConfig(getState) : {};
+    const config = isAuthenticated ? tokenConfig(getState) : {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
     
-    axios.get(endpoint, config)
+    return axios.get(endpoint, config)
         .then(res => {
             dispatch({
                 type: GET_LEGITIMATE_DOMAINS,
-                payload: Array.isArray(res.data) ? res.data : (res.data.results || [])
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
+            return res.data;
         })
         .catch(err => {
             if (err.response) {
@@ -29,8 +39,14 @@ export const getLegitimateDomains = () => (dispatch, getState) => {
             }
             dispatch({
                 type: GET_LEGITIMATE_DOMAINS,
-                payload: []
+                payload: {
+                    results: [],
+                    count: 0,
+                    next: null,
+                    previous: null
+                }
             });
+            throw err;
         });
 };
 
@@ -43,6 +59,8 @@ export const addLegitimateDomain = domain => (dispatch, getState) => {
                 type: ADD_LEGITIMATE_DOMAIN,
                 payload: res.data
             });
+            
+            dispatch(getLegitimateDomains());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -58,6 +76,8 @@ export const patchLegitimateDomain = (id, domain) => (dispatch, getState) => {
                 type: PATCH_LEGITIMATE_DOMAIN,
                 payload: res.data
             });
+            
+            dispatch(getLegitimateDomains());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))

@@ -1231,6 +1231,9 @@ export class SuspiciousSites extends Component {
                                                                 >
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>info</i>
                                                                 </button>
+                                                                <span className="me-2">
+                                                                    {this.exportButton(site)}
+                                                                </span>
                                                                 <button
                                                                     onClick={() => this.displayEditModal(site)}
                                                                     className="btn btn-outline-warning btn-sm me-2"
@@ -1245,7 +1248,6 @@ export class SuspiciousSites extends Component {
                                                                 >
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                                 </button>
-                                                                {this.exportButton(site)}
                                                             </td>
                                                         </tr>
                                                     ))

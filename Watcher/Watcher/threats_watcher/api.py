@@ -1,17 +1,29 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from .models import TrendyWord, BannedWord, Summary
 from .serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer
 from .core import generate_trendy_word_summary
 
 
+# Pagination
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
+# TrendyWord Viewset
 class TrendyWordViewSet(viewsets.ModelViewSet):
-    queryset = TrendyWord.objects.all()
     permission_classes = [
         permissions.DjangoModelPermissionsOrAnonReadOnly
     ]
     serializer_class = TrendyWordSerializer
+    pagination_class = StandardResultsSetPagination
+    
+    def get_queryset(self):
+        return TrendyWord.objects.all().order_by('-created_at')
 
     @action(detail=True, methods=['get'])
     def with_summary(self, request, pk=None):
@@ -30,19 +42,25 @@ class TrendyWordViewSet(viewsets.ModelViewSet):
 
 # BannedWord Viewset
 class BannedWordViewSet(viewsets.ModelViewSet):
-    queryset = BannedWord.objects.all()
     permission_classes = [
         permissions.DjangoModelPermissions
     ]
     serializer_class = BannedWordSerializer
+    pagination_class = StandardResultsSetPagination
+    
+    def get_queryset(self):
+        return BannedWord.objects.all().order_by('-created_at')
 
 
 class SummaryViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    permission_classes = [
+        permissions.DjangoModelPermissionsOrAnonReadOnly
+    ]
     serializer_class = SummarySerializer
+    pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        queryset = Summary.objects.all()
+        queryset = Summary.objects.all().order_by('-created_at')
         summary_type = self.request.query_params.get('type', None)
         keyword = self.request.query_params.get('keyword', None)
         

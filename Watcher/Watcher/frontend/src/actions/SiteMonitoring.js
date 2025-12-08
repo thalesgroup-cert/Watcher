@@ -7,25 +7,32 @@ import {
     ADD_SITE,
     PATCH_SITE,
     UPDATE_SITE_ALERT,
-    EXPORT_MISP,
-    RESET_EXPORT_LOADING
+    EXPORT_MISP
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
 
 
 // GET SITES
-export const getSites = () => (dispatch, getState) => {
-    axios.get('/api/site_monitoring/site/', tokenConfig(getState))
+export const getSites = (page = 1, pageSize = 100) => (dispatch, getState) => {
+    return axios
+        .get(`/api/site_monitoring/site/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_SITES,
-                payload: res.data
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
+            return res.data;
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
 };
 
 // DELETE SITE
@@ -77,17 +84,25 @@ export const patchSite = (id, patchedSite) => (dispatch, getState) => {
 };
 
 // GET ALERTS
-export const getSiteAlerts = () => (dispatch, getState) => {
-    axios.get('/api/site_monitoring/alert/', tokenConfig(getState))
+export const getSiteAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
+    return axios
+        .get(`/api/site_monitoring/alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_SITE_ALERTS,
-                payload: res.data
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
+            return res.data;
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
 };
 
 // UPDATE ALERT
@@ -132,11 +147,5 @@ export const exportToMISP = (site) => (dispatch, getState) => {
             const errorMsg = err.response?.data?.message || 'Failed to export to MISP';
             dispatch(returnErrors(err.response.data, err.response.status));
             dispatch(createMessage({error: errorMsg}));
-        })
-        .finally(() => {
-            dispatch({
-                type: 'RESET_EXPORT_LOADING',
-                payload: site.id
-            });
         });
 };
