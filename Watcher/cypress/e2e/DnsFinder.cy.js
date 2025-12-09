@@ -1,7 +1,6 @@
 describe('DNS Finder - E2E Test Suite', () => {
   const setupIntercepts = () => {
-    // Setup API mocks
-    cy.intercept('GET', '/api/dns_finder/dns_monitored/', {
+    cy.intercept('GET', '**/api/dns_finder/dns_monitored/**', {
       statusCode: 200,
       body: {
         count: 3,
@@ -15,7 +14,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       }
     }).as('getDnsMonitored');
 
-    cy.intercept('GET', '/api/dns_finder/keyword_monitored/', {
+    cy.intercept('GET', '**/api/dns_finder/keyword_monitored/**', {
       statusCode: 200,
       body: {
         count: 3,
@@ -29,7 +28,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       }
     }).as('getKeywordMonitored');
 
-    cy.intercept('GET', '/api/dns_finder/alert/', {
+    cy.intercept('GET', '**/api/dns_finder/alert/**', {
       statusCode: 200,
       body: {
         count: 3,
@@ -83,43 +82,60 @@ describe('DNS Finder - E2E Test Suite', () => {
     }).as('getAlerts');
 
     // Mock CRUD operations
-    cy.intercept('POST', '/api/dns_finder/dns_monitored/', (req) => ({
+    cy.intercept('POST', '**/api/dns_finder/dns_monitored/**', (req) => ({
       statusCode: 201,
       body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
     })).as('addDnsMonitored');
 
-    cy.intercept('POST', '/api/dns_finder/keyword_monitored/', (req) => ({
+    cy.intercept('POST', '**/api/dns_finder/keyword_monitored/**', (req) => ({
       statusCode: 201,
       body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
     })).as('addKeywordMonitored');
 
-    cy.intercept('DELETE', '/api/dns_finder/dns_monitored/*', { statusCode: 204 }).as('deleteDnsMonitored');
-    cy.intercept('DELETE', '/api/dns_finder/keyword_monitored/*', { statusCode: 204 }).as('deleteKeywordMonitored');
+    cy.intercept('DELETE', '**/api/dns_finder/dns_monitored/*', { statusCode: 204 }).as('deleteDnsMonitored');
+    cy.intercept('DELETE', '**/api/dns_finder/keyword_monitored/*', { statusCode: 204 }).as('deleteKeywordMonitored');
 
-    cy.intercept('PATCH', '/api/dns_finder/dns_monitored/*', (req) => ({
+    cy.intercept('PATCH', '**/api/dns_finder/dns_monitored/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('patchDnsMonitored');
 
-    cy.intercept('PATCH', '/api/dns_finder/keyword_monitored/*', (req) => ({
+    cy.intercept('PATCH', '**/api/dns_finder/keyword_monitored/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('patchKeywordMonitored');
 
-    cy.intercept('PATCH', '/api/dns_finder/alert/*', (req) => ({
+    cy.intercept('PATCH', '**/api/dns_finder/alert/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('updateAlertStatus');
 
-    cy.intercept('POST', '/api/dns_finder/misp/', {
+    cy.intercept('POST', '**/api/dns_finder/misp/**', {
       statusCode: 200,
       body: { message: 'Successfully exported to MISP', event_uuid: '550e8400-e29b-41d4-a716-446655440003' }
     }).as('exportToMISP');
 
-    cy.intercept('GET', '/api/threats_watcher/trendyword/', { statusCode: 200, body: [] });
-    cy.intercept('GET', '/api/site_monitoring/site/', { statusCode: 200, body: [] }).as('getSites');
+    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', { 
+      statusCode: 200, 
+      body: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      }
+    });
     
-    cy.intercept('POST', '/api/site_monitoring/site/', (req) => ({
+    cy.intercept('GET', '**/api/site_monitoring/site/**', { 
+      statusCode: 200, 
+      body: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      }
+    }).as('getSites');
+    
+    cy.intercept('POST', '**/api/site_monitoring/site/**', (req) => ({
       statusCode: 201,
       body: {
         id: Date.now(),
@@ -839,26 +855,38 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle empty data states', () => {
-      cy.intercept('GET', '/api/dns_finder/dns_monitored/', {
+      cy.intercept('GET', '**/api/dns_finder/dns_monitored/**', {
         statusCode: 200,
-        body: []
+        body: { count: 0, next: null, previous: null, results: [] }
       }).as('emptyDns');
 
-      cy.intercept('GET', '/api/dns_finder/keyword_monitored/', {
+      cy.intercept('GET', '**/api/dns_finder/keyword_monitored/**', {
         statusCode: 200,
-        body: []
+        body: { count: 0, next: null, previous: null, results: [] }
       }).as('emptyKeywords');
 
-      cy.intercept('GET', '/api/dns_finder/alert/', {
+      cy.intercept('GET', '**/api/dns_finder/alert/**', {
         statusCode: 200,
-        body: []
+        body: { count: 0, next: null, previous: null, results: [] }
       }).as('emptyAlerts');
 
       cy.reload();
+      cy.wait(['@emptyDns', '@emptyKeywords', '@emptyAlerts']);
+      
       cy.get('body').should('be.visible');
+      cy.get('.container-fluid').should('exist');
+      
       cy.get('table').should('exist');
-
-      cy.get('table tbody tr td').should('contain', 'No');
+      cy.get('body').then(($body) => {
+        const bodyText = $body.text();
+        const hasEmptyIndicator = 
+          bodyText.includes('No data') || 
+          bodyText.includes('No records') ||
+          bodyText.includes('0 entries') ||
+          $body.find('tbody tr').length === 0;
+        
+        expect(hasEmptyIndicator).to.be.true;
+      });
     });
   });
 

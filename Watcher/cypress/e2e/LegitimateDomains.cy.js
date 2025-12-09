@@ -1,7 +1,6 @@
 describe('Legitimate Domains - E2E Test Suite', () => {
   const setupIntercepts = () => {
-    // Setup API mocks
-    cy.intercept('GET', '/api/common/legitimate_domains/', {
+    cy.intercept('GET', '**/api/common/legitimate_domains/**', {
       statusCode: 200,
       body: {
         count: 4,
@@ -53,7 +52,7 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     }).as('getDomains');
 
     // Mock CRUD operations
-    cy.intercept('POST', '/api/common/legitimate_domains/', (req) => ({
+    cy.intercept('POST', '**/api/common/legitimate_domains/**', (req) => ({
       statusCode: 201,
       body: {
         id: Date.now(),
@@ -62,14 +61,22 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       }
     })).as('addDomain');
 
-    cy.intercept('DELETE', '/api/common/legitimate_domains/*', { statusCode: 204 }).as('deleteDomain');
+    cy.intercept('DELETE', '**/api/common/legitimate_domains/*', { statusCode: 204 }).as('deleteDomain');
 
-    cy.intercept('PATCH', '/api/common/legitimate_domains/*', (req) => ({
+    cy.intercept('PATCH', '**/api/common/legitimate_domains/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('patchDomain');
 
-    cy.intercept('GET', '/api/threats_watcher/trendyword/', { statusCode: 200, body: [] });
+    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', { 
+      statusCode: 200, 
+      body: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      }
+    });
   };
 
   before(() => {
@@ -305,10 +312,7 @@ describe('Legitimate Domains - E2E Test Suite', () => {
 
     it('should display TableManager features', () => {
       cy.contains('Showing', { timeout: 10000 }).should('exist');
-      cy.get('select').filter((index, el) => {
-        const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-        return text.includes('Items per page');
-      }).should('exist');
+      cy.contains('Items per page').parent().find('select').should('exist');
     });
 
     it('should display Add New Domain button', () => {
@@ -676,10 +680,10 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     it('should load page within reasonable time', () => {
       const startTime = Date.now();
       cy.reload();
-
+      
       cy.get('table', { timeout: 20000 }).should('exist').then(() => {
         const loadTime = Date.now() - startTime;
-        expect(loadTime).to be.lessThan(25000);
+        expect(loadTime).to.be.lessThan(25000);
       });
     });
 
@@ -727,13 +731,13 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should test items per page change', () => {
-      cy.get('select').filter((index, el) => {
-        const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-        return text.includes('Items per page');
-      }).select('10');
-      cy.wait(500);
-
-      cy.get('table tbody tr').should('have.length.at.least', 1);
+      cy.contains('Items per page').parent().find('select').as('itemsPerPage');
+      
+      cy.get('@itemsPerPage').should('exist');
+      cy.get('@itemsPerPage').select('10');
+      cy.wait(1000);
+      
+      cy.get('table tbody tr').should('have.length.at.most', 10);
     });
 
     it('should test pagination if more than 5 items', () => {

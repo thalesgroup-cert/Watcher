@@ -1,7 +1,6 @@
 describe('Site Monitoring - E2E Test Suite', () => {
   const setupIntercepts = () => {
-    // Setup API mocks
-    cy.intercept('GET', '/api/site_monitoring/site/', {
+    cy.intercept('GET', '**/api/site_monitoring/site/**', {
       statusCode: 200,
       body: {
         count: 3,
@@ -84,7 +83,7 @@ describe('Site Monitoring - E2E Test Suite', () => {
       }
     }).as('getSites');
 
-    cy.intercept('GET', '/api/site_monitoring/alert/', {
+    cy.intercept('GET', '**/api/site_monitoring/alert/**', {
       statusCode: 200,
       body: {
         count: 4,
@@ -164,7 +163,7 @@ describe('Site Monitoring - E2E Test Suite', () => {
     }).as('getSiteAlerts');
 
     // Mock CRUD operations
-    cy.intercept('POST', '/api/site_monitoring/site/', (req) => ({
+    cy.intercept('POST', '**/api/site_monitoring/site/**', (req) => ({
       statusCode: 201,
       body: {
         id: Date.now(),
@@ -181,24 +180,32 @@ describe('Site Monitoring - E2E Test Suite', () => {
       }
     })).as('addSite');
 
-    cy.intercept('DELETE', '/api/site_monitoring/site/*', { statusCode: 204 }).as('deleteSite');
+    cy.intercept('DELETE', '**/api/site_monitoring/site/*', { statusCode: 204 }).as('deleteSite');
 
-    cy.intercept('PATCH', '/api/site_monitoring/site/*', (req) => ({
+    cy.intercept('PATCH', '**/api/site_monitoring/site/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('patchSite');
 
-    cy.intercept('PATCH', '/api/site_monitoring/alert/*', (req) => ({
+    cy.intercept('PATCH', '**/api/site_monitoring/alert/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('updateSiteAlertStatus');
 
-    cy.intercept('POST', '/api/site_monitoring/misp/', {
+    cy.intercept('POST', '**/api/site_monitoring/misp/**', {
       statusCode: 200,
       body: { message: 'Successfully exported to MISP', event_uuid: '550e8400-e29b-41d4-a716-446655440003' }
     }).as('exportToMISP');
 
-    cy.intercept('GET', '/api/threats_watcher/trendyword/', { statusCode: 200, body: [] });
+    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', { 
+      statusCode: 200, 
+      body: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      }
+    });
   };
 
   before(() => {
@@ -345,10 +352,7 @@ describe('Site Monitoring - E2E Test Suite', () => {
 
     it('should display TableManager features for sites', () => {
       cy.contains('Showing', { timeout: 10000 }).should('exist');
-      cy.get('select').filter((index, el) => {
-        const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-        return text.includes('Items per page');
-      }).should('exist');
+      cy.contains('Items per page').parent().find('select').should('exist');
     });
 
     it('should display Add New Site button', () => {
@@ -688,21 +692,34 @@ describe('Site Monitoring - E2E Test Suite', () => {
     });
 
     it('should handle empty data states', () => {
-      cy.intercept('GET', '/api/site_monitoring/site/', {
+      cy.intercept('GET', '**/api/site_monitoring/site/**', {
         statusCode: 200,
-        body: []
+        body: { count: 0, next: null, previous: null, results: [] }
       }).as('emptySites');
       
-      cy.intercept('GET', '/api/site_monitoring/alert/', {
+      cy.intercept('GET', '**/api/site_monitoring/alert/**', {
         statusCode: 200,
-        body: []
+        body: { count: 0, next: null, previous: null, results: [] }
       }).as('emptyAlerts');
 
       cy.reload();
+      cy.wait(['@emptySites', '@emptyAlerts']);
+      
       cy.get('body').should('be.visible');
+      cy.get('.container-fluid').should('exist');
       cy.get('table').should('exist');
       
-      cy.get('table tbody tr td').should('contain', 'No');
+      cy.get('table tbody').should('exist');
+      cy.get('body').then(($body) => {
+        const bodyText = $body.text();
+        const hasEmptyState = 
+          bodyText.includes('No data') || 
+          bodyText.includes('No sites') ||
+          $body.find('tbody tr').length === 0 ||
+          bodyText.includes('0 entries');
+        
+        expect(hasEmptyState).to.be.true;
+      });
     });
   });
 

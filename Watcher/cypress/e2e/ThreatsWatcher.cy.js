@@ -3,7 +3,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     const credentials = Cypress.env('testCredentials');
 
     // Setup API mocks
-    cy.intercept('GET', '/api/threats_watcher/trendyword/', {
+    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', {
       statusCode: 200,
       body: {
         count: 3,
@@ -41,7 +41,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     }).as('getTrendyWords');
 
-    cy.intercept('GET', '/api/threats_watcher/bannedword/', {
+    cy.intercept('GET', '**/api/threats_watcher/bannedword/**', {
       statusCode: 200,
       body: {
         count: 2,
@@ -54,22 +54,32 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     }).as('getBannedWords');
 
-    cy.intercept('GET', '/api/threats_watcher/summary/?type=weekly_summary', {
+    cy.intercept('GET', '**/api/threats_watcher/summary/?type=weekly_summary', {
       statusCode: 200,
-      body: []
+      body: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      }
     }).as('getWeeklySummary');
 
-    cy.intercept('GET', '/api/threats_watcher/summary/?type=breaking_news', {
+    cy.intercept('GET', '**/api/threats_watcher/summary/?type=breaking_news', {
       statusCode: 200,
-      body: []
+      body: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+      }
     }).as('getBreakingNews');
 
     // Mock CRUD operations
-    cy.intercept('POST', '/api/threats_watcher/bannedword/', (req) => ({
+    cy.intercept('POST', '**/api/threats_watcher/bannedword/**', (req) => ({
       statusCode: 201, body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
     })).as('addBannedWord');
 
-    cy.intercept('DELETE', '/api/threats_watcher/trendyword/*', { statusCode: 204 }).as('deleteTrendyWord');
+    cy.intercept('DELETE', '**/api/threats_watcher/trendyword/*', { statusCode: 204 }).as('deleteTrendyWord');
 
     // Mock auth endpoints with test credentials
     cy.intercept('GET', '/api/auth/user/', {
@@ -326,10 +336,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify items per page selector', () => {
-      cy.get('select').filter((index, el) => {
-        const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-        return text.includes('Items per page');
-      }).should('exist');
+      cy.contains('Items per page').parent().find('select').should('exist');
     });
   });
 
