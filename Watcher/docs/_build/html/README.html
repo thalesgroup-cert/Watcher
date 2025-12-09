@@ -86,6 +86,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#api-key-creation-management">API Key Creation &amp; Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pagination">Pagination</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#specific-details">Specific Details</a></li>
 </ul>
 </li>
@@ -115,38 +116,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#advanced-table-filters">Advanced Table Filters</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#archived-alerts">Archived Alerts</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#update-watcher">Update Watcher</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#migrate-from-docker-hub-to-ghcr-required-for-all-users">Migrate from Docker Hub to GHCR (Required for all users)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#update-process">Update Process</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#migrate-populate-the-database-mandatory">Migrate &amp; Populate the database (mandatory)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#managing-breaking-changes-optional">Managing Breaking Changes (optional)</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="#developers">Developers</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#open-a-pull-request-pr-to-contribute-to-this-project">Open a Pull Request (PR) to contribute to this project</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#setup-watcher-environment">Setup Watcher environment</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications">Deploy a simple SMTP server to test the email notifications</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#unit-testing">Unit Testing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#test-coverage-technologies">Test Coverage &amp; Technologies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#automated-ci-cd-testing">Automated CI/CD Testing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#the-commands">The commands</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#back-end-tests">Back-End Tests</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#front-end-tests">Front-End Tests</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#development-guidelines">Development Guidelines</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#migrations-change-the-database-schema">Migrations: Change the database schema</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id3">The commands</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#change-a-model-adding-a-field-deleting-a-model-etc">Change a model (adding a field, deleting a model, etc.)</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#build-the-documentation">Build the documentation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/common_misp.html">MISP API</a></li>
@@ -591,15 +560,53 @@ docker compose up
 <li><p>Click on <strong>SAVE</strong>.</p></li>
 </ul>
 <p>You must pass your API keys via the Authorization header. It should be formatted as follows: <strong><code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Token</span> <span class="pre">&lt;API_KEY&gt;</span></code></strong> where <strong>&lt;API_KEY&gt;</strong> refers to the full generated API key.</p>
-<p>Below, you will find our 4 modules with their API functions:</p>
+<section id="pagination">
+<h3>Pagination<a class="headerlink" href="#pagination" title="Link to this heading"></a></h3>
+<p>All API endpoints support <strong>standardized pagination</strong> using REST Framework’s <code class="docutils literal notranslate"><span class="pre">PageNumberPagination</span></code>:</p>
+<p><strong>Default Configuration:</strong></p>
+<ul class="simple">
+<li><p><strong>Default page size</strong>: 100 items per page</p></li>
+<li><p><strong>Maximum page size</strong>: 1000 items per page</p></li>
+<li><p><strong>Customizable</strong>: Use <code class="docutils literal notranslate"><span class="pre">page_size</span></code> query parameter</p></li>
+</ul>
+<p><strong>Usage Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get first page with default size (100 items)</span>
+GET<span class="w"> </span>/api/data_leak/keyword/
+
+<span class="c1"># Get specific page</span>
+GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><span class="m">2</span>
+
+<span class="c1"># Customize page size (between 1 and 1000)</span>
+GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><span class="m">1</span><span class="p">&amp;</span><span class="nv">page_size</span><span class="o">=</span><span class="m">50</span>
+
+<span class="c1"># Maximum page size</span>
+GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><span class="m">1</span><span class="p">&amp;</span><span class="nv">page_size</span><span class="o">=</span><span class="m">1000</span>
+</pre></div>
+</div>
+<p><strong>Response Fields:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">count</span></code>: Total number of items across all pages</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">next</span></code>: URL to the next page (null if last page)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">previous</span></code>: URL to the previous page (null if first page)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">results</span></code>: Array containing the actual items for the current page</p></li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">page_size</span></code> parameter is <strong>optional</strong></p></li>
+<li><p>Invalid page numbers return a 404 error</p></li>
+<li><p>Page size values exceeding 1000 are automatically capped at 1000</p></li>
+<li><p>All frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system</p></li>
+</ul>
+<p>Below, you will find our 5 modules with their API functions:</p>
 <details>
 <summary>Threats Watcher</summary>  <br>
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/trendyword/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of trending words monitored by the application.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of trending words monitored by the application.</p></li>
 <li><p><strong>POST:</strong> Adds a new trending word to the monitored list.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing trending word in the monitored list.</p></li>
 <li><p><strong>DELETE:</strong> Removes a trending word from the monitored list.</p></li>
@@ -610,9 +617,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/bannedword/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of banned words monitored by the application.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of banned words monitored by the application.</p></li>
 <li><p><strong>POST:</strong> Adds a new banned word to the monitored list.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing banned word in the monitored list.</p></li>
 <li><p><strong>DELETE:</strong> Removes a banned word from the monitored list.</p></li>
@@ -626,9 +634,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/data_leak/keyword/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of keywords monitored for data leaks.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of keywords monitored for data leaks.</p></li>
 <li><p><strong>POST:</strong> Adds a new keyword to the monitored list for data leaks.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing keyword in the monitored list for data leaks.</p></li>
 <li><p><strong>DELETE:</strong> Removes a keyword from the monitored list for data leaks.</p></li>
@@ -639,9 +648,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/data_leak/alert/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of alerts related to data leaks.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of alerts related to data leaks.</p></li>
 <li><p><strong>POST:</strong> Adds a new alert for data leaks.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing alert for data leaks.</p></li>
 <li><p><strong>DELETE:</strong> Removes an alert related to data leaks.</p></li>
@@ -655,9 +665,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/site_monitoring/site/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of sites monitored by the application.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of sites monitored by the application.</p></li>
 <li><p><strong>POST:</strong> Adds a new site to the monitored list.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing site in the monitored list.</p></li>
 <li><p><strong>DELETE:</strong> Removes a site from the monitored list.</p></li>
@@ -668,9 +679,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/site_monitoring/alert/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of alerts related to site monitoring.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of alerts related to site monitoring.</p></li>
 <li><p><strong>POST:</strong> Adds a new alert related to site monitoring.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing alert related to site monitoring.</p></li>
 <li><p><strong>DELETE:</strong> Removes an alert related to site monitoring.</p></li>
@@ -681,12 +693,24 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/site_monitoring/misp/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> POST</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>POST:</strong> Adds a new integration with MISP.</p></li>
+<li><p><strong>POST:</strong> Exports a monitored site to MISP threat intelligence platform.</p></li>
 </ul>
 </li>
-<li><p><strong>Usage:</strong> Used to get, add, update, or delete current integrations with MISP.</p></li>
+<li><p><strong>Usage:</strong> Used to integrate site monitoring data with MISP.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">^api/site_monitoring/site/statistics/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns aggregated statistics for site monitoring (total sites, malicious count, takedown requests, legal team cases).</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Used to display dashboard statistics.</p></li>
 </ul>
 </details> <br>
 <details>
@@ -694,9 +718,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/dns_monitored/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of monitored DNS domains.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of monitored DNS domains.</p></li>
 <li><p><strong>POST:</strong> Adds a new DNS domain to the monitored list.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing monitored DNS domain.</p></li>
 <li><p><strong>DELETE:</strong> Removes a DNS domain from the monitored list.</p></li>
@@ -707,9 +732,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/keyword_monitored/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of monitored DNS keywords.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of monitored DNS keywords.</p></li>
 <li><p><strong>POST:</strong> Adds a new keyword to the monitored list.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing monitored keyword.</p></li>
 <li><p><strong>DELETE:</strong> Removes a keyword from the monitored list.</p></li>
@@ -720,9 +746,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/dns_twisted/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of twisted DNS domains (typosquatting).</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of twisted DNS domains (typosquatting).</p></li>
 <li><p><strong>POST:</strong> Adds a new twisted DNS domain to the monitored list.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing twisted DNS domain in the monitored list.</p></li>
 <li><p><strong>DELETE:</strong> Removes a twisted DNS domain from the monitored list.</p></li>
@@ -733,9 +760,10 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/alert/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns a list of DNS alerts.</p></li>
+<li><p><strong>GET:</strong> Returns a paginated list of DNS alerts.</p></li>
 <li><p><strong>POST:</strong> Adds a new DNS alert.</p></li>
 <li><p><strong>PATCH:</strong> Updates an existing DNS alert.</p></li>
 <li><p><strong>DELETE:</strong> Removes a DNS alert.</p></li>
@@ -745,15 +773,14 @@ docker compose up
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/misp/$</span></code></p>
 <ul class="simple">
-<li><p><strong>HTTP Method:</strong> POST, PATCH, DELETE</p></li>
+<li><p><strong>HTTP Method:</strong> POST</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>POST:</strong> Adds a new integration with MISP for DNS.</p></li>
-<li><p><strong>PATCH:</strong> Updates an existing integration with MISP for DNS.</p></li>
-<li><p><strong>DELETE:</strong> Removes an integration with MISP for DNS.</p></li>
+<li><p><strong>POST:</strong> Exports DNS findings to MISP threat intelligence platform.</p></li>
 </ul>
 </li>
-<li><p><strong>Usage:</strong> Used to get, add, update, or delete current integrations with MISP for DNS.</p></li>
+<li><p><strong>Usage:</strong> Used to integrate DNS findings with MISP.</p></li>
 </ul>
 </details> <br>
 <details>
@@ -761,58 +788,88 @@ docker compose up
 <p><code class="docutils literal notranslate"><span class="pre">^api/common/legitimate_domains/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
+<li><p><strong>GET:</strong> Returns a paginated list of legitimate company-owned domains.</p></li>
 <li><p><strong>POST:</strong> Export a domain from Website Monitoring to the legitimate domains list. Payload includes: domain_name, ticket_id, contact, expiry, repurchased (bool), comments.</p></li>
+<li><p><strong>PATCH:</strong> Updates an existing legitimate domain.</p></li>
+<li><p><strong>DELETE:</strong> Removes a legitimate domain.</p></li>
 </ul>
 </li>
 <li><p><strong>Usage:</strong> Add a company-approved domain for expiry/contact monitoring and tracking.</p></li>
 </ul>
-<br>
-<p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=weekly_summary</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">^api/common/legitimate_domains/statistics/$</span></code></p>
 <ul class="simple">
-<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns the weekly summary of threats detected by the watcher.</p></li>
+<li><p><strong>GET:</strong> Returns aggregated statistics for legitimate domains (total, repurchased, expired, expiring soon).</p></li>
 </ul>
 </li>
-<li><p><strong>Usage:</strong> Fetch and display the weekly summary.</p></li>
+<li><p><strong>Usage:</strong> Used to display dashboard statistics.</p></li>
 </ul>
-<br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/common/legitimate_domains/misp/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> POST</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>POST:</strong> Exports a legitimate domain to MISP threat intelligence platform.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Used to integrate legitimate domain data with MISP.</p></li>
+</ul>
+</details> <br>
+<details>
+<summary>Threat Intelligence Summaries</summary> <br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=weekly_summary</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns the AI-generated weekly summary of threats detected by the watcher.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Fetch and display the weekly threat intelligence report.</p></li>
+</ul>
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=breaking_news</span></code></p>
 <ul class="simple">
-<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
 <li><p><strong>GET:</strong> Returns breaking news / high-priority alerts detected by the watcher.</p></li>
 </ul>
 </li>
-<li><p><strong>Usage:</strong> Fetch and display breaking news.</p></li>
+<li><p><strong>Usage:</strong> Fetch and display breaking news alerts.</p></li>
 </ul>
-<br>
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=trendy_word_summary&amp;keyword=&lt;keyword&gt;</span></code></p>
 <ul class="simple">
-<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Returns the existing summary for a given trendy word (keyword).</p></li>
+<li><p><strong>GET:</strong> Returns the existing AI-generated summary for a given trendy word (keyword).</p></li>
 </ul>
 </li>
 <li><p><strong>Usage:</strong> Retrieve a previously generated summary for a keyword.</p></li>
 </ul>
-<br>
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/by-keyword/&lt;keyword&gt;/</span></code></p>
 <ul class="simple">
-<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
-<li><p><strong>GET:</strong> Trigger generation (or regeneration) of a summary for the specified keyword and return the generated result.</p></li>
+<li><p><strong>GET:</strong> Trigger generation (or regeneration) of an AI summary for the specified keyword and return the generated result.</p></li>
 </ul>
 </li>
-<li><p><strong>Usage:</strong> Request backend to generate a summary.</p></li>
+<li><p><strong>Usage:</strong> Request backend to generate a new threat intelligence summary.</p></li>
 </ul>
 </details> <br>
+</section>
 <section id="specific-details">
 <h3>Specific Details<a class="headerlink" href="#specific-details" title="Link to this heading"></a></h3>
 <p>To obtain detailed information about a specific item, such as an alert, a monitored site, or any other entity in the system, you can access its details by appending <code class="docutils literal notranslate"><span class="pre">/(?P&lt;pk&gt;[^/.]+)/$</span></code> to the end of the corresponding API URL.</p>
@@ -1013,365 +1070,9 @@ the version of your MISP instance.</p>
 <ol class="arabic simple">
 <li><p><strong>Filter Builder</strong>: Click filter icon to add conditions</p></li>
 <li><p><strong>Save Filter Sets</strong>: Name and save custom filters</p></li>
-<li><p><strong>Quick Apply</strong>: Load saved filters with one click</p></li>
+<li><p>**Quick Apply</p></li>
 </ol>
 </section>
-</section>
-<section id="archived-alerts">
-<h2>Archived Alerts<a class="headerlink" href="#archived-alerts" title="Link to this heading"></a></h2>
-<p>Once you have processed an alert, you can archive it.</p>
-<p>To archived <strong>1</strong> alert:</p>
-<ul class="simple">
-<li><p>Go to the alert that you want to archived.</p></li>
-<li><p>Select the “<strong>disable</strong>” <strong>button</strong>.</p></li>
-</ul>
-<p>To archived <strong>several</strong> alerts:</p>
-<ul class="simple">
-<li><p>Go to <strong>/admin</strong> page.</p></li>
-<li><p>Click on <strong>Alerts</strong>.</p></li>
-<li><p><strong>Check</strong> alerts that you want to archived.</p></li>
-<li><p>Click on <strong>Action</strong> dropdown.</p></li>
-<li><p>Select “<strong>Disable selected alerts</strong>”.</p></li>
-</ul>
-</section>
-</section>
-<section id="update-watcher">
-<h1>Update Watcher<a class="headerlink" href="#update-watcher" title="Link to this heading"></a></h1>
-<p>Verify that your local files <code class="docutils literal notranslate"><span class="pre">/.env</span></code>, <code class="docutils literal notranslate"><span class="pre">/docker-compose.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">/Searx/</span></code> are <strong>up-to-date</strong>.</p>
-<section id="migrate-from-docker-hub-to-ghcr-required-for-all-users">
-<h2>Migrate from Docker Hub to GHCR (Required for all users)<a class="headerlink" href="#migrate-from-docker-hub-to-ghcr-required-for-all-users" title="Link to this heading"></a></h2>
-<p>If you are still using the old Docker Hub image (<code class="docutils literal notranslate"><span class="pre">felix83000/watcher</span></code>), you <strong>must</strong> update your <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>:</p>
-<p><strong>Old (DEPRECATED):</strong></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">felix83000/watcher:latest</span>
-</pre></div>
-</div>
-<p><strong>New (REQUIRED):</strong></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/thalesgroup-cert/watcher:latest</span>
-</pre></div>
-</div>
-</section>
-<section id="update-process">
-<h2>Update Process<a class="headerlink" href="#update-process" title="Link to this heading"></a></h2>
-<p>To update Watcher image please follow the instructions below:</p>
-<ul>
-<li><p>Stop all containers: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">down</span></code></p></li>
-<li><p>Remove the old docker images:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># If migrating from Docker Hub</span>
-docker<span class="w"> </span>rmi<span class="w"> </span>felix83000/watcher
-
-<span class="c1"># If already using GHCR</span>
-docker<span class="w"> </span>rmi<span class="w"> </span>ghcr.io/thalesgroup-cert/watcher
-
-<span class="c1"># Also remove Searx image</span>
-docker<span class="w"> </span>rmi<span class="w"> </span>searx/searx
-</pre></div>
-</div>
-</li>
-<li><p>Pull the newer docker images: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">up</span></code></p></li>
-</ul>
-<p>This will update the Watcher project.</p>
-</section>
-<section id="migrate-populate-the-database-mandatory">
-<h2>Migrate &amp; Populate the database (mandatory)<a class="headerlink" href="#migrate-populate-the-database-mandatory" title="Link to this heading"></a></h2>
-<p>Updates the state of the database in accordance with all current models and migrations. Populate your database with hundred of banned words and RSS sources related to Cyber Security.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
-docker compose run watcher bash
-python manage.py migrate
-python manage.py populate_db
-</pre></div>
-</div>
-</section>
-<section id="managing-breaking-changes-optional">
-<h2>Managing Breaking Changes (optional)<a class="headerlink" href="#managing-breaking-changes-optional" title="Link to this heading"></a></h2>
-<p>If the release includes breaking changes, additional steps may be required. Here are the general steps to manage breaking changes:</p>
-<ol class="arabic simple">
-<li><p><strong>Review release notes or documentation</strong>: Check the release notes or documentation for any information about breaking changes and specific instructions on how to handle them.</p></li>
-<li><p><strong>Backup data</strong>: Before proceeding with the update, it’s advisable to backup any critical data to prevent loss in case of unexpected issues.</p></li>
-<li><p><strong>Test in a staging environment</strong>: If possible, test the update in a staging environment to identify any potential issues or conflicts with existing configurations or customizations.</p></li>
-<li><p><strong>Update configurations</strong>: Review and update any configurations or settings that may be affected by the breaking changes.</p></li>
-<li><p><strong>Modify custom code</strong>: If you have any custom code or scripts that rely on the previous version’s functionality, you may need to modify them to work with the new version.</p></li>
-<li><p><strong>Run additional migration scripts</strong>: If provided, run any additional migration scripts or commands provided by the developers to handle specific breaking changes.</p></li>
-</ol>
-<p>Always refer to the specific instructions provided with the update.</p>
-</section>
-</section>
-<section id="developers">
-<h1>Developers<a class="headerlink" href="#developers" title="Link to this heading"></a></h1>
-<p>If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.</p>
-<section id="open-a-pull-request-pr-to-contribute-to-this-project">
-<h2>Open a Pull Request (PR) to contribute to this project<a class="headerlink" href="#open-a-pull-request-pr-to-contribute-to-this-project" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Fork the official Watcher repository</p></li>
-<li><p>Install <code class="docutils literal notranslate"><span class="pre">Git</span></code></p></li>
-<li><p>Open a terminal: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
-<li><p>Switch to the dev branch: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">-b</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
-<li><p>Make your changes on the working files and then: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">add</span> <span class="pre">*</span></code></p></li>
-<li><p>Add a commit message and description: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span> <span class="pre">-m</span> <span class="pre">&quot;Title&quot;</span> <span class="pre">-m</span> <span class="pre">&quot;Description&quot;</span></code></p></li>
-<li><p>Publish the changes: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">push</span> <span class="pre">origin</span> <span class="pre">feature/&lt;name_of_the_new_feature&gt;</span></code></p></li>
-<li><p>Back to GitHub on your forked repository, click Under Contribute &gt; Open Pull Request and then Confirm the operation</p></li>
-<li><p>Done! Your work will be reviewed by the team!</p></li>
-</ul>
-</section>
-<section id="setup-watcher-environment">
-<h2>Setup Watcher environment<a class="headerlink" href="#setup-watcher-environment" title="Link to this heading"></a></h2>
-<p>Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 and Ubuntu 21.10 LTS in our case).</p>
-<p>Then, follow the steps below:</p>
-<ul class="simple">
-<li><p><strong>Update and upgrade your machine:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">update</span> <span class="pre">&amp;&amp;</span> <span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">upgrade</span> <span class="pre">-y</span></code></p></li>
-<li><p><strong>Install Python and Node.js:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">python3</span> <span class="pre">python3-pip</span> <span class="pre">-y</span></code> <strong>&amp;</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">nodejs</span> <span class="pre">-y</span></code></p></li>
-<li><p><strong>Create and activate a Python virtual environment:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">-m</span> <span class="pre">venv</span> <span class="pre">.venv</span> <span class="pre">|source</span> <span class="pre">.venv/bin/activate</span></code></p></li>
-<li><p><strong>Pull Watcher code:</strong> <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clone</span> <span class="pre">&lt;your_forked_repository.git&gt;</span></code></p></li>
-<li><p><strong>Move to the following directory:</strong> <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev-is-python3</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
-<li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
-<li><p><strong>Install Rust (for tokenizers, etc)</strong> <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">https://sh.rustup.rs</span> <span class="pre">-sSf</span> <span class="pre">|</span> <span class="pre">sh</span> <span class="pre">-s</span> <span class="pre">--</span> <span class="pre">-y</span> <span class="pre">|source</span> <span class="pre">$HOME/.cargo/env</span></code></p></li>
-<li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
-<li><p><strong>Install Torch and Torchvision dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--extra-index-url</span> <span class="pre">https://download.pytorch.org/whl/cpu</span> <span class="pre">torch==2.2.0</span> <span class="pre">torchvision==0.17.0</span> <span class="pre">torchaudio==2.2.0</span></code></p></li>
-<li><p><strong>Install NLTK/punkt dependency:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
-<ul>
-<li><p>If you have a proxy, you can configure it in <code class="docutils literal notranslate"><span class="pre">nltk_dependencies.py</span></code> script.</p></li>
-</ul>
-</li>
-<li><p><strong>Install Node.js dependencies:</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">npm</span> <span class="pre">-y</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">install</span></code></p></li>
-</ul>
-</li>
-<li><p><strong>Install MySQL:</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">mysql-server</span> <span class="pre">-y</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">mysql_secure_installation</span></code></p>
-<ul>
-<li><p>Enter root password.</p></li>
-<li><p>You may now enter <code class="docutils literal notranslate"><span class="pre">Y</span></code> and <code class="docutils literal notranslate"><span class="pre">ENTER</span></code>. Accept all fields. This will remove some anonymous users and the test database,
-disable remote root logins, and load these new rules so that MySQL immediately respects any changes made.</p></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<p><strong>Create &amp; Configure Watcher database:</strong></p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>sudo mysql 
-CREATE USER &#39;watcher&#39;@&#39;localhost&#39; IDENTIFIED BY &#39;Ee5kZm4fWWAmE9hs!&#39;;
-GRANT ALL PRIVILEGES ON *.* TO &#39;watcher&#39;@&#39;localhost&#39; WITH GRANT OPTION;
-CREATE DATABASE db_watcher;
-use db_watcher;
-exit
-systemctl status mysql.service
-</pre></div>
-</div>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/watcher</span></code></p></li>
-</ul>
-<p>In <code class="docutils literal notranslate"><span class="pre">settings.py</span></code> change <code class="docutils literal notranslate"><span class="pre">HOST</span></code> variable to <code class="docutils literal notranslate"><span class="pre">localhost</span></code>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>DATABASES = {
-   &#39;default&#39;: {
-       &#39;ENGINE&#39;: &#39;django.db.backends.mysql&#39;,
-       &#39;CONN_MAX_AGE&#39;: 3600,
-       &#39;NAME&#39;: &#39;db_watcher&#39;,
-       &#39;USER&#39;: &#39;watcher&#39;,
-       &#39;PASSWORD&#39;: &#39;Ee5kZm4fWWAmE9hs!&#39;,
-       &#39;HOST&#39;: &#39;localhost&#39;,
-       &#39;PORT&#39;: &#39;3306&#39;,
-       &#39;OPTIONS&#39;: {
-           &#39;init_command&#39;: &quot;SET sql_mode=&#39;STRICT_TRANS_TABLES&#39;&quot;,
-       },
-   }
-}
-</pre></div>
-</div>
-<ul class="simple">
-<li><p><span style="color:red"><strong>[IMPORTANT]</strong> When <strong>commit</strong> put <code class="docutils literal notranslate"><span class="pre">HOST</span></code> variable back to <code class="docutils literal notranslate"><span class="pre">db_watcher</span></code></span></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">..</span></code></p></li>
-<li><p><strong><a class="reference internal" href="#migrate">Migrate</a> the database:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">migrate</span></code></p></li>
-<li><p><strong>Run Watcher:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">runserver</span></code></p></li>
-</ul>
-</section>
-<section id="deploy-a-simple-smtp-server-to-test-the-email-notifications">
-<h2>Deploy a simple SMTP server to test the email notifications<a class="headerlink" href="#deploy-a-simple-smtp-server-to-test-the-email-notifications" title="Link to this heading"></a></h2>
-<p>If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.</p>
-<ul class="simple">
-<li><p>Grab the docker-compose file: <a class="reference external" href="https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml">here</a>.</p></li>
-<li><p>Run the command: <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">up</span></code></p></li>
-<li><p>The mails will be available here by default: <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
-<li><p>Modify the mail settings in the environment variables: <code class="docutils literal notranslate"><span class="pre">vi</span> <span class="pre">/.env</span></code></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">SMTP_SERVER=localhost</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">EMAIL_FROM=from&#64;from.com</span></code></p></li>
-</ul>
-</li>
-<li><p>Launch Watcher: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">Watcher/Watcher/manage.py</span> <span class="pre">runserver</span></code></p></li>
-</ul>
-</section>
-<section id="unit-testing">
-<h2>Unit Testing<a class="headerlink" href="#unit-testing" title="Link to this heading"></a></h2>
-<p>Watcher includes comprehensive unit tests to ensure code quality and reliability. <strong>When contributing new features, you must include corresponding unit tests.</strong></p>
-<section id="test-coverage-technologies">
-<h3>Test Coverage &amp; Technologies<a class="headerlink" href="#test-coverage-technologies" title="Link to this heading"></a></h3>
-<p>The test suite covers all 5 main modules of Watcher:</p>
-<ul class="simple">
-<li><p><strong>Back-End Tests</strong>: Python’s standard unittest module</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">common/tests.py</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">watcher/tests.py</span></code></p></li>
-<li><p>Module-specific test files for each component</p></li>
-</ul>
-</li>
-<li><p><strong>Front-End Tests</strong>: Cypress framework for JavaScript testing</p>
-<ul>
-<li><p>Cypress tests for all 5 modules</p></li>
-<li><p>End-to-end testing scenarios</p></li>
-</ul>
-</li>
-</ul>
-</section>
-<section id="automated-ci-cd-testing">
-<h3>Automated CI/CD Testing<a class="headerlink" href="#automated-ci-cd-testing" title="Link to this heading"></a></h3>
-<p>All tests are <strong>automatically executed</strong> in our CI/CD pipeline using <strong>GitHub Actions</strong>:</p>
-<ul class="simple">
-<li><p><strong>Triggered on</strong>: Push, Pull Requests, and manual workflow dispatch</p></li>
-<li><p><strong>Execution</strong>: Both back-end and front-end tests run automatically</p></li>
-<li><p><strong>Coverage</strong>: Full test suite validation before code integration</p></li>
-</ul>
-<p>The CI/CD workflow ensures that:</p>
-<ul class="simple">
-<li><p>No broken code reaches the main branch</p></li>
-<li><p>All new features are properly tested</p></li>
-</ul>
-<p>You can view the workflow file at <code class="docutils literal notranslate"><span class="pre">.github/workflows/docker-image-latest.yml</span></code> and monitor test results in the <strong>Actions</strong> tab of the GitHub repository.</p>
-</section>
-<section id="the-commands">
-<h3>The commands<a class="headerlink" href="#the-commands" title="Link to this heading"></a></h3>
-<p><strong>IMPORTANT</strong>: All test commands must be executed from the <code class="docutils literal notranslate"><span class="pre">Watcher/Watcher</span></code> directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>Watcher/Watcher
-</pre></div>
-</div>
-<section id="back-end-tests">
-<h4>Back-End Tests<a class="headerlink" href="#back-end-tests" title="Link to this heading"></a></h4>
-<p>To run all Django unit tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span>
-</pre></div>
-</div>
-<p>To run tests for a specific module:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span><span class="w"> </span>&lt;module_name&gt;
-</pre></div>
-</div>
-<p>To run with verbose output:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--verbosity<span class="o">=</span><span class="m">2</span>
-</pre></div>
-</div>
-</section>
-<section id="front-end-tests">
-<h4>Front-End Tests<a class="headerlink" href="#front-end-tests" title="Link to this heading"></a></h4>
-<p>Before running front-end tests, you need to create a test superuser:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
-<span class="s2">from django.contrib.auth.models import User</span>
-<span class="s2">User.objects.create_superuser(&#39;Watcher&#39;, &#39;cypress@watcher.com&#39;, &#39;Watcher&#39;, first_name=&#39;Unit-Test Cypress&#39;, last_name=&#39;Watcher&#39;)</span>
-<span class="s2">&quot;</span>
-</pre></div>
-</div>
-<p><strong>Alternative</strong>: If you already have a superuser account, you can use it for testing by updating the test credentials in <code class="docutils literal notranslate"><span class="pre">cypress.config.js</span></code>:</p>
-<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nx">testCredentials</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">username</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_name&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">password</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_password&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">email</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_superuser_email&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">firstName</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;your_first_name&#39;</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>To run with an interactive Cypress Test Runner:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>npm<span class="w"> </span>run<span class="w"> </span>cypress:open
-</pre></div>
-</div>
-<p>To run in headless mode (CI/CD):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>npm<span class="w"> </span>run<span class="w"> </span>test:e2e
-</pre></div>
-</div>
-</section>
-</section>
-<section id="development-guidelines">
-<h3>Development Guidelines<a class="headerlink" href="#development-guidelines" title="Link to this heading"></a></h3>
-<p>Here is the file structure of the test files in Watcher:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Watcher/
-├── common/
-│   └── tests.py
-├── watcher/
-│   └── tests.py
-├── [module_name]/
-│   └── tests.py
-└── cypress/
-    ├── e2e/
-    └── support/
-</pre></div>
-</div>
-<ul class="simple">
-<li><p><strong>For new modules</strong>, create a <code class="docutils literal notranslate"><span class="pre">tests.py</span></code> file following Django’s testing conventions.</p></li>
-<li><p><strong>For frontend features</strong>, add Cypress tests in the appropriate <code class="docutils literal notranslate"><span class="pre">cypress/e2e/</span></code> directory.</p></li>
-</ul>
-<p><strong>When developing new features</strong>, ensure your tests cover:</p>
-<ul class="simple">
-<li><p>Happy path scenarios</p></li>
-<li><p>Edge cases</p></li>
-<li><p>Error handling</p></li>
-<li><p>Input validation</p></li>
-</ul>
-<p><span style="color:red"><strong>[IMPORTANT]</strong> All Pull Requests must include tests for new functionality. PRs without adequate test coverage may be rejected.</span></p>
-</section>
-</section>
-<section id="modify-the-frontend">
-<h2>Modify the frontend<a class="headerlink" href="#modify-the-frontend" title="Link to this heading"></a></h2>
-<p>If you need to modify the frontend <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/frontend</span></code>:</p>
-<p>From <code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/</span></code>, run the command below:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>npm run dev
-</pre></div>
-</div>
-<p>Let this command run in background.
-Now, when modifying some frontend ReactJs files it will automatically build them into one file (<code class="docutils literal notranslate"><span class="pre">/Watcher/Watcher/frontend/static/frontend/main.js</span></code>).</p>
-<p><span style="color:red"><strong>[IMPORTANT]</strong> When <strong>commit</strong> you have to run <strong>1 time</strong> the command below:</span></p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>npm run build
-</pre></div>
-</div>
-</section>
-<section id="migrations-change-the-database-schema">
-<h2>Migrations: Change the database schema<a class="headerlink" href="#migrations-change-the-database-schema" title="Link to this heading"></a></h2>
-<p>Migrations are Django’s way of propagating changes you make to your models
-(adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic,
-but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.</p>
-<section id="id3">
-<h3>The commands<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
-<p>There are several commands which you will use to interact with migrations and Django’s handling of database schema:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">migrate</span></code>, which is responsible for applying and unapplying migrations.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">makemigrations</span></code>, which is responsible for creating new migrations based on the changes you have made to your models.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sqlmigrate</span></code>, which displays the SQL statements for a migration.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">showmigrations</span></code>, which lists a project’s migrations and their status.</p></li>
-</ul>
-</section>
-<section id="change-a-model-adding-a-field-deleting-a-model-etc">
-<h3>Change a model (adding a field, deleting a model, etc.)<a class="headerlink" href="#change-a-model-adding-a-field-deleting-a-model-etc" title="Link to this heading"></a></h3>
-<p>When you are <strong>making a change to a model</strong>, for instance, adding a new field to: <strong>/Watcher/Watcher/data_leak/models.py</strong>
-Then, you need to create a new migration based on the changes you have made:</p>
-<ul class="simple">
-<li><p>Go to <strong>/Watcher/Watcher/</strong> and run this command: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">manage.py</span> <span class="pre">makemigrations</span></code></p></li>
-</ul>
-<p><span style="color:red"> <strong>[IMPORTANT]</strong> Run the <code class="docutils literal notranslate"><span class="pre">makemigrations</span></code> command <strong>only once</strong></span>, when you have made <strong>all the changes</strong>.
-Otherwise, it will create <strong>several unnecessary migration files</strong>.</p>
-</section>
-</section>
-<section id="build-the-documentation">
-<h2>Build the documentation<a class="headerlink" href="#build-the-documentation" title="Link to this heading"></a></h2>
-<p>Modify some function comments or the <code class="docutils literal notranslate"><span class="pre">/Watcher/README.md</span></code> file.</p>
-<p>Go to <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> and run:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span> ./build_the_docs.sh
-</pre></div>
-</div>
-<p>When commit please add the all <code class="docutils literal notranslate"><span class="pre">/Watcher/docs</span></code> folder and the <code class="docutils literal notranslate"><span class="pre">README.md</span></code> file:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git add ../docs ../README.md
-</pre></div>
-</div>
 </section>
 </section>
 

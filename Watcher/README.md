@@ -375,11 +375,46 @@ Connect to the `/admin` page:
 - Select the **expiration** date.
 - Click on **SAVE**.
 
-
 You must pass your API keys via the Authorization header. It should be formatted as follows: **`Authorization: Token <API_KEY>`** where **<API_KEY>** refers to the full generated API key.
 
+### Pagination
 
-Below, you will find our 4 modules with their API functions:
+All API endpoints support **standardized pagination** using REST Framework's `PageNumberPagination`:
+
+**Default Configuration:**
+- **Default page size**: 100 items per page
+- **Maximum page size**: 1000 items per page
+- **Customizable**: Use `page_size` query parameter
+
+**Usage Examples:**
+
+```bash
+# Get first page with default size (100 items)
+GET /api/data_leak/keyword/
+
+# Get specific page
+GET /api/data_leak/keyword/?page=2
+
+# Customize page size (between 1 and 1000)
+GET /api/data_leak/keyword/?page=1&page_size=50
+
+# Maximum page size
+GET /api/data_leak/keyword/?page=1&page_size=1000
+```
+
+**Response Fields:**
+- `count`: Total number of items across all pages
+- `next`: URL to the next page (null if last page)
+- `previous`: URL to the previous page (null if first page)
+- `results`: Array containing the actual items for the current page
+
+**Notes:**
+- The `page_size` parameter is **optional**
+- Invalid page numbers return a 404 error
+- Page size values exceeding 1000 are automatically capped at 1000
+- All frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system
+
+Below, you will find our 5 modules with their API functions:
 
 <details>
 
@@ -387,8 +422,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/threats_watcher/trendyword/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of trending words monitored by the application.
+  - **GET:** Returns a paginated list of trending words monitored by the application.
   - **POST:** Adds a new trending word to the monitored list.
   - **PATCH:** Updates an existing trending word in the monitored list.
   - **DELETE:** Removes a trending word from the monitored list.
@@ -396,8 +432,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/threats_watcher/bannedword/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of banned words monitored by the application.
+  - **GET:** Returns a paginated list of banned words monitored by the application.
   - **POST:** Adds a new banned word to the monitored list.
   - **PATCH:** Updates an existing banned word in the monitored list.
   - **DELETE:** Removes a banned word from the monitored list.
@@ -411,8 +448,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/data_leak/keyword/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of keywords monitored for data leaks.
+  - **GET:** Returns a paginated list of keywords monitored for data leaks.
   - **POST:** Adds a new keyword to the monitored list for data leaks.
   - **PATCH:** Updates an existing keyword in the monitored list for data leaks.
   - **DELETE:** Removes a keyword from the monitored list for data leaks.
@@ -420,8 +458,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/data_leak/alert/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of alerts related to data leaks.
+  - **GET:** Returns a paginated list of alerts related to data leaks.
   - **POST:** Adds a new alert for data leaks.
   - **PATCH:** Updates an existing alert for data leaks.
   - **DELETE:** Removes an alert related to data leaks.
@@ -435,8 +474,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/site_monitoring/site/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of sites monitored by the application.
+  - **GET:** Returns a paginated list of sites monitored by the application.
   - **POST:** Adds a new site to the monitored list.
   - **PATCH:** Updates an existing site in the monitored list.
   - **DELETE:** Removes a site from the monitored list.
@@ -444,8 +484,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/site_monitoring/alert/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of alerts related to site monitoring.
+  - **GET:** Returns a paginated list of alerts related to site monitoring.
   - **POST:** Adds a new alert related to site monitoring.
   - **PATCH:** Updates an existing alert related to site monitoring.
   - **DELETE:** Removes an alert related to site monitoring.
@@ -453,9 +494,17 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/site_monitoring/misp/$`
 - **HTTP Method:** POST
+- **Pagination:** No
 - **Description:** 
-  - **POST:** Adds a new integration with MISP.
-- **Usage:** Used to get, add, update, or delete current integrations with MISP.
+  - **POST:** Exports a monitored site to MISP threat intelligence platform.
+- **Usage:** Used to integrate site monitoring data with MISP.
+
+`^api/site_monitoring/site/statistics/$`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Returns aggregated statistics for site monitoring (total sites, malicious count, takedown requests, legal team cases).
+- **Usage:** Used to display dashboard statistics.
 
 </details> <br>
 
@@ -465,8 +514,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/dns_finder/dns_monitored/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of monitored DNS domains.
+  - **GET:** Returns a paginated list of monitored DNS domains.
   - **POST:** Adds a new DNS domain to the monitored list.
   - **PATCH:** Updates an existing monitored DNS domain.
   - **DELETE:** Removes a DNS domain from the monitored list.
@@ -474,8 +524,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/dns_finder/keyword_monitored/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of monitored DNS keywords.
+  - **GET:** Returns a paginated list of monitored DNS keywords.
   - **POST:** Adds a new keyword to the monitored list.
   - **PATCH:** Updates an existing monitored keyword.
   - **DELETE:** Removes a keyword from the monitored list.
@@ -483,8 +534,9 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/dns_finder/dns_twisted/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of twisted DNS domains (typosquatting).
+  - **GET:** Returns a paginated list of twisted DNS domains (typosquatting).
   - **POST:** Adds a new twisted DNS domain to the monitored list.
   - **PATCH:** Updates an existing twisted DNS domain in the monitored list.
   - **DELETE:** Removes a twisted DNS domain from the monitored list.
@@ -492,20 +544,20 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/dns_finder/alert/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:** 
-  - **GET:** Returns a list of DNS alerts.
+  - **GET:** Returns a paginated list of DNS alerts.
   - **POST:** Adds a new DNS alert.
   - **PATCH:** Updates an existing DNS alert.
   - **DELETE:** Removes a DNS alert.
 - **Usage:** Used to get, add, update, or delete current DNS alerts.
 
 `^api/dns_finder/misp/$`
-- **HTTP Method:** POST, PATCH, DELETE
+- **HTTP Method:** POST
+- **Pagination:** No
 - **Description:** 
-  - **POST:** Adds a new integration with MISP for DNS.
-  - **PATCH:** Updates an existing integration with MISP for DNS.
-  - **DELETE:** Removes an integration with MISP for DNS.
-- **Usage:** Used to get, add, update, or delete current integrations with MISP for DNS.
+  - **POST:** Exports DNS findings to MISP threat intelligence platform.
+- **Usage:** Used to integrate DNS findings with MISP.
 
 </details> <br>
 
@@ -515,44 +567,63 @@ Below, you will find our 4 modules with their API functions:
 
 `^api/common/legitimate_domains/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
 - **Description:**
+  - **GET:** Returns a paginated list of legitimate company-owned domains.
   - **POST:** Export a domain from Website Monitoring to the legitimate domains list. Payload includes: domain_name, ticket_id, contact, expiry, repurchased (bool), comments.
+  - **PATCH:** Updates an existing legitimate domain.
+  - **DELETE:** Removes a legitimate domain.
 - **Usage:** Add a company-approved domain for expiry/contact monitoring and tracking.
 
-<br>
-
-`^api/threats_watcher/summary/?type=weekly_summary`
-- **HTTP Method:** GET, POST, PATCH, DELETE
+`^api/common/legitimate_domains/statistics/$`
+- **HTTP Method:** GET
+- **Pagination:** No
 - **Description:**
-  - **GET:** Returns the weekly summary of threats detected by the watcher.
-- **Usage:** Fetch and display the weekly summary.
+  - **GET:** Returns aggregated statistics for legitimate domains (total, repurchased, expired, expiring soon).
+- **Usage:** Used to display dashboard statistics.
 
-<br>
-
-`^api/threats_watcher/summary/?type=breaking_news`
-- **HTTP Method:** GET, POST, PATCH, DELETE
+`^api/common/legitimate_domains/misp/$`
+- **HTTP Method:** POST
+- **Pagination:** No
 - **Description:**
-  - **GET:** Returns breaking news / high-priority alerts detected by the watcher.
-- **Usage:** Fetch and display breaking news.
-
-<br>
-
-`^api/threats_watcher/summary/?type=trendy_word_summary&keyword=<keyword>`
-- **HTTP Method:** GET, POST, PATCH, DELETE
-- **Description:**
-  - **GET:** Returns the existing summary for a given trendy word (keyword).
-- **Usage:** Retrieve a previously generated summary for a keyword.
-
-<br>
-
-`^api/threats_watcher/summary/by-keyword/<keyword>/`
-- **HTTP Method:** GET, POST, PATCH, DELETE
-- **Description:**
-  - **GET:** Trigger generation (or regeneration) of a summary for the specified keyword and return the generated result.
-- **Usage:** Request backend to generate a summary.
+  - **POST:** Exports a legitimate domain to MISP threat intelligence platform.
+- **Usage:** Used to integrate legitimate domain data with MISP.
 
 </details> <br>
 
+<details>
+
+<summary>Threat Intelligence Summaries</summary> <br>
+
+`^api/threats_watcher/summary/?type=weekly_summary`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Returns the AI-generated weekly summary of threats detected by the watcher.
+- **Usage:** Fetch and display the weekly threat intelligence report.
+
+`^api/threats_watcher/summary/?type=breaking_news`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Returns breaking news / high-priority alerts detected by the watcher.
+- **Usage:** Fetch and display breaking news alerts.
+
+`^api/threats_watcher/summary/?type=trendy_word_summary&keyword=<keyword>`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Returns the existing AI-generated summary for a given trendy word (keyword).
+- **Usage:** Retrieve a previously generated summary for a keyword.
+
+`^api/threats_watcher/summary/by-keyword/<keyword>/`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Trigger generation (or regeneration) of an AI summary for the specified keyword and return the generated result.
+- **Usage:** Request backend to generate a new threat intelligence summary.
+
+</details> <br>
 
 ### Specific Details
 
@@ -738,337 +809,4 @@ All data tables include **enhanced filtering**:
 
 1. **Filter Builder**: Click filter icon to add conditions
 2. **Save Filter Sets**: Name and save custom filters
-3. **Quick Apply**: Load saved filters with one click
-
-## Archived Alerts
-Once you have processed an alert, you can archive it.
-
-To archived **1** alert:
-
-- Go to the alert that you want to archived.
-- Select the "**disable**" **button**.
-
-To archived **several** alerts:
-
-- Go to **/admin** page.
-- Click on **Alerts**.
-- **Check** alerts that you want to archived.
-- Click on **Action** dropdown.
-- Select "**Disable selected alerts**".
-
-# Update Watcher
-
-Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
-
-## Migrate from Docker Hub to GHCR (Required for all users)
-
-If you are still using the old Docker Hub image (`felix83000/watcher`), you **must** update your `docker-compose.yml`:
-
-**Old (DEPRECATED):**
-```yaml
-image: felix83000/watcher:latest
-```
-
-**New (REQUIRED):**
-```yaml
-image: ghcr.io/thalesgroup-cert/watcher:latest
-```
-
-## Update Process
-
-To update Watcher image please follow the instructions below:
-
-- Stop all containers: `docker compose down`
-- Remove the old docker images: 
-  ```bash
-  # If migrating from Docker Hub
-  docker rmi felix83000/watcher
-  
-  # If already using GHCR
-  docker rmi ghcr.io/thalesgroup-cert/watcher
-  
-  # Also remove Searx image
-  docker rmi searx/searx
-  ```
-- Pull the newer docker images: `docker compose up`
-
-This will update the Watcher project.
-
-## Migrate & Populate the database (mandatory)
-
-Updates the state of the database in accordance with all current models and migrations. Populate your database with hundred of banned words and RSS sources related to Cyber Security.
-
-    docker compose down
-    docker compose run watcher bash
-    python manage.py migrate
-    python manage.py populate_db
-
-## Managing Breaking Changes (optional)
-
-If the release includes breaking changes, additional steps may be required. Here are the general steps to manage breaking changes:
-
-1. **Review release notes or documentation**: Check the release notes or documentation for any information about breaking changes and specific instructions on how to handle them.
-
-2. **Backup data**: Before proceeding with the update, it's advisable to backup any critical data to prevent loss in case of unexpected issues.
-
-3. **Test in a staging environment**: If possible, test the update in a staging environment to identify any potential issues or conflicts with existing configurations or customizations.
-
-4. **Update configurations**: Review and update any configurations or settings that may be affected by the breaking changes.
-
-5. **Modify custom code**: If you have any custom code or scripts that rely on the previous version's functionality, you may need to modify them to work with the new version.
-
-6. **Run additional migration scripts**: If provided, run any additional migration scripts or commands provided by the developers to handle specific breaking changes.
-
-Always refer to the specific instructions provided with the update.
-
-# Developers
-If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.
-
-## Open a Pull Request (PR) to contribute to this project
-- Fork the official Watcher repository
-- Install `Git`
-- Open a terminal: `git clone <your_forked_repository.git>`
-- Switch to the dev branch: `git checkout -b feature/<name_of_the_new_feature>`
-- Make your changes on the working files and then: `git add *`
-- Add a commit message and description: `git commit -m "Title" -m "Description"`
-- Publish the changes: `git push origin feature/<name_of_the_new_feature>`
-- Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
-- Done! Your work will be reviewed by the team! 
-
-## Setup Watcher environment
-Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 and Ubuntu 21.10 LTS in our case).
-
-Then, follow the steps below:
-
-- **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
-- **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
-- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
-- **Pull Watcher code:** `git clone <your_forked_repository.git>`
-- **Move to the following directory:** `cd Watcher/Watcher`
-- **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
-- **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
-- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
-- **Install Python dependencies:** `pip3 install -r requirements.txt`
-- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
-- **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
-     - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
-- **Install Node.js dependencies:**
-     - `sudo apt install npm -y`
-     - `npm install`
-- **Install MySQL:**
-     - `sudo apt install mysql-server -y`
-     - `sudo mysql_secure_installation`
-          - Enter root password.
-          - You may now enter `Y` and `ENTER`. Accept all fields. This will remove some anonymous users and the test database, 
-    disable remote root logins, and load these new rules so that MySQL immediately respects any changes made.
-
-**Create & Configure Watcher database:**
-
-    sudo mysql 
-    CREATE USER 'watcher'@'localhost' IDENTIFIED BY 'Ee5kZm4fWWAmE9hs!';
-    GRANT ALL PRIVILEGES ON *.* TO 'watcher'@'localhost' WITH GRANT OPTION;
-    CREATE DATABASE db_watcher;
-    use db_watcher;
-    exit
-    systemctl status mysql.service
-
-- `cd Watcher/watcher`
-
-In `settings.py` change `HOST` variable to `localhost`:
-
-    DATABASES = {
-       'default': {
-           'ENGINE': 'django.db.backends.mysql',
-           'CONN_MAX_AGE': 3600,
-           'NAME': 'db_watcher',
-           'USER': 'watcher',
-           'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
-           'HOST': 'localhost',
-           'PORT': '3306',
-           'OPTIONS': {
-               'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-           },
-       }
-    }
-
-- <span style="color:red">**[IMPORTANT]** When **commit** put `HOST` variable back to `db_watcher`</span>
-- `cd ..`
-- **[Migrate](#migrate) the database:** `python3 manage.py migrate`
-- **Run Watcher:** `python3 manage.py runserver`
-
-## Deploy a simple SMTP server to test the email notifications
-If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.
-- Grab the docker-compose file: [here](https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml).
-- Run the command: `docker compose up`
-- The mails will be available here by default: `localhost:5000`
-- Modify the mail settings in the environment variables: `vi /.env`
-    - `SMTP_SERVER=localhost`
-    - `EMAIL_FROM=from@from.com`
-- Launch Watcher: `python Watcher/Watcher/manage.py runserver` 
-
-## Unit Testing
-
-Watcher includes comprehensive unit tests to ensure code quality and reliability. **When contributing new features, you must include corresponding unit tests.**
-
-### Test Coverage & Technologies
-
-The test suite covers all 5 main modules of Watcher:
-
-- **Back-End Tests**: Python's standard unittest module
-  - `common/tests.py`
-  - `watcher/tests.py`
-  - Module-specific test files for each component
-
-- **Front-End Tests**: Cypress framework for JavaScript testing
-  - Cypress tests for all 5 modules
-  - End-to-end testing scenarios
-
-### Automated CI/CD Testing
-
-All tests are **automatically executed** in our CI/CD pipeline using **GitHub Actions**:
-
-- **Triggered on**: Push, Pull Requests, and manual workflow dispatch
-- **Execution**: Both back-end and front-end tests run automatically
-- **Coverage**: Full test suite validation before code integration
-
-The CI/CD workflow ensures that:
-- No broken code reaches the main branch
-- All new features are properly tested
-
-You can view the workflow file at `.github/workflows/docker-image-latest.yml` and monitor test results in the **Actions** tab of the GitHub repository.
-
-
-### The commands
-
-**IMPORTANT**: All test commands must be executed from the `Watcher/Watcher` directory:
-
-```bash
-cd Watcher/Watcher
-```
-
-#### Back-End Tests
-To run all Django unit tests:
-
-```bash
-python manage.py test
-```
-
-To run tests for a specific module:
-
-```bash
-python manage.py test <module_name>
-```
-
-To run with verbose output:
-
-```bash
-python manage.py test --verbosity=2
-```
-
-#### Front-End Tests
-
-Before running front-end tests, you need to create a test superuser:
-
-```bash
-python manage.py shell -c "
-from django.contrib.auth.models import User
-User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher', first_name='Unit-Test Cypress', last_name='Watcher')
-"
-```
-
-**Alternative**: If you already have a superuser account, you can use it for testing by updating the test credentials in `cypress.config.js`:
-
-```javascript
-env: {
-  testCredentials: {
-    username: 'your_superuser_name',
-    password: 'your_superuser_password',
-    email: 'your_superuser_email',
-    firstName: 'your_first_name'
-  }
-}
-```
-
-To run with an interactive Cypress Test Runner:
-
-```bash
-npm run cypress:open
-```
-
-To run in headless mode (CI/CD):
-
-```bash
-npm run test:e2e
-```
-
-### Development Guidelines
-
-Here is the file structure of the test files in Watcher:
-```
-Watcher/
-├── common/
-│   └── tests.py
-├── watcher/
-│   └── tests.py
-├── [module_name]/
-│   └── tests.py
-└── cypress/
-    ├── e2e/
-    └── support/
-```
-
-- **For new modules**, create a `tests.py` file following Django's testing conventions.
-- **For frontend features**, add Cypress tests in the appropriate `cypress/e2e/` directory.
-
-**When developing new features**, ensure your tests cover:
-- Happy path scenarios
-- Edge cases
-- Error handling
-- Input validation
-
-<span style="color:red">**[IMPORTANT]** All Pull Requests must include tests for new functionality. PRs without adequate test coverage may be rejected.</span>
-
-## Modify the frontend
-If you need to modify the frontend `/Watcher/Watcher/frontend`:
-
-From `/Watcher/Watcher/`, run the command below:
-
-    npm run dev
-
-Let this command run in background. 
-Now, when modifying some frontend ReactJs files it will automatically build them into one file (`/Watcher/Watcher/frontend/static/frontend/main.js`).
-
-<span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the command below:</span>
-
-    npm run build
-
-## Migrations: Change the database schema
-Migrations are Django’s way of propagating changes you make to your models 
-(adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic, 
-but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.
-
-### The commands
-There are several commands which you will use to interact with migrations and Django’s handling of database schema:
-- `migrate`, which is responsible for applying and unapplying migrations.
-- `makemigrations`, which is responsible for creating new migrations based on the changes you have made to your models.
-- `sqlmigrate`, which displays the SQL statements for a migration.
-- `showmigrations`, which lists a project’s migrations and their status.
-
-### Change a model (adding a field, deleting a model, etc.)
-When you are **making a change to a model**, for instance, adding a new field to: **/Watcher/Watcher/data_leak/models.py**
-Then, you need to create a new migration based on the changes you have made:
-- Go to **/Watcher/Watcher/** and run this command: `python3 manage.py makemigrations`
-
-<span style="color:red"> **[IMPORTANT]** Run the `makemigrations` command **only once**</span>, when you have made **all the changes**. 
-Otherwise, it will create **several unnecessary migration files**.
-
-## Build the documentation
-Modify some function comments or the `/Watcher/README.md` file.
-
-Go to `/Watcher/docs` and run:
-   
-     ./build_the_docs.sh
-
-When commit please add the all `/Watcher/docs` folder and the `README.md` file:
-
-    git add ../docs ../README.md
+3. **Quick Apply
