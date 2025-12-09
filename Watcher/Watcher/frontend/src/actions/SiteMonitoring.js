@@ -149,3 +149,30 @@ export const exportToMISP = (site) => (dispatch, getState) => {
             dispatch(createMessage({error: errorMsg}));
         });
 };
+
+// GET SITE MONITORING STATISTICS
+export const getSiteStatistics = () => (dispatch, getState) => {
+    const endpoint = '/api/site_monitoring/site/statistics/';
+    
+    axios.get(endpoint, tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: 'GET_SITE_STATISTICS',
+                payload: res.data
+            });
+        })
+        .catch(err => {
+            if (err.response) {
+                dispatch(returnErrors(err.response.data, err.response.status));
+            }
+            dispatch({
+                type: 'GET_SITE_STATISTICS',
+                payload: {
+                    total: 0,
+                    malicious: 0,
+                    takedownRequests: 0,
+                    legalTeam: 0
+                }
+            });
+        });
+};

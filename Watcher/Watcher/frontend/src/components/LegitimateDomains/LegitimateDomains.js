@@ -12,7 +12,8 @@ import {
     addLegitimateDomain,
     patchLegitimateDomain,
     deleteLegitimateDomain,
-    exportToMISP
+    exportToMISP,
+    getLegitimateDomainStatistics
 } from "../../actions/LegitimateDomain";
 
 const INIT_DOMAIN = {
@@ -43,7 +44,6 @@ class LegitimateDomains extends Component {
             editCommentsLength: 0,
             addCommentsLength: 0,
             isLoading: true,
-            authChecked: false
         };
 
         this.editRefs = {
@@ -73,30 +73,11 @@ class LegitimateDomains extends Component {
         addLegitimateDomain: PropTypes.func.isRequired,
         patchLegitimateDomain: PropTypes.func.isRequired,
         deleteLegitimateDomain: PropTypes.func.isRequired,
+        getLegitimateDomainStatistics: PropTypes.func.isRequired,
         onDataFiltered: PropTypes.func
     };
 
-    componentDidMount() {
-        if (!this.props.auth.isLoading) {
-            this.setState({ authChecked: true });
-            this.props.getLegitimateDomains();
-        }
-    }
-
     componentDidUpdate(prevProps) {
-        if (prevProps.auth.isLoading && !this.props.auth.isLoading && !this.state.authChecked) {
-            this.setState({ authChecked: true });
-            this.props.getLegitimateDomains();
-            return;
-        }
-
-        if (this.state.authChecked && 
-            this.props.auth.isAuthenticated !== prevProps.auth.isAuthenticated) {
-            this.setState({ isLoading: true }, () => {
-                this.props.getLegitimateDomains();
-            });
-        }
-        
         if (this.props.domains !== prevProps.domains) {
             if (this.state.isLoading) {
                 this.setState({ isLoading: false });
@@ -210,10 +191,8 @@ class LegitimateDomains extends Component {
             
             await this.props.exportToMISP(payload);
             
-            setTimeout(() => {
-                this.props.getLegitimateDomains();
-                this.closeExportModal();
-            }, 1000);
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
+            this.closeExportModal();
             
             return { success: true };
         } catch (err) {
@@ -328,6 +307,7 @@ class LegitimateDomains extends Component {
                 comments: this.editRefs.comments.current.value
             };
             this.props.patchLegitimateDomain(this.state.editDomain.id, domain);
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
         };
 
@@ -494,6 +474,7 @@ class LegitimateDomains extends Component {
                 comments: this.addRefs.comments.current.value
             };
             this.props.addLegitimateDomain(domain);
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
         };
         
@@ -641,7 +622,8 @@ class LegitimateDomains extends Component {
     deleteModal = () => {
         const handleClose = () => this.setState({ showDeleteModal: false, deleteDomainId: null, deleteDomainName: null });
         const onDelete = () => {
-            this.props.deleteLegitimateDomain(this.state.deleteDomainId, this.state.deleteDomainName);
+            this.props.deleteLegitimateDomain(this.state.deleteDomainId, this.state.deleteDomainName);            
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
         };
         
@@ -923,5 +905,6 @@ export default connect(mapStateToProps, {
     addLegitimateDomain,
     patchLegitimateDomain,
     deleteLegitimateDomain,
-    exportToMISP
+    exportToMISP,
+    getLegitimateDomainStatistics
 })(LegitimateDomains);

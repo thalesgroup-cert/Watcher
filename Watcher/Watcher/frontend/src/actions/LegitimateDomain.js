@@ -133,3 +133,36 @@ export const exportToMISP = (payload) => (dispatch, getState) => {
             });
         });
 };
+
+// GET LEGITIMATE DOMAIN STATISTICS
+export const getLegitimateDomainStatistics = () => (dispatch, getState) => {
+    const endpoint = '/api/common/legitimate_domains/statistics/';
+    
+    const config = {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    };
+    
+    axios.get(endpoint, config)
+        .then(res => {
+            dispatch({
+                type: 'GET_LEGITIMATE_DOMAIN_STATISTICS',
+                payload: res.data
+            });
+        })
+        .catch(err => {
+            if (err.response) {
+                dispatch(returnErrors(err.response.data, err.response.status));
+            }
+            dispatch({
+                type: 'GET_LEGITIMATE_DOMAIN_STATISTICS',
+                payload: {
+                    total: 0,
+                    repurchased: 0,
+                    expired: 0,
+                    expiringSoon: 0
+                }
+            });
+        });
+};

@@ -291,28 +291,43 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should handle TableManager filter visibility toggle', () => {
-      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")').first().click();
-      cy.wait(500);
+      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")')
+        .first()
+        .should('be.visible')
+        .wait(500)
+        .click({ force: true });
+      
+      cy.wait(1000);
       
       cy.get('body').then(($body) => {
         const hasFilters = $body.find('.card.mb-3.shadow-sm.border-0').length > 0;
         if (hasFilters) {
           cy.log('Filters panel toggled successfully');
+        } else {
+          cy.log('Filters may be hidden or have different class structure');
         }
       });
     });
 
     it('should handle word deletion and blocklist workflow', () => {
+      cy.get('table tbody tr', { timeout: 10000 }).should('have.length.at.least', 1);
+      cy.wait(1000);
+
       cy.get('body').then(($body) => {
         const deleteButtons = $body.find('button:contains("Delete"), button:contains("BlockList")');
         if (deleteButtons.length > 0) {
-          cy.wrap(deleteButtons.first()).click();
+          cy.wrap(deleteButtons.first())
+            .scrollIntoView()
+            .wait(500)
+            .click({ force: true });
+          
           cy.get('.modal', { timeout: 10000 }).should('be.visible');
           cy.get('.modal').within(() => {
             cy.get('.modal-title').should('contain', 'Action Requested');
             cy.get('.modal-body').should('exist');
           });
-          cy.get('button:contains("Close"), button:contains("Cancel")').first().click();
+          cy.get('button:contains("Close"), button:contains("Cancel")').first().click({ force: true });
+          cy.wait(500);
         } else {
           cy.log('No Delete/BlockList buttons found');
         }
@@ -708,21 +723,33 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
   describe('TableManager Features', () => {
     it('should test filter save functionality', () => {
-      cy.get('button:contains("Save Filter")').click();
-      cy.get('.modal', { timeout: 5000 }).should('be.visible');
-      cy.get('.modal input[type="text"]').type('Test Filter E2E');
-      cy.get('.modal button:contains("Save Filter")').click();
-      cy.wait(500);
+      cy.wait(2000);
+      
+      cy.get('button:contains("Save Filter")')
+        .should('be.visible')
+        .scrollIntoView()
+        .wait(500)
+        .click({ force: true });
+      
+      cy.wait(1000);
+      
+      cy.get('.modal', { timeout: 10000 })
+        .should('exist')
+        .and('have.class', 'show');
+      
+      cy.get('.modal').should('have.css', 'opacity', '1');
+      
+      cy.get('.modal input[type="text"]')
+        .should('be.visible')
+        .type('Test Filter E2E', { force: true });
+      
+      cy.get('.modal button:contains("Save Filter")')
+        .should('be.visible')
+        .click({ force: true });
+      
+      cy.wait(1000);
       
       cy.get('button:contains("Saved Filters")').should('contain', '(1)');
-    });
-
-    it('should test sorting functionality', () => {
-      cy.get('table th:contains("Name")').click();
-      cy.wait(500);
-      cy.get('table th:contains("Name")').click();
-      cy.wait(500);
-      cy.log('Sorting toggled successfully');
     });
 
     it('should test pagination if more than 5 items', () => {

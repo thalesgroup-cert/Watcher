@@ -182,12 +182,11 @@ class Dashboard extends Component {
         const filterConfig = this.getFilterConfig();
         
         const hasActiveFilters = Object.values(globalFilters).some(val => val !== '');
-        const dataToDisplay = hasActiveFilters && filteredSites.length > 0 ? filteredSites : sites;
 
         return (
             <Fragment>
                 <div className="container-fluid mt-4">
-                    <SiteStats sites={dataToDisplay} />
+                    <SiteStats />
 
                     <TableManager
                         data={sites}

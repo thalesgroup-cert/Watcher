@@ -9,7 +9,13 @@ const initialState = {
     domains: [],
     domainsCount: 0,
     domainsNext: null,
-    domainsPrevious: null
+    domainsPrevious: null,
+    statistics: {
+        total: 0,
+        repurchased: 0,
+        expired: 0,
+        expiringSoon: 0
+    }
 };
 
 export default function(state = initialState, action) {
@@ -65,6 +71,12 @@ export default function(state = initialState, action) {
                 ...state,
                 domains: state.domains.filter(domain => domain.id !== action.payload),
                 domainsCount: Math.max(0, state.domainsCount - 1)
+            };
+
+        case 'GET_LEGITIMATE_DOMAIN_STATISTICS':
+            return {
+                ...state,
+                statistics: action.payload
             };
 
         default:

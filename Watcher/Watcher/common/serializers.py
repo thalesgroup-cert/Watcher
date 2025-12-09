@@ -36,19 +36,3 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
         if data.get("domain_created_at") == "":
             data["domain_created_at"] = None
         return super().to_internal_value(data)
-    
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        request = self.context.get('request')
-        
-        if not request or not request.user.is_authenticated:
-            return {
-                'id': data.get('id'),
-                'domain_name': data.get('domain_name'),
-                'contact': data.get('contact'),
-                'created_at': data.get('created_at'),
-                'domain_created_at': data.get('domain_created_at'),
-                'expiry': data.get('expiry'),
-            }
-        
-        return data

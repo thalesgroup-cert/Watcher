@@ -79,15 +79,12 @@ class Dashboard extends Component {
     };
 
     render() {
-        const { domains } = this.props;
-        const { filteredDomains } = this.state;
-
         return (
             <Fragment>
                 <div className="container-fluid mt-3">
                     <div className="row">
                         <div className="col-lg-12">
-                            <LegitimateStats domains={filteredDomains.length > 0 ? filteredDomains : domains} />
+                            <LegitimateStats />
                             <LegitimateDomains onDataFiltered={this.onDataFiltered} />
                         </div>
                     </div>

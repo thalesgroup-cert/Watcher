@@ -16,7 +16,13 @@ const initialState = {
     alerts: [],
     alertsCount: 0,
     alertsNext: null,
-    alertsPrevious: null
+    alertsPrevious: null,
+    statistics: {
+        total: 0,
+        malicious: 0,
+        takedownRequests: 0,
+        legalTeam: 0
+    }
 };
 
 export default function (state = initialState, action) {
@@ -109,6 +115,12 @@ export default function (state = initialState, action) {
                         ? { ...site, misp_event_id: action.payload.misp_event_id }
                         : site
                 )
+            };
+
+        case 'GET_SITE_STATISTICS':
+            return {
+                ...state,
+                statistics: action.payload
             };
 
         default:
