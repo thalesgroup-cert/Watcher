@@ -1,7 +1,7 @@
 import React, { Component, Fragment, createRef } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { getSites, deleteSite, addSite, patchSite, exportToMISP } from "../../actions/SiteMonitoring";
+import { getSites, deleteSite, addSite, patchSite, exportToMISP, getSiteStatistics } from "../../actions/SiteMonitoring";
 import { exportToLegitimateDomains } from '../../actions/Common';
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import DayPickerInput from 'react-day-picker/DayPickerInput';
@@ -83,6 +83,7 @@ export class SuspiciousSites extends Component {
         addSite: PropTypes.func.isRequired,
         patchSite: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
+        getSiteStatistics: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
         globalFilters: PropTypes.object,
@@ -404,6 +405,7 @@ export class SuspiciousSites extends Component {
         const onSubmit = e => {
             e.preventDefault();
             this.props.deleteSite(this.state.id, this.state.domainName);
+            setTimeout(() => this.props.getSiteStatistics(), 500);
             handleClose();
         };
 
@@ -491,6 +493,7 @@ export class SuspiciousSites extends Component {
             };
     
             this.props.patchSite(this.state.id, body);
+            setTimeout(() => this.props.getSiteStatistics(), 500);
             handleClose();
         };
     
@@ -771,6 +774,7 @@ export class SuspiciousSites extends Component {
             };
     
             this.props.addSite(body);
+            setTimeout(() => this.props.getSiteStatistics(), 500);
             handleClose();
         };
     
@@ -1231,6 +1235,9 @@ export class SuspiciousSites extends Component {
                                                                 >
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>info</i>
                                                                 </button>
+                                                                <span className="me-2">
+                                                                    {this.exportButton(site)}
+                                                                </span>
                                                                 <button
                                                                     onClick={() => this.displayEditModal(site)}
                                                                     className="btn btn-outline-warning btn-sm me-2"
@@ -1245,7 +1252,6 @@ export class SuspiciousSites extends Component {
                                                                 >
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                                 </button>
-                                                                {this.exportButton(site)}
                                                             </td>
                                                         </tr>
                                                     ))
@@ -1300,5 +1306,5 @@ export default connect(mapStateToProps, {
     addSite,
     patchSite,
     exportToMISP,
-    exportToLegitimateDomains
+    getSiteStatistics
 })(SuspiciousSites);

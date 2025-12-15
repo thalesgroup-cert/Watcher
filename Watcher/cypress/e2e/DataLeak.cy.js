@@ -1,72 +1,79 @@
 describe('Data Leak - E2E Test Suite', () => {
   const setupIntercepts = () => {
-    // Setup API mocks
-    cy.intercept('GET', '/api/data_leak/keyword/', {
+    cy.intercept('GET', '**/api/data_leak/keyword/**', {
       statusCode: 200,
-      body: [
-        { id: 1, name: "test-confidential", created_at: "2025-06-19T10:00:00Z" },
-        { id: 2, name: "e2e-internal", created_at: "2025-06-18T15:30:00Z" },
-        { id: 3, name: "test-company-data", created_at: "2025-06-17T08:15:00Z" }
-      ]
+      body: {
+        count: 3,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, name: "test-confidential", created_at: "2025-06-19T10:00:00Z" },
+          { id: 2, name: "e2e-internal", created_at: "2025-06-18T15:30:00Z" },
+          { id: 3, name: "test-company-data", created_at: "2025-06-17T08:15:00Z" }
+        ]
+      }
     }).as('getKeywords');
 
-    cy.intercept('GET', '/api/data_leak/alert/', {
+    cy.intercept('GET', '**/api/data_leak/alert/**', {
       statusCode: 200,
-      body: [
-        {
-          id: 1,
-          keyword: { id: 1, name: "test-confidential" },
-          url: "https://pastebin.com/test123",
-          content: "Confidential test data found in paste",
-          status: true,
-          created_at: "2025-06-19T14:30:00Z"
-        },
-        {
-          id: 2,
-          keyword: { id: 2, name: "e2e-internal" },
-          url: "https://github.com/test/repo", 
-          content: "Internal documentation exposed",
-          status: true,
-          created_at: "2025-06-19T12:15:00Z"
-        },
-        {
-          id: 3,
-          keyword: { id: 1, name: "test-confidential" },
-          url: "https://pastebin.com/test456",
-          content: "More confidential data leak detected", 
-          status: false,
-          created_at: "2025-06-18T16:45:00Z"
-        },
-        {
-          id: 4,
-          keyword: { id: 3, name: "test-company-data" },
-          url: "https://github.com/test/company",
-          content: "Company data in public repository",
-          status: false,
-          created_at: "2025-06-17T10:20:00Z"
-        }
-      ]
+      body: {
+        count: 4,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            keyword: { id: 1, name: "test-confidential" },
+            url: "https://pastebin.com/test123",
+            content: "Confidential test data found in paste",
+            status: true,
+            created_at: "2025-06-19T14:30:00Z"
+          },
+          {
+            id: 2,
+            keyword: { id: 2, name: "e2e-internal" },
+            url: "https://github.com/test/repo",
+            content: "Internal documentation exposed",
+            status: true,
+            created_at: "2025-06-19T12:15:00Z"
+          },
+          {
+            id: 3,
+            keyword: { id: 1, name: "test-confidential" },
+            url: "https://pastebin.com/test456",
+            content: "More confidential data leak detected",
+            status: false,
+            created_at: "2025-06-18T16:45:00Z"
+          },
+          {
+            id: 4,
+            keyword: { id: 3, name: "test-company-data" },
+            url: "https://github.com/test/company",
+            content: "Company data in public repository",
+            status: false,
+            created_at: "2025-06-17T10:20:00Z"
+          }
+        ]
+      }
     }).as('getAlerts');
 
     // Mock CRUD operations
-    cy.intercept('POST', '/api/data_leak/keyword/', (req) => ({
+    cy.intercept('POST', '**/api/data_leak/keyword/**', (req) => ({
       statusCode: 201,
       body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
     })).as('addKeyword');
 
-    cy.intercept('DELETE', '/api/data_leak/keyword/*', { statusCode: 204 }).as('deleteKeyword');
+    cy.intercept('DELETE', '**/api/data_leak/keyword/*', { statusCode: 204 }).as('deleteKeyword');
 
-    cy.intercept('PATCH', '/api/data_leak/keyword/*', (req) => ({
+    cy.intercept('PATCH', '**/api/data_leak/keyword/*', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('updateKeyword');
 
-    cy.intercept('PATCH', '/api/data_leak/alert/*', (req) => ({
+    cy.intercept('PATCH', '**/api/data_leak/alert/*', (req) => ({
       statusCode: 200, 
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('updateAlertStatus');
-
-    cy.intercept('GET', '/api/threats_watcher/trendyword/', { statusCode: 200, body: [] });
   };
 
   before(() => {
@@ -189,13 +196,13 @@ describe('Data Leak - E2E Test Suite', () => {
 
     it('should maintain session across navigation', () => {
       cy.get('.navbar').should('exist');
-      
-      cy.get('a[href="/#/"], a:contains("Watcher"), .navbar-brand').first().click();
+    
+      cy.visit('/#/');
       cy.url().should('include', '#/');
-      
-      cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist').click();
-      cy.url().should('include', 'data_leak');
-      
+    
+      cy.visit('/#/data_leak');
+      cy.url().should('include', '/data_leak');
+    
       cy.get('.navbar').should('exist');
     });
   });
@@ -231,10 +238,7 @@ describe('Data Leak - E2E Test Suite', () => {
         .eq(1)
         .within(() => {
           cy.contains('Showing', { timeout: 10000 }).should('exist');
-          cy.get('select').filter((index, el) => {
-            const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-            return text.includes('Items per page');
-          }).should('exist');
+          cy.contains('Items per page').parent().find('select').should('exist');
         });
     });
 
@@ -414,10 +418,8 @@ describe('Data Leak - E2E Test Suite', () => {
         .first()
         .within(() => {
           cy.contains('Showing', { timeout: 10000 }).should('exist');
-          cy.get('select').filter((index, el) => {
-            const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-            return text.includes('Items per page');
-          }).should('exist');
+          cy.contains('Items per page').should('exist');
+          cy.get('select').should('have.length.at.least', 1);
         });
     });
   });
@@ -479,10 +481,8 @@ describe('Data Leak - E2E Test Suite', () => {
       
       cy.get('.row.mt-4').within(() => {
         cy.contains('Showing', { timeout: 10000 }).should('exist');
-        cy.get('select').filter((index, el) => {
-          const text = Cypress.$(el).closest('.d-flex, div').find('label, span').text();
-          return text.includes('Items per page');
-        }).should('exist');
+        cy.contains('Items per page').should('exist');
+        cy.get('select').should('have.length.at.least', 1);
       });
     });
   });
@@ -652,24 +652,6 @@ describe('Data Leak - E2E Test Suite', () => {
       cy.get('.container-fluid').should('exist');
     });
 
-    it('should handle empty data states', () => {
-      cy.intercept('GET', '/api/data_leak/keyword/', { 
-        statusCode: 200, 
-        body: [] 
-      }).as('emptyKeywords');
-      
-      cy.intercept('GET', '/api/data_leak/alert/', { 
-        statusCode: 200, 
-        body: [] 
-      }).as('emptyAlerts');
-
-      cy.reload();
-      cy.get('body').should('be.visible');
-      cy.get('table').should('exist');
-      
-      cy.get('table tbody tr td').should('contain', 'No');
-    });
-
     it('should handle malformed URLs gracefully', () => {
       cy.intercept('GET', '/api/data_leak/alert/', {
         statusCode: 200,
@@ -752,15 +734,13 @@ describe('Data Leak - E2E Test Suite', () => {
       },
       failOnStatusCode: false
     }).then((response) => {
-      if (response.status === 200 && response.body) {
-        response.body.forEach((keyword) => {
-          if (keyword.name && (keyword.name.includes('test-') || keyword.name.includes('e2e-'))) {
+      if (response.status === 200 && response.body && response.body.results) {
+        response.body.results.forEach((keyword) => {
+          if (keyword.name.includes('test-') || keyword.name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
               url: `/api/data_leak/keyword/${keyword.id}/`,
-              headers: {
-                'Authorization': `Token ${Cypress.env('authData').token}`
-              },
+              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
           }

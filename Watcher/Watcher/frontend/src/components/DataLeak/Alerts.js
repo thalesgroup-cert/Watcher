@@ -2,7 +2,7 @@ import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import {getAlerts, updateAlertStatus} from "../../actions/DataLeak";
-import {Button, Modal, InputGroup, FormControl} from 'react-bootstrap';
+import {Button, Modal, Form} from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 
 export class Alerts extends Component {
@@ -41,7 +41,7 @@ export class Alerts extends Component {
         const alertsToFilter = this.props.filteredData || this.props.alerts;
         const { globalFilters = {} } = this.props;
         
-        filtered = (alertsToFilter || []).filter(alert => alert.status === true);
+        filtered = (alertsToFilter || []).filter(alert => alert && alert.status === true);
 
         if (globalFilters.search) {
             const searchTerm = globalFilters.search.toLowerCase();
@@ -61,7 +61,7 @@ export class Alerts extends Component {
 
         if (globalFilters.source) {
             filtered = filtered.filter(alert => {
-                if (!alert.url) return false;
+                if (!alert || !alert.url) return false;
                 try {
                     const domain = alert.url.split('//', 2)[1].split('/', 20)[0];
                     return domain === globalFilters.source;
@@ -143,12 +143,15 @@ export class Alerts extends Component {
                     <Modal.Title><b>#{this.state.id}</b>: <b>{this.state.keyword}</b> was found</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <InputGroup>
-                        <InputGroup.Prepend>
-                            <InputGroup.Text>Raw</InputGroup.Text>
-                        </InputGroup.Prepend>
-                        <FormControl as="textarea" rows={10} value={this.state.content} readOnly={true}/>
-                    </InputGroup>
+                    <Form.Group>
+                        <Form.Label>Raw Content</Form.Label>
+                        <Form.Control 
+                            as="textarea" 
+                            rows={10} 
+                            value={this.state.content} 
+                            readOnly={true}
+                        />
+                    </Form.Group>
                 </Modal.Body>
                 <Modal.Footer>
                     <form onSubmit={onSubmit}>
@@ -231,7 +234,7 @@ export class Alerts extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
                                                         ID{renderSortIcons('id')}
                                                     </th>
-                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword')}>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword.name')}>
                                                         Keyword{renderSortIcons('keyword.name')}
                                                     </th>
                                                     <th>From</th>
@@ -254,12 +257,22 @@ export class Alerts extends Component {
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(alert => {
-                                                        const domainName = alert.url.split('//', 2)[1].split('/', 20)[0];
+                                                        if (!alert || !alert.url) {
+                                                            return null;
+                                                        }
+
+                                                        let domainName = 'Unknown';
+                                                        try {
+                                                            domainName = alert.url.split('//', 2)[1].split('/', 20)[0];
+                                                        } catch (error) {
+                                                            console.error('Error parsing domain from URL:', error);
+                                                        }
+
                                                         let pastContentButton;
                                                         if (domainName === "pastebin.com") {
                                                             pastContentButton = (
                                                                 <button 
-                                                                    onClick={() => this.displayContentModal(alert.id, alert.keyword.name, alert.content)}
+                                                                    onClick={() => this.displayContentModal(alert.id, alert.keyword?.name || '-', alert.content)}
                                                                     className="btn btn-info btn-sm ms-2"
                                                                 >
                                                                     Content
@@ -270,7 +283,7 @@ export class Alerts extends Component {
                                                         return (
                                                             <tr key={alert.id}>
                                                                 <td><h5>#{alert.id}</h5></td>
-                                                                <td>{alert.keyword.name}</td>
+                                                                <td>{alert.keyword?.name || '-'}</td>
                                                                 <td>{domainName}</td>
                                                                 <td><h5>{this.getTitleAtUrl(alert.url)}</h5></td>
                                                                 <td style={{whiteSpace: 'nowrap'}}>
@@ -283,18 +296,18 @@ export class Alerts extends Component {
                                                                     </button>
                                                                     {pastContentButton}
                                                                 </td>
-                                                                <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                                <td>{alert.created_at ? (new Date(alert.created_at)).toLocaleString() : '-'}</td>
                                                                 <td>
                                                                     <button 
                                                                         onClick={() => this.displayModal(alert.id)}
-                                                                        className="btn btn-outline-primary btn-sm"
+                                                                        className="btn btn-outline-warning btn-sm"
                                                                     >
                                                                         Disable
                                                                     </button>
                                                                 </td>
                                                             </tr>
                                                         );
-                                                    })
+                                                    }).filter(Boolean)
                                                 )}
                                             </tbody>
                                         </table>

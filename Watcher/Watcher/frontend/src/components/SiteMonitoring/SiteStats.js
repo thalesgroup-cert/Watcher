@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import { Row, Col } from 'react-bootstrap';
 import PropTypes from 'prop-types';
-
+import { getSiteStatistics } from '../../actions/SiteMonitoring';
 
 const statCardsConfig = [
     {
@@ -34,81 +35,72 @@ const statCardsConfig = [
     }
 ];
 
-function getStatistics(sites) {
-    const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    return {
-        total: sites.length,
-        malicious: sites.filter(s => String(s.legitimacy) === '5' || String(s.legitimacy) === '6').length,
-        takedownRequests: sites.filter(s => s.takedown_request === true).length,
-        legalTeam: sites.filter(s => s.legal_team === true).length,
-        activelyMonitored: sites.filter(s => s.monitored === true).length,
-        blockingRequests: sites.filter(s => s.blocking_request === true).length,
-        monitoringExpiringSoon: sites.filter(s => {
-            if (!s.expiry) return false;
-            const expDate = new Date(s.expiry);
-            return expDate >= now && expDate <= thirtyDaysFromNow;
-        }).length,
-        domainExpiringSoon: sites.filter(s => {
-            if (!s.domain_expiry) return false;
-            const expDate = new Date(s.domain_expiry);
-            return expDate >= now && expDate <= thirtyDaysFromNow;
-        }).length,
-        offlineSites: sites.filter(s => !s.web_status || s.web_status !== 200).length
+class SiteStats extends Component {
+    static propTypes = {
+        statistics: PropTypes.object.isRequired,
+        getSiteStatistics: PropTypes.func.isRequired
     };
-}
 
-const SiteStats = ({ sites }) => {
-    const stats = getStatistics(sites);
+    componentDidMount() {
+        this.props.getSiteStatistics();
+    }
 
-    return (
-        <Row className="mb-4">
-            {statCardsConfig.map((card, index) => (
-                <Col key={index} lg={3} md={6} xs={12} className="mb-3">
-                    <div className={`card border-0 shadow-sm h-100 bg-${card.variant}`}>
-                        <div className="card-body d-flex align-items-center p-4">
-                            <div 
-                                className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
-                                style={{ 
-                                    width: '50px', 
-                                    height: '50px',
-                                    minWidth: '50px',
-                                    minHeight: '50px'
-                                }}
-                            >
-                                <i 
-                                    className={`material-icons text-${card.variant}`}
-                                    style={{ fontSize: '28px' }}
+    render() {
+        const { statistics } = this.props;
+
+        return (
+            <Row className="mb-4">
+                {statCardsConfig.map((card, index) => (
+                    <Col key={index} lg={3} md={6} xs={12} className="mb-3">
+                        <div className={`card border-0 shadow-sm h-100 bg-${card.variant}`}>
+                            <div className="card-body d-flex align-items-center p-4">
+                                <div 
+                                    className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
+                                    style={{ 
+                                        width: '50px', 
+                                        height: '50px',
+                                        minWidth: '50px',
+                                        minHeight: '50px'
+                                    }}
                                 >
-                                    {card.icon}
-                                </i>
-                            </div>
-                            
-                            <div className="flex-fill">
-                                <div className="text-white-50 text-uppercase fw-bold small mb-1" 
-                                     style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                                    {card.title}
+                                    <i 
+                                        className={`material-icons text-${card.variant}`}
+                                        style={{ fontSize: '28px' }}
+                                    >
+                                        {card.icon}
+                                    </i>
                                 </div>
-                                <div className="text-white fw-bold h2 mb-1" 
-                                     style={{ fontSize: '2rem', lineHeight: '1' }}>
-                                    {stats[card.key]}
-                                </div>
-                                <div className="text-white-50 small" 
-                                     style={{ fontSize: '0.8rem' }}>
-                                    {card.description}
+                                
+                                <div className="flex-fill">
+                                    <div className="text-white-50 text-uppercase fw-bold small mb-1" 
+                                         style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                        {card.title}
+                                    </div>
+                                    <div className="text-white fw-bold h2 mb-1" 
+                                         style={{ fontSize: '2rem', lineHeight: '1' }}>
+                                        {statistics[card.key] || 0}
+                                    </div>
+                                    <div className="text-white-50 small" 
+                                         style={{ fontSize: '0.8rem' }}>
+                                        {card.description}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </Col>
-            ))}
-        </Row>
-    );
-};
+                    </Col>
+                ))}
+            </Row>
+        );
+    }
+}
 
-SiteStats.propTypes = {
-    sites: PropTypes.array.isRequired
-};
+const mapStateToProps = state => ({
+    statistics: state.SiteMonitoring.statistics || {
+        total: 0,
+        malicious: 0,
+        takedownRequests: 0,
+        legalTeam: 0
+    }
+});
 
-export default SiteStats;
+export default connect(mapStateToProps, { getSiteStatistics })(SiteStats);

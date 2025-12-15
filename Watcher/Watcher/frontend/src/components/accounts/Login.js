@@ -1,12 +1,8 @@
-import React, {Component} from "react";
-import {Redirect} from "react-router-dom";
-import {connect} from "react-redux";
+import React, { Component } from "react";
+import { Redirect } from "react-router-dom";
+import { connect } from "react-redux";
 import PropTypes from "prop-types";
-import {login} from "../../actions/auth";
-import DataLeakDashboard from "../DataLeak/Dashboard";
-import PasswordChange from "./PasswordChange";
-import SiteMonitoringDashboard from "../SiteMonitoring/Dashboard";
-import DnsFinderDashboard from "../DnsFinder/Dashboard";
+import { login } from "../../actions/auth";
 
 export class Login extends Component {
     state = {
@@ -16,7 +12,8 @@ export class Login extends Component {
 
     static propTypes = {
         login: PropTypes.func.isRequired,
-        isAuthenticated: PropTypes.bool
+        isAuthenticated: PropTypes.bool,
+        location: PropTypes.object
     };
 
     onSubmit = e => {
@@ -24,25 +21,16 @@ export class Login extends Component {
         this.props.login(this.state.username, this.state.password);
     };
 
-    onChange = e => this.setState({[e.target.name]: e.target.value});
+    onChange = e => this.setState({ [e.target.name]: e.target.value });
 
     render() {
         if (this.props.isAuthenticated) {
-            if (typeof this.props.location.state !== 'undefined') {
-                switch (this.props.location.state.redirectToComponent) {
-                    case DataLeakDashboard:
-                        return <Redirect to="/data_leak"/>;
-                    case SiteMonitoringDashboard:
-                        return <Redirect to="/website_monitoring"/>;
-                    case DnsFinderDashboard:
-                        return <Redirect to="/dns_finder"/>;
-                    case PasswordChange:
-                        return <Redirect to="/password_change"/>;
-                }
-            }
-            return <Redirect to="/"/>;
+            const redirectPath = this.props.location.state?.from || '/';
+            
+            return <Redirect to={redirectPath} />;
         }
-        const {username, password} = this.state;
+
+        const { username, password } = this.state;
         return (
             <div className="col-md-6 m-auto">
                 <div className="card card-body mt-5">
@@ -72,8 +60,11 @@ export class Login extends Component {
                         </div>
                         <div style={{ marginBottom: "1.5rem" }} />
                         <div className="mb-3">
-                            <button type="submit" className="btn btn-primary"
-                                    disabled={this.state.username === "" || this.state.password === ""}>
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary"
+                                disabled={this.state.username === "" || this.state.password === ""}
+                            >
                                 Login
                             </button>
                         </div>
@@ -90,5 +81,5 @@ const mapStateToProps = state => ({
 
 export default connect(
     mapStateToProps,
-    {login}
+    { login }
 )(Login);
