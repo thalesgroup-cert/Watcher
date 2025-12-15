@@ -87,11 +87,57 @@ class Dashboard extends Component {
             },
             filteredSites: []
         };
+        this.loadingTimer = null;
     }
 
     componentDidMount() {
-        this.props.getSites();
+        this.loadInitialData();
     }
+
+    componentWillUnmount() {
+        if (this.loadingTimer) {
+            clearTimeout(this.loadingTimer);
+        }
+    }
+
+    loadInitialData = async () => {
+        try {
+            await this.props.getSites(1, 100);
+
+            this.loadingTimer = setTimeout(() => {
+                this.loadRemainingSitesInBackground();
+            }, 500);
+        } catch (error) {
+        }
+    };
+
+    loadRemainingSitesInBackground = async () => {
+        const { sitesNext } = this.props;
+        
+        if (!sitesNext) {
+            return;
+        }
+
+        try {
+            let currentPage = 2;
+            let hasMore = true;
+
+            while (hasMore) {
+                try {
+                    const response = await this.props.getSites(currentPage, 100);
+                    hasMore = response.next !== null;
+                    currentPage++;
+
+                    if (hasMore) {
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                } catch (error) {
+                    hasMore = false;
+                }
+            }
+        } catch (error) {
+        }
+    };
 
     getFilterConfig = () => {
         const { sites } = this.props;
@@ -136,12 +182,11 @@ class Dashboard extends Component {
         const filterConfig = this.getFilterConfig();
         
         const hasActiveFilters = Object.values(globalFilters).some(val => val !== '');
-        const dataToDisplay = hasActiveFilters && filteredSites.length > 0 ? filteredSites : sites;
 
         return (
             <Fragment>
                 <div className="container-fluid mt-4">
-                    <SiteStats sites={dataToDisplay} />
+                    <SiteStats />
 
                     <TableManager
                         data={sites}
@@ -180,7 +225,9 @@ class Dashboard extends Component {
 }
 
 const mapStateToProps = state => ({
-    sites: state.SiteMonitoring.sites || []
+    sites: state.SiteMonitoring.sites || [],
+    sitesCount: state.SiteMonitoring.sitesCount || 0,
+    sitesNext: state.SiteMonitoring.sitesNext || null
 });
 
 export default connect(mapStateToProps, { getSites })(Dashboard);

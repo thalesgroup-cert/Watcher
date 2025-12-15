@@ -1,5 +1,5 @@
 import React, { Component, Fragment, useRef, useEffect } from 'react';
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, withRouter } from "react-router-dom";
 import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { logout } from "../../actions/auth";
@@ -206,7 +206,19 @@ const UserDropdown = ({ user, logout }) => {
 export class Header extends Component {
     static propTypes = {
         auth: PropTypes.object.isRequired,
-        logout: PropTypes.func.isRequired
+        logout: PropTypes.func.isRequired,
+        location: PropTypes.object.isRequired,
+        history: PropTypes.object.isRequired
+    };
+
+    handleLoginClick = (e) => {
+        e.preventDefault();
+        const currentPath = this.props.location.pathname;
+        
+        this.props.history.push({
+            pathname: '/login',
+            state: { from: currentPath }
+        });
     };
 
     render() {
@@ -231,7 +243,9 @@ export class Header extends Component {
         const guestLinks = (
             <Fragment>
                 <li className="nav-item">
-                    <Link to="/login" className="nav-link" replace>Login</Link>
+                    <a href="#" className="nav-link" onClick={this.handleLoginClick}>
+                        Login
+                    </a>
                 </li>
                 <li className="nav-item">
                     <ThemeSelector />
@@ -313,4 +327,4 @@ const mapStateToProps = state => ({
     auth: state.auth
 });
 
-export default connect(mapStateToProps, { logout })(Header);
+export default withRouter(connect(mapStateToProps, { logout })(Header));

@@ -42,12 +42,82 @@ class Dashboard extends Component {
             },
             filteredAlerts: []
         };
+        this.loadingTimer = null;
     }
 
     componentDidMount() {
-        this.props.getAlerts();
-        this.props.getKeyWords();
+        this.loadInitialData();
     }
+
+    componentWillUnmount() {
+        if (this.loadingTimer) {
+            clearTimeout(this.loadingTimer);
+        }
+    }
+
+    loadInitialData = async () => {
+        try {
+            await this.props.getAlerts(1, 100);
+            await this.props.getKeyWords(1, 100);
+
+            this.loadingTimer = setTimeout(() => {
+                this.loadRemainingDataInBackground();
+            }, 500);
+        } catch (error) {
+        }
+    };
+
+    loadRemainingDataInBackground = async () => {
+        const { alertsNext, keywordsNext } = this.props;
+        
+        if (!alertsNext && !keywordsNext) {
+            return;
+        }
+
+        try {
+            // Load all remaining alerts pages
+            if (alertsNext) {
+                let currentPage = 2;
+                let hasMore = true;
+
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getAlerts(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
+            }
+
+            // Load all remaining keywords pages
+            if (keywordsNext) {
+                let currentPage = 2;
+                let hasMore = true;
+
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getKeyWords(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading remaining data:', error);
+        }
+    };
 
     getFilterConfig = () => {
         const { alerts, keywords } = this.props;
@@ -168,7 +238,11 @@ class Dashboard extends Component {
 
 const mapStateToProps = state => ({
     alerts: state.DataLeak.alerts || [],
-    keywords: state.DataLeak.keywords || []
+    alertsCount: state.DataLeak.alertsCount || 0,
+    alertsNext: state.DataLeak.alertsNext || null,
+    keywords: state.DataLeak.keywords || [],
+    keywordsCount: state.DataLeak.keywordsCount || 0,
+    keywordsNext: state.DataLeak.keywordsNext || null
 });
 
 export default connect(mapStateToProps, { getAlerts, getKeyWords })(Dashboard);

@@ -7,22 +7,55 @@ import {
 
 const initialState = {
     domains: [],
+    domainsCount: 0,
+    domainsNext: null,
+    domainsPrevious: null,
+    statistics: {
+        total: 0,
+        repurchased: 0,
+        expired: 0,
+        expiringSoon: 0
+    }
 };
 
 export default function(state = initialState, action) {
     switch (action.type) {
-        case GET_LEGITIMATE_DOMAINS:
+        case GET_LEGITIMATE_DOMAINS: {
+            const newResults = action.payload.results || action.payload;
+            
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    domains: Array.isArray(newResults) ? newResults : [],
+                    domainsCount: Array.isArray(newResults) ? newResults.length : 0,
+                    domainsNext: null,
+                    domainsPrevious: null
+                };
+            }
+            
+            const existingIds = new Set(state.domains.map(d => d.id));
+            const uniqueNewDomains = newResults.filter(domain => !existingIds.has(domain.id));
+            
             return {
                 ...state,
-                domains: Array.isArray(action.payload)
-                    ? action.payload
-                    : (action.payload.results || [])
+                domains: [...state.domains, ...uniqueNewDomains].sort((a, b) => 
+                    a.domain_name.localeCompare(b.domain_name)
+                ),
+                domainsCount: action.payload.count || state.domainsCount,
+                domainsNext: action.payload.next || null,
+                domainsPrevious: action.payload.previous || null
             };
+        }
+
         case ADD_LEGITIMATE_DOMAIN:
             return {
                 ...state,
-                domains: [...state.domains, action.payload]
+                domains: [...state.domains, action.payload].sort((a, b) => 
+                    a.domain_name.localeCompare(b.domain_name)
+                ),
+                domainsCount: state.domainsCount + 1
             };
+
         case PATCH_LEGITIMATE_DOMAIN:
             return {
                 ...state,
@@ -30,15 +63,22 @@ export default function(state = initialState, action) {
                     domain.id === action.payload.id
                         ? { ...domain, ...action.payload }
                         : domain
-                )
+                ).sort((a, b) => a.domain_name.localeCompare(b.domain_name))
             };
+
         case DELETE_LEGITIMATE_DOMAIN:
             return {
                 ...state,
-                domains: state.domains.filter(domain =>
-                    domain.id !== action.payload
-                )
+                domains: state.domains.filter(domain => domain.id !== action.payload),
+                domainsCount: Math.max(0, state.domainsCount - 1)
             };
+
+        case 'GET_LEGITIMATE_DOMAIN_STATISTICS':
+            return {
+                ...state,
+                statistics: action.payload
+            };
+
         default:
             return state;
     }

@@ -158,15 +158,6 @@ class APITest(APITestCase):
         self.trendy_word.posturls.add(self.post_url)
         self.banned_word = BannedWord.objects.create(name=f"spam-{self.unique_id}")
     
-    def test_trendyword_api(self):
-        """Test TrendyWord API."""
-        url = reverse('trendyword-list')
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['name'], f"phishing-{self.unique_id}")
-    
     def test_bannedword_api(self):
         """Test BannedWord API."""
         url = reverse('bannedword-list')

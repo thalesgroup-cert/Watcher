@@ -1,12 +1,12 @@
 # Web Framework and Application Enhancements
 mysqlclient==2.2.7
-django==5.2.8
+django==5.2.9
 django-mysql==4.19.0
-djangorestframework==3.15.2
+djangorestframework==3.16.1
 django-rest-knox==4.2.0
 whitenoise==6.11.0
 django-auth-ldap==5.2.0
-django-import-export==4.3.13
+django-import-export==4.3.14
 
 # Job Scheduling and Task Management
 apscheduler==3.11.1
@@ -35,7 +35,7 @@ ipaddress==1.0.23
 shadow-useragent==0.0.17
 
 # Cybersecurity and Incident Response
-pymisp==2.5.17.2
+pymisp==2.5.17.3
 
 # NER-BERT model
 transformers==4.36.0

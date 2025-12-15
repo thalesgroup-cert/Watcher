@@ -1,7 +1,7 @@
 import React, { Component, Fragment, createRef } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { Modal, Button, Container, Row, Col, Form } from 'react-bootstrap';
+import { Modal, Button, Container, Row, Col, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import ExportModal from '../common/ExportModal';
 import TableManager from '../common/TableManager';
 import DayPickerInput from "react-day-picker/DayPickerInput";
@@ -12,7 +12,8 @@ import {
     addLegitimateDomain,
     patchLegitimateDomain,
     deleteLegitimateDomain,
-    exportToMISP
+    exportToMISP,
+    getLegitimateDomainStatistics
 } from "../../actions/LegitimateDomain";
 
 const INIT_DOMAIN = {
@@ -42,7 +43,7 @@ class LegitimateDomains extends Component {
             expiry: '',
             editCommentsLength: 0,
             addCommentsLength: 0,
-            isLoading: true
+            isLoading: true,
         };
 
         this.editRefs = {
@@ -72,16 +73,15 @@ class LegitimateDomains extends Component {
         addLegitimateDomain: PropTypes.func.isRequired,
         patchLegitimateDomain: PropTypes.func.isRequired,
         deleteLegitimateDomain: PropTypes.func.isRequired,
+        getLegitimateDomainStatistics: PropTypes.func.isRequired,
         onDataFiltered: PropTypes.func
     };
 
-    componentDidMount() {
-        this.props.getLegitimateDomains();
-    }
-
     componentDidUpdate(prevProps) {
-        if (this.props.domains !== prevProps.domains && this.state.isLoading) {
-            this.setState({ isLoading: false });
+        if (this.props.domains !== prevProps.domains) {
+            if (this.state.isLoading) {
+                this.setState({ isLoading: false });
+            }
         }
     }
 
@@ -92,19 +92,19 @@ class LegitimateDomains extends Component {
             const searchTerm = filters.search.toLowerCase();
             filtered = filtered.filter(domain => {
                 const domainNameMatch = (domain.domain_name || '').toLowerCase().includes(searchTerm);
+                const contactMatch = (domain.contact || '').toLowerCase().includes(searchTerm);
                 
-                // Only search in ticket_id and contact
-                if (isAuthenticated && domain.ticket_id !== undefined && domain.contact !== undefined) {
+                if (isAuthenticated && domain.ticket_id !== undefined) {
                     return domainNameMatch ||
-                        (domain.ticket_id || '').toLowerCase().includes(searchTerm) ||
-                        (domain.contact || '').toLowerCase().includes(searchTerm);
+                        contactMatch ||
+                        (domain.ticket_id || '').toLowerCase().includes(searchTerm);
                 }
                 
-                return domainNameMatch;
+                return domainNameMatch || contactMatch;
             });
         }
 
-        // Only apply repurchased filter
+        // Only apply repurchased filter if authenticated
         if (filters.repurchased !== '' && isAuthenticated) {
             const isRep = filters.repurchased === 'true';
             filtered = filtered.filter(d => d.repurchased === isRep);
@@ -191,10 +191,8 @@ class LegitimateDomains extends Component {
             
             await this.props.exportToMISP(payload);
             
-            setTimeout(() => {
-                this.props.getLegitimateDomains();
-                this.closeExportModal();
-            }, 1000);
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
+            this.closeExportModal();
             
             return { success: true };
         } catch (err) {
@@ -259,8 +257,10 @@ class LegitimateDomains extends Component {
                 key: 'search',
                 type: 'search',
                 label: 'Search',
-                placeholder: 'Search by domain name, ticket, contact...',
-                width: isAuthenticated ? 3 : 3
+                placeholder: isAuthenticated 
+                    ? 'Search by domain name, ticket, contact...' 
+                    : 'Search by domain name, contact...',
+                width: isAuthenticated ? 3 : 4
             }
         ];
         
@@ -281,7 +281,7 @@ class LegitimateDomains extends Component {
             key: 'expiry_status',
             type: 'select',
             label: 'Expiry Status',
-            width: isAuthenticated ? 2 : 4,
+            width: isAuthenticated ? 2 : 3,
             options: [
                 { value: 'expired', label: 'Expired' },
                 { value: 'expiring_soon', label: 'Expiring Soon' },
@@ -307,6 +307,7 @@ class LegitimateDomains extends Component {
                 comments: this.editRefs.comments.current.value
             };
             this.props.patchLegitimateDomain(this.state.editDomain.id, domain);
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
         };
 
@@ -473,6 +474,7 @@ class LegitimateDomains extends Component {
                 comments: this.addRefs.comments.current.value
             };
             this.props.addLegitimateDomain(domain);
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
         };
         
@@ -620,7 +622,8 @@ class LegitimateDomains extends Component {
     deleteModal = () => {
         const handleClose = () => this.setState({ showDeleteModal: false, deleteDomainId: null, deleteDomainName: null });
         const onDelete = () => {
-            this.props.deleteLegitimateDomain(this.state.deleteDomainId, this.state.deleteDomainName);
+            this.props.deleteLegitimateDomain(this.state.deleteDomainId, this.state.deleteDomainName);            
+            setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
         };
         
@@ -678,7 +681,7 @@ class LegitimateDomains extends Component {
                     key={`${isAuthenticated}-${domains.length}`}
                     data={domains}
                     filterConfig={this.getFilterConfig()}
-                    searchFields={['domain_name', 'ticket_id', 'contact']}
+                    searchFields={isAuthenticated ? ['domain_name', 'ticket_id', 'contact'] : ['domain_name', 'contact']}
                     dateFields={['domain_created_at', 'created_at', 'expiry']}
                     defaultSort="created_at"
                     customFilters={this.customFilters}
@@ -686,6 +689,7 @@ class LegitimateDomains extends Component {
                     enableDateFilter={true}
                     dateFilterWidth={3}
                     moduleKey="legitimateDomains_list"
+                    itemsPerPage={5}
                 >
                     {({ 
                         paginatedData, 
@@ -720,12 +724,10 @@ class LegitimateDomains extends Component {
                                                             {renderSortIcons('ticket_id')}
                                                         </th>
                                                     )}
-                                                    {isAuthenticated && (
-                                                        <th style={{ cursor: 'pointer' }} onClick={() => handleSort('contact')}>
-                                                            Contact
-                                                            {renderSortIcons('contact')}
-                                                        </th>
-                                                    )}
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('contact')}>
+                                                        Contact
+                                                        {renderSortIcons('contact')}
+                                                    </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At
                                                         {renderSortIcons('created_at')}
@@ -757,7 +759,7 @@ class LegitimateDomains extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={isAuthenticated ? "9" : "4"} className="text-center text-muted py-4">
+                                                        <td colSpan={isAuthenticated ? "9" : "5"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -772,9 +774,7 @@ class LegitimateDomains extends Component {
                                                                     {domain.ticket_id || '-'}
                                                                 </td>
                                                             )}
-                                                            {isAuthenticated && (
-                                                                <td>{domain.contact || '-'}</td>
-                                                            )}
+                                                            <td>{domain.contact || '-'}</td>
                                                             <td>{domain.created_at ? new Date(domain.created_at).toDateString() : '-'}</td>
                                                             <td>
                                                                 {domain.domain_created_at
@@ -795,29 +795,72 @@ class LegitimateDomains extends Component {
                                                             )}
                                                             {isAuthenticated && (
                                                                 <td>
-                                                                    <div
-                                                                        style={{
-                                                                        maxWidth: 200,
-                                                                        whiteSpace: 'nowrap',
-                                                                        overflow: 'hidden',
-                                                                        textOverflow: 'ellipsis'
-                                                                        }}
-                                                                        title={domain.comments || ''}
-                                                                    >
-                                                                        {domain.comments || '-'}
-                                                                    </div>
+                                                                    {domain.comments && domain.comments.length > 0 ? (
+                                                                        domain.comments.length > 50 ? (
+                                                                            <OverlayTrigger
+                                                                                placement="left"
+                                                                                delay={{ show: 250, hide: 400 }}
+                                                                                overlay={
+                                                                                    <Tooltip id={`tooltip-comment-${domain.id}`}>
+                                                                                        <div style={{ 
+                                                                                            textAlign: 'left',
+                                                                                            maxWidth: '400px',
+                                                                                            whiteSpace: 'pre-wrap',
+                                                                                            wordBreak: 'break-word'
+                                                                                        }}>
+                                                                                            {domain.comments}
+                                                                                        </div>
+                                                                                    </Tooltip>
+                                                                                }
+                                                                            >
+                                                                                <div style={{ 
+                                                                                    display: 'inline-flex', 
+                                                                                    alignItems: 'center',
+                                                                                    cursor: 'help',
+                                                                                    gap: '6px'
+                                                                                }}>
+                                                                                    <span
+                                                                                        style={{
+                                                                                            maxWidth: 180,
+                                                                                            whiteSpace: 'nowrap',
+                                                                                            overflow: 'hidden',
+                                                                                            textOverflow: 'ellipsis',
+                                                                                            borderBottom: '1px dotted currentColor'
+                                                                                        }}
+                                                                                    >
+                                                                                        {domain.comments}
+                                                                                    </span>
+                                                                                    <i 
+                                                                                        className="material-icons text-info" 
+                                                                                        style={{ 
+                                                                                            fontSize: 16,
+                                                                                            verticalAlign: 'middle'
+                                                                                        }}
+                                                                                    >
+                                                                                        info
+                                                                                    </i>
+                                                                                </div>
+                                                                            </OverlayTrigger>
+                                                                        ) : (
+                                                                            <div style={{ maxWidth: 200 }}>
+                                                                                {domain.comments}
+                                                                            </div>
+                                                                        )
+                                                                    ) : (
+                                                                        '-'
+                                                                    )}
                                                                 </td>
                                                             )}
                                                             {isAuthenticated && (
                                                                 <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                                                                    <button className="btn btn-outline-primary btn-sm me-2" title="Export" onClick={() => this.displayExportModal(domain)}>
+                                                                        <i className="material-icons" style={{ fontSize: 17 }}>cloud_upload</i>
+                                                                    </button>
                                                                     <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.displayEditModal(domain)}>
                                                                         <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
                                                                     </button>
                                                                     <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}>
                                                                         <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
-                                                                    </button>
-                                                                    <button className="btn btn-outline-primary btn-sm" title="Export" onClick={() => this.displayExportModal(domain)}>
-                                                                        <i className="material-icons" style={{ fontSize: 17 }}>cloud_upload</i>
                                                                     </button>
                                                                 </td>
                                                             )}
@@ -862,5 +905,6 @@ export default connect(mapStateToProps, {
     addLegitimateDomain,
     patchLegitimateDomain,
     deleteLegitimateDomain,
-    exportToMISP
+    exportToMISP,
+    getLegitimateDomainStatistics
 })(LegitimateDomains);
