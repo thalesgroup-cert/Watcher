@@ -562,13 +562,6 @@ docker compose up
 <p>You must pass your API keys via the Authorization header. It should be formatted as follows: <strong><code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Token</span> <span class="pre">&lt;API_KEY&gt;</span></code></strong> where <strong>&lt;API_KEY&gt;</strong> refers to the full generated API key.</p>
 <section id="pagination">
 <h3>Pagination<a class="headerlink" href="#pagination" title="Link to this heading"></a></h3>
-<p>All API endpoints support <strong>standardized pagination</strong> using REST Framework’s <code class="docutils literal notranslate"><span class="pre">PageNumberPagination</span></code>:</p>
-<p><strong>Default Configuration:</strong></p>
-<ul class="simple">
-<li><p><strong>Default page size</strong>: 100 items per page</p></li>
-<li><p><strong>Maximum page size</strong>: 1000 items per page</p></li>
-<li><p><strong>Customizable</strong>: Use <code class="docutils literal notranslate"><span class="pre">page_size</span></code> query parameter</p></li>
-</ul>
 <p><strong>Usage Examples:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get first page with default size (100 items)</span>
 GET<span class="w"> </span>/api/data_leak/keyword/
@@ -592,10 +585,10 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 </ul>
 <p><strong>Notes:</strong></p>
 <ul class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">page_size</span></code> parameter is <strong>optional</strong></p></li>
-<li><p>Invalid page numbers return a 404 error</p></li>
-<li><p>Page size values exceeding 1000 are automatically capped at 1000</p></li>
-<li><p>All frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system</p></li>
+<li><p>Pagination is implemented across all major API endpoints</p></li>
+<li><p>Default page size is 100 items</p></li>
+<li><p>Maximum page size is 1000 items</p></li>
+<li><p>Most frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.</p></li>
 </ul>
 <p>Below, you will find our 5 modules with their API functions:</p>
 <details>
@@ -603,7 +596,7 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/trendyword/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
-<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
 <li><p><strong>GET:</strong> Returns a paginated list of trending words monitored by the application.</p></li>
@@ -617,7 +610,7 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/bannedword/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
-<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
 <li><p><strong>Description:</strong></p>
 <ul>
 <li><p><strong>GET:</strong> Returns a paginated list of banned words monitored by the application.</p></li>

@@ -379,13 +379,6 @@ You must pass your API keys via the Authorization header. It should be formatted
 
 ### Pagination
 
-All API endpoints support **standardized pagination** using REST Framework's `PageNumberPagination`:
-
-**Default Configuration:**
-- **Default page size**: 100 items per page
-- **Maximum page size**: 1000 items per page
-- **Customizable**: Use `page_size` query parameter
-
 **Usage Examples:**
 
 ```bash
@@ -409,10 +402,10 @@ GET /api/data_leak/keyword/?page=1&page_size=1000
 - `results`: Array containing the actual items for the current page
 
 **Notes:**
-- The `page_size` parameter is **optional**
-- Invalid page numbers return a 404 error
-- Page size values exceeding 1000 are automatically capped at 1000
-- All frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system
+- Pagination is implemented across all major API endpoints
+- Default page size is 100 items
+- Maximum page size is 1000 items
+- Most frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.
 
 Below, you will find our 5 modules with their API functions:
 
@@ -422,7 +415,7 @@ Below, you will find our 5 modules with their API functions:
 
 `^api/threats_watcher/trendyword/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
-- **Pagination:** Yes (100 items per page by default)
+- **Pagination:** No
 - **Description:** 
   - **GET:** Returns a paginated list of trending words monitored by the application.
   - **POST:** Adds a new trending word to the monitored list.
@@ -432,7 +425,7 @@ Below, you will find our 5 modules with their API functions:
 
 `^api/threats_watcher/bannedword/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
-- **Pagination:** Yes (100 items per page by default)
+- **Pagination:** No
 - **Description:** 
   - **GET:** Returns a paginated list of banned words monitored by the application.
   - **POST:** Adds a new banned word to the monitored list.
