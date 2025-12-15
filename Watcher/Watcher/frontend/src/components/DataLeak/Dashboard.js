@@ -75,6 +75,7 @@ class Dashboard extends Component {
         }
 
         try {
+            // Load all remaining alerts pages
             if (alertsNext) {
                 let currentPage = 2;
                 let hasMore = true;
@@ -82,7 +83,7 @@ class Dashboard extends Component {
                 while (hasMore) {
                     try {
                         const response = await this.props.getAlerts(currentPage, 100);
-                        hasMore = response.next !== null;
+                        hasMore = response?.next !== null;
                         currentPage++;
 
                         if (hasMore) {
@@ -94,16 +95,27 @@ class Dashboard extends Component {
                 }
             }
 
+            // Load all remaining keywords pages
             if (keywordsNext) {
-                promises.push(
-                    this.props.getKeyWords(2, 500).catch(() => {})
-                );
-            }
+                let currentPage = 2;
+                let hasMore = true;
 
-            if (promises.length > 0) {
-                await Promise.all(promises);
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getKeyWords(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
             }
         } catch (error) {
+            console.error('Error loading remaining data:', error);
         }
     };
 

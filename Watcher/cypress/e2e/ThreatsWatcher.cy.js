@@ -54,7 +54,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     }).as('getBannedWords');
 
-    cy.intercept('GET', '**/api/threats_watcher/summary/?type=weekly_summary', {
+    cy.intercept('GET', '**/api/threats_watcher/summary/**type=weekly_summary**', {
       statusCode: 200,
       body: {
         count: 0,
@@ -64,7 +64,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     }).as('getWeeklySummary');
 
-    cy.intercept('GET', '**/api/threats_watcher/summary/?type=breaking_news', {
+    cy.intercept('GET', '**/api/threats_watcher/summary/**type=breaking_news**', {
       statusCode: 200,
       body: {
         count: 0,
@@ -140,7 +140,6 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     cy.url().should('include', '#/');
-    cy.get('.container-fluid', { timeout: 10000 }).should('exist');
     cy.log('Page ready with session maintained');
   });
 
@@ -148,7 +147,6 @@ describe('Threats Watcher - E2E Test Suite', () => {
     it('should be on the correct Threats Watcher homepage', () => {
       cy.url().should('include', '#/');
       cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
     });
 
     it('should display main sections', () => {

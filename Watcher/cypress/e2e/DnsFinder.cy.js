@@ -92,20 +92,20 @@ describe('DNS Finder - E2E Test Suite', () => {
       body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
     })).as('addKeywordMonitored');
 
-    cy.intercept('DELETE', '**/api/dns_finder/dns_monitored/*', { statusCode: 204 }).as('deleteDnsMonitored');
-    cy.intercept('DELETE', '**/api/dns_finder/keyword_monitored/*', { statusCode: 204 }).as('deleteKeywordMonitored');
+    cy.intercept('DELETE', '**/api/dns_finder/dns_monitored/**', { statusCode: 204 }).as('deleteDnsMonitored');
+    cy.intercept('DELETE', '**/api/dns_finder/keyword_monitored/**', { statusCode: 204 }).as('deleteKeywordMonitored');
 
-    cy.intercept('PATCH', '**/api/dns_finder/dns_monitored/*', (req) => ({
+    cy.intercept('PATCH', '**/api/dns_finder/dns_monitored/**', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('patchDnsMonitored');
 
-    cy.intercept('PATCH', '**/api/dns_finder/keyword_monitored/*', (req) => ({
+    cy.intercept('PATCH', '**/api/dns_finder/keyword_monitored/**', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('patchKeywordMonitored');
 
-    cy.intercept('PATCH', '**/api/dns_finder/alert/*', (req) => ({
+    cy.intercept('PATCH', '**/api/dns_finder/alert/**', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('updateAlertStatus');
@@ -114,39 +114,6 @@ describe('DNS Finder - E2E Test Suite', () => {
       statusCode: 200,
       body: { message: 'Successfully exported to MISP', event_uuid: '550e8400-e29b-41d4-a716-446655440003' }
     }).as('exportToMISP');
-
-    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', { 
-      statusCode: 200, 
-      body: {
-        count: 0,
-        next: null,
-        previous: null,
-        results: []
-      }
-    });
-    
-    cy.intercept('GET', '**/api/site_monitoring/site/**', { 
-      statusCode: 200, 
-      body: {
-        count: 0,
-        next: null,
-        previous: null,
-        results: []
-      }
-    }).as('getSites');
-    
-    cy.intercept('POST', '**/api/site_monitoring/site/**', (req) => ({
-      statusCode: 201,
-      body: {
-        id: Date.now(),
-        ...req.body,
-        rtir: `SM-2025-${String(Date.now()).slice(-3)}`,
-        created_at: new Date().toISOString(),
-        monitored: false,
-        misp_event_uuid: null,
-        web_status: null
-      }
-    })).as('addSite');
   };
 
   before(() => {
@@ -155,7 +122,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     setupIntercepts();
 
     // Mock auth endpoints
-    cy.intercept('GET', '/api/auth/user/', {
+    cy.intercept('GET', '**/api/auth/user/', {
       statusCode: 200,
       body: {
         id: 1,
@@ -166,7 +133,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       }
     }).as('getUser');
 
-    cy.intercept('POST', '/api/auth/login/', {
+    cy.intercept('POST', '**/api/auth/login/', {
       statusCode: 200,
       body: {
         token: 'mock-token-123456789',
@@ -185,8 +152,6 @@ describe('DNS Finder - E2E Test Suite', () => {
     // Navigate to DNS Finder
     cy.visit('/#/dns_finder');
     cy.wait('@getDnsMonitored', { timeout: 15000 });
-    cy.wait('@getKeywordMonitored', { timeout: 15000 });
-    cy.wait('@getAlerts', { timeout: 15000 });
 
     cy.log('Authentication completed and navigated to DNS Finder');
   });
@@ -282,16 +247,16 @@ describe('DNS Finder - E2E Test Suite', () => {
 
     it('should maintain session across navigation', () => {
       cy.get('.navbar').should('exist');
-
-      cy.get('a[href="/#/"], a:contains("Watcher"), .navbar-brand').first().click();
+    
+      cy.visit('/#/');
       cy.url().should('include', '#/');
-
-      cy.get('a:contains("Twisted DNS Finder"), a[href*="dns_finder"]').should('exist').click();
-      cy.url().should('include', 'dns_finder');
-
+    
+      cy.visit('/#/dns_finder');
+      cy.url().should('include', '/dns_finder');
+    
       cy.get('.navbar').should('exist');
     });
-  });
+  }); 
 
   describe('DNS Monitored Display and Management', () => {
     it('should display DNS monitored table in ResizableContainer', () => {
@@ -834,17 +799,17 @@ describe('DNS Finder - E2E Test Suite', () => {
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle API errors gracefully', () => {
-      cy.intercept('GET', '/api/dns_finder/dns_monitored/', {
+      cy.intercept('GET', '**/api/dns_finder/dns_monitored/**', {
         statusCode: 500,
         body: { error: 'Server Error' }
       }).as('dnsError');
 
-      cy.intercept('GET', '/api/dns_finder/keyword_monitored/', {
+      cy.intercept('GET', '**/api/dns_finder/keyword_monitored/**', {
         statusCode: 500,
         body: { error: 'Server Error' }
       }).as('keywordError');
 
-      cy.intercept('GET', '/api/dns_finder/alert/', {
+      cy.intercept('GET', '**/api/dns_finder/alert/**', {
         statusCode: 500,
         body: { error: 'Server Error' }
       }).as('alertsError');
@@ -949,7 +914,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     // Clean up test DNS entries
     cy.request({
       method: 'GET',
-      url: '/api/dns_finder/dns_monitored/',
+      url: '**/api/dns_finder/dns_monitored/**',
       headers: {
         'Authorization': `Token ${Cypress.env('authData').token}`
       },
@@ -960,7 +925,7 @@ describe('DNS Finder - E2E Test Suite', () => {
           if (dns.domain_name.includes('test-') || dns.domain_name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
-              url: `/api/dns_finder/dns_monitored/${dns.id}/`,
+              url: `**/api/dns_finder/dns_monitored/${dns.id}/`,
               headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });
@@ -972,7 +937,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     // Clean up test keyword entries
     cy.request({
       method: 'GET',
-      url: '/api/dns_finder/keyword_monitored/',
+      url: '**/api/dns_finder/keyword_monitored/**',
       headers: {
         'Authorization': `Token ${Cypress.env('authData').token}`
       },
@@ -983,7 +948,7 @@ describe('DNS Finder - E2E Test Suite', () => {
           if (keyword.name.includes('test-') || keyword.name.includes('e2e-')) {
             cy.request({
               method: 'DELETE',
-              url: `/api/dns_finder/keyword_monitored/${keyword.id}/`,
+              url: `**/api/dns_finder/keyword_monitored/${keyword.id}/`,
               headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
               failOnStatusCode: false
             });

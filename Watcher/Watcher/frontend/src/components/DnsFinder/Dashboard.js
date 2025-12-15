@@ -83,37 +83,74 @@ class Dashboard extends Component {
     };
 
     loadRemainingDataInBackground = async () => {
-        const { alertsNext } = this.props;
+        const { alertsNext, dnsMonitoredNext, keywordMonitoredNext } = this.props;
         
-        if (!alertsNext) {
-            this.setState({ 
-                allDataLoaded: true,
-                isLoadingInBackground: false
-            });
+        if (!alertsNext && !dnsMonitoredNext && !keywordMonitoredNext) {
             return;
         }
 
         this.setState({ isLoadingInBackground: true });
 
         try {
-            let currentPage = 2;
-            let hasMore = true;
+            // Load all remaining alerts pages
+            if (alertsNext) {
+                let currentPage = 2;
+                let hasMore = true;
 
-            while (hasMore) {
-                try {
-                    const response = await this.props.getAlerts(currentPage, 100);
-                    hasMore = response.next !== null;
-                    currentPage++;
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getAlerts(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
 
-                    if (hasMore) {
-                        await new Promise(resolve => setTimeout(resolve, 300));
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                    } catch (error) {
+                        hasMore = false;
                     }
-                } catch (error) {
-                    hasMore = false;
                 }
             }
 
-            await this.loadRemainingDomainsAndKeywords();
+            // Load remaining DNS Monitored pages
+            if (dnsMonitoredNext) {
+                let currentPage = 2;
+                let hasMore = true;
+
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getDnsMonitored(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
+            }
+            
+            // Load remaining Keywords Monitored pages
+            if (keywordMonitoredNext) {
+                let currentPage = 2;
+                let hasMore = true;
+
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getKeywordMonitored(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
+            }
 
             this.setState({ 
                 allDataLoaded: true,
@@ -127,30 +164,6 @@ class Dashboard extends Component {
         }
     };
 
-    loadRemainingDomainsAndKeywords = async () => {
-        try {
-            const { dnsMonitoredNext, keywordMonitoredNext } = this.props;
-            
-            const promises = [];
-            
-            if (dnsMonitoredNext) {
-                promises.push(
-                    this.props.getDnsMonitored(2, 500).catch(() => {})
-                );
-            }
-            
-            if (keywordMonitoredNext) {
-                promises.push(
-                    this.props.getKeywordMonitored(2, 500).catch(() => {})
-                );
-            }
-            
-            if (promises.length > 0) {
-                await Promise.all(promises);
-            }
-        } catch (error) {
-        }
-    };
 
     getFilterConfig = () => {
         const { alerts, dnsMonitored, keywordMonitored } = this.props;

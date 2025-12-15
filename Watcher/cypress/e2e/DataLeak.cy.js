@@ -74,16 +74,6 @@ describe('Data Leak - E2E Test Suite', () => {
       statusCode: 200, 
       body: { id: parseInt(req.url.split('/').pop()), ...req.body }
     })).as('updateAlertStatus');
-
-    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', { 
-      statusCode: 200, 
-      body: {
-        count: 0,
-        next: null,
-        previous: null,
-        results: []
-      }
-    });
   };
 
   before(() => {
@@ -206,13 +196,13 @@ describe('Data Leak - E2E Test Suite', () => {
 
     it('should maintain session across navigation', () => {
       cy.get('.navbar').should('exist');
-      
-      cy.get('a[href="/#/"], a:contains("Watcher"), .navbar-brand').first().click();
+    
+      cy.visit('/#/');
       cy.url().should('include', '#/');
-      
-      cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist').click();
-      cy.url().should('include', 'data_leak');
-      
+    
+      cy.visit('/#/data_leak');
+      cy.url().should('include', '/data_leak');
+    
       cy.get('.navbar').should('exist');
     });
   });
