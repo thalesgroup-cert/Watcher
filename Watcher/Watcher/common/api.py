@@ -33,7 +33,8 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
-        return LegitimateDomain.objects.all().order_by('-created_at')
+        qs = LegitimateDomain.objects.all().order_by('-created_at', '-id')
+        return qs
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

@@ -23,7 +23,8 @@ class SiteViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        return Site.objects.all().order_by('-created_at')
+        qs = Site.objects.all().order_by('-created_at', '-id')
+        return qs
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):
@@ -73,7 +74,8 @@ class AlertViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        return Alert.objects.select_related('site').order_by('-created_at')
+        qs = Alert.objects.select_related('site').order_by('-created_at', '-id')
+        return qs
 
 
 class ExportPermission(permissions.DjangoModelPermissions):
