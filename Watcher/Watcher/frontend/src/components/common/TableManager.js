@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Button, Form, Modal, Dropdown, Container, Row, Col } from 'react-bootstrap';
+import { Form, Button, Modal, Container, Row, Col } from 'react-bootstrap';
 
 export const renderSortIcons = (field, sortBy, sortDirection) => {
     const active = sortBy === field;
@@ -76,11 +76,14 @@ const DATE_RANGE_OPTIONS = [
     { value: 'custom', label: 'Custom Range' }
 ];
 
+const GLOBAL_FILTER_VISIBILITY_KEY = 'watcher_localstorage_filterVisibility';
+
 class TableManager extends Component {
     constructor(props) {
         super(props);
         this.moduleKey = props.moduleKey || 'default';
         const savedItemsPerPage = this.loadItemsPerPageFromStorage();
+        const globalFilterVisibility = this.loadGlobalFilterVisibility();
         
         this.state = {
             currentPage: 1,
@@ -92,13 +95,12 @@ class TableManager extends Component {
             dateRange: 'all',
             customStartDate: '',
             customEndDate: '',
-            showFilters: false,
+            showFilters: globalFilterVisibility,
             showSaveModal: false,
             filterName: '',
             savedFilters: {},
             containerHeight: 'auto'
         };
-        this.loadMoreTimer = null;
         this.containerRef = React.createRef();
         this.resizeObserver = null;
     }
@@ -127,9 +129,6 @@ class TableManager extends Component {
     componentWillUnmount() {
         this.mounted = false;
         
-        if (this.loadMoreTimer) {
-            clearTimeout(this.loadMoreTimer);
-        }
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();
         }
@@ -149,19 +148,38 @@ class TableManager extends Component {
             prevState.currentPage !== this.state.currentPage ||
             prevState.filteredData !== this.state.filteredData) {
             setTimeout(() => {
-                if (this.mounted) {
-                    this.updateContainerHeight();
-                }
+                this.updateContainerHeight();
             }, 0);
         }
     }
 
+    loadGlobalFilterVisibility = () => {
+        try {
+            const saved = localStorage.getItem(GLOBAL_FILTER_VISIBILITY_KEY);
+            if (saved !== null) {
+                return JSON.parse(saved);
+            }
+            return false;
+        } catch (error) {
+            console.error('Error loading global filter visibility:', error);
+            return false;
+        }
+    };
+
+    saveGlobalFilterVisibility = (isVisible) => {
+        try {
+            localStorage.setItem(GLOBAL_FILTER_VISIBILITY_KEY, JSON.stringify(isVisible));
+        } catch (error) {
+            console.error('Error saving global filter visibility:', error);
+        }
+    };
+
     loadItemsPerPageFromStorage = () => {
         try {
             const saved = localStorage.getItem(`watcher_localstorage_items_${this.moduleKey}`);
-            return saved ? parseInt(saved, 10) : 5;
+            return saved ? parseInt(saved, 10) : (this.props.itemsPerPage || 5);
         } catch (error) {
-            return 5;
+            return this.props.itemsPerPage || 5;
         }
     };
 
@@ -181,16 +199,7 @@ class TableManager extends Component {
 
         if (window.ResizeObserver && this.containerRef.current) {
             this.resizeObserver = new ResizeObserver(() => {
-                if (this.mounted) {
-                    if (this.updateHeightTimer) {
-                        clearTimeout(this.updateHeightTimer);
-                    }
-                    this.updateHeightTimer = setTimeout(() => {
-                        if (this.mounted) {
-                            this.updateContainerHeight();
-                        }
-                    }, 100);
-                }
+                this.updateContainerHeight();
             });
             
             const parentElement = this.containerRef.current.closest('.h-100, .container-fluid, .row');
@@ -279,7 +288,7 @@ class TableManager extends Component {
     };
 
     applyFilters = () => {
-        const { data, customFilters, globalFilters, enableDateFilter = false, dateFields = [] } = this.props;
+        const { data, customFilters, enableDateFilter = false, dateFields = [] } = this.props;
         const { filters, sortBy, sortDirection, dateRange, customStartDate, customEndDate } = this.state;
         
         let filtered = [...(data || [])];
@@ -510,7 +519,11 @@ class TableManager extends Component {
     };
 
     toggleFilters = () => {
-        this.setState(prev => ({ showFilters: !prev.showFilters }));
+        this.setState(prev => {
+            const newShowFilters = !prev.showFilters;
+            this.saveGlobalFilterVisibility(newShowFilters);
+            return { showFilters: newShowFilters };
+        });
     };
 
     resetToDefault = () => {
@@ -519,8 +532,8 @@ class TableManager extends Component {
             clearedFilters[filter.key] = '';
         });
         
-        const defaultItemsPerPage = 5;
-        this.saveItemsPerPageToStorage(defaultItemsPerPage);
+        const currentItemsPerPage = this.state.itemsPerPage;
+        const currentShowFilters = this.state.showFilters;
         
         this.setState({ 
             filters: clearedFilters, 
@@ -530,7 +543,8 @@ class TableManager extends Component {
             customEndDate: '',
             sortBy: this.props.defaultSort || 'created_at',
             sortDirection: 'desc',
-            itemsPerPage: defaultItemsPerPage
+            itemsPerPage: currentItemsPerPage,
+            showFilters: currentShowFilters
         }, () => {
             this.applyFilters();
             this.updateContainerHeight();
@@ -613,8 +627,9 @@ class TableManager extends Component {
                 </div>
     
                 <button 
-                    className={`btn btn-primary`}
+                    className="btn btn-primary"
                     onClick={this.toggleFilters}
+                    title={showFilters ? 'Hide filters' : 'Show filters'}
                 >
                     <i className="material-icons me-1 align-middle" style={{ fontSize: 20 }}>
                         {showFilters ? 'visibility_off' : 'visibility'}
@@ -625,6 +640,7 @@ class TableManager extends Component {
                 <button 
                     className="btn btn-success"
                     onClick={() => this.setState({ showSaveModal: true })}
+                    title="Save current filter configuration"
                 >
                     <i className="material-icons me-1 align-middle" style={{ fontSize: 20 }}>save_alt</i>
                     <span className="align-middle">Save Filter</span>
@@ -703,7 +719,7 @@ class TableManager extends Component {
             <div className="card mb-3 shadow-sm border-0">
                 <div className="card-body py-2 mb-2">
                     <div className="row align-items-center">
-                        {filterConfig.map((filter, index) => (
+                        {filterConfig.map((filter) => (
                             <div key={filter.key} className={`col-12 col-md-${filter.width || 2}`}>
                                 <Form.Label>{filter.label}</Form.Label>
                                 {filter.type === 'search' ? (
@@ -817,33 +833,24 @@ class TableManager extends Component {
         const dataLength = filteredData?.length || 0;
         
         return (
-            <div ref={this.containerRef} className="d-flex justify-content-between align-items-center mb-2" style={{ padding: '8px 0' }}>
-                <div style={{ fontSize: '0.95em', color: '#888' }}>
+            <div ref={this.containerRef} className="d-flex justify-content-between align-items-center mb-2">
+                <small className="text-muted">
                     Showing {dataLength === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, dataLength)} of {dataLength} entries
-                </div>
-                <div>
-                    <Form.Group className="mb-0" style={{ fontSize: '0.95em' }}>
-                        <Form.Label className="mb-0 me-2" style={{ marginRight: '10px', color: '#888', fontWeight: 400 }}>
-                            Items per page
-                        </Form.Label>
-                        <Form.Control
-                            as="select"
-                            size="sm"
-                            style={{ 
-                                width: 90, 
-                                display: 'inline-block', 
-                                background: '#f5f5f5', 
-                                color: '#444', 
-                                border: '1px solid #ccc' 
-                            }}
-                            value={itemsPerPage}
-                            onChange={e => this.handleItemsPerPageChange(Number(e.target.value))}
-                        >
-                            {[5, 10, 25, 50, 100].map(v => (
-                                <option key={v} value={v}>{v}</option>
-                            ))}
-                        </Form.Control>
-                    </Form.Group>
+                </small>
+                <div className="d-flex align-items-center">
+                    <small className="text-muted me-2">Items per page:</small>
+                    <select
+                        className="form-select form-select-sm"
+                        value={itemsPerPage}
+                        onChange={e => this.handleItemsPerPageChange(Number(e.target.value))}
+                        style={{ width: 'auto' }}
+                    >
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
                 </div>
             </div>
         );
@@ -854,8 +861,8 @@ class TableManager extends Component {
         if (paginatedData.length === 0) {
             return {
                 height: 'auto',
-                overflow: 'hidden',
-                transition: 'height 0.3s ease'
+                minHeight: '100px',
+                overflow: 'hidden'
             };
         }
         return {

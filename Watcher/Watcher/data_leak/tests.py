@@ -130,10 +130,11 @@ class APITest(APITestCase):
         # List
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(len(response.data['results']), 1)
         
         # Detail
-        keyword_id = response.data[0]['id']
+        keyword_id = response.data['results'][0]['id']
         detail_url = f'{url}{keyword_id}/'
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -148,8 +149,9 @@ class APITest(APITestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['url'], "https://api-test.com")
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['url'], "https://api-test.com")
     
     def test_unauthorized_access(self):
         """Test API authentication requirement."""

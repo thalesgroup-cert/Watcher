@@ -17,7 +17,17 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
             'comments',
             'misp_event_uuid'
         ]
-    
+
+    def validate_domain_name(self, value):
+        """
+        Check if the domain already exists in Legitimate Domains
+        """
+        if LegitimateDomain.objects.filter(domain_name=value).exists():
+            raise serializers.ValidationError(
+                f'{value} Already exists in Legitimate Domains'
+            )
+        return value
+
     def to_internal_value(self, data):
         # Convert "" to None for both date fields
         if data.get("expiry") == "":
@@ -25,18 +35,3 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
         if data.get("domain_created_at") == "":
             data["domain_created_at"] = None
         return super().to_internal_value(data)
-    
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        request = self.context.get('request')
-        
-        if not request or not request.user.is_authenticated:
-            return {
-                'id': data.get('id'),
-                'domain_name': data.get('domain_name'),
-                'created_at': data.get('created_at'),
-                'domain_created_at': data.get('domain_created_at'),
-                'expiry': data.get('expiry'),
-            }
-        
-        return data

@@ -1,20 +1,96 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q, Count
+from datetime import datetime, timedelta
 from .models import LegitimateDomain
 from .serializers import LegitimateDomainSerializer
+
+
+# Pagination
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
 
 # LegitimateDomain Viewset
 class LegitimateDomainViewSet(viewsets.ModelViewSet):
     """
     API endpoint for viewing and editing company legitimate domains.
     """
-    queryset = LegitimateDomain.objects.all().order_by('-created_at')
-    serializer_class = LegitimateDomainSerializer
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    serializer_class = LegitimateDomainSerializer
+    pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['domain_name', 'ticket_id', 'contact', 'comments']
     ordering_fields = ['domain_name', 'created_at', 'expiry']
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'get_statistics']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+    
+    def get_queryset(self):
+        qs = LegitimateDomain.objects.all().order_by('-created_at', '-id')
+        return qs
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny], url_path='statistics')
+    def get_statistics(self, request):
+        """
+        Get statistics for legitimate domains.
+        Returns total, repurchased, expired, and expiring soon counts.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            now = datetime.now()
+            soon = now + timedelta(days=30)
+            
+            # Base queryset
+            queryset = LegitimateDomain.objects.all()
+            
+            # Total count
+            total = queryset.count()
+            
+            # Repurchased count
+            repurchased = queryset.filter(repurchased=True).count()
+            
+            # Expired count (expiry date is in the past)
+            expired = queryset.filter(
+                expiry__isnull=False,
+                expiry__lt=now.date()
+            ).count()
+            
+            # Expiring soon count (expiry date is between now and 30 days from now)
+            expiring_soon = queryset.filter(
+                expiry__isnull=False,
+                expiry__gte=now.date(),
+                expiry__lte=soon.date()
+            ).count()
+            
+            stats = {
+                'total': total,
+                'repurchased': repurchased,
+                'expired': expired,
+                'expiringSoon': expiring_soon
+            }
+            
+            
+            return Response(stats, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f'Failed to calculate statistics: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='misp')
     def export_to_misp(self, request):

@@ -7,17 +7,25 @@ import {tokenConfig} from "./auth";
 // Here you will find all the API Requests
 
 // GET KEYWORDS
-export const getKeyWords = () => (dispatch, getState) => {
-    axios.get('/api/data_leak/keyword/', tokenConfig(getState))
+export const getKeyWords = (page = 1, pageSize = 100) => (dispatch, getState) => {
+    return axios
+        .get(`/api/data_leak/keyword/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_KEYWORDS,
-                payload: res.data
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
+            return res.data;
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
 };
 
 // DELETE KEYWORD
@@ -69,17 +77,25 @@ export const patchKeyWord = (id, patchedWord) => (dispatch, getState) => {
 };
 
 // GET ALERTS
-export const getAlerts = () => (dispatch, getState) => {
-    axios.get('/api/data_leak/alert/', tokenConfig(getState))
+export const getAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
+    return axios
+        .get(`/api/data_leak/alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_ALERTS,
-                payload: res.data
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
+            return res.data;
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
 };
 
 // UPDATE ALERT
