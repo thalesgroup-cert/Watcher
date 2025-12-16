@@ -33,11 +33,17 @@ class SiteSerializer(serializers.ModelSerializer):
         if not extracted.domain or not extracted.suffix:
             raise serializers.ValidationError("The domain name is not valid")
         
-        # Check if domain exists in Legitimate Domains
-        if LegitimateDomain.objects.filter(domain_name=value).exists():
-            raise serializers.ValidationError(
-                f'{value} Already exists in Legitimate Domains'
-            )
+        if self.instance is None:
+            if LegitimateDomain.objects.filter(domain_name=value).exists():
+                raise serializers.ValidationError(
+                    f'{value} Already exists in Legitimate Domains'
+                )
+        else:
+            current = getattr(self.instance, 'domain_name', None)
+            if value != current and LegitimateDomain.objects.filter(domain_name=value).exists():
+                raise serializers.ValidationError(
+                    f'{value} Already exists in Legitimate Domains'
+                )
         
         return value
 

@@ -1306,5 +1306,6 @@ export default connect(mapStateToProps, {
     addSite,
     patchSite,
     exportToMISP,
+    exportToLegitimateDomains,
     getSiteStatistics
 })(SuspiciousSites);

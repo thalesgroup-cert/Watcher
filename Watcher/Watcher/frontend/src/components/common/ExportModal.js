@@ -22,9 +22,7 @@ class ExportModal extends Component {
             eventUuid: "",
             showHelp: false,
             showAllUuid: false,
-            showLegitimateHelp: false,
-            showDeleteConfirmation: false,
-            deleteConfirmationData: null
+            showLegitimateHelp: false
         };
     }
 
@@ -96,87 +94,18 @@ class ExportModal extends Component {
         const { mode, domain } = this.props;
         
         if (mode === 'websiteMonitoring' || mode === 'dnsFinder') {
-            const alertId = mode === 'dnsFinder' ? this.props.alertId : domain.id;
-            
-            this.setState({
-                showDeleteConfirmation: true,
-                deleteConfirmationData: {
-                    domainName: domain.domain_name,
-                    itemId: alertId,
-                    mode: mode
+            const itemId = mode === 'dnsFinder' ? this.props.alertId : domain.id;
+            if (this.props.onDeleteRequest) {
+                try {
+                    this.props.onDeleteRequest(itemId, domain.domain_name);
+                } catch (e) {
+                    console.error('onDeleteRequest failed:', e);
                 }
-            });
+            }
+            this.props.onClose();
         } else {
             this.props.onClose();
         }
-    };
-
-    handleDeleteConfirmation = (shouldDelete) => {
-        const { deleteConfirmationData } = this.state;
-        
-        if (shouldDelete && this.props.onDeleteRequest) {
-            this.props.onDeleteRequest(deleteConfirmationData.itemId, deleteConfirmationData.domainName);
-        }
-        
-        this.setState({
-            showDeleteConfirmation: false,
-            deleteConfirmationData: null
-        });
-        
-        this.props.onClose();
-    };
-
-    renderDeleteConfirmationModal = () => {
-        const { showDeleteConfirmation, deleteConfirmationData } = this.state;
-        
-        if (!showDeleteConfirmation || !deleteConfirmationData) return null;
-
-        const { mode, domainName } = deleteConfirmationData;
-        
-        const title = mode === 'websiteMonitoring' 
-            ? 'Export Successful'
-            : 'Export Successful';
-        
-        const message = mode === 'websiteMonitoring'
-            ? `The domain ${domainName} has been successfully exported to Legitimate Domains. Would you like to remove it from Website Monitoring?`
-            : `The alert for ${domainName} has been successfully exported to Legitimate Domains. Would you like to archive this alert?`;
-        
-        const noButtonText = mode === 'websiteMonitoring' 
-            ? 'No, keep it'
-            : 'No, keep it';
-        
-        const yesButtonText = mode === 'websiteMonitoring'
-            ? 'Yes, delete'
-            : 'Yes, archive';
-
-        return (
-            <Modal show={true} onHide={() => this.handleDeleteConfirmation(false)} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>{title}</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <p>
-                        The domain <strong>{domainName}</strong> has been successfully exported to Legitimate Domains.
-                    </p>
-                    <p>
-                        {mode === 'websiteMonitoring' 
-                            ? 'Would you like to remove it from Website Monitoring?'
-                            : 'Would you like to archive this alert?'}
-                    </p>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => this.handleDeleteConfirmation(false)}>
-                        {noButtonText}
-                    </Button>
-                    <Button 
-                        variant={mode === 'websiteMonitoring' ? 'danger' : 'warning'} 
-                        onClick={() => this.handleDeleteConfirmation(true)}
-                    >
-                        {yesButtonText}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-        );
     };
 
     renderMispModal = () => {
@@ -358,8 +287,8 @@ class ExportModal extends Component {
                                     <li>The domain will be added to Legitimate Domains</li>
                                     <li>All metadata will be preserved</li>
                                     <li>A comment indicating the source will be added automatically</li>
-                                    {mode === 'dnsFinder' && <li>You will be prompted to archive the alert</li>}
-                                    {mode === 'websiteMonitoring' && <li>You will be prompted to remove the domain from monitoring</li>}
+                                    {mode === 'dnsFinder' && <li>The alert will be archived automatically after export</li>}
+                                    {mode === 'websiteMonitoring' && <li>The domain will be removed from monitoring automatically after export</li>}
                                 </ul>
                             </div>
                         )}
@@ -487,13 +416,9 @@ class ExportModal extends Component {
 
     render() {
         const { show, domain, onClose, mode } = this.props;
-        const { exportToMisp, exportToLegitimateDomain, showDeleteConfirmation } = this.state;
+        const { exportToMisp, exportToLegitimateDomain } = this.state;
 
         if (!show || !domain) return null;
-
-        if (showDeleteConfirmation) {
-            return this.renderDeleteConfirmationModal();
-        }
 
         if (mode === 'legitimate') {
             return this.renderMispModal();

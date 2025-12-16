@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import LegitimateDomain
-from site_monitoring.models import Site
 
 # Legitimate Domain Serializer
 class LegitimateDomainSerializer(serializers.ModelSerializer):
@@ -21,11 +20,11 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
 
     def validate_domain_name(self, value):
         """
-        Check if the domain already exists in Site Monitoring
+        Check if the domain already exists in Legitimate Domains
         """
-        if Site.objects.filter(domain_name=value).exists():
+        if LegitimateDomain.objects.filter(domain_name=value).exists():
             raise serializers.ValidationError(
-                f'{value} Already exists in Website Monitoring'
+                f'{value} Already exists in Legitimate Domains'
             )
         return value
 

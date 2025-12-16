@@ -306,17 +306,15 @@ export class Alerts extends Component {
         }, 1000);
     };
 
-    handleLegitimateDomainExport = async ({ domain_name, comment }) => {
+    handleLegitimateDomainExport = async ({ domain_name, comment, expiry }) => {
         try {
             const alert = this.props.alerts.find(a => a.dns_twisted.domain_name === domain_name);
             if (!alert) {
                 throw new Error('Alert not found');
             }
 
-            const domainData = {
-                domain_name: domain_name,
-            };
-            
+            const domainData = { domain_name };
+            if (expiry) domainData.expiry = expiry;
             await this.props.exportToLegitimateDomains(domainData, comment);
             
             return { success: true };
