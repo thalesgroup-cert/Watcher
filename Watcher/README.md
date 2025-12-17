@@ -802,4 +802,337 @@ All data tables include **enhanced filtering**:
 
 1. **Filter Builder**: Click filter icon to add conditions
 2. **Save Filter Sets**: Name and save custom filters
-3. **Quick Apply
+3. **Quick Apply**: Load saved filters with one click
+
+## Archived Alerts
+Once you have processed an alert, you can archive it.
+
+To archived **1** alert:
+
+- Go to the alert that you want to archived.
+- Select the "**disable**" **button**.
+
+To archived **several** alerts:
+
+- Go to **/admin** page.
+- Click on **Alerts**.
+- **Check** alerts that you want to archived.
+- Click on **Action** dropdown.
+- Select "**Disable selected alerts**".
+
+# Update Watcher
+
+Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
+
+## Migrate from Docker Hub to GHCR (Required for all users)
+
+If you are still using the old Docker Hub image (`felix83000/watcher`), you **must** update your `docker-compose.yml`:
+
+**Old (DEPRECATED):**
+```yaml
+image: felix83000/watcher:latest
+```
+
+**New (REQUIRED):**
+```yaml
+image: ghcr.io/thalesgroup-cert/watcher:latest
+```
+
+## Update Process
+
+To update Watcher image please follow the instructions below:
+
+- Stop all containers: `docker compose down`
+- Remove the old docker images: 
+  ```bash
+  # If migrating from Docker Hub
+  docker rmi felix83000/watcher
+  
+  # If already using GHCR
+  docker rmi ghcr.io/thalesgroup-cert/watcher
+  
+  # Also remove Searx image
+  docker rmi searx/searx
+  ```
+- Pull the newer docker images: `docker compose up`
+
+This will update the Watcher project.
+
+## Migrate & Populate the database (mandatory)
+
+Updates the state of the database in accordance with all current models and migrations. Populate your database with hundred of banned words and RSS sources related to Cyber Security.
+
+    docker compose down
+    docker compose run watcher bash
+    python manage.py migrate
+    python manage.py populate_db
+
+## Managing Breaking Changes (optional)
+
+If the release includes breaking changes, additional steps may be required. Here are the general steps to manage breaking changes:
+
+1. **Review release notes or documentation**: Check the release notes or documentation for any information about breaking changes and specific instructions on how to handle them.
+
+2. **Backup data**: Before proceeding with the update, it's advisable to backup any critical data to prevent loss in case of unexpected issues.
+
+3. **Test in a staging environment**: If possible, test the update in a staging environment to identify any potential issues or conflicts with existing configurations or customizations.
+
+4. **Update configurations**: Review and update any configurations or settings that may be affected by the breaking changes.
+
+5. **Modify custom code**: If you have any custom code or scripts that rely on the previous version's functionality, you may need to modify them to work with the new version.
+
+6. **Run additional migration scripts**: If provided, run any additional migration scripts or commands provided by the developers to handle specific breaking changes.
+
+Always refer to the specific instructions provided with the update.
+
+# Developers
+If you want to modify the project and Pull Request (PR) your work, you will need to setup your development environment.
+
+## Open a Pull Request (PR) to contribute to this project
+- Fork the official Watcher repository
+- Install `Git`
+- Open a terminal: `git clone <your_forked_repository.git>`
+- Switch to the dev branch: `git checkout -b feature/<name_of_the_new_feature>`
+- Make your changes on the working files and then: `git add *`
+- Add a commit message and description: `git commit -m "Title" -m "Description"`
+- Publish the changes: `git push origin feature/<name_of_the_new_feature>`
+- Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
+- Done! Your work will be reviewed by the team! 
+
+## Setup Watcher environment
+Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 and Ubuntu 21.10 LTS in our case).
+
+Then, follow the steps below:
+
+- **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
+- **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
+- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
+- **Pull Watcher code:** `git clone <your_forked_repository.git>`
+- **Move to the following directory:** `cd Watcher/Watcher`
+- **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
+- **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
+- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
+- **Install Python dependencies:** `pip3 install -r requirements.txt`
+- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
+- **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
+     - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
+- **Install Node.js dependencies:**
+     - `sudo apt install npm -y`
+     - `npm install`
+- **Install MySQL:**
+     - `sudo apt install mysql-server -y`
+     - `sudo mysql_secure_installation`
+          - Enter root password.
+          - You may now enter `Y` and `ENTER`. Accept all fields. This will remove some anonymous users and the test database, 
+    disable remote root logins, and load these new rules so that MySQL immediately respects any changes made.
+
+**Create & Configure Watcher database:**
+
+    sudo mysql 
+    CREATE USER 'watcher'@'localhost' IDENTIFIED BY 'Ee5kZm4fWWAmE9hs!';
+    GRANT ALL PRIVILEGES ON *.* TO 'watcher'@'localhost' WITH GRANT OPTION;
+    CREATE DATABASE db_watcher;
+    use db_watcher;
+    exit
+    systemctl status mysql.service
+
+- `cd Watcher/watcher`
+
+In `settings.py` change `HOST` variable to `localhost`:
+
+    DATABASES = {
+       'default': {
+           'ENGINE': 'django.db.backends.mysql',
+           'CONN_MAX_AGE': 3600,
+           'NAME': 'db_watcher',
+           'USER': 'watcher',
+           'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
+           'HOST': 'localhost',
+           'PORT': '3306',
+           'OPTIONS': {
+               'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+           },
+       }
+    }
+
+- <span style="color:red">**[IMPORTANT]** When **commit** put `HOST` variable back to `db_watcher`</span>
+- `cd ..`
+- **[Migrate](#migrate) the database:** `python3 manage.py migrate`
+- **Run Watcher:** `python3 manage.py runserver`
+
+## Deploy a simple SMTP server to test the email notifications
+If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.
+- Grab the docker-compose file: [here](https://github.com/rnwood/smtp4dev/blob/master/docker-compose.yml).
+- Run the command: `docker compose up`
+- The mails will be available here by default: `localhost:5000`
+- Modify the mail settings in the environment variables: `vi /.env`
+    - `SMTP_SERVER=localhost`
+    - `EMAIL_FROM=from@from.com`
+- Launch Watcher: `python Watcher/Watcher/manage.py runserver` 
+
+## Unit Testing
+
+Watcher includes comprehensive unit tests to ensure code quality and reliability. **When contributing new features, you must include corresponding unit tests.**
+
+### Test Coverage & Technologies
+
+The test suite covers all 5 main modules of Watcher:
+
+- **Back-End Tests**: Python's standard unittest module
+  - `common/tests.py`
+  - `watcher/tests.py`
+  - Module-specific test files for each component
+
+- **Front-End Tests**: Cypress framework for JavaScript testing
+  - Cypress tests for all 5 modules
+  - End-to-end testing scenarios
+
+### Automated CI/CD Testing
+
+All tests are **automatically executed** in our CI/CD pipeline using **GitHub Actions**:
+
+- **Triggered on**: Push, Pull Requests, and manual workflow dispatch
+- **Execution**: Both back-end and front-end tests run automatically
+- **Coverage**: Full test suite validation before code integration
+
+The CI/CD workflow ensures that:
+- No broken code reaches the main branch
+- All new features are properly tested
+
+You can view the workflow file at `.github/workflows/docker-image-latest.yml` and monitor test results in the **Actions** tab of the GitHub repository.
+
+
+### The commands
+
+**IMPORTANT**: All test commands must be executed from the `Watcher/Watcher` directory:
+
+```bash
+cd Watcher/Watcher
+```
+
+#### Back-End Tests
+To run all Django unit tests:
+
+```bash
+python manage.py test
+```
+
+To run tests for a specific module:
+
+```bash
+python manage.py test <module_name>
+```
+
+To run with verbose output:
+
+```bash
+python manage.py test --verbosity=2
+```
+
+#### Front-End Tests
+
+Before running front-end tests, you need to create a test superuser:
+
+```bash
+python manage.py shell -c "
+from django.contrib.auth.models import User
+User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher', first_name='Unit-Test Cypress', last_name='Watcher')
+"
+```
+
+**Alternative**: If you already have a superuser account, you can use it for testing by updating the test credentials in `cypress.config.js`:
+
+```javascript
+env: {
+  testCredentials: {
+    username: 'your_superuser_name',
+    password: 'your_superuser_password',
+    email: 'your_superuser_email',
+    firstName: 'your_first_name'
+  }
+}
+```
+
+To run with an interactive Cypress Test Runner:
+
+```bash
+npm run cypress:open
+```
+
+To run in headless mode (CI/CD):
+
+```bash
+npm run test:e2e
+```
+
+### Development Guidelines
+
+Here is the file structure of the test files in Watcher:
+```
+Watcher/
+├── common/
+│   └── tests.py
+├── watcher/
+│   └── tests.py
+├── [module_name]/
+│   └── tests.py
+└── cypress/
+    ├── e2e/
+    └── support/
+```
+
+- **For new modules**, create a `tests.py` file following Django's testing conventions.
+- **For frontend features**, add Cypress tests in the appropriate `cypress/e2e/` directory.
+
+**When developing new features**, ensure your tests cover:
+- Happy path scenarios
+- Edge cases
+- Error handling
+- Input validation
+
+<span style="color:red">**[IMPORTANT]** All Pull Requests must include tests for new functionality. PRs without adequate test coverage may be rejected.</span>
+
+## Modify the frontend
+If you need to modify the frontend `/Watcher/Watcher/frontend`:
+
+From `/Watcher/Watcher/`, run the command below:
+
+    npm run dev
+
+Let this command run in background. 
+Now, when modifying some frontend ReactJs files it will automatically build them into one file (`/Watcher/Watcher/frontend/static/frontend/main.js`).
+
+<span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the command below:</span>
+
+    npm run build
+
+## Migrations: Change the database schema
+Migrations are Django’s way of propagating changes you make to your models 
+(adding a field, deleting a model, etc.) into your database schema. They’re designed to be mostly automatic, 
+but you’ll need to know when to make migrations, when to run them, and the common problems you might run into.
+
+### The commands
+There are several commands which you will use to interact with migrations and Django’s handling of database schema:
+- `migrate`, which is responsible for applying and unapplying migrations.
+- `makemigrations`, which is responsible for creating new migrations based on the changes you have made to your models.
+- `sqlmigrate`, which displays the SQL statements for a migration.
+- `showmigrations`, which lists a project’s migrations and their status.
+
+### Change a model (adding a field, deleting a model, etc.)
+When you are **making a change to a model**, for instance, adding a new field to: **/Watcher/Watcher/data_leak/models.py**
+Then, you need to create a new migration based on the changes you have made:
+- Go to **/Watcher/Watcher/** and run this command: `python3 manage.py makemigrations`
+
+<span style="color:red"> **[IMPORTANT]** Run the `makemigrations` command **only once**</span>, when you have made **all the changes**. 
+Otherwise, it will create **several unnecessary migration files**.
+
+## Build the documentation
+Modify some function comments or the `/Watcher/README.md` file.
+
+Go to `/Watcher/docs` and run:
+   
+     ./build_the_docs.sh
+
+When commit please add the all `/Watcher/docs` folder and the `README.md` file:
+
+    git add ../docs ../README.md

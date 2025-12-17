@@ -41,7 +41,7 @@ export class ArchivedAlerts extends Component {
         const alertsToFilter = this.props.filteredData || this.props.alerts;
         const { globalFilters = {} } = this.props;
         
-        filtered = (alertsToFilter || []).filter(alert => alert.status === false);
+        filtered = (alertsToFilter || []).filter(alert => alert && alert.status === false);
 
         if (globalFilters.search) {
             const searchTerm = globalFilters.search.toLowerCase();
@@ -255,12 +255,22 @@ export class ArchivedAlerts extends Component {
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(alert => {
-                                                        const domainName = alert.url.split('//', 2)[1].split('/', 20)[0];
+                                                        if (!alert || !alert.url) {
+                                                            return null;
+                                                        }
+
+                                                        let domainName = 'Unknown';
+                                                        try {
+                                                            domainName = alert.url.split('//', 2)[1].split('/', 20)[0];
+                                                        } catch (error) {
+                                                            console.error('Error parsing domain from URL:', error);
+                                                        }
+
                                                         let pastContentButton;
                                                         if (domainName === "pastebin.com") {
                                                             pastContentButton = (
                                                                 <button 
-                                                                    onClick={() => this.displayContentModal(alert.id, alert.keyword.name, alert.content)}
+                                                                    onClick={() => this.displayContentModal(alert.id, alert.keyword?.name || '-', alert.content)}
                                                                     className="btn btn-info btn-sm ms-2"
                                                                 >
                                                                     Content
@@ -271,7 +281,7 @@ export class ArchivedAlerts extends Component {
                                                         return (
                                                             <tr key={alert.id}>
                                                                 <td><h5>#{alert.id}</h5></td>
-                                                                <td>{alert.keyword.name}</td>
+                                                                <td>{alert.keyword?.name || '-'}</td>
                                                                 <td>{domainName}</td>
                                                                 <td><h5>{this.getTitleAtUrl(alert.url)}</h5></td>
                                                                 <td style={{whiteSpace: 'nowrap'}}>
@@ -284,7 +294,7 @@ export class ArchivedAlerts extends Component {
                                                                     </button>
                                                                     {pastContentButton}
                                                                 </td>
-                                                                <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                                <td>{alert.created_at ? (new Date(alert.created_at)).toLocaleString() : '-'}</td>
                                                                 <td>
                                                                     <button 
                                                                         onClick={() => this.displayModal(alert.id)}

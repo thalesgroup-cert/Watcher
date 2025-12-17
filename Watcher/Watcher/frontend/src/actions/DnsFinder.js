@@ -1,6 +1,6 @@
 import axios from 'axios';
 import {
-    GET_ALERTS,
+    DNS_GET_ALERTS,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
@@ -22,7 +22,7 @@ export const getAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
         .get(`/api/dns_finder/alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
-                type: GET_ALERTS,
+                type: DNS_GET_ALERTS,
                 payload: {
                     results: res.data.results || res.data,
                     count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),

@@ -1,4 +1,11 @@
-import {GET_KEYWORDS, GET_ALERTS, DELETE_KEYWORD, ADD_KEYWORD, PATCH_KEYWORD, UPDATE_ALERT} from '../actions/types.js';
+import {
+    DATALEAK_GET_KEYWORDS,
+    DATALEAK_GET_ALERTS,
+    DATALEAK_DELETE_KEYWORD,
+    DATALEAK_ADD_KEYWORD,
+    DATALEAK_PATCH_KEYWORD,
+    DATALEAK_UPDATE_ALERT
+} from '../actions/types.js';
 
 const initialState = {
     keywords: [],
@@ -13,7 +20,7 @@ const initialState = {
 
 export default function (state = initialState, action) {
     switch (action.type) {
-        case GET_KEYWORDS: {
+        case DATALEAK_GET_KEYWORDS: {
             const newResults = action.payload.results || action.payload;
             
             if (!action.payload.results) {
@@ -38,7 +45,7 @@ export default function (state = initialState, action) {
             };
         }
 
-        case GET_ALERTS: {
+        case DATALEAK_GET_ALERTS: {
             const newResults = action.payload.results || action.payload;
             
             if (!action.payload.results) {
@@ -63,21 +70,21 @@ export default function (state = initialState, action) {
             };
         }
 
-        case DELETE_KEYWORD:
+        case DATALEAK_DELETE_KEYWORD:
             return {
                 ...state,
                 keywords: state.keywords.filter(keyword => keyword.id !== action.payload),
                 keywordsCount: Math.max(0, state.keywordsCount - 1)
             };
 
-        case ADD_KEYWORD:
+        case DATALEAK_ADD_KEYWORD:
             return {
                 ...state,
                 keywords: [...state.keywords, action.payload].sort((a, b) => a.name.localeCompare(b.name)),
                 keywordsCount: state.keywordsCount + 1
             };
 
-        case PATCH_KEYWORD:
+        case DATALEAK_PATCH_KEYWORD:
             return {
                 ...state,
                 keywords: state.keywords.map(keyword =>
@@ -85,7 +92,7 @@ export default function (state = initialState, action) {
                 ).sort((a, b) => a.name.localeCompare(b.name))
             };
 
-        case UPDATE_ALERT:
+        case DATALEAK_UPDATE_ALERT:
             return {
                 ...state,
                 alerts: state.alerts.map(alert =>

@@ -199,7 +199,7 @@ export class ArchivedAlerts extends Component {
                                                     paginatedData.map(alert => (
                                                         <tr key={alert.id}>
                                                             <td><h5>#{alert.id}</h5></td>
-                                                            <td>{alert.dns_twisted.domain_name}</td>
+                                                            <td>{alert?.dns_twisted?.domain_name || "-"}</td>
                                                             <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
                                                             <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
                                                             <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>

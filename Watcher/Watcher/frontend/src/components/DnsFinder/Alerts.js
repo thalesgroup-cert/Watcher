@@ -432,7 +432,7 @@ export class Alerts extends Component {
         };
 
         const exportButton = alert => (
-            this.isDisabled(alert.dns_twisted.domain_name, alert.id) ?
+            this.isDisabled(alert?.dns_twisted?.domain_name || '-', alert.id) ?
                 (<button className="btn btn-success btn-sm"
                          data-toggle="tooltip"
                          data-placement="top" title={alert.dns_twisted.domain_name + " is monitored"}
@@ -545,8 +545,8 @@ export class Alerts extends Component {
                                                             <td><h5>#{alert.id}</h5></td>
                                                             <td>
                                                                 <div className="d-flex align-items-center">
-                                                                    {this.getMispStatusBadge(alert.dns_twisted)}
-                                                                    <span>{alert.dns_twisted.domain_name}</span>
+                                                                    {this.getMispStatusBadge(alert?.dns_twisted)}
+                                                                    <span>{alert?.dns_twisted?.domain_name || '-'}</span>
                                                                 </div>
                                                             </td>
                                                             <td>
