@@ -1,5 +1,5 @@
 import {
-    GET_ALERTS,
+    DNS_GET_ALERTS,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
@@ -31,7 +31,7 @@ const initialState = {
 
 export default function(state = initialState, action) {
     switch(action.type) {
-        case GET_ALERTS: {
+        case DNS_GET_ALERTS: {
             const newResults = action.payload.results || action.payload;
             
             if (!action.payload.results) {

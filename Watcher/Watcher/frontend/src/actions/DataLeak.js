@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-import {GET_KEYWORDS, GET_ALERTS, DELETE_KEYWORD, ADD_KEYWORD, PATCH_KEYWORD, UPDATE_ALERT} from "./types";
+import {
+    DATALEAK_GET_KEYWORDS,
+    DATALEAK_GET_ALERTS,
+    DATALEAK_DELETE_KEYWORD,
+    DATALEAK_ADD_KEYWORD,
+    DATALEAK_PATCH_KEYWORD,
+    DATALEAK_UPDATE_ALERT
+} from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
 
@@ -12,7 +19,7 @@ export const getKeyWords = (page = 1, pageSize = 100) => (dispatch, getState) =>
         .get(`/api/data_leak/keyword/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
-                type: GET_KEYWORDS,
+                type: DATALEAK_GET_KEYWORDS,
                 payload: {
                     results: res.data.results || res.data,
                     count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
@@ -35,7 +42,7 @@ export const deleteKeyWord = (id, word) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({delete: `${word} Deleted`}));
             dispatch({
-                type: DELETE_KEYWORD,
+                type: DATALEAK_DELETE_KEYWORD,
                 payload: id
             });
         })
@@ -51,7 +58,7 @@ export const addKeyWord = word => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({add: `${word.name} Monitoring`}));
             dispatch({
-                type: ADD_KEYWORD,
+                type: DATALEAK_ADD_KEYWORD,
                 payload: res.data
             });
         })
@@ -67,7 +74,7 @@ export const patchKeyWord = (id, patchedWord) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({add: `${patchedWord.name} Updated`}));
             dispatch({
-                type: PATCH_KEYWORD,
+                type: DATALEAK_PATCH_KEYWORD,
                 payload: res.data
             });
         })
@@ -82,7 +89,7 @@ export const getAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
         .get(`/api/data_leak/alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
         .then(res => {
             dispatch({
-                type: GET_ALERTS,
+                type: DATALEAK_GET_ALERTS,
                 payload: {
                     results: res.data.results || res.data,
                     count: res.data.count || (Array.isArray(res.data) ? res.data.length : 0),
@@ -105,7 +112,7 @@ export const updateAlertStatus = (id, status) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({add: `Alert Updated`}));
             dispatch({
-                type: UPDATE_ALERT,
+                type: DATALEAK_UPDATE_ALERT,
                 payload: res.data
             });
         })
