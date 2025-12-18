@@ -225,27 +225,33 @@ def fetch_last_posts(nb_max_post):
                 logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
         except requests.exceptions.RequestException as e:
             logger.error(str(e))
+
     for feed in feeds:
         count = 1
-        for post in feed.entries:
+        for entry in feed.entries:
             if count <= nb_max_post:
                 count += 1
-                if 'published_parsed' in post:
-                    if post.published_parsed is not None:
-                        dt = datetime.fromtimestamp(calendar.timegm(post.published_parsed))
-                    else:
+
+                dt = "no-date"
+                parsed = entry.get('published_parsed') or entry.get('updated_parsed')
+                if parsed:
+                    try:
+                        dt = datetime.fromtimestamp(calendar.timegm(parsed))
+                    except Exception:
                         dt = "no-date"
-                else:
-                    dt = "no-date"
-                if 'link' in post:
-                    if 'title' in post:
-                        tmp_posts[str(post.title)] = post.link
-                        posts_published[str(post.link)] = dt
+
+                link = entry.get('link') or entry.get('guid') or entry.get('id') or None
+
+                title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
+
+                title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
+
+                if link and title_clean:
+                    tmp_posts[title_clean] = link
+                    posts_published[link] = dt
 
     for title, url in tmp_posts.items():
-        string = title.replace(u'\xa0', u' ')
-        posts[string] = url
-        # print("title lower : " + string.lower() + " url: " + url)
+        posts[title] = url
 
 
 def tokenize_count_urls():
