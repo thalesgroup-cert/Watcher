@@ -204,7 +204,6 @@ confident;url
 1;https://cyber.gc.ca/webservice/en/rss/alerts
 1;https://cyber.gc.ca/webservice/en/rss/news
 1;https://www.egcert.eg/feed/
-1;https://cert.europa.eu/cert/Data/newsletter/reviewlatest-SecurityBulletins.xml
 1;https://www.kyberturvallisuuskeskus.fi/feed/rss/en
 1;https://www.kyberturvallisuuskeskus.fi/sites/default/files/rss/news.xml
 1;https://www.kyberturvallisuuskeskus.fi/sites/default/files/rss/vulns.xml
@@ -215,7 +214,6 @@ confident;url
 1;https://blogs.jpcert.or.jp/en/atom.xml
 1;https://cert.lv/en/feed/rss/all
 1;https://feeds.english.ncsc.nl/news.rss
-1;https://www.csa.gov.sg/Content/RSS-Feed
 1;https://www.cert.si/en/category/news/feed/
 1;https://www.ccn-cert.cni.es/component/obrss/rss-ultimas-vulnerabilidades.feed
 1;https://www.govcert.ch/blog/rss.xml

@@ -166,7 +166,7 @@ def main_watch():
         - close_old_connections()
         - load_feeds()
         - fetch_last_posts(settings.POSTS_DEPTH)
-        - fetch_last_posts_bluesky(settings.POSTS_DEPTH)
+        # - fetch_last_posts_bluesky(settings.POSTS_DEPTH)
         - tokenize_count_urls()
         - remove_banned_words()
         - focus_five_letters()
@@ -179,7 +179,7 @@ def main_watch():
     load_feeds()
     logger.info("Loaded feeds.")
     fetch_last_posts(settings.POSTS_DEPTH)
-    fetch_last_posts_bluesky(settings.POSTS_DEPTH)
+    # fetch_last_posts_bluesky(settings.POSTS_DEPTH)
     logger.info("Fetched last posts.")
     tokenize_count_urls()
     logger.info("Tokenized words.")
@@ -227,54 +227,19 @@ def fetch_last_posts(nb_max_post):
     posts = dict()
     tmp_posts = dict()
     posts_published = dict()
+    # for url in rss_urls:
+    #     if "bsky.app" in url:
+    #         continue
+    #     try:
+    #         feed_content = requests.get(url, timeout=10, headers=HEADERS)
+    #         if feed_content.status_code == 200:
+    #             feeds.append(feedparser.parse(feed_content.text))
+    #         else:
+    #             logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
+    #     except requests.exceptions.RequestException as e:
+    #         logger.error(str(e))
+
     for url in rss_urls:
-        if "bsky.app" in url:
-            continue
-        try:
-            feed_content = requests.get(url, timeout=10, headers=HEADERS)
-            if feed_content.status_code == 200:
-                feeds.append(feedparser.parse(feed_content.text))
-            else:
-                logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
-        except requests.exceptions.RequestException as e:
-            logger.error(str(e))
-
-    for feed in feeds:
-        count = 1
-        for entry in feed.entries:
-            if count <= nb_max_post:
-                count += 1
-                dt = "no-date"
-                parsed = entry.get('published_parsed') or entry.get('updated_parsed')
-                if parsed:
-                    try:
-                        dt = datetime.fromtimestamp(calendar.timegm(parsed))
-                    except Exception:
-                        dt = "no-date"
-                link = entry.get('link') or entry.get('guid') or entry.get('id') or None
-                title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
-                title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
-                if link and title_clean:
-                    tmp_posts[title_clean] = link
-                    posts_published[link] = dt
-    for title, url in tmp_posts.items():
-        posts[title] = url
-
-
-def fetch_last_posts_bluesky(nb_max_post):
-    """
-    Fetch the nb last posts for each Bluesky feed (domain 'bsky.app').
-
-    :param nb_max_post: The deepness of the search on each feed.
-    """
-    global posts
-    global posts_published
-    posts = dict()
-    tmp_posts = dict()
-    posts_published = dict()
-    for url in rss_urls:
-        if "bsky.app" not in url:
-            continue
         try:
             feed_content = requests.get(url, timeout=10)
             if feed_content.status_code == 200:
@@ -296,19 +261,64 @@ def fetch_last_posts_bluesky(nb_max_post):
                         dt = datetime.fromtimestamp(calendar.timegm(parsed))
                     except Exception:
                         dt = "no-date"
-
                 link = entry.get('link') or entry.get('guid') or entry.get('id') or None
-
                 title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
-
                 title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
-
                 if link and title_clean:
                     tmp_posts[title_clean] = link
                     posts_published[link] = dt
-
     for title, url in tmp_posts.items():
         posts[title] = url
+
+
+# def fetch_last_posts_bluesky(nb_max_post):
+#     """
+#     Fetch the nb last posts for each Bluesky feed (domain 'bsky.app').
+
+#     :param nb_max_post: The deepness of the search on each feed.
+#     """
+#     global posts
+#     global posts_published
+#     posts = dict()
+#     tmp_posts = dict()
+#     posts_published = dict()
+#     for url in rss_urls:
+#         if "bsky.app" not in url:
+#             continue
+#         try:
+#             feed_content = requests.get(url, timeout=10)
+#             if feed_content.status_code == 200:
+#                 feeds.append(feedparser.parse(feed_content.text))
+#             else:
+#                 logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
+#         except requests.exceptions.RequestException as e:
+#             logger.error(str(e))
+
+#     for feed in feeds:
+#         count = 1
+#         for entry in feed.entries:
+#             if count <= nb_max_post:
+#                 count += 1
+#                 dt = "no-date"
+#                 parsed = entry.get('published_parsed') or entry.get('updated_parsed')
+#                 if parsed:
+#                     try:
+#                         dt = datetime.fromtimestamp(calendar.timegm(parsed))
+#                     except Exception:
+#                         dt = "no-date"
+
+#                 link = entry.get('link') or entry.get('guid') or entry.get('id') or None
+
+#                 title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
+
+#                 title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
+
+#                 if link and title_clean:
+#                     tmp_posts[title_clean] = link
+#                     posts_published[link] = dt
+
+#     for title, url in tmp_posts.items():
+#         posts[title] = url
 
 
 def tokenize_count_urls():
