@@ -216,9 +216,14 @@ def fetch_last_posts(nb_max_post):
     posts = dict()
     tmp_posts = dict()
     posts_published = dict()
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ThreatsWatcher/1.0)"
+    }
+
     for url in rss_urls:
         try:
-            feed_content = requests.get(url, timeout=10)
+            feed_content = requests.get(url, headers=headers, timeout=10)
             if feed_content.status_code == 200:
                 feeds.append(feedparser.parse(feed_content.text))
             else:
@@ -242,7 +247,14 @@ def fetch_last_posts(nb_max_post):
 
                 link = entry.get('link') or entry.get('guid') or entry.get('id') or None
 
-                title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
+                title_raw = (
+                    entry.get('title')
+                    or entry.get('summary')
+                    or entry.get('description')
+                    or (entry.get('guid') if isinstance(entry.get('guid'), str) else None)
+                    or link
+                    or ""
+                )
 
                 title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
 
