@@ -35,6 +35,15 @@ ATTACKER_PATTERNS = [
     r"\bHFG\d+\b",
 ]
 
+HEADERS = {
+    'User-Agent': (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+}
+
 def extract_entities_and_threats(title: str) -> dict:
     """Extract and clean entities and threats from title using NER model."""
     ner_pipe = get_ner_pipeline()
@@ -114,7 +123,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10, replace_existing=True)
 
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour=8, minute=0, id='day_clean', replace_existing=True)
@@ -207,7 +216,7 @@ def load_feeds():
 
 def fetch_last_posts(nb_max_post):
     """
-    Fetch the nb last posts for each feed.
+    Fetch the nb last posts for each feed (non-Bluesky) .
 
     :param nb_max_post: The deepness of the search on each feed.
     """
@@ -216,6 +225,7 @@ def fetch_last_posts(nb_max_post):
     posts = dict()
     tmp_posts = dict()
     posts_published = dict()
+
     for url in rss_urls:
         try:
             feed_content = requests.get(url, timeout=10)
@@ -225,27 +235,27 @@ def fetch_last_posts(nb_max_post):
                 logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
         except requests.exceptions.RequestException as e:
             logger.error(str(e))
+
     for feed in feeds:
         count = 1
-        for post in feed.entries:
+        for entry in feed.entries:
             if count <= nb_max_post:
                 count += 1
-                if 'published_parsed' in post:
-                    if post.published_parsed is not None:
-                        dt = datetime.fromtimestamp(calendar.timegm(post.published_parsed))
-                    else:
+                dt = "no-date"
+                parsed = entry.get('published_parsed') or entry.get('updated_parsed')
+                if parsed:
+                    try:
+                        dt = datetime.fromtimestamp(calendar.timegm(parsed))
+                    except Exception:
                         dt = "no-date"
-                else:
-                    dt = "no-date"
-                if 'link' in post:
-                    if 'title' in post:
-                        tmp_posts[str(post.title)] = post.link
-                        posts_published[str(post.link)] = dt
-
+                link = entry.get('link') or entry.get('guid') or entry.get('id') or None
+                title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
+                title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
+                if link and title_clean:
+                    tmp_posts[title_clean] = link
+                    posts_published[link] = dt
     for title, url in tmp_posts.items():
-        string = title.replace(u'\xa0', u' ')
-        posts[string] = url
-        # print("title lower : " + string.lower() + " url: " + url)
+        posts[title] = url
 
 
 def tokenize_count_urls():
