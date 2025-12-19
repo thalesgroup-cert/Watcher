@@ -35,6 +35,15 @@ ATTACKER_PATTERNS = [
     r"\bHFG\d+\b",
 ]
 
+HEADERS = {
+    'User-Agent': (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+}
+
 def extract_entities_and_threats(title: str) -> dict:
     """Extract and clean entities and threats from title using NER model."""
     ner_pipe = get_ner_pipeline()
@@ -218,7 +227,7 @@ def fetch_last_posts(nb_max_post):
     posts_published = dict()
     for url in rss_urls:
         try:
-            feed_content = requests.get(url, timeout=10)
+            feed_content = requests.get(url, timeout=10, headers=HEADERS)
             if feed_content.status_code == 200:
                 feeds.append(feedparser.parse(feed_content.text))
             else:
