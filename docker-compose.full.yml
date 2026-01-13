@@ -1,0 +1,140 @@
+version: '3.8'
+
+# Full Baltimore Port Intelligence Stack
+# Combines: Watcher + AIS_Tracker + Baltimore Intel + Geopolitical Mapper
+
+services:
+  # ===========================================
+  # WATCHER - Threat Intelligence Hub
+  # ===========================================
+  watcher:
+    build:
+      context: ./Watcher
+      dockerfile: Dockerfile
+    container_name: watcher
+    ports:
+      - "9002:9002"
+    environment:
+      - DEBUG=False
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=watcher
+      - DB_USER=watcher
+      - DB_PASSWORD=${DB_PASSWORD:-watcher_password}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - baltimore-intel
+    restart: unless-stopped
+
+  # ===========================================
+  # MYSQL - Shared Database
+  # ===========================================
+  mysql:
+    image: mysql:8.0
+    container_name: watcher-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
+      - MYSQL_DATABASE=watcher
+      - MYSQL_USER=watcher
+      - MYSQL_PASSWORD=${DB_PASSWORD:-watcher_password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - baltimore-intel
+    restart: unless-stopped
+
+  # ===========================================
+  # BALTIMORE INTEL - Commodity Tracking
+  # ===========================================
+  baltimore-intel:
+    build:
+      context: ./baltimore_intel
+      dockerfile: Dockerfile
+    container_name: baltimore-intel
+    ports:
+      - "8082:8082"
+    environment:
+      - FRED_API_KEY=${FRED_API_KEY:-}
+      - AIS_TRACKER_URL=http://ais-tracker:8080
+    networks:
+      - baltimore-intel
+    restart: unless-stopped
+
+  # ===========================================
+  # AIS TRACKER - Maritime Vessel Tracking
+  # (Assumes you clone AIS_Tracker repo alongside)
+  # ===========================================
+  ais-tracker:
+    build:
+      context: ../AIS_Tracker
+      dockerfile: Dockerfile
+    container_name: ais-tracker
+    ports:
+      - "8080:8080"
+    environment:
+      - AISSTREAM_API_KEY=${AISSTREAM_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ais_data:/app/data
+    networks:
+      - baltimore-intel
+    restart: unless-stopped
+
+  # ===========================================
+  # GEOPOLITICAL MAPPER - OSINT Dashboard
+  # (Assumes you clone geopolitical-threat-mapper alongside)
+  # ===========================================
+  threat-mapper:
+    build:
+      context: ../geopolitical-threat-mapper
+      dockerfile: Dockerfile
+    container_name: threat-mapper
+    ports:
+      - "8081:8081"
+    environment:
+      - WATCHER_API=http://watcher:9002/api
+      - AIS_API=http://ais-tracker:8080/api
+      - BALTIMORE_API=http://baltimore-intel:8082/api
+    networks:
+      - baltimore-intel
+    restart: unless-stopped
+
+  # ===========================================
+  # NGINX - Unified Entry Point (Optional)
+  # ===========================================
+  nginx:
+    image: nginx:alpine
+    container_name: baltimore-gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - watcher
+      - ais-tracker
+      - baltimore-intel
+      - threat-mapper
+    networks:
+      - baltimore-intel
+    restart: unless-stopped
+
+networks:
+  baltimore-intel:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.20.0/24
+
+volumes:
+  mysql_data:
+  ais_data:
