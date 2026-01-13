@@ -1,0 +1,23 @@
+services:
+  db_watcher:
+    init: true
+    ports:
+      - "127.0.0.1:${DB_WATCHER_PORT}:3306"
+    restart: always
+    command: mysqld --default-authentication-plugin=mysql_native_password
+    volumes:
+      - "${DB_WATCHER_PATH}/data:/var/lib/mysql"
+      - "${DB_WATCHER_PATH}/logs:/var/log/mysql"
+    environment:
+      TZ: ${TZ}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    networks:
+      - watcher_network
+
+networks:
+  watcher_network:
+    external: true
+    name: ${NETWORK_NAME}

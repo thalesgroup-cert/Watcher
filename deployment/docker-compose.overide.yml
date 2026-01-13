@@ -1,0 +1,79 @@
+name: watcher
+services:
+  watcher:
+    extends:
+      file: compose_apps.yaml
+      service: watcher
+    # ============================================================
+    # NEW: Use GitHub Container Registry (GHCR)
+    # ============================================================
+    image: ghcr.io/thalesgroup-cert/watcher:latest
+    # ============================================================
+    # DEPRECATED: Docker Hub (will be removed soon)
+    # Uncomment the line below if you still need Docker Hub
+    # ============================================================
+    # image: felix83000/watcher:latest
+    container_name: watcher
+    depends_on:
+      db_watcher:
+        condition: service_healthy
+      searx:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http:/localhost:9002/#/login | grep -q 200 || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 12
+      start_period: 60s
+
+  db_watcher:
+    extends:
+      file: compose_databases.yaml
+      service: db_watcher
+    image: mysql:${DB_WATCHER_VERSION}
+    container_name: db_watcher
+    healthcheck:
+      test: mysqladmin --user=${DB_USER} --password=${DB_PASSWORD} status
+      interval: 2s
+      timeout: 1s
+      retries: 10
+      start_period: 30s
+
+  searx:
+    extends:
+      file: compose_apps.yaml
+      service: searx
+    image: searx/searx:${SEARX_VERSION}
+    container_name: searx
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+
+  traefik:
+    init: true
+    image: traefik:${TRAEFIK_VERSION}
+    container_name: traefik
+    extends:
+      file: compose_reverse_proxy.yaml
+      service: traefik
+    command:
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=${NETWORK_NAME}"
+      # API & Dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      # Observability
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--metrics.prometheus=true"
+
+networks:
+  watcher_network:
+    external: true
+    name: ${NETWORK_NAME}
