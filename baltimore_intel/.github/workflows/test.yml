@@ -1,0 +1,72 @@
+name: Baltimore Intel Tests
+
+on:
+  push:
+    branches: [ main, develop, claude/* ]
+    paths:
+      - 'baltimore_intel/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'baltimore_intel/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r baltimore_intel/requirements.txt
+
+    - name: Run tests with coverage
+      working-directory: baltimore_intel
+      run: |
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        files: baltimore_intel/coverage.xml
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black
+
+    - name: Check formatting with black
+      working-directory: baltimore_intel
+      run: |
+        black --check --diff .
+      continue-on-error: true
+
+    - name: Lint with flake8
+      working-directory: baltimore_intel
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
