@@ -42,6 +42,12 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    healthcheck:
+      test: mysqladmin --user=${DB_USER} --password=${DB_PASSWORD} status
+      interval: 2s
+      timeout: 1s
+      retries: 10
+      start_period: 30s
 
   watcher:
     container_name: watcher
@@ -49,16 +55,16 @@ services:
     # NEW: Use GitHub Container Registry (GHCR)
     # ============================================================
     image: ghcr.io/thalesgroup-cert/watcher:latest
-    
     # ============================================================
     # DEPRECATED: Docker Hub (will be removed soon)
     # Uncomment the line below if you still need Docker Hub
     # ============================================================
     # image: felix83000/watcher:latest
-    
     depends_on:
-      - db_watcher
-      - searx
+      db_watcher:
+        condition: service_healthy
+      searx:
+        condition: service_started
     restart: always
     networks:
       default:
@@ -67,10 +73,15 @@ services:
     env_file:
       - .env
     environment:
-      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.7"
+      no_proxy: "localhost,searx,db_watcher"
     ports:
       - "9002:9002"
-    command: sh -c '/tmp/wait-for-mysql.sh db_watcher 3306 ${DB_USER} ${DB_PASSWORD} db_watcher -- python manage.py runserver 0.0.0.0:9002'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http:/localhost:9002/#/login | grep -q 200 || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 12
+      start_period: 60s
 
 networks:
   default:
