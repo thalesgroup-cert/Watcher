@@ -15,23 +15,46 @@ from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
 from django.db.models import Q
+from .dangling_dns import (
+    update_dangling_fingerprints,
+    detect_dangling_dns,
+    check_all_dangling_dns
+)
 
 # Configure logger
 logger = logging.getLogger('watcher.dns_finder')
+
 
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
         - Fire main_dns_twist from Monday to Sunday: every 2 hours.
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
+        - Fire check_all_dangling_dns from Monday to Sunday: every 6 hours.
+        - Fire update_dangling_fingerprints from Monday to Sunday: every day at 3AM.
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
-    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
+    # scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
+    scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', minute='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)
-    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
+    # scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
+    scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', minute='*/2',
                       id='main_certificate_transparency',
                       max_instances=2,
+                      replace_existing=True)
+    
+    # Dangling DNS checking every 6 hours
+    # scheduler.add_job(check_all_dangling_dns, 'cron', day_of_week='mon-sun', hour='*/6',
+    scheduler.add_job(check_all_dangling_dns, 'cron', day_of_week='mon-sun', minute='*/2',
+                      id='check_all_dangling_dns',
+                      max_instances=1,
+                      replace_existing=True)
+    
+    # Update fingerprints daily at 3 AM
+    scheduler.add_job(update_dangling_fingerprints, 'cron', day_of_week='mon-sun', hour='3',
+                      id='update_dangling_fingerprints',
+                      max_instances=1,
                       replace_existing=True)
 
     scheduler.start()
@@ -108,6 +131,18 @@ def print_callback(message, context):
             
             logger.info(f"Keyword {keyword_monitored.name} detected in: {domain}")
             dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
+            
+            # Check dangling DNS immediately on creation
+            try:
+                dangling_result = detect_dangling_dns(dns_twisted.domain_name)
+                dns_twisted.dangling_status = dangling_result['status']
+                dns_twisted.dangling_cname = dangling_result['cname']
+                dns_twisted.dangling_info = dangling_result['info']
+                dns_twisted.dangling_checked_at = timezone.now()
+                dns_twisted.save(update_fields=['dangling_status', 'dangling_cname', 'dangling_info', 'dangling_checked_at'])
+            except Exception as e:
+                logger.error(f'Error checking dangling DNS for {dns_twisted.domain_name}: {str(e)}')
+            
             alert = Alert.objects.create(dns_twisted=dns_twisted)
             alert.source = 'print_callback'
             alert.save()
@@ -188,6 +223,18 @@ def check_dnstwist(dns_monitored):
                             dns_twisted = DnsTwisted.objects.create(domain_name=twisted_website_dict['domain'],
                                                                     dns_monitored=dns_monitored,
                                                                     fuzzer=twisted_website_dict['fuzzer'])
+                            
+                            # Check dangling DNS immediately on creation
+                            try:
+                                dangling_result = detect_dangling_dns(dns_twisted.domain_name)
+                                dns_twisted.dangling_status = dangling_result['status']
+                                dns_twisted.dangling_cname = dangling_result['cname']
+                                dns_twisted.dangling_info = dangling_result['info']
+                                dns_twisted.dangling_checked_at = timezone.now()
+                                dns_twisted.save(update_fields=['dangling_status', 'dangling_cname', 'dangling_info', 'dangling_checked_at'])
+                            except Exception as e:
+                                logger.error(f'Error checking dangling DNS for {dns_twisted.domain_name}: {str(e)}')
+                            
                             alert = Alert.objects.create(dns_twisted=dns_twisted)
                             alert.source = 'check_dnstwist'
                             alert.save()

@@ -40,9 +40,13 @@ class DnsTwistedSerializer(serializers.ModelSerializer):
     dns_monitored = DnsMonitoredSerializer(read_only=True)
     keyword_monitored = KeywordMonitoredSerializer(read_only=True)
     misp_event_uuid = serializers.SerializerMethodField()
+    dangling_status_display = serializers.SerializerMethodField()
     
     def get_misp_event_uuid(self, obj):
         return get_misp_uuid(obj.domain_name)
+    
+    def get_dangling_status_display(self, obj):
+        return obj.get_dangling_status_display()
     
     class Meta:
         model = DnsTwisted

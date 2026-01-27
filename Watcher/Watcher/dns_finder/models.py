@@ -45,6 +45,37 @@ class DnsTwisted(models.Model):
     keyword_monitored = models.ForeignKey(KeywordMonitored, on_delete=models.CASCADE, blank=True, null=True)
     fuzzer = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    
+    # Dangling DNS Detection Fields
+    DANGLING_CHOICES = [
+        ('unknown', 'Unknown'),
+        ('safe', 'Safe'),
+        ('exploitable', 'Could Be Exploitable'),
+        ('takeover_possible', 'Takeover Likely Possible'),
+    ]
+    
+    dangling_status = models.CharField(
+        max_length=20, 
+        choices=DANGLING_CHOICES, 
+        default='unknown',
+        verbose_name='Dangling DNS Status'
+    )
+    dangling_cname = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True,
+        verbose_name='CNAME Record'
+    )
+    dangling_info = models.TextField(
+        blank=True, 
+        null=True,
+        verbose_name='Dangling Details'
+    )
+    dangling_checked_at = models.DateTimeField(
+        blank=True, 
+        null=True,
+        verbose_name='Last Dangling Check'
+    )
 
     class Meta:
         ordering = ["-created_at"]

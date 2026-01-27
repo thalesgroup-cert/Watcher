@@ -89,14 +89,35 @@ class DnsMonitored(ImportExportModelAdmin):
 
 @admin.register(DnsTwisted)
 class DnsTwisted(ExportMixin, admin.ModelAdmin):
-    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'display_misp_uuid', 'created_at']
-    list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer']
-    search_fields = ['domain_name']
-    readonly_fields = ['display_misp_uuid']
+    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'display_dangling_status', 'display_misp_uuid', 'created_at']
+    list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer', 'dangling_status']
+    search_fields = ['domain_name', 'dangling_cname']
+    readonly_fields = ['display_misp_uuid', 'dangling_checked_at']
     resource_class = DnsTwistedResource
 
     def has_add_permission(self, request):
         return False
+    
+    def display_dangling_status(self, obj):
+        from django.utils.html import format_html
+        
+        status_config = {
+            'safe': {'color': '#28a745', 'label': 'Safe'},
+            'exploitable': {'color': '#ffc107', 'label': 'Exploitable'},
+            'takeover_possible': {'color': '#dc3545', 'label': 'Takeover'},
+            'unknown': {'color': '#6c757d', 'label': 'Unknown'},
+        }
+        
+        config = status_config.get(obj.dangling_status, status_config['unknown'])
+        
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; '
+            'border-radius: 3px; font-weight: bold; font-size: 11px;">{}</span>',
+            config['color'],
+            config['label']
+        )
+    
+    display_dangling_status.short_description = "Dangling Status"
     
     def display_misp_uuid(self, obj):
         uuid = get_misp_uuid(obj.domain_name)

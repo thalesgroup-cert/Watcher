@@ -69,6 +69,12 @@ export class ArchivedAlerts extends Component {
             );
         }
 
+        if (globalFilters.dangling) {
+            filtered = filtered.filter(alert => 
+                alert.dns_twisted?.dangling_status === globalFilters.dangling
+            );
+        }
+
         return filtered;
     };
 
@@ -111,13 +117,87 @@ export class ArchivedAlerts extends Component {
         );
     };
 
+    getDanglingStatusCell = (dns) => {
+        if (!dns || !dns.dangling_status) {
+            return <span className="text-muted">-</span>;
+        }
+        
+        const statusConfig = {
+            'safe': {
+                badge: 'bg-success',
+                icon: 'check_circle',
+                text: 'Safe',
+                title: 'No dangling DNS detected'
+            },
+            'exploitable': {
+                badge: 'bg-warning',
+                icon: 'warning',
+                text: 'Exploitable',
+                title: 'Could be exploitable - potential subdomain takeover'
+            },
+            'takeover_possible': {
+                badge: 'bg-danger',
+                icon: 'error',
+                text: 'Takeover',
+                title: 'Takeover Likely Possible!'
+            },
+            'unknown': {
+                badge: 'bg-secondary',
+                icon: 'help',
+                text: 'Unknown',
+                title: 'Not yet checked or unknown status'
+            }
+        };
+        
+        const config = statusConfig[dns.dangling_status] || statusConfig['unknown'];
+        
+        // Build detailed tooltip with structured information
+        let tooltipParts = [];
+        tooltipParts.push(`Dangling DNS Detection`);
+        tooltipParts.push(`\nStatus: ${config.title}`);
+        
+        if (dns.dangling_cname) {
+            tooltipParts.push(`\n\nCNAME Record:\n${dns.dangling_cname}`);
+            
+            // Extract service name from CNAME
+            const cnameMatch = dns.dangling_cname.match(/([^\.]+\.(?:com|net|org|io|co|app|dev|cloud|azure|amazonaws))/);
+            if (cnameMatch) {
+                tooltipParts.push(`\nService Provider: ${cnameMatch[1]}`);
+            }
+        }
+        
+        if (dns.dangling_info) {
+            tooltipParts.push(`\n\nTechnical Details:\n${dns.dangling_info}`);
+        }
+        
+        if (dns.dangling_checked_at) {
+            const checkDate = new Date(dns.dangling_checked_at);
+            tooltipParts.push(`\n\nLast Verified:\n${checkDate.toLocaleString()}`);
+        }
+                
+        const tooltipText = tooltipParts.join('');
+        
+        return (
+            <span 
+                className={`badge ${config.badge}`}
+                title={tooltipText}
+                style={{ cursor: 'help', fontSize: '0.85rem', padding: '0.4rem 0.65rem' }}
+            >
+                <i className="material-icons align-middle" style={{ fontSize: 16, marginRight: 5 }}>
+                    {config.icon}
+                </i>
+                {config.text}
+            </span>
+        );
+    };
+
     render() {
         const { globalFilters, filteredData } = this.props;
         const dataToUse = filteredData || this.props.alerts;
 
         const renderLoadingState = () => (
             <tr>
-                <td colSpan="7" className="text-center py-5">
+                <td colSpan="8" className="text-center py-5">
                     <div className="d-flex flex-column align-items-center">
                         <div className="spinner-border text-primary mb-3" role="status">
                             <span className="visually-hidden">Loading...</span>
@@ -180,6 +260,9 @@ export class ArchivedAlerts extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('dns_twisted.fuzzer')}>
                                                         Fuzzer{renderSortIcons('dns_twisted.fuzzer')}
                                                     </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('dns_twisted.dangling_status')}>
+                                                        Dangling Status{renderSortIcons('dns_twisted.dangling_status')}
+                                                    </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At{renderSortIcons('created_at')}
                                                     </th>
@@ -191,7 +274,7 @@ export class ArchivedAlerts extends Component {
                                                     renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="7" className="text-center text-muted py-4">
+                                                        <td colSpan="8" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -203,6 +286,7 @@ export class ArchivedAlerts extends Component {
                                                             <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
                                                             <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
                                                             <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
+                                                            <td>{this.getDanglingStatusCell(alert?.dns_twisted)}</td>
                                                             <td>{(new Date(alert.created_at)).toLocaleString()}</td>
                                                             <td>
                                                                 <button

@@ -36,6 +36,13 @@ const FILTER_CONFIG = [
         label: 'Fuzzer',
         width: 1,
         options: []
+    },
+    {
+        key: 'dangling',
+        type: 'select',
+        label: 'Dangling Status',
+        width: 2,
+        options: []
     }
 ];
 
@@ -47,7 +54,8 @@ class Dashboard extends Component {
                 search: '',
                 domain: '',
                 keyword: '',
-                fuzzer: ''
+                fuzzer: '',
+                dangling: ''
             },
             filteredAlerts: [],
             isLoadingInBackground: false,
@@ -199,6 +207,17 @@ class Dashboard extends Component {
                     }))
                 };
             }
+            if (filter.key === 'dangling') {
+                return {
+                    ...filter,
+                    options: [
+                        { value: 'safe', label: '✅ Safe' },
+                        { value: 'exploitable', label: '⚠️ Could Be Exploitable' },
+                        { value: 'takeover_possible', label: '🚨 Takeover Likely Possible' },
+                        { value: 'unknown', label: '❓ Unknown' }
+                    ]
+                };
+            }
             return filter;
         });
     };
@@ -209,7 +228,8 @@ class Dashboard extends Component {
                 search: filters.search || '',
                 domain: filters.domain || '',
                 keyword: filters.keyword || '',
-                fuzzer: filters.fuzzer || ''
+                fuzzer: filters.fuzzer || '',
+                dangling: filters.dangling || ''
             }
         });
     };
