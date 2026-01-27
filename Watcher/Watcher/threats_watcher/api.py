@@ -1,8 +1,8 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import TrendyWord, BannedWord, Summary
-from .serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer
+from .models import TrendyWord, BannedWord, Summary, MonitoredKeyword
+from .serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer, MonitoredKeywordSerializer
 from .core import generate_trendy_word_summary
 
 
@@ -141,3 +141,94 @@ class SummaryViewSet(viewsets.ModelViewSet):
                 'error': 'not_found',
                 'message': f'TrendyWord "{keyword}" not found'
             }, status=status.HTTP_404_NOT_FOUND)
+
+
+class MonitoredKeywordViewSet(viewsets.ModelViewSet):
+    queryset = MonitoredKeyword.objects.all()
+    permission_classes = [permissions.DjangoModelPermissions]
+    serializer_class = MonitoredKeywordSerializer
+    
+    def perform_create(self, serializer):
+        """Associate the keyword with the current user and mark matching TrendyWords."""
+        keyword = serializer.save(created_by=self.request.user)
+        
+        # Find matching TrendyWords and mark them as monitored
+        trendy_words = TrendyWord.objects.filter(name__iexact=keyword.name)
+        for word in trendy_words:
+            word.is_monitored = True
+            word.monitored_temperature = keyword.temperature
+            word.save()
+    
+    def perform_update(self, serializer):
+        """Update matching TrendyWords when keyword temperature is changed."""
+        keyword = serializer.save()
+        
+        # Find matching TrendyWords and update their temperature
+        trendy_words = TrendyWord.objects.filter(name__iexact=keyword.name)
+        for word in trendy_words:
+            word.is_monitored = True
+            word.monitored_temperature = keyword.temperature
+            word.save()
+    
+    def perform_destroy(self, instance):
+        """When deleting a monitored keyword, remove monitoring flags from TrendyWords."""
+        # Find matching TrendyWords
+        trendy_words = TrendyWord.objects.filter(name__iexact=instance.name)
+        
+        for word in trendy_words:
+            word.is_monitored = False
+            word.monitored_temperature = None
+            word.save()
+        
+        # Delete the keyword
+        instance.delete()
+    
+    @action(detail=True, methods=['get'])
+    def articles(self, request, pk=None):
+        """
+        Get all articles mentioning this monitored keyword.
+        Returns PostUrls with full metadata.
+        """
+        keyword = self.get_object()
+        
+        # Find all TrendyWords matching this keyword (case-insensitive)
+        trendy_words = TrendyWord.objects.filter(name__iexact=keyword.name)
+        
+        # Collect all associated PostUrls
+        articles = []
+        for word in trendy_words:
+            for posturl in word.posturls.all():
+                articles.append({
+                    'url': posturl.url,
+                    'created_at': posturl.created_at,
+                    'detected_word': word.name,
+                    'occurrences': word.occurrences
+                })
+        
+        return Response({
+            'keyword': keyword.name,
+            'total_articles': len(articles),
+            'articles': articles
+        })
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """
+        Get aggregated statistics for all monitored keywords.
+        """
+        stats = []
+        for keyword in self.get_queryset():
+            matching_words = TrendyWord.objects.filter(name__iexact=keyword.name)
+            total_articles = sum(word.posturls.count() for word in matching_words)
+            
+            stats.append({
+                'id': keyword.id,
+                'name': keyword.name,
+                'temperature': keyword.temperature,
+                'total_detections': keyword.total_detections,
+                'total_articles': total_articles,
+                'last_detected_at': keyword.last_detected_at,
+                'created_at': keyword.created_at
+            })
+        
+        return Response(stats)

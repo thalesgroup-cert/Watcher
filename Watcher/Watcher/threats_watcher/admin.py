@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, Summary, Subscriber
+from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 from django.utils.html import format_html
@@ -129,3 +129,28 @@ class SubscriberAdmin(admin.ModelAdmin):
     )
 
 admin.site.register(Subscriber, SubscriberAdmin)
+
+
+@admin.register(MonitoredKeyword)
+class MonitoredKeywordAdmin(admin.ModelAdmin):
+    list_display = ('name', 'temperature', 'total_detections', 'last_detected_at', 'created_by', 'created_at')
+    list_filter = ('created_at', 'created_by', 'temperature')
+    search_fields = ('name', 'description')
+    readonly_fields = ('total_detections', 'last_detected_at', 'created_at', 'created_by')
+    
+    fieldsets = (
+        ('Keyword Information', {
+            'fields': ('name', 'description', 'temperature', 'created_at')
+        }),
+        ('Associated Data', {
+            'fields': ('posturls', 'total_detections', 'last_detected_at')
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        return True
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)

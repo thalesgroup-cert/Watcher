@@ -46,6 +46,8 @@ class TrendyWord(models.Model):
     score = models.FloatField(default=0, help_text="Average confidence score from source (1=100%, 2=50%, 3=20%)")
     posturls = models.ManyToManyField(PostUrl)
     created_at = models.DateTimeField(default=timezone.now)
+    is_monitored = models.BooleanField(default=False, help_text="Indicates if this word is from a monitored keyword with boosted weight")
+    monitored_temperature = models.CharField(max_length=20, blank=True, null=True, help_text="Temperature level if monitored (WARN, HOT, SUPER_HOT)")
 
     class Meta:
         ordering = ["-created_at"]
@@ -172,3 +174,38 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+
+class MonitoredKeyword(models.Model):
+    """
+    Stores user-defined keywords to monitor with temperature-based highlighting.
+    These keywords are highlighted in WordCloud with different colors based on temperature.
+    """
+    
+    # Temperature levels for visual highlighting (no multipliers)
+    TEMPERATURE_CHOICES = [
+        ('WARN', 'Warn'),
+        ('HOT', 'Hot'),
+        ('SUPER_HOT', 'Super Hot')
+    ]
+    
+    name = models.CharField(max_length=100, unique=True)
+    temperature = models.CharField(max_length=20, choices=TEMPERATURE_CHOICES, default='WARN')
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='monitored_keywords')
+
+    # Tracking metrics
+    total_detections = models.IntegerField(default=0)
+    last_detected_at = models.DateTimeField(null=True, blank=True,)
+    
+    # Relation with PostUrls to track articles
+    posturls = models.ManyToManyField(PostUrl, blank=True, related_name='monitored_keywords')
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = 'Monitored Keyword'
+        verbose_name_plural = 'Monitored Keywords'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_temperature_display()})"

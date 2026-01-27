@@ -51,6 +51,7 @@ export class WordCloud extends Component {
 
     static propTypes = {
         leads: PropTypes.array.isRequired,
+        monitoredKeywords: PropTypes.array.isRequired,
         filteredData: PropTypes.array,
         getLeads: PropTypes.func.isRequired
     };
@@ -130,6 +131,18 @@ export class WordCloud extends Component {
         getWordColor: word => {
             const dataToUse = this.props.filteredData || this.props.leads;
             const lead = dataToUse.find(l => l.name === word.text);
+            
+            // Check if word is monitored and has temperature
+            if (lead && lead.is_monitored && lead.monitored_temperature) {
+                const temperatureColors = {
+                    'WARN': '#ffc107',
+                    'HOT': '#fd7e14',
+                    'SUPER_HOT': '#dc3545'
+                };
+                return temperatureColors[lead.monitored_temperature] || '#ffc107';
+            }
+            
+            // Default color based on reliability score for non-monitored words
             const score = lead && (typeof lead.score !== 'undefined') ? Number(lead.score) : null;
             if (score === null || isNaN(score)) {
                 return this.state.colors.danger;
@@ -175,7 +188,8 @@ export class WordCloud extends Component {
 }
 
 const mapStateToProps = state => ({
-    leads: state.leads.leads
+    leads: state.leads.leads,
+    monitoredKeywords: state.leads.monitoredKeywords
 });
 
 export default connect(mapStateToProps, {getLeads})(WordCloud);

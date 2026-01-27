@@ -1,6 +1,6 @@
 import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
-import {getLeads} from "../../actions/leads";
+import {getLeads, getMonitoredKeywords} from "../../actions/leads";
 import PostUrls from "./PostUrls";
 import WordCloud from "./WordCloud";
 import WordList from "./WordList";
@@ -25,6 +25,7 @@ class Dashboard extends Component {
     componentDidMount() {
         store.dispatch(setIsPasswordChanged());
         this.loadInitialData();
+        this.props.getMonitoredKeywords();
     }
 
     componentWillUnmount() {
@@ -157,4 +158,4 @@ const mapStateToProps = state => ({
     leadsNext: state.leads.leadsNext || null
 });
 
-export default connect(mapStateToProps, {getLeads})(Dashboard);
+export default connect(mapStateToProps, {getLeads, getMonitoredKeywords})(Dashboard);

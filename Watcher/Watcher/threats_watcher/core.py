@@ -1,6 +1,6 @@
 # coding=utf-8
 import logging
-from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber
+from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber, MonitoredKeyword
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
@@ -14,7 +14,7 @@ import requests
 import re
 from django.db import close_old_connections
 from common.core import send_app_specific_notifications
-from django.db.models import Q
+from django.db.models import Q, F
 from urllib.parse import urlparse
 from .model_manager import get_ner_pipeline
 
@@ -123,7 +123,7 @@ def start_scheduler():
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/5', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10, replace_existing=True)
 
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour=8, minute=0, id='day_clean', replace_existing=True)
@@ -264,6 +264,7 @@ def tokenize_count_urls():
         - Runs NER and threat extraction,
         - Casts scores to float,
         - Counts occurrences and aggregates associated URLs.
+        - Checks for monitored keywords in titles.
     """
     global posts_words, wordurl
     posts_words = {}
@@ -276,10 +277,27 @@ def tokenize_count_urls():
         logger.error("NER pipeline not available for tokenization")
         return
 
+    monitored_keywords = list(MonitoredKeyword.objects.all().values_list('name', flat=True))
+    
     for title, url in posts.items():
         post_date = posts_published.get(url, "no-date")
         if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
             continue
+            
+        # Check for monitored keywords in title (case-insensitive)
+        title_lower = title.lower()
+        for monitored_kw in monitored_keywords:
+            if monitored_kw.lower() in title_lower:
+                # Count this monitored keyword
+                posts_words[monitored_kw] = posts_words.get(monitored_kw, 0) + 1
+                key = f"{monitored_kw}_url"
+                if key in wordurl:
+                    wordurl[key] += ", " + url
+                else:
+                    wordurl[key] = url
+                logger.info(f"Monitored keyword '{monitored_kw}' found in title: {title[:80]}...")
+        
+        # Continue with NER extraction
         raw_ner = ner_pipe(title)
         for ent in raw_ner:
             ent['score'] = float(ent['score'])
@@ -361,12 +379,19 @@ def remove_banned_words():
 def focus_five_letters():
     """
     Focus on 5 letters long words.
+    Always includes monitored keywords regardless of length.
     """
     global posts_five_letters
     posts_five_letters = dict()
     n = 4
+    
+    # Get monitored keywords to always include them
+    monitored_kw_names = set(MonitoredKeyword.objects.all().values_list('name', flat=True))
+    monitored_kw_lower = {name.lower() for name in monitored_kw_names}
+    
     for word, count in posts_without_banned.items():
-        if len(word) > n:
+        # Include if: length > 4 OR is a monitored keyword (case-insensitive)
+        if len(word) > n or word.lower() in monitored_kw_lower:
             posts_five_letters[word] = count
 
 
@@ -376,6 +401,7 @@ def focus_on_top(words_occurrence):
     Populated the database with only words with a minimum occurrence of "words_occurence" in feeds.
     Also triggers breaking news when threshold is exceeded.
     Generates AI summary for newly created or updated words.
+    Updates MonitoredKeyword metrics when detected.
 
     :param words_occurrence: Word occurence in feeds.
     """
@@ -387,7 +413,20 @@ def focus_on_top(words_occurrence):
     breaking_threshold = settings.BREAKING_NEWS_THRESHOLD
 
     for word, occurrences in posts_five_letters.items():
-        if occurrences >= words_occurrence:
+        # Check if this word is a monitored keyword FIRST
+        is_monitored_word = False
+        monitored_keyword = None
+        monitored_temp = None
+        try:
+            monitored_keyword = MonitoredKeyword.objects.get(name__iexact=word)
+            is_monitored_word = True
+            monitored_temp = monitored_keyword.temperature
+        except MonitoredKeyword.DoesNotExist:
+            pass
+        
+        # Include word if it meets occurrence threshold or if it's monitored (always show monitored words)
+        if occurrences >= words_occurrence or is_monitored_word:
+            
             if TrendyWord.objects.filter(name=word):
                 try:
                     for posturl in wordurl[word + "_url"].split(', '):
@@ -396,6 +435,11 @@ def focus_on_top(words_occurrence):
                                 if not PostUrl.objects.filter(url=posturl):
                                     trendy_word = TrendyWord.objects.get(name=word)
                                     trendy_word.occurrences += 1
+                                    
+                                    if is_monitored_word and monitored_keyword:
+                                        trendy_word.is_monitored = True
+                                        trendy_word.monitored_temperature = monitored_keyword.temperature
+                                    
                                     trendy_word.save()
                                     
                                     if date != "no-date":
@@ -405,7 +449,19 @@ def focus_on_top(words_occurrence):
                                     post_url = PostUrl.objects.filter(url=posturl).first()
                                     if post_url:
                                         trendy_word.posturls.add(post_url)
+                                        
+                                        # Link PostUrl to MonitoredKeyword
+                                        if is_monitored_word and monitored_keyword:
+                                            monitored_keyword.posturls.add(post_url)
+                                    
                                     new_posts[word] = new_posts.get(word, 0) + 1
+                                    
+                                    # Update MonitoredKeyword metrics
+                                    if is_monitored_word and monitored_keyword:
+                                        monitored_keyword.total_detections = F('total_detections') + 1
+                                        monitored_keyword.last_detected_at = timezone.now()
+                                        monitored_keyword.save(update_fields=['total_detections', 'last_detected_at'])
+                                        logger.info(f"Updated monitored keyword '{word}' metrics")
                                     
                                     # Add to summary queue if it has enough posts and no recent summary
                                     if trendy_word.posturls.count() >= 3:
@@ -444,10 +500,27 @@ def focus_on_top(words_occurrence):
                                     else:
                                         PostUrl.objects.create(url=url)
 
-                    word_db = TrendyWord.objects.create(name=word, occurrences=occurrences)
+                    word_db = TrendyWord.objects.create(
+                        name=word, 
+                        occurrences=occurrences,
+                        is_monitored=is_monitored_word,
+                        monitored_temperature=monitored_temp if is_monitored_word else None
+                    )
+                    
                     for url in wordurl[word + "_url"].split(', '):
                         post_url, _ = PostUrl.objects.get_or_create(url=url)
                         word_db.posturls.add(post_url)
+                        
+                        # Link PostUrl to MonitoredKeyword
+                        if is_monitored_word and monitored_keyword:
+                            monitored_keyword.posturls.add(post_url)
+                    
+                    # Update MonitoredKeyword metrics for new TrendyWord
+                    if is_monitored_word and monitored_keyword:
+                        monitored_keyword.total_detections = F('total_detections') + occurrences
+                        monitored_keyword.last_detected_at = timezone.now()
+                        monitored_keyword.save(update_fields=['total_detections', 'last_detected_at'])
+                        logger.info(f"New monitored keyword '{word}' detected with {occurrences} occurrences")
 
                     email_words.append(
                         "<a href=" + settings.WATCHER_URL + ">" + word + "</a> :<b> " + str(occurrences) + "</b>")

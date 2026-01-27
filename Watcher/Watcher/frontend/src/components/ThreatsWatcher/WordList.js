@@ -5,6 +5,7 @@ import {getLeads, deleteLead, addBannedWord} from "../../actions/leads";
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import TableManager from '../common/TableManager';
+import MonitoredKeywords from './MonitoredKeywords';
 
 
 const FILTER_CONFIG = [
@@ -36,6 +37,18 @@ const FILTER_CONFIG = [
             { value: 'medium', label: '11-50' },
             { value: 'high', label: '51-100+' }
         ]
+    },
+    {
+        key: 'monitored_temperature',
+        type: 'select',
+        label: 'Monitored',
+        width: 2,
+        options: [
+            { value: 'all_monitored', label: 'All Monitored' },
+            { value: 'WARN', label: '🔥 Warn' },
+            { value: 'HOT', label: '🔥🔥 Hot' },
+            { value: 'SUPER_HOT', label: '🔥🔥🔥 Super Hot' }
+        ]
     }
 ];
 
@@ -48,7 +61,8 @@ export class WordList extends Component {
             word: "",
             name: "",
             filteredData: [],
-            isLoading: true
+            isLoading: true,
+            showMonitoredKeywords: false
         }
     }
 
@@ -58,7 +72,8 @@ export class WordList extends Component {
         deleteLead: PropTypes.func.isRequired,
         addBannedWord: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
-        globalFilters: PropTypes.object
+        globalFilters: PropTypes.object,
+        monitoredKeywords: PropTypes.array.isRequired
     };
 
     componentDidMount() {
@@ -100,6 +115,15 @@ export class WordList extends Component {
                     case 'high': return occurrences >= 51;
                     default: return true;
                 }
+            });
+        }
+
+        if (filters.monitored_temperature) {
+            filtered = filtered.filter(lead => {
+                if (filters.monitored_temperature === 'all_monitored') {
+                    return lead.is_monitored === true;
+                }
+                return lead.is_monitored && lead.monitored_temperature === filters.monitored_temperature;
             });
         }
 
@@ -167,7 +191,11 @@ export class WordList extends Component {
 
     render() {
         const { isAuthenticated } = this.props.auth;
-        const { leads } = this.props;
+        const { leads, monitoredKeywords } = this.props;
+
+        const totalMonitored = monitoredKeywords.length;
+        const totalDetections = monitoredKeywords.reduce((sum, kw) => sum + (kw.total_detections || 0), 0);
+        const monitoredInList = leads.filter(lead => lead.is_monitored).length;
 
         const authLinks = (id, name) => (
             <button onClick={() => this.displayModal(id, name)} className="btn btn-outline-primary btn-sm">
@@ -185,7 +213,25 @@ export class WordList extends Component {
         return (
             <Fragment>
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h4 className="mb-0">Trendy Words</h4>
+                    <div>
+                        <h4 className="mb-1">Trendy Words</h4>
+                        {totalMonitored > 0 && (
+                            <small className="text-muted">
+                                {totalMonitored} monitored keyword{totalMonitored !== 1 ? 's' : ''} ({monitoredInList} currently displayed)
+                            </small>
+                        )}
+                    </div>
+                    {isAuthenticated && (
+                        <Button 
+                            variant="primary"
+                            onClick={() => this.setState({ showMonitoredKeywords: true })}
+                        >
+                            <i className="material-icons me-1 align-middle" style={{ fontSize: 20 }}>
+                                bookmark
+                            </i>
+                            Manage Keywords
+                        </Button>
+                    )}
                 </div>
 
                 <TableManager
@@ -271,7 +317,14 @@ export class WordList extends Component {
                                                             style={{ cursor: 'pointer' }}
                                                         >
                                                             <td className="align-middle">
-                                                                <span className="mb-0" style={{ fontSize: '1rem' }}>
+                                                                <span className="d-flex align-items-center" style={{ fontSize: '1rem' }}>
+                                                                    {lead.is_monitored && lead.monitored_temperature && (
+                                                                        <span className="me-1" style={{ fontSize: '1.1rem' }}>
+                                                                            {lead.monitored_temperature === 'WARN' && '🔥'}
+                                                                            {lead.monitored_temperature === 'HOT' && '🔥🔥'}
+                                                                            {lead.monitored_temperature === 'SUPER_HOT' && '🔥🔥🔥'}
+                                                                        </span>
+                                                                    )}
                                                                     {lead.name}
                                                                 </span>
                                                             </td>
@@ -319,6 +372,11 @@ export class WordList extends Component {
                 </TableManager>
 
                 {this.modal()}
+                
+                <MonitoredKeywords 
+                    show={this.state.showMonitoredKeywords}
+                    handleClose={() => this.setState({ showMonitoredKeywords: false })}
+                />
             </Fragment>
         );
     }
@@ -326,7 +384,8 @@ export class WordList extends Component {
 
 const mapStateToProps = state => ({
     leads: state.leads.leads,
-    auth: state.auth
+    auth: state.auth,
+    monitoredKeywords: state.leads.monitoredKeywords || []
 });
 
 export default connect(mapStateToProps, { getLeads, deleteLead, addBannedWord })(WordList);
