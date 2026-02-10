@@ -128,13 +128,13 @@ THE_HIVE_EMAIL_SENDER = os.environ.get('THE_HIVE_EMAIL_SENDER', 'watcher@watcher
 THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")
 
 # MISP Setup
-MISP_URL = os.environ.get('MISP_URL', 'https://127.0.0.1')
+MISP_URL = os.environ.get('MISP_URL', 'https://cert-misp-dev.corp.thales/')
 MISP_VERIFY_SSL = os.environ.get('MISP_VERIFY_SSL', False)
 if MISP_VERIFY_SSL == "True":
     MISP_VERIFY_SSL = True
 if MISP_VERIFY_SSL == "False":
     MISP_VERIFY_SSL = False
-MISP_KEY = os.environ.get('MISP_KEY', '')
+MISP_KEY = os.environ.get('MISP_KEY', 'qY1q8OsRX6HdaQuMKaNzrMKmd1t2GBRaMEb25VFt')
 MISP_TICKETING_URL = os.environ.get('MISP_TICKETING_URL', '')
 MISP_TAGS = os.environ.get('MISP_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting,TLP:Amber").split(",")
 
@@ -222,19 +222,19 @@ WSGI_APPLICATION = 'watcher.wsgi.application'
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 # SECURITY WARNING: In production please set DB_USER and DB_PASSWORD environment variables in the .env file.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'CONN_MAX_AGE': 3600,
-        'NAME': 'db_watcher',
-        'USER': os.environ.get('DB_USER', 'watcher'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
-        'HOST': 'db_watcher',
-        'PORT': '3306',
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            "charset": "utf8mb4",
-        },
-    }
+   'default': {
+       'ENGINE': 'django.db.backends.mysql',
+       'CONN_MAX_AGE': 3600,
+    #    'NAME': 'db_watcher126',
+       'NAME': 'db_watcher500',
+       'USER': 'watcher',
+       'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
+       'HOST': 'localhost',
+       'PORT': '3306',
+       'OPTIONS': {
+           'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+       },
+   }
 }
 
 # Password validation
