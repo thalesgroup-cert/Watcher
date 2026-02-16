@@ -12,7 +12,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
+#     - "8080:8080" To Access Dashboard
     volumes:
       - ${TRAEFIK_PATH}/traefik.yaml:/etc/traefik/traefik.yaml:ro
       - ${TRAEFIK_PATH}/dynamic:/dynamic:ro
