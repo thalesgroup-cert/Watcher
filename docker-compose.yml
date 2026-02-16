@@ -81,7 +81,7 @@ services:
     depends_on:
       db_watcher:
         condition: service_healthy
-      searx:
+      searxng:
       certstream:
         condition: service_healthy
       db_watcher:

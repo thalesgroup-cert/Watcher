@@ -22,7 +22,7 @@ services:
     depends_on:
       db_watcher:
         condition: service_healthy
-      searx:
+      searxng:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http:/localhost:9002/#/login | grep -q 200 || exit 1"]

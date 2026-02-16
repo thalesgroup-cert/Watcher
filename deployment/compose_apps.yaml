@@ -25,7 +25,7 @@ services:
       - ${DB_WATCHER_PATH}/.env
     tty: true
     environment:
-      no_proxy: "${NO_PROXY},searx,db_watcher"
+      no_proxy: "${NO_PROXY},searxng,db_watcher"
     networks:
       - watcher_network
 
