@@ -41,7 +41,8 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9"
 }
 
 def extract_entities_and_threats(title: str) -> dict:
@@ -228,13 +229,15 @@ def fetch_last_posts(nb_max_post):
 
     for url in rss_urls:
         try:
-            feed_content = requests.get(url, timeout=10)
+            feed_content = requests.get(url, headers=HEADERS, timeout=10, verify=True)
             if feed_content.status_code == 200:
                 feeds.append(feedparser.parse(feed_content.text))
             else:
                 logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
+        except requests.exceptions.SSLError as ssl_err:
+            logger.error(f"SSL error for {url}: {ssl_err}")
         except requests.exceptions.RequestException as e:
-            logger.error(str(e))
+            logger.error(f"Error fetching {url}: {e}")
 
     for feed in feeds:
         count = 1
@@ -479,13 +482,16 @@ def get_pre_redirect_domain(url):
     Retrieves the domain of the URL before the redirect.
     """
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=HEADERS, timeout=10, verify=True, allow_redirects=True)
         if response.history:
             original_url = response.history[-1].url
         else:
             original_url = url
+    except requests.exceptions.SSLError as ssl_err:
+        logger.error(f"SSL error retrieving pre-redirect URL for {url}: {ssl_err}")
+        original_url = url
     except Exception as e:
-        logger.error(f"Error retrieving pre-redirect URL for {url} : {e}")
+        logger.error(f"Error retrieving pre-redirect URL for {url}: {e}")
         original_url = url
     domain = get_normalized_domain(original_url)
     return domain

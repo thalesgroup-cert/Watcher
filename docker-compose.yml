@@ -1,20 +1,38 @@
 services:
 
-  searx:
-    container_name: searx
-    image: searx/searx:1.1.0-69-75b859d2
-    hostname: searx
+  certstream:
+    container_name: certstream
+    image: 0rickyy0/certstream-server-go:latest
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.7
+    volumes:
+      - ./certstream-config.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    environment:
+      - TZ=${TZ}
+
+  searxng:
+    container_name: searxng
+    image: searxng/searxng:latest
+    hostname: searxng
     restart: always
     networks:
       default:
         ipv4_address: 10.10.10.3
-    command: ${SEARX_COMMAND:-}
     volumes:
-      - ./Searx/searx:/etc/searx:rw
+      - ./Searx/searx:/etc/searxng:rw
     environment:
       - TZ=${TZ}
-      - BIND_ADDRESS=10.10.10.3:8080
       - BASE_URL=https://${SEARX_HOSTNAME}/
+      - BIND_ADDRESS=10.10.10.3:8080
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
     cap_drop:
@@ -64,6 +82,11 @@ services:
       db_watcher:
         condition: service_healthy
       searx:
+      certstream:
+        condition: service_healthy
+      db_watcher:
+        condition: service_started
+      searxng:
         condition: service_started
     restart: always
     networks:
@@ -73,7 +96,7 @@ services:
     env_file:
       - .env
     environment:
-      no_proxy: "localhost,searx,db_watcher"
+      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.6,10.10.10.7,certstream"
     ports:
       - "9002:9002"
     healthcheck:

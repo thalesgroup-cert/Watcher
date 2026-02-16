@@ -46,6 +46,8 @@ class Site(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     expiry = models.DateTimeField(blank=True, null=True)  # End of monitoring
     domain_expiry = models.DateField(blank=True, null=True)  # Domain expiration date
+    domain_created_at = models.DateField(blank=True, null=True)  # Domain registration date
+    ssl_expiry = models.DateField(blank=True, null=True)  # SSL certificate expiration date
 
     def auto_update_legitimacy_on_registration(self):
         """
@@ -109,6 +111,8 @@ class Alert(models.Model):
     old_registrar = models.CharField(max_length=255, blank=True, null=True)
     new_expiry_date = models.DateField(blank=True, null=True)
     old_expiry_date = models.DateField(blank=True, null=True)
+    new_ssl_expiry = models.DateField(blank=True, null=True)
+    old_ssl_expiry = models.DateField(blank=True, null=True)
     
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
@@ -124,6 +128,11 @@ class Alert(models.Model):
         """Check if this is an RDAP/WHOIS alert"""
         return (self.new_registrar is not None or self.old_registrar is not None or 
                 self.new_expiry_date is not None or self.old_expiry_date is not None)
+    
+    @property
+    def is_ssl_alert(self):
+        """Check if this is an SSL certificate alert"""
+        return (self.new_ssl_expiry is not None or self.old_ssl_expiry is not None)
 
 
 class Subscriber(models.Model):

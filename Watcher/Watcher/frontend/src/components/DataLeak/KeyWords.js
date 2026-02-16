@@ -15,9 +15,11 @@ export class KeyWords extends Component {
             showAddModal: false,
             id: 0,
             word: "",
+            is_regex: false,
             isLoading: true
         };
         this.inputRef = React.createRef();
+        this.isRegexRef = React.createRef();
     }
 
     static propTypes = {
@@ -63,8 +65,8 @@ export class KeyWords extends Component {
         this.setState({ showDeleteModal: true, id, word });
     };
 
-    displayEditModal = (id, word) => {
-        this.setState({ showEditModal: true, id, word });
+    displayEditModal = (id, word, is_regex) => {
+        this.setState({ showEditModal: true, id, word, is_regex });
     };
 
     displayAddModal = () => {
@@ -108,9 +110,10 @@ export class KeyWords extends Component {
         const onSubmit = e => {
             e.preventDefault();
             const name = this.inputRef.current.value;
-            const keyword = { name };
+            const is_regex = this.isRegexRef.current.checked;
+            const keyword = { name, is_regex };
             this.props.patchKeyWord(this.state.id, keyword);
-            this.setState({ word: "", id: 0 });
+            this.setState({ word: "", id: 0, is_regex: false });
             handleClose();
         };
 
@@ -126,15 +129,32 @@ export class KeyWords extends Component {
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row} className="mb-3 align-items-center">
                                         <Form.Label column sm={4}>
-                                            Keyword (exact match)
+                                            Keyword
                                         </Form.Label>
                                         <Col sm={8}>
                                             <Form.Control 
                                                 ref={this.inputRef}
                                                 type="text"
-                                                placeholder="leak, data leak, data.leak.com..."
+                                                placeholder="leak, data leak, data.leak.com, .*@example\.com..."
                                                 defaultValue={this.state.word}
                                             />
+                                        </Col>
+                                    </Form.Group>
+                                    
+                                    <Form.Group as={Row} className="mb-3 align-items-center">
+                                        <Form.Label column sm={4}>
+                                            Use RegEx Pattern
+                                        </Form.Label>
+                                        <Col sm={8}>
+                                            <Form.Check 
+                                                ref={this.isRegexRef}
+                                                type="checkbox"
+                                                defaultChecked={this.state.is_regex}
+                                                label="Enable regex pattern matching"
+                                            />
+                                            <Form.Text className="text-muted">
+                                                When enabled, the keyword will be treated as a regular expression pattern.
+                                            </Form.Text>
                                         </Col>
                                     </Form.Group>
                                     
@@ -161,9 +181,10 @@ export class KeyWords extends Component {
         const onSubmit = e => {
             e.preventDefault();
             const name = this.inputRef.current.value;
-            const keyword = { name };
+            const is_regex = this.isRegexRef.current.checked;
+            const keyword = { name, is_regex };
             this.props.addKeyWord(keyword);
-            this.setState({ word: "" });
+            this.setState({ word: "", is_regex: false });
             handleClose();
         };
 
@@ -179,15 +200,32 @@ export class KeyWords extends Component {
                                 <Form onSubmit={onSubmit}>
                                     <Form.Group as={Row} className="mb-3 align-items-center">
                                         <Form.Label column sm={4}>
-                                            Keyword (exact match)
+                                            Keyword
                                         </Form.Label>
                                         <Col sm={8}>
                                             <Form.Control 
                                                 required 
                                                 ref={this.inputRef}
                                                 type="text"
-                                                placeholder="leak, data leak, data.leak.com..."
+                                                placeholder="leak, data leak, data.leak.com, .*@example\.com..."
                                             />
+                                        </Col>
+                                    </Form.Group>
+                                    
+                                    <Form.Group as={Row} className="mb-3 align-items-center">
+                                        <Form.Label column sm={4}>
+                                            Use RegEx Pattern
+                                        </Form.Label>
+                                        <Col sm={8}>
+                                            <Form.Check 
+                                                ref={this.isRegexRef}
+                                                type="checkbox"
+                                                defaultChecked={false}
+                                                label="Enable regex pattern matching"
+                                            />
+                                            <Form.Text className="text-muted">
+                                                When enabled, the keyword will be treated as a regular expression pattern.
+                                            </Form.Text>
                                         </Col>
                                     </Form.Group>
                                     
@@ -210,7 +248,7 @@ export class KeyWords extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="3" className="text-center py-5">
+            <td colSpan="4" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>
@@ -271,6 +309,9 @@ export class KeyWords extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                                                         Name{renderSortIcons('name')}
                                                     </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('is_regex')}>
+                                                        Type{renderSortIcons('is_regex')}
+                                                    </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At{renderSortIcons('created_at')}
                                                     </th>
@@ -282,7 +323,7 @@ export class KeyWords extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="3" className="text-center text-muted py-4">
+                                                        <td colSpan="4" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -290,6 +331,13 @@ export class KeyWords extends Component {
                                                     paginatedData.map(keyword => (
                                                         <tr key={keyword.id}>
                                                             <td><h5>{keyword.name}</h5></td>
+                                                            <td>
+                                                                {keyword.is_regex ? (
+                                                                    <span className="badge bg-info">RegEx</span>
+                                                                ) : (
+                                                                    <span className="badge bg-secondary">Exact</span>
+                                                                )}
+                                                            </td>
                                                             <td>{(new Date(keyword.created_at)).toDateString()}</td>
                                                             <td className="text-end" style={{whiteSpace: 'nowrap'}}>
                                                                 {isAuthenticated && (
@@ -299,7 +347,7 @@ export class KeyWords extends Component {
                                                                             data-toggle="tooltip"
                                                                             data-placement="top" 
                                                                             title="Edit" 
-                                                                            onClick={() => this.displayEditModal(keyword.id, keyword.name)}
+                                                                            onClick={() => this.displayEditModal(keyword.id, keyword.name, keyword.is_regex)}
                                                                         >
                                                                             <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                                         </button>

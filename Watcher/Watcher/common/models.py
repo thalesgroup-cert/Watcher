@@ -61,6 +61,7 @@ class LegitimateDomain(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     domain_created_at = models.DateTimeField(blank=True, null=True)    # Domain's own creation/registration date
     expiry = models.DateField(blank=True, null=True)
+    ssl_expiry = models.DateField(blank=True, null=True)  # SSL certificate expiration date
     repurchased = models.BooleanField(default=False)
     comments = models.TextField(blank=True, null=True, max_length=300)
     misp_event_uuid = models.JSONField(blank=True, null=True, default=list)
