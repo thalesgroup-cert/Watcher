@@ -17,7 +17,7 @@ services:
     extends:
       file: compose_apps.yaml
       service: watcher
-    image: ghcr.io/thalesgroup-cert/watcher:latest
+    image: ghcr.io/thalesgroup-cert/watcher:${WATCHER_VERSION}
     container_name: watcher
     depends_on:
       db_watcher:
