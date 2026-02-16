@@ -282,6 +282,54 @@ export class SuspiciousSites extends Component {
         );
     };
 
+    getSSLExpiryBadge = (site) => {
+        if (!site.ssl_expiry) return null;
+    
+        const now = new Date();
+        const sslExpiryDate = new Date(site.ssl_expiry);
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+        let badge = null;
+    
+        if (sslExpiryDate < now) {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-danger" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate expired on ${sslExpiryDate.toLocaleDateString()}`}
+                >
+                    SSL Expired
+                </span>
+            );
+        } else if (sslExpiryDate <= thirtyDaysFromNow) {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-warning" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate expires soon (${sslExpiryDate.toLocaleDateString()})`}
+                >
+                    SSL Expiring
+                </span>
+            );
+        } else {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-success" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate valid until ${sslExpiryDate.toLocaleDateString()}`}
+                >
+                    SSL Valid
+                </span>
+            );
+        }
+    
+        return (
+            <div style={{ marginTop: '4px' }}>
+                {badge}
+            </div>
+        );
+    };
+
     displayDetailsModal = (site) => {
         this.setState({
             showDetailsModal: true,
@@ -1096,7 +1144,7 @@ export class SuspiciousSites extends Component {
                     filterConfig={filterConfig}
                     customFilters={this.customFilters}
                     searchFields={['domain_name', 'ticket_id', 'registrar', 'rtir']}
-                    dateFields={['created_at', 'expiry', 'domain_expiry']}
+                    dateFields={['created_at', 'expiry', 'domain_created_at', 'domain_expiry', 'ssl_expiry']}
                     defaultSort="created_at"
                     globalFilters={globalFilters}
                     onDataFiltered={this.onDataFiltered}
@@ -1138,8 +1186,14 @@ export class SuspiciousSites extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At{renderSortIcons('created_at')}
                                                     </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_created_at')}>
+                                                        Registered At{renderSortIcons('domain_created_at')}
+                                                    </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_expiry')}>
-                                                        Expiry{renderSortIcons('domain_expiry')}
+                                                        Domain Expiry{renderSortIcons('domain_expiry')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('ssl_expiry')}>
+                                                        SSL Expiry{renderSortIcons('ssl_expiry')}
                                                     </th>
                                                     <th>Takedown</th>
                                                     <th>Legal</th>
@@ -1152,7 +1206,7 @@ export class SuspiciousSites extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="11" className="text-center text-muted py-4">
+                                                        <td colSpan="13" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -1191,9 +1245,20 @@ export class SuspiciousSites extends Component {
                                                             </td>
                                                             <td>{site.created_at ? new Date(site.created_at).toDateString() : '-'}</td>
                                                             <td>
+                                                                {site.domain_created_at
+                                                                    ? new Date(site.domain_created_at).toDateString()
+                                                                    : '-'}
+                                                            </td>
+                                                            <td>
                                                                 <div>
                                                                     {site.domain_expiry ? new Date(site.domain_expiry).toDateString() : '-'}
                                                                     {this.getDomainExpiryBadge(site)}
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div>
+                                                                    {site.ssl_expiry ? new Date(site.ssl_expiry).toDateString() : '-'}
+                                                                    {this.getSSLExpiryBadge(site)}
                                                                 </div>
                                                             </td>
                                                             <td 

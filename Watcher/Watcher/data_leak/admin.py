@@ -78,7 +78,7 @@ class KeywordResource(resources.ModelResource):
 
 @admin.register(Keyword)
 class Keyword(ImportExportModelAdmin):
-    list_display = ['name', 'created_at']
-    list_filter = ['created_at']
+    list_display = ['name', 'is_regex', 'created_at']
+    list_filter = ['is_regex', 'created_at']
     search_fields = ['name']
     resource_class = KeywordResource

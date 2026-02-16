@@ -19,21 +19,20 @@ services:
     environment:
       - TZ=${TZ}
 
-  searx:
-    container_name: searx
-    image: searx/searx:1.1.0-69-75b859d2
-    hostname: searx
+  searxng:
+    container_name: searxng
+    image: searxng/searxng:latest
+    hostname: searxng
     restart: always
     networks:
       default:
         ipv4_address: 10.10.10.3
-    command: ${SEARX_COMMAND:-}
     volumes:
-      - ./Searx/searx:/etc/searx:rw
+      - ./Searx/searx:/etc/searxng:rw
     environment:
       - TZ=${TZ}
-      - BIND_ADDRESS=10.10.10.3:8080
       - BASE_URL=https://${SEARX_HOSTNAME}/
+      - BIND_ADDRESS=10.10.10.3:8080
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
     cap_drop:
@@ -80,7 +79,7 @@ services:
         condition: service_healthy
       db_watcher:
         condition: service_started
-      searx:
+      searxng:
         condition: service_started
     restart: always
     networks:

@@ -1,5 +1,6 @@
 # coding=utf-8
 import logging
+import re
 from .models import Keyword, Alert, PasteId, Subscriber
 import requests
 from django.db import close_old_connections
@@ -105,12 +106,22 @@ def check_searx(keyword):
     hits = []
     urls = []
 
-    # double quote for exact match
-    keyword = '"' + str(keyword) + '"'
-    params = {'q': keyword, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
+    # For non-regex keywords, use double quotes for exact match
+    # For regex keywords or keywords with special characters, don't add quotes
+    if keyword.is_regex:
+        search_term = str(keyword.name)
+    else:
+        # Don't add quotes if the keyword contains special characters like %40
+        # GitHub API and other search engines handle these natively
+        search_term = str(keyword.name)
+        # Only add quotes for simple keywords without special characters
+        if not any(char in search_term for char in ['%', '@', '&', '+', '=']):
+            search_term = '"' + search_term + '"'
+    
+    params = {'q': search_term, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
               'format': 'json'}
 
-    logger.info(f"Querying Searx for: {keyword}")
+    logger.info(f"Querying Searx for: {search_term}")
 
     # send the request off to searx
     try:
@@ -190,8 +201,18 @@ def check_pastebin(keywords):
                         keyword_hits = []
 
                         for keyword in keywords:
-                            if bytes(str(keyword).lower(), 'utf8') in paste_body_lower:
-                                keyword_hits.append(keyword)
+                            if keyword.is_regex:
+                                # Use regex pattern matching
+                                try:
+                                    pattern = re.compile(str(keyword.name).encode('utf8'), re.IGNORECASE)
+                                    if pattern.search(paste_body_lower):
+                                        keyword_hits.append(keyword)
+                                except re.error as e:
+                                    logger.error(f"Invalid regex pattern for keyword '{keyword.name}': {str(e)}")
+                            else:
+                                # Use exact string matching (case insensitive)
+                                if bytes(str(keyword).lower(), 'utf8') in paste_body_lower:
+                                    keyword_hits.append(keyword)
 
                         if len(keyword_hits):
                             # We stored the first matched keyword, others are pointless

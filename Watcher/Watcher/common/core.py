@@ -36,7 +36,9 @@ def start_scheduler():
     """
     Launch multiple planning tasks in background:
         - Fire WHOIS discovery every 30 minute from Monday to Sunday
-        - Fire Legitimate Domains RDAP/WHOIS every 15 minutes
+        - Fire Legitimate Domains RDAP/WHOIS every 30 minutes
+        - Fire Monitored Sites RDAP/WHOIS every hour
+        - Fire SSL certificate check every 6 hours
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
@@ -45,6 +47,14 @@ def start_scheduler():
                       replace_existing=True)
 
     scheduler.add_job(update_legitimate_domains_rdap_data, 'cron', day_of_week='mon-sun', minute='*/30', id='legitimate_rdap_job',
+                      max_instances=1,
+                      replace_existing=True)
+
+    scheduler.add_job(update_monitored_sites_rdap_data, 'cron', day_of_week='mon-sun', hour='*/1', id='monitored_sites_rdap_job',
+                      max_instances=1,
+                      replace_existing=True)
+
+    scheduler.add_job(update_all_ssl_certificates, 'cron', day_of_week='mon-sun', hour='*/6', id='ssl_check_job',
                       max_instances=1,
                       replace_existing=True)
 
@@ -1159,3 +1169,145 @@ def update_legitimate_domains_rdap_data():
 
         except Exception as e:
             logger.error(f"Error processing {domain.domain_name}: {str(e)}")
+
+    # Update SSL certificates for legitimate domains
+    logger.info("CRON TASK: SSL Certificate Check for Legitimate Domains")
+    from .utils.ssl_checker import SSLCertificateChecker
+    
+    for domain in domains:
+        try:
+            checker = SSLCertificateChecker(domain.domain_name)
+            
+            if checker.fetch_certificate():
+                ssl_expiry = checker.get_expiration_date()
+                
+                if ssl_expiry:
+                    # Only update if different
+                    if str(domain.ssl_expiry) != ssl_expiry:
+                        old_ssl_expiry = domain.ssl_expiry
+                        domain.ssl_expiry = ssl_expiry
+                        domain.save(update_fields=['ssl_expiry'])
+                        
+                        logger.info(f"Updated SSL expiry for {domain.domain_name}: {old_ssl_expiry} → {ssl_expiry}")
+                else:
+                    logger.warning(f"Could not extract SSL expiry date for {domain.domain_name}")
+            else:
+                logger.debug(f"No SSL certificate found for {domain.domain_name}")
+                
+        except Exception as e:
+            logger.error(f"Error checking SSL for {domain.domain_name}: {str(e)}")
+
+
+
+def update_monitored_sites_rdap_data():
+    """
+    Update RDAP/WHOIS data for monitored sites.
+    """
+    close_old_connections()
+    logger.info("CRON TASK: RDAP/WHOIS Lookup for Monitored Sites")
+
+    sites = Site.objects.filter(monitored=True)
+
+    for site in sites:
+        try:
+            from .utils.rdap import RDAPDiscovery
+            rdap = RDAPDiscovery(site.domain_name)
+            method = "RDAP"
+
+            if not rdap.fetch_rdap_data():
+                from .utils.whois import WhoisDiscovery
+                whois = WhoisDiscovery(site.domain_name)
+                if not whois.fetch_whois_data():
+                    logger.warning(f"No RDAP/WHOIS data found for {site.domain_name}")
+                    continue
+
+                rdap = whois
+                method = "WHOIS"
+
+            registrar = rdap.get_registrar()
+            expiration_date = rdap.get_expiration_date()
+            registration_date = rdap.get_registration_date()
+            
+            updated = False
+            update_info = []
+            old_legitimacy = site.legitimacy
+
+            # Update registrar
+            if registrar and site.registrar != registrar:
+                old_registrar = site.registrar
+                site.registrar = registrar
+                updated = True
+                update_info.append(f"registrar: {old_registrar} → {registrar}")
+                
+                # Auto-update legitimacy based on registration status
+                if site.auto_update_legitimacy_on_registration():
+                    update_info.append(f"legitimacy: {old_legitimacy} → {site.legitimacy} (now registered)")
+                    logger.info(f"Auto-updated legitimacy for {site.domain_name}: available/disabled → registered")
+                
+                # Create alert for registrar change
+                if old_registrar:
+                    from site_monitoring.models import Alert
+                    Alert.objects.create(
+                        site=site,
+                        type="Registrar Changed",
+                        old_registrar=old_registrar,
+                        new_registrar=registrar
+                    )
+
+            # Update expiration date
+            if expiration_date:
+                try:
+                    new_expiry = datetime.strptime(expiration_date, '%Y-%m-%d').date()
+                    
+                    if site.domain_expiry != new_expiry:
+                        old_expiry = site.domain_expiry
+                        site.domain_expiry = new_expiry
+                        updated = True
+                        update_info.append(f"domain_expiry: {old_expiry} → {new_expiry}")
+                        
+                        # Create alert for expiry change
+                        if old_expiry:
+                            from site_monitoring.models import Alert
+                            Alert.objects.create(
+                                site=site,
+                                type="Domain Expiry Changed",
+                                old_expiry_date=old_expiry,
+                                new_expiry_date=new_expiry
+                            )
+                except Exception as e:
+                    logger.warning(f"Could not parse expiry '{expiration_date}' for {site.domain_name}: {str(e)}")
+
+            # Update registration date
+            if registration_date:
+                try:
+                    new_registered_at = datetime.strptime(registration_date, '%Y-%m-%d').date()
+                    
+                    if site.domain_created_at != new_registered_at:
+                        old_registered_at = site.domain_created_at
+                        site.domain_created_at = new_registered_at
+                        updated = True
+                        update_info.append(f"domain_created_at: {old_registered_at} → {new_registered_at}")
+                except Exception as e:
+                    logger.warning(f"Could not parse registration date '{registration_date}' for {site.domain_name}: {str(e)}")
+
+            if updated:
+                site.save()
+                logger.info(f"Successfully updated {method} data for {site.domain_name}: {', '.join(update_info)}")
+            else:
+                logger.debug(f"No updates needed for {site.domain_name}")
+
+        except Exception as e:
+            logger.error(f"Error processing {site.domain_name}: {str(e)}")
+
+
+def update_all_ssl_certificates():
+    """
+    Update SSL certificate information for all monitored sites.
+    """
+    close_old_connections()
+    logger.info("CRON TASK: SSL Certificate Check for Monitored Sites")
+    
+    from .utils.ssl_checker import update_all_sites_ssl_certificates
+    
+    success_count = update_all_sites_ssl_certificates()
+    logger.info(f"SSL certificate check completed: {success_count} sites updated")

@@ -249,6 +249,54 @@ class LegitimateDomains extends Component {
         );
     };
 
+    getSSLExpiryBadge = (domain) => {
+        if (!domain.ssl_expiry) return null;
+    
+        const now = new Date();
+        const sslExpiryDate = new Date(domain.ssl_expiry);
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+        let badge = null;
+    
+        if (sslExpiryDate < now) {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-danger" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate expired on ${sslExpiryDate.toLocaleDateString()}`}
+                >
+                    SSL Expired
+                </span>
+            );
+        } else if (sslExpiryDate <= thirtyDaysFromNow) {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-warning" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate expires soon (${sslExpiryDate.toLocaleDateString()})`}
+                >
+                    SSL Expiring
+                </span>
+            );
+        } else {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-success" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate valid until ${sslExpiryDate.toLocaleDateString()}`}
+                >
+                    SSL Valid
+                </span>
+            );
+        }
+    
+        return (
+            <div style={{ marginTop: '4px' }}>
+                {badge}
+            </div>
+        );
+    };
+
     getFilterConfig = () => {
         const { isAuthenticated } = this.props.auth;
         
@@ -650,7 +698,7 @@ class LegitimateDomains extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="9" className="text-center py-5">
+            <td colSpan="10" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>
@@ -682,7 +730,7 @@ class LegitimateDomains extends Component {
                     data={domains}
                     filterConfig={this.getFilterConfig()}
                     searchFields={isAuthenticated ? ['domain_name', 'ticket_id', 'contact'] : ['domain_name', 'contact']}
-                    dateFields={['domain_created_at', 'created_at', 'expiry']}
+                    dateFields={['domain_created_at', 'created_at', 'expiry', 'ssl_expiry']}
                     defaultSort="created_at"
                     customFilters={this.customFilters}
                     onDataFiltered={this.onDataFiltered}
@@ -737,8 +785,12 @@ class LegitimateDomains extends Component {
                                                         {renderSortIcons('domain_created_at')}
                                                     </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('expiry')}>
-                                                        Expiry
+                                                        Domain Expiry
                                                         {renderSortIcons('expiry')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('ssl_expiry')}>
+                                                        SSL Expiry
+                                                        {renderSortIcons('ssl_expiry')}
                                                     </th>
                                                     {isAuthenticated && (
                                                         <th style={{ cursor: 'pointer' }} onClick={() => handleSort('repurchased')}>
@@ -759,7 +811,7 @@ class LegitimateDomains extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={isAuthenticated ? "9" : "5"} className="text-center text-muted py-4">
+                                                        <td colSpan={isAuthenticated ? "10" : "6"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -784,6 +836,10 @@ class LegitimateDomains extends Component {
                                                             <td>
                                                                 {domain.expiry ? new Date(domain.expiry).toDateString() : '-'}
                                                                 {isAuthenticated && this.getExpiryBadge(domain)}
+                                                            </td>
+                                                            <td>
+                                                                {domain.ssl_expiry ? new Date(domain.ssl_expiry).toDateString() : '-'}
+                                                                {this.getSSLExpiryBadge(domain)}
                                                             </td>
                                                             {isAuthenticated && (
                                                                 <td>

@@ -9,6 +9,7 @@ class Keyword(models.Model):
     Stores a word which will be use to search data_leaks.
     """
     name = models.CharField(max_length=100, unique=True)
+    is_regex = models.BooleanField(default=False, verbose_name="Use RegEx")
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

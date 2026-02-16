@@ -117,17 +117,8 @@ def print_callback(message, context):
 def main_certificate_transparency():
     """
     Launch CertStream scan using internal certstream-server-go.
-    
-    Connects to the internal WebSocket server with automatic proxy bypass.
     """
-    # Ensure NO_PROXY is set for internal connections
-    no_proxy = os.environ.get('NO_PROXY', '')
-    if 'certstream' not in no_proxy:
-        os.environ['NO_PROXY'] = f"{no_proxy},certstream,10.10.10.7" if no_proxy else "certstream,10.10.10.7"
-    
-    logger.info(f"Connecting to certstream-server-go at {settings.CERT_STREAM_URL}")
-    logger.info(f"NO_PROXY configured: {os.environ.get('NO_PROXY', 'Not set')}")
-    
+    logger.info(f"Starting CertStream monitoring on {settings.CERT_STREAM_URL}")
     try:
         certstream_client.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
     except Exception as e:

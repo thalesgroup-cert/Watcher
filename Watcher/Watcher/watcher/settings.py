@@ -112,8 +112,8 @@ HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
 # CertStream URL
 CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io')
 
-# Link to Searx Server API
-DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searx:8080/')
+# Link to SearxNG Server API
+DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searxng:8080/')
 
 # The Hive Setup
 THE_HIVE_URL = os.environ.get('THE_HIVE_URL', '')
