@@ -97,6 +97,68 @@ class CoreFunctionsTest(TransactionTestCase):
         self.assertFalse(PasteId.objects.filter(paste_id="OLD123").exists())
         self.assertTrue(PasteId.objects.filter(paste_id="RECENT456").exists())
     
+    @patch('data_leak.core.requests.get')
+    def test_check_searx_with_url_encoded_keywords(self, mock_get):
+        """Test that URL-encoded keywords like %40ibm.com are properly handled."""
+        from data_leak.core import check_searx
+        
+        # Create a keyword with URL-encoded special character
+        keyword = Keyword.objects.create(name="%40ibm.com")
+        
+        # Mock the searx response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'results': [
+                {'url': 'https://github.com/example/repo1'},
+                {'url': 'https://github.com/example/repo2'}
+            ]
+        }
+        mock_get.return_value = mock_response
+        
+        # Call check_searx
+        results = check_searx(keyword)
+        
+        # Verify the request was made with decoded keyword
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        
+        # Check that the query parameter contains the decoded keyword (@ibm.com)
+        # The requests library will URL-encode it automatically
+        self.assertIn('q', call_args[1]['params'])
+        query = call_args[1]['params']['q']
+        # The query should contain @ibm.com (decoded), not %40ibm.com (double-encoded)
+        self.assertIn('@ibm.com', query)
+        self.assertNotIn('%40ibm.com', query)
+    
+    @patch('data_leak.core.requests.get')
+    def test_check_searx_with_normal_keywords(self, mock_get):
+        """Test that normal keywords without special characters still work."""
+        from data_leak.core import check_searx
+        
+        # Create a normal keyword
+        keyword = Keyword.objects.create(name="ibm.com")
+        
+        # Mock the searx response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'results': [
+                {'url': 'https://github.com/example/repo'}
+            ]
+        }
+        mock_get.return_value = mock_response
+        
+        # Call check_searx
+        results = check_searx(keyword)
+        
+        # Verify the request was made correctly
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        
+        # Check that the query parameter contains the keyword
+        self.assertIn('q', call_args[1]['params'])
+        query = call_args[1]['params']['q']
+        self.assertIn('ibm.com', query)
+    
     @patch('data_leak.core.send_app_specific_notifications')
     def test_notification_system(self, mock_notifications):
         """Test notification system."""

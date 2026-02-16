@@ -14,6 +14,7 @@ from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
 from django.db.models import Q
+from urllib.parse import unquote
 
 # Configure logger
 logger = logging.getLogger('watcher.data_leak')
@@ -105,12 +106,17 @@ def check_searx(keyword):
     hits = []
     urls = []
 
+    # URL-decode the keyword to handle special characters like %40 (which is @)
+    # This ensures that keywords like "%40ibm.com" are properly decoded to "@ibm.com"
+    # before being sent to the search API
+    decoded_keyword = unquote(str(keyword))
+    
     # double quote for exact match
-    keyword = '"' + str(keyword) + '"'
-    params = {'q': keyword, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
+    search_query = '"' + decoded_keyword + '"'
+    params = {'q': search_query, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
               'format': 'json'}
 
-    logger.info(f"Querying Searx for: {keyword}")
+    logger.info(f"Querying Searx for: {search_query}")
 
     # send the request off to searx
     try:
@@ -190,7 +196,9 @@ def check_pastebin(keywords):
                         keyword_hits = []
 
                         for keyword in keywords:
-                            if bytes(str(keyword).lower(), 'utf8') in paste_body_lower:
+                            # URL-decode the keyword to handle special characters
+                            decoded_keyword = unquote(str(keyword))
+                            if bytes(decoded_keyword.lower(), 'utf8') in paste_body_lower:
                                 keyword_hits.append(keyword)
 
                         if len(keyword_hits):
