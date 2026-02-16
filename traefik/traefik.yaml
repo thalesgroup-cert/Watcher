@@ -1,0 +1,37 @@
+log:
+  level: DEBUG
+  filePath: "/var/log/traefik/traefik.log"
+
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+  bufferingSize: 100
+
+entryPoints:
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        options: default
+
+api:
+  dashboard: true
+  insecure: true
+
+providers:
+  file:
+    directory: /dynamic
+    watch: true
+
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/private/certfile.pem
+        keyFile: /etc/private/keyfile.pem
+  options:
+    default:
+      minVersion: VersionTLS12
+      clientAuth:
+        caFiles:
+          - /etc/private/rootcafile.pem
+        clientAuthType: VerifyIfGiven

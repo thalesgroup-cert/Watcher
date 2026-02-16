@@ -1,0 +1,26 @@
+services:
+  traefik:
+    init: true
+    container_name: traefik
+    restart: unless-stopped
+    environment:
+      DOMAIN_CORP: ${DOMAIN_CORP}
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - watcher_network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - ${TRAEFIK_PATH}/traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ${TRAEFIK_PATH}/dynamic:/dynamic:ro
+      - ${CA_PATH}:/etc/private:ro
+      - ${TRAEFIK_PATH}/logs:/var/log/traefik
+
+networks:
+  watcher_network:
+    external: true
+    name: ${NETWORK_NAME}
+

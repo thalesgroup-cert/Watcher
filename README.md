@@ -129,6 +129,26 @@ Django provides a ready-to-use user interface for administrative activities. We 
 
 ## Installation
 
+```bash
+# 1. Clone the repo
+git clone https://github.com/thalesgroup-cert/watcher.git
+cd watcher/deployment
+
+# 2. Initialize environment, configs & directory structure
+make init
+
+# 3. Start the stack
+make up
+
+# 4. On first run: run database migrations + create superuser
+make migrate
+make superuser
+make populate-db
+
+# 5. Open the web UI
+#    http://localhost:9002  (or your configured domain/port)
+```
+
 Get Watcher up and running in just **10 minutes** using Docker. **Detailed instructions available in our [Installation Guide](https://thalesgroup-cert.github.io/Watcher/README.html)**
 
 ## Platform Architecture
