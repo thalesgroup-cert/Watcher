@@ -4,14 +4,14 @@ services:
   certstream:
     container_name: certstream
     image: 0rickyy0/certstream-server-go:latest
-
+    extends:
+      file: compose_apps.yaml
+      service: certstream
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 10s
       retries: 5
       start_period: 10s
-    environment:
-      - TZ=${TZ}
 
   watcher:
     extends:
