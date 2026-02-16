@@ -1,4 +1,19 @@
 services:
+
+  certstream:
+    init: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: always
+    volumes:
+      - ${ROOT_PATH}/certstream-config.yaml:/app/config.yaml:ro
+    environment:
+      TZ: "${TZ}"
+      HTTP_PROXY: "${HTTP_PROXY}"
+      HTTPS_PROXY: "${HTTPS_PROXY}"
+    networks:
+      - watcher_network
+  
   watcher:
     init: true
     ports:
@@ -14,20 +29,20 @@ services:
     networks:
       - watcher_network
 
-  searx:
+  searxng:
     init: true
-    hostname: searx
+    hostname: searxng
     restart: unless-stopped
     command: ${SEARX_COMMAND:-}
     environment:
       TZ: "${TZ}"
-      BIND_ADDRESS: "searx:8080"
+      BIND_ADDRESS: "searxng:8080"
       BASE_URL: "http://${SEARX_HOSTNAME}/"
       HTTP_PROXY: "${HTTP_PROXY}"
       HTTPS_PROXY: "${HTTPS_PROXY}"
       NO_PROXY: "${NO_PROXY},watcher"
     volumes:
-      - "${SEARX_PATH}:/etc/searx:rw"
+      - "${SEARX_PATH}:/etc/searxng:rw"
     networks:
       - watcher_network
 

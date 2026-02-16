@@ -1,5 +1,18 @@
 name: watcher
 services:
+
+  certstream:
+    container_name: certstream
+    image: 0rickyy0/certstream-server-go:latest
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    environment:
+      - TZ=${TZ}
+
   watcher:
     extends:
       file: compose_apps.yaml
@@ -31,12 +44,12 @@ services:
       retries: 10
       start_period: 30s
 
-  searx:
+  searxng:
     extends:
       file: compose_apps.yaml
-      service: searx
-    image: searx/searx:${SEARX_VERSION}
-    container_name: searx
+      service: searxng
+    image: searxng/searxng:${SEARX_VERSION}
+    container_name: searxng
     cap_drop:
       - ALL
     cap_add:

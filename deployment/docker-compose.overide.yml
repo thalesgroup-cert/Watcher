@@ -1,18 +1,23 @@
 name: watcher
 services:
+
+  certstream:
+    container_name: certstream
+    image: 0rickyy0/certstream-server-go:latest
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    environment:
+      - TZ=${TZ}
+
   watcher:
     extends:
       file: compose_apps.yaml
       service: watcher
-    # ============================================================
-    # NEW: Use GitHub Container Registry (GHCR)
-    # ============================================================
     image: ghcr.io/thalesgroup-cert/watcher:latest
-    # ============================================================
-    # DEPRECATED: Docker Hub (will be removed soon)
-    # Uncomment the line below if you still need Docker Hub
-    # ============================================================
-    # image: felix83000/watcher:latest
     container_name: watcher
     depends_on:
       db_watcher:
@@ -33,18 +38,18 @@ services:
     image: mysql:${DB_WATCHER_VERSION}
     container_name: db_watcher
     healthcheck:
-      test: mysqladmin --user=${DB_USER} --password=${DB_PASSWORD} status
+      test: mysqladmin --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} status
       interval: 2s
       timeout: 1s
       retries: 10
       start_period: 30s
 
-  searx:
+  searxng:
     extends:
       file: compose_apps.yaml
-      service: searx
-    image: searx/searx:${SEARX_VERSION}
-    container_name: searx
+      service: searxng
+    image: searxng/searxng:${SEARX_VERSION}
+    container_name: searxng
     cap_drop:
       - ALL
     cap_add:
