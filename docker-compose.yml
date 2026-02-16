@@ -1,5 +1,24 @@
 services:
 
+  certstream:
+    container_name: certstream
+    image: 0rickyy0/certstream-server-go:latest
+    restart: always
+    networks:
+      default:
+        ipv4_address: 10.10.10.7
+    volumes:
+      - ./certstream-config.yaml:/app/config.yaml:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    environment:
+      - TZ=${TZ}
+
   searx:
     container_name: searx
     image: searx/searx:1.1.0-69-75b859d2
@@ -57,8 +76,12 @@ services:
     # image: felix83000/watcher:latest
     
     depends_on:
-      - db_watcher
-      - searx
+      certstream:
+        condition: service_healthy
+      db_watcher:
+        condition: service_started
+      searx:
+        condition: service_started
     restart: always
     networks:
       default:
@@ -67,7 +90,7 @@ services:
     env_file:
       - .env
     environment:
-      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.7"
+      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.6,10.10.10.7,certstream"
     ports:
       - "9002:9002"
     command: sh -c '/tmp/wait-for-mysql.sh db_watcher 3306 ${DB_USER} ${DB_PASSWORD} db_watcher -- python manage.py runserver 0.0.0.0:9002'

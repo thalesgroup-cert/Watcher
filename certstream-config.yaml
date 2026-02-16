@@ -1,0 +1,22 @@
+# Configuration for certstream-server-go
+# This file is mounted read-only in the Docker container
+
+webserver:
+  # Listen on all interfaces for Docker networking
+  listen_addr: "0.0.0.0"
+  listen_port: 8080
+  
+  # WebSocket endpoints
+  lite_url: "/"                    # Recommended endpoint for Watcher
+  full_url: "/full-stream"         # Full stream with all certificate data
+  domains_only_url: "/domains-only" # Only domain names
+  
+  # Enable real IP detection for reverse proxy scenarios
+  real_ip: true
+
+# Prometheus metrics for monitoring
+prometheus:
+  enabled: true
+  listen_addr: "0.0.0.0"
+  listen_port: 9090
+  metrics_url: "/metrics"

@@ -10,7 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
 from common.models import LegitimateDomain
-import certstream
+from . import certstream_client
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
@@ -116,9 +116,23 @@ def print_callback(message, context):
 
 def main_certificate_transparency():
     """
-    Launch CertStream scan.
+    Launch CertStream scan using internal certstream-server-go.
+    
+    Connects to the internal WebSocket server with automatic proxy bypass.
     """
-    certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+    # Ensure NO_PROXY is set for internal connections
+    no_proxy = os.environ.get('NO_PROXY', '')
+    if 'certstream' not in no_proxy:
+        os.environ['NO_PROXY'] = f"{no_proxy},certstream,10.10.10.7" if no_proxy else "certstream,10.10.10.7"
+    
+    logger.info(f"Connecting to certstream-server-go at {settings.CERT_STREAM_URL}")
+    logger.info(f"NO_PROXY configured: {os.environ.get('NO_PROXY', 'Not set')}")
+    
+    try:
+        certstream_client.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+    except Exception as e:
+        logger.error(f"CertStream connection failed: {e}")
+        raise
 
 
 def main_dns_twist():
