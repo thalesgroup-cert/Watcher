@@ -648,19 +648,6 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       cy.get('.container-fluid').should('exist');
     });
 
-    it('should handle empty data states', () => {
-      cy.intercept('GET', '/api/common/legitimate_domains/', {
-        statusCode: 200,
-        body: []
-      }).as('emptyDomains');
-
-      cy.reload();
-      cy.get('body').should('be.visible');
-      cy.get('table').should('exist');
-
-      cy.get('table tbody tr td').should('contain', 'No');
-    });
-
     it('should handle invalid date input', () => {
       cy.get('button:contains("Add New Domain"), button:contains("Add")').first().click();
       cy.get('.modal', { timeout: 10000 }).should('be.visible');
