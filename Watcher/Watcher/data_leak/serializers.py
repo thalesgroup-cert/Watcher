@@ -16,9 +16,9 @@ class KeywordSerializer(serializers.ModelSerializer):
         if data.get('is_regex', False):
             try:
                 re.compile(data['name'])
-            except re.error as e:
+            except re.error:
                 raise serializers.ValidationError({
-                    'name': f'Invalid regex pattern: {str(e)}'
+                    'name': 'Invalid regular expression pattern.'
                 })
         return data
 
