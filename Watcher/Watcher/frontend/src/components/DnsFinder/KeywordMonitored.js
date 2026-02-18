@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { getKeywordMonitored, deleteKeywordMonitored, addKeywordMonitored, patchKeywordMonitored } from "../../actions/DnsFinder";
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 
 export class KeywordMonitored extends Component {
 
@@ -315,7 +316,13 @@ export class KeywordMonitored extends Component {
                                                     paginatedData.map(keyword => (
                                                         <tr key={keyword.id}>
                                                             <td><h5>{keyword.name}</h5></td>
-                                                            <td>{(new Date(keyword.created_at)).toDateString()}</td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={keyword.created_at} 
+                                                                    includeTime={false}
+                                                                    type="created"
+                                                                />
+                                                            </td>
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
                                                                 {isAuthenticated && (
                                                                     <>

@@ -13,6 +13,7 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
             'created_at',
             'domain_created_at',
             'expiry',
+            'ssl_expiry',
             'repurchased',
             'comments',
             'misp_event_uuid'
@@ -22,16 +23,25 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
         """
         Check if the domain already exists in Legitimate Domains
         """
-        if LegitimateDomain.objects.filter(domain_name=value).exists():
-            raise serializers.ValidationError(
-                f'{value} Already exists in Legitimate Domains'
-            )
+        if self.instance is None:
+            if LegitimateDomain.objects.filter(domain_name=value).exists():
+                raise serializers.ValidationError(
+                    f'{value} Already exists in Legitimate Domains'
+                )
+        else:
+            current = getattr(self.instance, 'domain_name', None)
+            if value != current and LegitimateDomain.objects.filter(domain_name=value).exists():
+                raise serializers.ValidationError(
+                    f'{value} Already exists in Legitimate Domains'
+                )
         return value
 
     def to_internal_value(self, data):
-        # Convert "" to None for both date fields
+        # Convert "" to None for date fields
         if data.get("expiry") == "":
             data["expiry"] = None
         if data.get("domain_created_at") == "":
             data["domain_created_at"] = None
+        if data.get("ssl_expiry") == "":
+            data["ssl_expiry"] = None
         return super().to_internal_value(data)

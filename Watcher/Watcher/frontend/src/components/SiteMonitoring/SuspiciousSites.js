@@ -6,6 +6,7 @@ import { exportToLegitimateDomains } from '../../actions/Common';
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import DayPickerInput from 'react-day-picker/DayPickerInput';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 import Alerts from './Alerts';
 import ExportModal from '../common/ExportModal';
 
@@ -49,6 +50,8 @@ export class SuspiciousSites extends Component {
             rtir: "",
             expiry: null,
             domainExpiry: null,
+            domainCreatedAt: null,
+            sslExpiry: null,
             ipMonitoring: null,
             webContentMonitoring: null,
             emailMonitoring: null,
@@ -502,6 +505,8 @@ export class SuspiciousSites extends Component {
             rtir: site.rtir,
             expiry: site.expiry ? new Date(site.expiry) : null,
             domainExpiry: site.domain_expiry ? new Date(site.domain_expiry) : null,
+            domainCreatedAt: site.domain_created_at ? new Date(site.domain_created_at) : null,
+            sslExpiry: site.ssl_expiry ? new Date(site.ssl_expiry) : null,
             ipMonitoring: site.ip_monitoring,
             webContentMonitoring: site.content_monitoring,
             emailMonitoring: site.mail_monitoring,
@@ -532,6 +537,8 @@ export class SuspiciousSites extends Component {
                 legitimacy: parseInt(this.inputLegitimacyRef.current.value),
                 expiry: formatDateForAPI(this.state.expiry),
                 domain_expiry: formatDateForAPI(this.state.domainExpiry),
+                domain_created_at: formatDateForAPI(this.state.domainCreatedAt),
+                ssl_expiry: formatDateForAPI(this.state.sslExpiry),
                 ip_monitoring: this.ipMonitoringRef.current.checked,
                 content_monitoring: this.webContentMonitoringRef.current.checked,
                 mail_monitoring: this.emailMonitoringRef.current.checked,
@@ -664,6 +671,41 @@ export class SuspiciousSites extends Component {
                                     </Form.Group>
                                 </Col>
                             </Row>
+
+                            <Row className="mb-4">
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>Domain Created At</Form.Label>
+                                        <DayPickerInput
+                                            style={{ color: "black", width: '100%' }}
+                                            formatDate={formatDate}
+                                            parseDate={parseDate}
+                                            placeholder="Select creation date"
+                                            value={this.state.domainCreatedAt}
+                                            onDayChange={date => this.setState({ domainCreatedAt: date })}
+                                        />
+                                        <Form.Text className="text-muted">
+                                            Will be auto-detected via RDAP/WHOIS
+                                        </Form.Text>
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>SSL Expiry Date</Form.Label>
+                                        <DayPickerInput
+                                            style={{ color: "black", width: '100%' }}
+                                            formatDate={formatDate}
+                                            parseDate={parseDate}
+                                            placeholder="Select SSL expiry date"
+                                            value={this.state.sslExpiry}
+                                            onDayChange={date => this.setState({ sslExpiry: date })}
+                                        />
+                                        <Form.Text className="text-muted">
+                                            Will be auto-detected via SSL certificate
+                                        </Form.Text>
+                                    </Form.Group>
+                                </Col>
+                            </Row>
     
                             <Row>
                                 <Col md={6}>
@@ -785,6 +827,8 @@ export class SuspiciousSites extends Component {
             showAddModal: false,
             expiry: null,
             domainExpiry: null,
+            domainCreatedAt: null,
+            sslExpiry: null,
             legitimacy: 2,
             ipMonitoring: null,
             webContentMonitoring: null,
@@ -813,6 +857,8 @@ export class SuspiciousSites extends Component {
                 legitimacy: parseInt(this.inputLegitimacyRef.current.value),
                 expiry: formatDateForAPI(this.state.expiry),
                 domain_expiry: formatDateForAPI(this.state.domainExpiry),
+                domain_created_at: formatDateForAPI(this.state.domainCreatedAt),
+                ssl_expiry: formatDateForAPI(this.state.sslExpiry),
                 ip_monitoring: this.ipMonitoringRef.current.checked,
                 content_monitoring: this.webContentMonitoringRef.current.checked,
                 mail_monitoring: this.emailMonitoringRef.current.checked,
@@ -933,6 +979,42 @@ export class SuspiciousSites extends Component {
                                         />
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via RDAP/WHOIS
+                                        </Form.Text>
+                                    </Form.Group>
+                                </Col>
+
+                            </Row>
+
+                            <Row className="mb-4">
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>Domain Created At</Form.Label>
+                                        <DayPickerInput
+                                            style={{ color: "black", width: '100%' }}
+                                            formatDate={formatDate}
+                                            parseDate={parseDate}
+                                            placeholder="Select creation date"
+                                            value={this.state.domainCreatedAt}
+                                            onDayChange={date => this.setState({ domainCreatedAt: date })}
+                                        />
+                                        <Form.Text className="text-muted">
+                                            Will be auto-detected via RDAP/WHOIS
+                                        </Form.Text>
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group>
+                                        <Form.Label>SSL Expiry Date</Form.Label>
+                                        <DayPickerInput
+                                            style={{ color: "black", width: '100%' }}
+                                            formatDate={formatDate}
+                                            parseDate={parseDate}
+                                            placeholder="Select SSL expiry date"
+                                            value={this.state.sslExpiry}
+                                            onDayChange={date => this.setState({ sslExpiry: date })}
+                                        />
+                                        <Form.Text className="text-muted">
+                                            Will be auto-detected via SSL certificate
                                         </Form.Text>
                                     </Form.Group>
                                 </Col>
@@ -1243,21 +1325,37 @@ export class SuspiciousSites extends Component {
                                                                     {this.getTotalAlerts(site)}
                                                                 </span>
                                                             </td>
-                                                            <td>{site.created_at ? new Date(site.created_at).toDateString() : '-'}</td>
                                                             <td>
-                                                                {site.domain_created_at
-                                                                    ? new Date(site.domain_created_at).toDateString()
-                                                                    : '-'}
+                                                                <DateWithTooltip 
+                                                                    date={site.created_at} 
+                                                                    includeTime={false}
+                                                                    type="created"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={site.domain_created_at} 
+                                                                    includeTime={false}
+                                                                    type="created"
+                                                                />
                                                             </td>
                                                             <td>
                                                                 <div>
-                                                                    {site.domain_expiry ? new Date(site.domain_expiry).toDateString() : '-'}
+                                                                    <DateWithTooltip 
+                                                                        date={site.domain_expiry} 
+                                                                        includeTime={false}
+                                                                        type="expiry"
+                                                                    />
                                                                     {this.getDomainExpiryBadge(site)}
                                                                 </div>
                                                             </td>
                                                             <td>
                                                                 <div>
-                                                                    {site.ssl_expiry ? new Date(site.ssl_expiry).toDateString() : '-'}
+                                                                    <DateWithTooltip 
+                                                                        date={site.ssl_expiry} 
+                                                                        includeTime={false}
+                                                                        type="expiry"
+                                                                    />
                                                                     {this.getSSLExpiryBadge(site)}
                                                                 </div>
                                                             </td>

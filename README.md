@@ -68,7 +68,7 @@ Watcher leverages open source tools and libraries:
 - [**dslim/bert-base-NER**](https://huggingface.co/dslim/bert-base-NER) — Named Entity Recognition for automatic IOC extraction
 - [**certstream**](https://github.com/CaliDog/certstream-python) — Certificate Transparency monitoring
 - [**dnstwist**](https://github.com/elceef/dnstwist) — Domain name permutation engine
-- [**Searx**](https://searx.github.io/searx/) — Privacy-respecting metasearch engine
+- [**SearxNG**](https://github.com/searxng/searxng) — Privacy-respecting metasearch engine
 - [**PyMISP**](https://github.com/MISP/PyMISP) — MISP threat intelligence platform integration
 - [**TLSH**](https://github.com/trendmicro/tlsh) — Fuzzy hashing for content similarity detection
 - [**shadow-useragent**](https://github.com/lobstrio/shadow-useragent) — User-Agent rotation library

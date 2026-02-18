@@ -2,17 +2,6 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 
 ---
 
-> ## ⚠️ Important Notice: Docker Hub Migration Required
-> **Docker Hub support is deprecated and will be completely removed on February 28, 2026**
-> 
-> **Action Required:** All users must migrate to GitHub Container Registry (GHCR) before this date.
-> 
-> **New default registry:** `ghcr.io/thalesgroup-cert/watcher:latest`
-> 
-> If you are currently using Docker Hub (`felix83000/watcher`), please update your `docker-compose.yml` file to use GHCR instead. See the [Installation](#install-watcher) section for details.
-
----
-
 # Install Watcher
 
 ## Prerequisites
@@ -20,7 +9,8 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 
 ## Launch watcher
 - Grab the `docker-compose.yml`, `.env` files and `Searx` directory (keep the directory structure).
-- According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)). 
+- According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)).
+- The application uses **SearxNG** as the meta search engine.
 - `docker compose up`
 
 This should run Docker containers.
@@ -824,19 +814,7 @@ To archived **several** alerts:
 
 Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
 
-## Migrate from Docker Hub to GHCR (Required for all users)
-
-If you are still using the old Docker Hub image (`felix83000/watcher`), you **must** update your `docker-compose.yml`:
-
-**Old (DEPRECATED):**
-```yaml
-image: felix83000/watcher:latest
-```
-
-**New (REQUIRED):**
-```yaml
-image: ghcr.io/thalesgroup-cert/watcher:latest
-```
+> **Note:** Watcher uses the official image from **GitHub Container Registry (GHCR)**: `ghcr.io/thalesgroup-cert/watcher:latest`
 
 ## Update Process
 
@@ -845,16 +823,13 @@ To update Watcher image please follow the instructions below:
 - Stop all containers: `docker compose down`
 - Remove the old docker images: 
   ```bash
-  # If migrating from Docker Hub
-  docker rmi felix83000/watcher
-  
-  # If already using GHCR
-  docker rmi ghcr.io/thalesgroup-cert/watcher
-  
-  # Also remove Searx image
-  docker rmi searx/searx
+  docker rmi ghcr.io/thalesgroup-cert/watcher:latest
+  docker rmi mysql:8.0.40
+  docker rmi searxng/searxng:latest
+  docker rmi 0rickyy0/certstream-server-go:latest
   ```
-- Pull the newer docker images: `docker compose up`
+- Pull the newer docker images: `docker compose pull`
+- Start the containers: `docker compose up -d`
 
 This will update the Watcher project.
 

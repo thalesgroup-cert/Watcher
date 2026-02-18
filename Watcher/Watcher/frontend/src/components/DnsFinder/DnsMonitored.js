@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { getDnsMonitored, deleteDnsMonitored, addDnsMonitored, patchDnsMonitored } from "../../actions/DnsFinder";
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 
 export class DnsMonitored extends Component {
     constructor(props) {
@@ -317,7 +318,13 @@ export class DnsMonitored extends Component {
                                                     paginatedData.map(domain => (
                                                         <tr key={domain.id}>
                                                             <td><h5>{domain.domain_name}</h5></td>
-                                                            <td>{(new Date(domain.created_at)).toDateString()}</td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={domain.created_at} 
+                                                                    includeTime={false}
+                                                                    type="created"
+                                                                />
+                                                            </td>
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
                                                                 {isAuthenticated && (
                                                                     <>

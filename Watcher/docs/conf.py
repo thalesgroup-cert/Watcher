@@ -26,9 +26,9 @@ project = 'Watcher'
 author = 'Ygal Nezri & Félix Herrenschmidt'
 
 # The full version, including alpha/beta/rc tags
-release = '3.2.2'
+release = '3.3.0'
 
-copyright = '2025 - Thales CERT'
+copyright = '2026 - Thales CERT'
 
 # -- General configuration ---------------------------------------------------
 

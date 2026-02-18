@@ -14,6 +14,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 10s
     environment:
@@ -69,25 +70,14 @@ services:
 
   watcher:
     container_name: watcher
-    # ============================================================
-    # NEW: Use GitHub Container Registry (GHCR)
-    # ============================================================
     image: ghcr.io/thalesgroup-cert/watcher:latest
-    # ============================================================
-    # DEPRECATED: Docker Hub (will be removed soon)
-    # Uncomment the line below if you still need Docker Hub
-    # ============================================================
-    # image: felix83000/watcher:latest
     depends_on:
       db_watcher:
         condition: service_healthy
       searxng:
+        condition: service_started
       certstream:
         condition: service_healthy
-      db_watcher:
-        condition: service_started
-      searxng:
-        condition: service_started
     restart: always
     networks:
       default:

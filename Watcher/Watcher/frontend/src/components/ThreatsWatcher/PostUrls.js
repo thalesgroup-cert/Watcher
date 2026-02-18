@@ -174,7 +174,11 @@ export class PostUrls extends Component {
                                                                 <td className={this.checkUrlState(item.url)}>{item.domainName}</td>
                                                                 <td className={this.checkUrlState(item.url)}>{item.title}</td>
                                                                 <td className={"text-end " + this.checkUrlState(item.url)}>
-                                                                    {new Date(item.created_at).toLocaleString()}
+                                                                    <DateWithTooltip 
+                                                                        date={item.created_at} 
+                                                                        includeTime={true}
+                                                                        type="created"
+                                                                    />
                                                                 </td>
                                                             </tr>
                                                         ))

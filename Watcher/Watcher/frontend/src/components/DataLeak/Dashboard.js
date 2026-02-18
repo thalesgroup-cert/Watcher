@@ -1,7 +1,7 @@
 import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import {getAlerts, getKeyWords} from "../../actions/DataLeak";
-import KeyWord from "./KeyWords";
+import SearchPatterns from "./SearchPatterns";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
 import TableManager from '../common/TableManager';
@@ -209,7 +209,7 @@ class Dashboard extends Component {
                                     />
                                 }
                                 rightComponent={
-                                    <KeyWord 
+                                    <SearchPatterns 
                                         globalFilters={globalFilters}
                                         filteredData={dataToPass}
                                     />
