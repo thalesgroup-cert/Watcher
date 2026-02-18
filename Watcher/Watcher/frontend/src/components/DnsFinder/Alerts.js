@@ -8,6 +8,7 @@ import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
+import DateWithTooltip from '../common/DateWithTooltip';
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import DayPickerInput from 'react-day-picker/DayPickerInput';
@@ -564,7 +565,13 @@ export class Alerts extends Component {
                                                                     "-"}
                                                             </td>
                                                             <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
-                                                            <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={alert.created_at} 
+                                                                    includeTime={true}
+                                                                    type="created"
+                                                                />
+                                                            </td>
                                                             <td className="text-end" style={{whiteSpace: 'nowrap'}}>
                                                                 <button onClick={() => {
                                                                     this.displayModal(alert.id)

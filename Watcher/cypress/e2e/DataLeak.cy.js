@@ -166,7 +166,7 @@ describe('Data Leak - E2E Test Suite', () => {
           });
           
           cy.get('.overflow-hidden').eq(1).should('exist').within(() => {
-            cy.get('h4:contains("Keywords Monitored")').should('exist');
+            cy.get('h4:contains("Search Patterns")').should('exist');
           });
         });
 
@@ -214,7 +214,7 @@ describe('Data Leak - E2E Test Suite', () => {
         .find('.overflow-hidden')
         .eq(1)
         .within(() => {
-          cy.get('h4:contains("Keywords Monitored")', { timeout: 10000 }).should('exist');
+          cy.get('h4:contains("Search Patterns")', { timeout: 10000 }).should('exist');
           cy.get('table', { timeout: 10000 }).should('exist');
           cy.get('table thead').should('exist');
           cy.get('table tbody').should('exist');
@@ -243,11 +243,11 @@ describe('Data Leak - E2E Test Suite', () => {
     });
 
     it('should display Add New Keyword button', () => {
-      cy.get('button:contains("Add New Keyword")').first().should('exist');
+      cy.get('button:contains("Add Pattern")').first().should('exist');
     });
 
     it('should open add keyword modal', () => {
-      cy.get('button:contains("Add New Keyword")').first().click();
+      cy.get('button:contains("Add Pattern")').first().click();
       cy.get('.modal', { timeout: 10000 }).should('be.visible');
       cy.get('.modal-title').should('exist');
       cy.get('input[placeholder*="leak"]').should('exist');
@@ -255,7 +255,7 @@ describe('Data Leak - E2E Test Suite', () => {
     });
 
     it('should handle complete keyword addition workflow', () => {
-      cy.get('button:contains("Add New Keyword")').first().click();
+      cy.get('button:contains("Add Pattern")').first().click();
       cy.get('.modal', { timeout: 10000 }).should('be.visible');
       
       cy.get('input[placeholder*="leak"]').type('test-new-leak-keyword');
@@ -551,7 +551,7 @@ describe('Data Leak - E2E Test Suite', () => {
   describe('Data Interaction and Workflow', () => {
     it('should handle complete keyword lifecycle', () => {
       // Add keyword
-      cy.get('button:contains("Add New Keyword")').first().click();
+      cy.get('button:contains("Add Pattern")').first().click();
       cy.get('.modal input[type="text"]').type('test-lifecycle-keyword');
       cy.get('.modal button:contains("Add")').click();
       cy.wait('@addKeyword', { timeout: 10000 });
@@ -698,7 +698,7 @@ describe('Data Leak - E2E Test Suite', () => {
       cy.get('body').then(($body) => {
         const bodyText = $body.text();
         
-        const hasKeywords = bodyText.includes('Keywords Monitored');
+        const hasKeywords = bodyText.includes('Search Patterns');
         const hasAlerts = bodyText.includes('Alerts');
         const hasArchived = bodyText.includes('Archived');
         const hasPastebin = bodyText.includes('pastebin') || bodyText.includes('github');
@@ -716,7 +716,7 @@ describe('Data Leak - E2E Test Suite', () => {
       cy.get('.container-fluid').should('exist');
       cy.get('.d-flex.w-100.h-100.position-relative').should('exist');
       cy.get('table.table-striped').should('have.length.at.least', 2);
-      cy.get('h4:contains("Keywords Monitored")').should('exist');
+      cy.get('h4:contains("Search Patterns")').should('exist');
       cy.get('h4:contains("Alerts")').should('exist');
       cy.scrollTo('bottom');
       cy.get('h4:contains("Archived Alerts")').should('exist');

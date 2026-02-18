@@ -70,8 +70,8 @@ class SiteResource(resources.ModelResource):
 class Site(ExportMixin, admin.ModelAdmin):
     list_display = ['rtir', 'domain_name', 'ticket_id', 'registrar', 'legitimacy', 'ip', 'ip_second', 
                     'monitored', 'web_status', 'takedown_request', 'legal_team', 'blocking_request',
-                    'display_misp_uuid', 'created_at', 'expiry', 'domain_expiry']
-    list_filter = ['created_at', 'expiry', 'domain_expiry', 'monitored', 'web_status', 'legitimacy', 
+                    'display_misp_uuid', 'created_at', 'expiry', 'domain_created_at', 'domain_expiry', 'ssl_expiry']
+    list_filter = ['created_at', 'expiry', 'domain_created_at', 'domain_expiry', 'ssl_expiry', 'monitored', 'web_status', 'legitimacy', 
                    'takedown_request', 'legal_team', 'blocking_request']
     search_fields = ['rtir', 'domain_name', 'ip', 'ip_second', 'registrar']
     resource_class = SiteResource

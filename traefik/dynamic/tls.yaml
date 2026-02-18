@@ -1,0 +1,28 @@
+http:
+  middlewares:
+    set-host:
+      headers:
+        customRequestHeaders:
+          Host: "watcher:9002"
+
+  routers:
+    watcher:
+      entryPoints:
+        - websecure
+      rule: "Host(`watcher`)" # <-- To Be Changed
+      service: watcher-service
+      middlewares:
+        - set-host
+
+
+  services:
+    watcher-service:
+      loadBalancer:
+        servers:
+          - url: "http://watcher:9002"
+        passHostHeader: true
+
+tls:
+  certificates:
+    - certFile: /etc/private/certfile.pem
+      keyFile: /etc/private/keyfile.pem

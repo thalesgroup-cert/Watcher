@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import {getAlerts, updateAlertStatus} from "../../actions/DataLeak";
 import {Button, Modal, InputGroup, FormControl, Form} from 'react-bootstrap';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 
 export class ArchivedAlerts extends Component {
     constructor(props) {
@@ -294,7 +295,13 @@ export class ArchivedAlerts extends Component {
                                                                     </button>
                                                                     {pastContentButton}
                                                                 </td>
-                                                                <td>{alert.created_at ? (new Date(alert.created_at)).toLocaleString() : '-'}</td>
+                                                                <td>
+                                                                    <DateWithTooltip 
+                                                                        date={alert.created_at} 
+                                                                        includeTime={true}
+                                                                        type="created"
+                                                                    />
+                                                                </td>
                                                                 <td>
                                                                     <button 
                                                                         onClick={() => this.displayModal(alert.id)}

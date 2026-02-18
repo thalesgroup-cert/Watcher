@@ -1,0 +1,52 @@
+services:
+
+  certstream:
+    init: true
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: always
+    volumes:
+      - ${ROOT_PATH}/certstream-config.yaml:/app/config.yaml:ro
+    environment:
+      TZ: "${TZ}"
+      HTTP_PROXY: "${HTTP_PROXY}"
+      HTTPS_PROXY: "${HTTPS_PROXY}"
+    networks:
+      - watcher_network
+  
+  watcher:
+    init: true
+    ports:
+      - "127.0.0.1:${WATCHER_PORT}:9002"
+    restart: always
+    command: bash -c 'python manage.py runserver 0.0.0.0:9002'
+    env_file:
+      - ${WATCHER_PATH}/.env
+      - ${DB_WATCHER_PATH}/.env
+    tty: true
+    environment:
+      no_proxy: "${NO_PROXY},searxng,db_watcher"
+    networks:
+      - watcher_network
+
+  searxng:
+    init: true
+    hostname: searxng
+    restart: unless-stopped
+    command: ${SEARX_COMMAND:-}
+    environment:
+      TZ: "${TZ}"
+      BIND_ADDRESS: "searxng:8080"
+      BASE_URL: "http://${SEARX_HOSTNAME}/"
+      HTTP_PROXY: "${HTTP_PROXY}"
+      HTTPS_PROXY: "${HTTPS_PROXY}"
+      NO_PROXY: "${NO_PROXY},watcher"
+    volumes:
+      - "${SEARX_PATH}:/etc/searxng:rw"
+    networks:
+      - watcher_network
+
+networks:
+  watcher_network:
+    external: true
+    name: ${NETWORK_NAME}

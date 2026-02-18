@@ -48,9 +48,15 @@ class SiteSerializer(serializers.ModelSerializer):
         return value
 
     def to_internal_value(self, data):
-        # Convert "" to None for expiry
+        # Convert "" to None for date fields
         if data.get("expiry") == "":
             data["expiry"] = None
+        if data.get("domain_expiry") == "":
+            data["domain_expiry"] = None
+        if data.get("domain_created_at") == "":
+            data["domain_created_at"] = None
+        if data.get("ssl_expiry") == "":
+            data["ssl_expiry"] = None
         return super().to_internal_value(data)
 
     def create(self, validated_data):

@@ -10,8 +10,8 @@ class LegitimateDomainAdmin(ImportExportModelAdmin):
     list_display = (
         'domain_name', 'ticket_id', 'contact',
         'domain_created_at', 'created_at', 'expiry',
-        'repurchased', 'comments'
+        'ssl_expiry', 'repurchased', 'comments'
     )
     search_fields = ('domain_name', 'ticket_id', 'contact')
-    list_filter = ('repurchased', 'expiry')
+    list_filter = ('repurchased', 'expiry', 'ssl_expiry')
     readonly_fields = ('created_at',)

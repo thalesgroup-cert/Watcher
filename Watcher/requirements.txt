@@ -1,6 +1,6 @@
 # Web Framework and Application Enhancements
 mysqlclient==2.2.7
-django==5.2.9
+django==5.2.11
 django-mysql==4.19.0
 djangorestframework==3.16.1
 django-rest-knox==4.2.0
@@ -25,7 +25,8 @@ python-tlsh==4.5.0
 # Networking and DNS Utilities
 dnspython==2.8.0
 dnstwist==20250130
-certstream==1.12
+# certstream==1.12  # Replaced by internal certstream-server-go + websocket-client
+websocket-client==1.8.0
 tldextract==5.3.0
 
 # Environment Configuration

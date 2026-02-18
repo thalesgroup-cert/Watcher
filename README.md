@@ -68,7 +68,7 @@ Watcher leverages open source tools and libraries:
 - [**dslim/bert-base-NER**](https://huggingface.co/dslim/bert-base-NER) — Named Entity Recognition for automatic IOC extraction
 - [**certstream**](https://github.com/CaliDog/certstream-python) — Certificate Transparency monitoring
 - [**dnstwist**](https://github.com/elceef/dnstwist) — Domain name permutation engine
-- [**Searx**](https://searx.github.io/searx/) — Privacy-respecting metasearch engine
+- [**SearxNG**](https://github.com/searxng/searxng) — Privacy-respecting metasearch engine
 - [**PyMISP**](https://github.com/MISP/PyMISP) — MISP threat intelligence platform integration
 - [**TLSH**](https://github.com/trendmicro/tlsh) — Fuzzy hashing for content similarity detection
 - [**shadow-useragent**](https://github.com/lobstrio/shadow-useragent) — User-Agent rotation library
@@ -128,6 +128,26 @@ Watcher offers multiple visual themes to match your preferences and working envi
 Django provides a ready-to-use user interface for administrative activities. We all know how an admin interface is important for a web project: Users management, user group management, Watcher configuration, usage logs...
 
 ## Installation
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/thalesgroup-cert/watcher.git
+cd watcher/deployment
+
+# 2. Initialize environment, configs & directory structure
+make init
+
+# 3. Start the stack
+make up
+
+# 4. On first run: run database migrations + create superuser
+make migrate
+make superuser
+make populate-db
+
+# 5. Open the web UI
+#    http://localhost:9002  (or your configured domain/port)
+```
 
 Get Watcher up and running in just **10 minutes** using Docker. **Detailed instructions available in our [Installation Guide](https://thalesgroup-cert.github.io/Watcher/README.html)**
 

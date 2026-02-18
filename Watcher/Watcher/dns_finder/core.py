@@ -10,7 +10,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
 from common.models import LegitimateDomain
-import certstream
+from . import certstream_client
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
@@ -116,9 +116,14 @@ def print_callback(message, context):
 
 def main_certificate_transparency():
     """
-    Launch CertStream scan.
+    Launch CertStream scan using internal certstream-server-go.
     """
-    certstream.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+    logger.info(f"Starting CertStream monitoring on {settings.CERT_STREAM_URL}")
+    try:
+        certstream_client.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+    except Exception as e:
+        logger.error(f"CertStream connection failed: {e}")
+        raise
 
 
 def main_dns_twist():

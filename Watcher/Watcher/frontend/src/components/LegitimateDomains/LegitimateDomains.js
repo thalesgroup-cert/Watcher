@@ -4,8 +4,22 @@ import PropTypes from 'prop-types';
 import { Modal, Button, Container, Row, Col, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import ExportModal from '../common/ExportModal';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 import DayPickerInput from "react-day-picker/DayPickerInput";
-import { formatDate, parseDate } from 'react-day-picker/moment';
+
+const formatDate = (date) => {
+    return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+    });
+};
+
+const parseDate = (str) => {
+    const parsed = Date.parse(str);
+    if (isNaN(parsed)) return undefined;
+    return new Date(parsed);
+};
 
 import {
     getLegitimateDomains,
@@ -39,8 +53,9 @@ class LegitimateDomains extends Component {
             deleteDomainName: null,
             newDomain: { ...INIT_DOMAIN },
             exportDomain: null,
-            domain_created_at: '',
-            expiry: '',
+            domain_created_at: null,
+            expiry: null,
+            ssl_expiry: null,
             editCommentsLength: 0,
             addCommentsLength: 0,
             isLoading: true,
@@ -52,6 +67,7 @@ class LegitimateDomains extends Component {
             contact: createRef(),
             domain_created_at: createRef(),
             expiry: createRef(),
+            ssl_expiry: createRef(),
             repurchased: createRef(),
             comments: createRef()
         };
@@ -61,6 +77,7 @@ class LegitimateDomains extends Component {
             contact: createRef(),
             domain_created_at: createRef(),
             expiry: createRef(),
+            ssl_expiry: createRef(),
             repurchased: createRef(),
             comments: createRef()
         };
@@ -139,8 +156,9 @@ class LegitimateDomains extends Component {
         this.setState({ 
             showEditModal: true, 
             editDomain: { ...domain }, 
-            expiry: domain.expiry || "",
-            domain_created_at: domain?.domain_created_at || "",
+            expiry: domain.expiry ? new Date(domain.expiry) : null,
+            domain_created_at: domain?.domain_created_at ? new Date(domain.domain_created_at) : null,
+            ssl_expiry: domain?.ssl_expiry ? new Date(domain.ssl_expiry) : null,
             editCommentsLength: domain?.comments ? domain.comments.length : 0
         }, () => {
             Object.keys(this.editRefs).forEach(k => {
@@ -157,7 +175,7 @@ class LegitimateDomains extends Component {
     displayDeleteModal = (id, domain_name) => this.setState({ showDeleteModal: true, deleteDomainId: id, deleteDomainName: domain_name });
 
     displayAddModal = () => {
-        this.setState({ showAddModal: true, newDomain: { ...INIT_DOMAIN }, expiry: "", domain_created_at: "", addCommentsLength: 0 }, () => {
+        this.setState({ showAddModal: true, newDomain: { ...INIT_DOMAIN }, expiry: null, domain_created_at: null, ssl_expiry: null, addCommentsLength: 0 }, () => {
             Object.keys(this.addRefs).forEach(k => {
                 if (this.addRefs[k].current) {
                     if (k === 'repurchased')
@@ -249,6 +267,54 @@ class LegitimateDomains extends Component {
         );
     };
 
+    getSSLExpiryBadge = (domain) => {
+        if (!domain.ssl_expiry) return null;
+    
+        const now = new Date();
+        const sslExpiryDate = new Date(domain.ssl_expiry);
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+        let badge = null;
+    
+        if (sslExpiryDate < now) {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-danger" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate expired on ${sslExpiryDate.toLocaleDateString()}`}
+                >
+                    SSL Expired
+                </span>
+            );
+        } else if (sslExpiryDate <= thirtyDaysFromNow) {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-warning" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate expires soon (${sslExpiryDate.toLocaleDateString()})`}
+                >
+                    SSL Expiring
+                </span>
+            );
+        } else {
+            badge = (
+                <span 
+                    className="badge bg-sm bg-success" 
+                    style={{ fontSize: '12px' }}
+                    title={`SSL certificate valid until ${sslExpiryDate.toLocaleDateString()}`}
+                >
+                    SSL Valid
+                </span>
+            );
+        }
+    
+        return (
+            <div style={{ marginTop: '4px' }}>
+                {badge}
+            </div>
+        );
+    };
+
     getFilterConfig = () => {
         const { isAuthenticated } = this.props.auth;
         
@@ -294,15 +360,25 @@ class LegitimateDomains extends Component {
     }
 
     editModal = () => {
-        const handleClose = () => this.setState({ showEditModal: false, editDomain: null, domain_created_at: '' });
+        const handleClose = () => this.setState({ showEditModal: false, editDomain: null, domain_created_at: null, expiry: null, ssl_expiry: null });
         const onSubmit = e => {
             e.preventDefault();
+            
+            const formatDateForAPI = (date) => {
+                if (!date) return null;
+                if (date instanceof Date) {
+                    return date.toISOString().split('T')[0];
+                }
+                return null;
+            };
+            
             const domain = {
                 domain_name: this.editRefs.domain_name.current.value,
                 ticket_id: this.editRefs.ticket_id.current.value,
                 contact: this.editRefs.contact.current.value,
-                domain_created_at: this.state.domain_created_at,
-                expiry: this.state.expiry,
+                domain_created_at: formatDateForAPI(this.state.domain_created_at),
+                expiry: formatDateForAPI(this.state.expiry),
+                ssl_expiry: formatDateForAPI(this.state.ssl_expiry),
                 repurchased: this.editRefs.repurchased.current.checked,
                 comments: this.editRefs.comments.current.value
             };
@@ -367,13 +443,9 @@ class LegitimateDomains extends Component {
                                                 style={{ color: "black" }}
                                                 formatDate={formatDate}
                                                 parseDate={parseDate}
-                                                placeholder={editDomain?.domain_created_at ? editDomain.domain_created_at : `${formatDate(new Date())}`}
+                                                placeholder="Select creation date"
                                                 value={this.state.domain_created_at}
-                                                onDayChange={date => {
-                                                    this.setState({ 
-                                                        domain_created_at: date ? date.toISOString().split('T')[0] : '' 
-                                                    });
-                                                }}
+                                                onDayChange={date => this.setState({ domain_created_at: date })}
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
@@ -388,16 +460,29 @@ class LegitimateDomains extends Component {
                                                 style={{ color: "black" }}
                                                 formatDate={formatDate}
                                                 parseDate={parseDate}
-                                                placeholder={editDomain?.expiry ? editDomain.expiry : `${formatDate(new Date())}`}
+                                                placeholder="Select expiry date"
                                                 value={this.state.expiry}
-                                                onDayChange={date => {
-                                                    this.setState({ 
-                                                        expiry: date ? date.toISOString().split('T')[0] : '' 
-                                                    });
-                                                }}
+                                                onDayChange={date => this.setState({ expiry: date })}
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
+                                            </Form.Text>                                            
+                                        </Col>
+                                    </Form.Group>
+
+                                    <Form.Group as={Row} className="mb-3">
+                                        <Form.Label column sm="4">SSL Expiry Date</Form.Label>
+                                        <Col sm="8">
+                                            <DayPickerInput
+                                                style={{ color: "black" }}
+                                                formatDate={formatDate}
+                                                parseDate={parseDate}
+                                                placeholder="Select SSL expiry date"
+                                                value={this.state.ssl_expiry}
+                                                onDayChange={date => this.setState({ ssl_expiry: date })}
+                                            />
+                                            <Form.Text className="text-muted d-block mt-1">
+                                                Will be auto-detected via SSL certificate
                                             </Form.Text>                                            
                                         </Col>
                                     </Form.Group>
@@ -459,17 +544,28 @@ class LegitimateDomains extends Component {
     addModal = () => {
         const handleClose = () => this.setState({ 
             showAddModal: false, 
-            domain_created_at: '', 
-            expiry: '' 
+            domain_created_at: null, 
+            expiry: null,
+            ssl_expiry: null 
         });
         const onSubmit = e => {
             e.preventDefault();
+            
+            const formatDateForAPI = (date) => {
+                if (!date) return null;
+                if (date instanceof Date) {
+                    return date.toISOString().split('T')[0];
+                }
+                return null;
+            };
+            
             const domain = {
                 domain_name: this.addRefs.domain_name.current.value,
                 ticket_id: this.addRefs.ticket_id.current.value,
                 contact: this.addRefs.contact.current.value,
-                domain_created_at: this.state.domain_created_at,
-                expiry: this.state.expiry,
+                domain_created_at: formatDateForAPI(this.state.domain_created_at),
+                expiry: formatDateForAPI(this.state.expiry),
+                ssl_expiry: formatDateForAPI(this.state.ssl_expiry),
                 repurchased: this.addRefs.repurchased.current.checked,
                 comments: this.addRefs.comments.current.value
             };
@@ -534,11 +630,7 @@ class LegitimateDomains extends Component {
                                                 parseDate={parseDate}
                                                 placeholder={`${formatDate(new Date())}`}
                                                 value={this.state.domain_created_at}
-                                                onDayChange={date => {
-                                                    this.setState({ 
-                                                        domain_created_at: date ? date.toISOString().split('T')[0] : '' 
-                                                    });
-                                                }}
+                                                onDayChange={date => this.setState({ domain_created_at: date })}
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
@@ -555,14 +647,27 @@ class LegitimateDomains extends Component {
                                                 parseDate={parseDate}
                                                 placeholder={`${formatDate(new Date())}`}
                                                 value={this.state.expiry}
-                                                onDayChange={date => {
-                                                    this.setState({ 
-                                                        expiry: date ? date.toISOString().split('T')[0] : '' 
-                                                    });
-                                                }}
+                                                onDayChange={date => this.setState({ expiry: date })}
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
+                                            </Form.Text>  
+                                        </Col>
+                                    </Form.Group>
+
+                                    <Form.Group as={Row} className="mb-3">
+                                        <Form.Label column sm="4">SSL Expiry Date</Form.Label>
+                                        <Col sm="8">
+                                            <DayPickerInput
+                                                style={{ color: "black" }}
+                                                formatDate={formatDate}
+                                                parseDate={parseDate}
+                                                placeholder={`${formatDate(new Date())}`}
+                                                value={this.state.ssl_expiry}
+                                                onDayChange={date => this.setState({ ssl_expiry: date })}
+                                            />
+                                            <Form.Text className="text-muted d-block mt-1">
+                                                Will be auto-detected via SSL certificate
                                             </Form.Text>  
                                         </Col>
                                     </Form.Group>
@@ -650,7 +755,7 @@ class LegitimateDomains extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="9" className="text-center py-5">
+            <td colSpan="10" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>
@@ -682,7 +787,7 @@ class LegitimateDomains extends Component {
                     data={domains}
                     filterConfig={this.getFilterConfig()}
                     searchFields={isAuthenticated ? ['domain_name', 'ticket_id', 'contact'] : ['domain_name', 'contact']}
-                    dateFields={['domain_created_at', 'created_at', 'expiry']}
+                    dateFields={['domain_created_at', 'created_at', 'expiry', 'ssl_expiry']}
                     defaultSort="created_at"
                     customFilters={this.customFilters}
                     onDataFiltered={this.onDataFiltered}
@@ -737,8 +842,12 @@ class LegitimateDomains extends Component {
                                                         {renderSortIcons('domain_created_at')}
                                                     </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('expiry')}>
-                                                        Expiry
+                                                        Domain Expiry
                                                         {renderSortIcons('expiry')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('ssl_expiry')}>
+                                                        SSL Expiry
+                                                        {renderSortIcons('ssl_expiry')}
                                                     </th>
                                                     {isAuthenticated && (
                                                         <th style={{ cursor: 'pointer' }} onClick={() => handleSort('repurchased')}>
@@ -759,7 +868,7 @@ class LegitimateDomains extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={isAuthenticated ? "9" : "5"} className="text-center text-muted py-4">
+                                                        <td colSpan={isAuthenticated ? "10" : "6"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -775,15 +884,35 @@ class LegitimateDomains extends Component {
                                                                 </td>
                                                             )}
                                                             <td>{domain.contact || '-'}</td>
-                                                            <td>{domain.created_at ? new Date(domain.created_at).toDateString() : '-'}</td>
                                                             <td>
-                                                                {domain.domain_created_at
-                                                                    ? new Date(domain.domain_created_at).toDateString()
-                                                                    : '-'}
+                                                                <DateWithTooltip 
+                                                                    date={domain.created_at} 
+                                                                    includeTime={false}
+                                                                    type="created"
+                                                                />
                                                             </td>
                                                             <td>
-                                                                {domain.expiry ? new Date(domain.expiry).toDateString() : '-'}
+                                                                <DateWithTooltip 
+                                                                    date={domain.domain_created_at} 
+                                                                    includeTime={false}
+                                                                    type="created"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={domain.expiry} 
+                                                                    includeTime={false}
+                                                                    type="expiry"
+                                                                />
                                                                 {isAuthenticated && this.getExpiryBadge(domain)}
+                                                            </td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={domain.ssl_expiry} 
+                                                                    includeTime={false}
+                                                                    type="expiry"
+                                                                />
+                                                                {this.getSSLExpiryBadge(domain)}
                                                             </td>
                                                             {isAuthenticated && (
                                                                 <td>

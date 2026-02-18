@@ -5,6 +5,7 @@ import {getLeads, deleteLead, addBannedWord} from "../../actions/leads";
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 
 
 const FILTER_CONFIG = [
@@ -298,7 +299,13 @@ export class WordList extends Component {
                                                                 )}
                                                             </td>
                                                             <td className="text-center align-middle">
-                                                                <small style={{ fontSize: '1rem' }}>{new Date(lead.created_at).toLocaleString()}</small>
+                                                                <small style={{ fontSize: '1rem' }}>
+                                                                    <DateWithTooltip 
+                                                                        date={lead.created_at} 
+                                                                        includeTime={true}
+                                                                        type="created"
+                                                                    />
+                                                                </small>
                                                             </td>
                                                             <td className="text-center align-middle" onClick={(e) => e.stopPropagation()}>
                                                                 {isAuthenticated && authLinks(lead.id, lead.name)}

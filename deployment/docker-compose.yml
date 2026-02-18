@@ -1,0 +1,85 @@
+name: watcher
+services:
+
+  certstream:
+    container_name: certstream
+    image: 0rickyy0/certstream-server-go:latest
+    extends:
+      file: compose_apps.yaml
+      service: certstream
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  watcher:
+    extends:
+      file: compose_apps.yaml
+      service: watcher
+    image: ghcr.io/thalesgroup-cert/watcher:${WATCHER_VERSION}
+    container_name: watcher
+    depends_on:
+      db_watcher:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http:/localhost:9002/#/login | grep -q 200 || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 12
+      start_period: 60s
+
+  db_watcher:
+    extends:
+      file: compose_databases.yaml
+      service: db_watcher
+    image: mysql:${DB_WATCHER_VERSION}
+    container_name: db_watcher
+    healthcheck:
+      test: mysqladmin --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} status
+      interval: 2s
+      timeout: 1s
+      retries: 10
+      start_period: 30s
+
+  searxng:
+    extends:
+      file: compose_apps.yaml
+      service: searxng
+    image: searxng/searxng:${SEARX_VERSION}
+    container_name: searxng
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+
+  traefik:
+    init: true
+    image: traefik:${TRAEFIK_VERSION}
+    container_name: traefik
+    extends:
+      file: compose_reverse_proxy.yaml
+      service: traefik
+    command:
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=${NETWORK_NAME}"
+      # API & Dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      # Observability
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--metrics.prometheus=true"
+
+networks:
+  watcher_network:
+    external: true
+    name: ${NETWORK_NAME}

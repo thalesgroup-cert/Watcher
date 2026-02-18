@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { getAlerts, updateAlertStatus } from "../../actions/DnsFinder";
 import { Button, Modal } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
+import DateWithTooltip from '../common/DateWithTooltip';
 
 export class ArchivedAlerts extends Component {
     constructor(props) {
@@ -203,7 +204,13 @@ export class ArchivedAlerts extends Component {
                                                             <td>{alert.dns_twisted.keyword_monitored ? alert.dns_twisted.keyword_monitored.name : "-"}</td>
                                                             <td>{alert.dns_twisted.dns_monitored ? alert.dns_twisted.dns_monitored.domain_name : "-"}</td>
                                                             <td>{alert.dns_twisted.fuzzer ? alert.dns_twisted.fuzzer : "-"}</td>
-                                                            <td>{(new Date(alert.created_at)).toLocaleString()}</td>
+                                                            <td>
+                                                                <DateWithTooltip 
+                                                                    date={alert.created_at} 
+                                                                    includeTime={true}
+                                                                    type="created"
+                                                                />
+                                                            </td>
                                                             <td>
                                                                 <button
                                                                     onClick={() => this.displayModal(alert.id)}

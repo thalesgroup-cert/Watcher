@@ -428,9 +428,9 @@ describe('Site Monitoring - E2E Test Suite', () => {
     });
 
     it('should sort sites table', () => {
-      cy.get('table th:contains("Domain Name"), table th:contains("Domain")').click();
+      cy.get('table th:contains("Domain Name"), table th:contains("Domain")').first().click();
       cy.wait(500);
-      cy.get('table th:contains("Domain Name"), table th:contains("Domain")').click();
+      cy.get('table th:contains("Domain Name"), table th:contains("Domain")').first().click();
       cy.wait(500);
       cy.log('Sorting toggled successfully');
     });
