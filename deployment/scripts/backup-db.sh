@@ -8,6 +8,6 @@ FILE="./backups/db_$(date +%Y%m%d_%H%M%S).sql"
 echo "💾 Backing up database into $FILE ..."
 
 docker exec "${DB_CONTAINER}" mysql-dump \
-    -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" > "$FILE"
+    -u"${DB_USER}" -p"${DB_PASSWORD}" "${DB_NAME}" > "$FILE"
 
 echo "✅ Backup created: $FILE"

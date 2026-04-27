@@ -22,7 +22,7 @@ services:
     command: bash -c 'python manage.py runserver 0.0.0.0:9002'
     env_file:
       - ${WATCHER_PATH}/.env
-      - ${DB_WATCHER_PATH}/.env
+      - ./.env
     tty: true
     environment:
       no_proxy: "${NO_PROXY},searxng,db_watcher"
