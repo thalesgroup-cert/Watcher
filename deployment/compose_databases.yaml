@@ -6,8 +6,8 @@ services:
     restart: always
     command: mysqld --default-authentication-plugin=mysql_native_password
     volumes:
-      - "./db_watcher/data:/var/lib/mysql"
-      - "./db_watcher/logs:/var/log/mysql"
+      - "../db_watcher/data:/var/lib/mysql"
+      - "../db_watcher/logs:/var/log/mysql"
     environment:
       TZ: ${TZ}
       MYSQL_DATABASE: ${DB_NAME}
