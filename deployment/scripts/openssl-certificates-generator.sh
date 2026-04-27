@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -eu
 
 # This script generates TLS certificates for Watcher services
@@ -11,10 +11,10 @@ set -eu
 # ├── client.crt.pem  (Optional client cert)
 # └── client.key.pem  (Optional client key)
 
-OUTPUT_DIR="../certificates"
+OUTPUT_DIR="./certificates"
 SERVER_DAYS_VALID=825
 CA_DAYS_VALID=3650
-CERT_SUBJECT="/C=COUNTRY/ST=STATE/L=CITY/O=ORGANIZATION/OU=Watcher"
+CERT_SUBJECT="/C=FR/ST=Ile-de-France/L=Paris/O=ORGANIZATION/OU=Watcher"
 ROOT_CERTIFICATE_AUTHORITY="WatcherRootCA"
 
 generate_ssl_context() {
