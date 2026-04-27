@@ -223,18 +223,20 @@ watcher          | Quit the server with CONTROL-C.
 <section id="simplify-method">
 <h3>Simplify method<a class="headerlink" href="#simplify-method" title="Link to this heading"></a></h3>
 <p>Use the deployment helper commands from the repository root:</p>
-<p>Initialize your local configuration once:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<p>Initialize <strong>your local configuration once</strong>: <code class="docutils literal notranslate"><span class="pre">cp</span> <span class="pre">.env.example</span> <span class="pre">.env</span></code></p>
+<p><strong>And after:</strong></p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cd ../deployment
+make init
+make up
 </pre></div>
 </div>
-<p>cd ../deployment
-make init
-make up</p>
-<p>On first run:</p>
-<p>make migrate
+<p><strong>On first run</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make migrate
 make superuser
-make populate-db</p>
-<p>Then access Watcher on:</p>
+make populate-db
+</pre></div>
+</div>
+<p>Then <strong>access Watcher on</strong>:</p>
 <ul class="simple">
 <li><p>http://0.0.0.0:9020 (default deployment port)</p></li>
 <li><p>or your configured domain/port from <code class="docutils literal notranslate"><span class="pre">deployment/.env</span></code></p></li>

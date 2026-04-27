@@ -8,6 +8,7 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 - [Install docker](https://docs.docker.com/install/)
 
 ## Launch watcher
+
 ### With docker command
 - Grab the `docker-compose.yml`, `.env` files and `Searx` directory (keep the directory structure).
 - According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)).
@@ -34,23 +35,21 @@ Please wait until you see:
 ### Simplify method
 Use the deployment helper commands from the repository root:
 
-Initialize your local configuration once:
+Initialize **your local configuration once**: `cp .env.example .env`
 
-```bash
-cp .env.example .env
-```
+**And after:** 
 
-  cd ../deployment
-  make init
-  make up
+    cd ../deployment
+    make init
+    make up
 
-On first run:
+**On first run**:
 
-  make migrate
-  make superuser
-  make populate-db
+    make migrate
+    make superuser
+    make populate-db
 
-Then access Watcher on:
+Then **access Watcher on**:
 
 - http://0.0.0.0:9020 (default deployment port)
 - or your configured domain/port from `deployment/.env`
