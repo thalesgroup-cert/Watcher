@@ -8,6 +8,7 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 - [Install docker](https://docs.docker.com/install/)
 
 ## Launch watcher
+### With docker command
 - Grab the `docker-compose.yml`, `.env` files and `Searx` directory (keep the directory structure).
 - According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)).
 - The application uses **SearxNG** as the meta search engine.
@@ -29,6 +30,33 @@ Please wait until you see:
 - Try to access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
 - `CONTROL-C`
 - `docker compose down` to stop all containers.
+
+### Simplify method
+Use the deployment helper commands from the repository root:
+
+Initialize your local configuration once:
+
+```bash
+cp .env.example .env
+```
+
+  cd ../deployment
+  make init
+  make up
+
+On first run:
+
+  make migrate
+  make superuser
+  make populate-db
+
+Then access Watcher on:
+
+- http://0.0.0.0:9020 (default deployment port)
+- or your configured domain/port from `deployment/.env`
+
+Deployment configuration is centralized in `deployment/.env` (generated from `deployment/.env.example`).
+Set your secrets there, especially `DJANGO_SECRET_KEY`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_ROOT_PASSWORD`.
 
 ### Migrate
 Updates the state of the database in accordance with all current models and migrations. Migrations, their relationships 
