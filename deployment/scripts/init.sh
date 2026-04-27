@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -eu
 
 echo "============================================"
@@ -49,7 +49,7 @@ set +a
 echo "[3/5] Checking directory structure..."
 
 DIRS=(
-    "${DB_WATCHER_PATH}"
+    "./db_watcher"
     "${SEARX_PATH}"
     "${CA_PATH}"
 )

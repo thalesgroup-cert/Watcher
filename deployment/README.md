@@ -1,175 +1,91 @@
-# Modern Deployment Guide
+# Deployment Guide
 
-This project provides a **modular, automated, Docker-based deployment system** designed for reliability, maintainability, and ease of use.
-It relies on:
-
-* **Docker Compose v2**
-* **Environment configuration via `.env`**
-* **Self-contained helper scripts** (`scripts/`)
-* **Optional Makefile shortcuts** for convenience
-* A comprehensive **checklist** that prepares all required files, directories, and certificates
-
----
+This folder contains the Docker Compose deployment for Watcher.
 
 ## Requirements
 
-Before running any commands, ensure you have:
+- Docker
+- Docker Compose v2 (`docker compose`)
 
-* **Docker**
-* **Docker Compose v2 (`docker compose` subcommand)**
+## Configuration
 
-The `scripts/init.sh` and `scripts/check-network.sh` utilities will verify and prepare the environment automatically.
+All deployment configuration is centralized in:
 
----
+- `.env.example` (template, committed)
+- `.env` (real values, local only)
+
+Initialize your local configuration once:
+
+```bash
+cp .env.example .env
+```
+
+Important secrets are managed directly in `deployment/.env`:
+
+- `DJANGO_SECRET_KEY`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_ROOT_PASSWORD`
+
+The Watcher service also reads `${WATCHER_PATH}/.env` for application-specific variables.
 
 ## Initialization
 
-Run the full initialization script:
+Run the checklist:
 
 ```bash
 make init
 ```
 
-This performs:
+This checks binaries, prepares `.env`, validates directories, updates TLS config, and creates certificates if missing.
 
-* Creation of the `.env` file (or uses yours if present)
-* Directory structure validation
-* Download/creation of config files
-* Certificate generation (if missing)
-  …and other required system checks.
-
-This step ensures the project is ready to run.
-
----
-
-## Starting the Stack
-
-### Start all services
+## Main commands
 
 ```bash
 make up
+make down
+make build
+make pull
+make deploy
+make migrate
+make backup
+make populate-db
+make superuser
+make create-certs
 ```
 
-or manually:
+Equivalent manual start:
 
 ```bash
 docker compose --env-file .env up -d
 ```
 
-### Stop all services
-
-```bash
-make down
-```
-
----
-
-## Deployment Workflow
-
-To pull new images, rebuild if needed, and restart services safely:
-
-```bash
-make deploy
-```
-
-This command runs:
-
-* Network checks
-* TLS/hostname replacement
-* Deployment script execution
-
----
-
-## 🛠 Development & Maintenance Commands
-
-### Build images
-
-```bash
-make build
-```
-
-### Pull latest images
-
-```bash
-make pull
-```
-
-### Run database migrations
-
-```bash
-make migrate
-```
-
-### Create a superuser
-
-```bash
-make superuser
-```
-
-### Populate Db
-
-```bash
-make populate-db
-```
-
-### Backup the database
-
-```bash
-make backup
-```
-
-### Regenerate certificates
-
-```bash
-make create-certs
-```
-
----
-
-## Project Structure
+## Project structure
 
 ```
 .
-├── docker-compose.yml           # Main orchestration file
-├── .env.example                 # Example configuration (safe to commit)
-├── .env                         # Real configuration (never commit)
-├── scripts/                     # Modular shell scripts
-│   ├── init.sh                  # Main initializer (system checks + setup)
+├── docker-compose.yml
+├── docker-compose.overide.yml
+├── compose_apps.yaml
+├── compose_databases.yaml
+├── compose_reverse_proxy.yaml
+├── .env.example
+├── scripts/
+│   ├── init.sh
 │   ├── check-network.sh
-│   ├── wait-empty.sh
 │   ├── deploy.sh
 │   ├── migrate.sh
 │   ├── backup-db.sh
 │   ├── populate-db.sh
 │   ├── create-superuser.sh
+│   ├── replace-tls.sh
 │   └── openssl-certificates-generator.sh
-└── Makefile                     # User-friendly command shortcuts
+└── Makefile
 ```
 
----
+## Security notes
 
-## Security Notes
-
-* `.env` **must never be committed** — it contains secrets.
-* `.env` is already included in `.gitignore`.
-* Secrets can also be provided through:
-
-  * environment variables
-  * CI/CD secret stores
-  * Docker Compose overrides
-
----
-
-## Summary
-
-| Action                | Command             |
-| --------------------- | ------------------- |
-| Initialize everything | `make init`         |
-| Start services        | `make up`           |
-| Stop services         | `make down`         |
-| Deploy updates        | `make deploy`       |
-| Run migrations        | `make migrate`      |
-| Backup database       | `make backup`       |
-| Populate database     | `make populate-db`  |
-| Create superuser      | `make superuser`    |
-| Generate certificates | `make create-certs` |
+- Never commit `.env`.
+- Rotate `DJANGO_SECRET_KEY` and DB credentials for production.
+- Prefer secret managers/CI variables for production deployments.

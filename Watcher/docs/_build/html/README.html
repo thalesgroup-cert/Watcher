@@ -7,7 +7,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Install Watcher &mdash; Watcher 3.3.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
@@ -49,6 +49,8 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Install Watcher</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#launch-watcher">Launch watcher</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#with-docker-command">With docker command</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#simplify-method">Simplify method</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#migrate">Migrate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#create-admin-user">Create admin user</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#populate-your-database">Populate your database</a></li>
@@ -192,6 +194,8 @@
 </section>
 <section id="launch-watcher">
 <h2>Launch watcher<a class="headerlink" href="#launch-watcher" title="Link to this heading"></a></h2>
+<section id="with-docker-command">
+<h3>With docker command<a class="headerlink" href="#with-docker-command" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>Grab the <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">.env</span></code> files and <code class="docutils literal notranslate"><span class="pre">Searx</span></code> directory (keep the directory structure).</p></li>
 <li><p>According to your existing infrastructure you may need to configure <strong>Watcher settings</strong> using the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file (<a class="reference internal" href="#static-configuration">Static configuration</a>).</p></li>
@@ -215,6 +219,29 @@ watcher          | Quit the server with CONTROL-C.
 <li><p><code class="docutils literal notranslate"><span class="pre">CONTROL-C</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">down</span></code> to stop all containers.</p></li>
 </ul>
+</section>
+<section id="simplify-method">
+<h3>Simplify method<a class="headerlink" href="#simplify-method" title="Link to this heading"></a></h3>
+<p>Use the deployment helper commands from the repository root:</p>
+<p>Initialize your local configuration once:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+</pre></div>
+</div>
+<p>cd ../deployment
+make init
+make up</p>
+<p>On first run:</p>
+<p>make migrate
+make superuser
+make populate-db</p>
+<p>Then access Watcher on:</p>
+<ul class="simple">
+<li><p>http://0.0.0.0:9020 (default deployment port)</p></li>
+<li><p>or your configured domain/port from <code class="docutils literal notranslate"><span class="pre">deployment/.env</span></code></p></li>
+</ul>
+<p>Deployment configuration is centralized in <code class="docutils literal notranslate"><span class="pre">deployment/.env</span></code> (generated from <code class="docutils literal notranslate"><span class="pre">deployment/.env.example</span></code>).
+Set your secrets there, especially <code class="docutils literal notranslate"><span class="pre">DJANGO_SECRET_KEY</span></code>, <code class="docutils literal notranslate"><span class="pre">DB_NAME</span></code>, <code class="docutils literal notranslate"><span class="pre">DB_USER</span></code>, <code class="docutils literal notranslate"><span class="pre">DB_PASSWORD</span></code>, and <code class="docutils literal notranslate"><span class="pre">DB_ROOT_PASSWORD</span></code>.</p>
+</section>
 <section id="migrate">
 <h3>Migrate<a class="headerlink" href="#migrate" title="Link to this heading"></a></h3>
 <p>Updates the state of the database in accordance with all current models and migrations. Migrations, their relationships

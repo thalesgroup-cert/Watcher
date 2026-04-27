@@ -8,11 +8,10 @@ services:
       file: compose_apps.yaml
       service: certstream
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      test: ["CMD", "pgrep", "certstream"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
   watcher:
     extends:
@@ -39,7 +38,7 @@ services:
     image: mysql:${DB_WATCHER_VERSION}
     container_name: db_watcher
     healthcheck:
-      test: mysqladmin --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} status
+      test: mysqladmin --user=${DB_USER} --password=${DB_PASSWORD} status
       interval: 2s
       timeout: 1s
       retries: 10

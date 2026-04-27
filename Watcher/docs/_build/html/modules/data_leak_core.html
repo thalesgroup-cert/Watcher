@@ -7,7 +7,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Data Leak - Core Algorithm &mdash; Watcher 3.3.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
@@ -52,18 +52,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="common_misp.html">MISP API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Leak - Core Algorithm</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.check_keywords"><code class="docutils literal notranslate"><span class="pre">check_keywords()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.check_pastebin"><code class="docutils literal notranslate"><span class="pre">check_pastebin()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.check_searx"><code class="docutils literal notranslate"><span class="pre">check_searx()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.check_urls"><code class="docutils literal notranslate"><span class="pre">check_urls()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.main_data_leak"><code class="docutils literal notranslate"><span class="pre">main_data_leak()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.send_data_leak_notifications"><code class="docutils literal notranslate"><span class="pre">send_data_leak_notifications()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.send_data_leak_notifications_group"><code class="docutils literal notranslate"><span class="pre">send_data_leak_notifications_group()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#Watcher.data_leak.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
 </ul>
@@ -92,131 +81,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-Watcher.data_leak.core">
-<span id="data-leak-core-algorithm"></span><h1>Data Leak - Core Algorithm<a class="headerlink" href="#module-Watcher.data_leak.core" title="Link to this heading"></a></h1>
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.check_keywords">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_keywords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_keywords" title="Link to this definition"></a></dt>
-<dd><p>Check keywords in Searx Instance &amp; Pastebin.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>keywords</strong> – Keywords stored in database.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.check_pastebin">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_pastebin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_pastebin" title="Link to this definition"></a></dt>
-<dd><p>Check Pastebin for keyword list.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>keywords</strong> – Keywords stored in database.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Matched urls &amp; Corresponding keyword.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dictionary</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.check_searx">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_searx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_searx" title="Link to this definition"></a></dt>
-<dd><p>Pull Searx instance for keyword.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>keyword</strong> – Keyword stored in database.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Matched urls.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>list</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.check_urls">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">check_urls</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urls</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.check_urls" title="Link to this definition"></a></dt>
-<dd><p>Check if the URL is new.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> – Keyword stored in database.</p></li>
-<li><p><strong>urls</strong> – Fresh searx urls.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Urls not already in alert database column.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>list</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.cleanup">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.cleanup" title="Link to this definition"></a></dt>
-<dd><p>Remove 2 hours old, useless, pasteIDs.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.main_data_leak">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">main_data_leak</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.main_data_leak" title="Link to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Main function:</dt><dd><ul class="simple">
-<li><p>close_old_connections()</p></li>
-<li><p>read in our list of keywords</p></li>
-<li><p>check_keywords(keywords)</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.send_data_leak_notifications">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_data_leak_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_data_leak_notifications" title="Link to this definition"></a></dt>
-<dd><p>Sends notifications to Slack, Citadel, TheHive or Email based on Data Leak.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>alert</strong> – Alert Object.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.send_data_leak_notifications_group">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">send_data_leak_notifications_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts_number</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alerts</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.send_data_leak_notifications_group" title="Link to this definition"></a></dt>
-<dd><p>Sends grouped notifications to Slack, Citadel, TheHive or Email based on data_leak_group.
-If the application is TheHive, individual notifications are sent for each alert.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> – The keyword or term associated with the data leak.</p></li>
-<li><p><strong>alerts_number</strong> – The total number of alerts in the group.</p></li>
-<li><p><strong>alerts</strong> – The list of individual alerts to be processed and sent to TheHive.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.data_leak.core.start_scheduler">
-<span class="sig-prename descclassname"><span class="pre">Watcher.data_leak.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.data_leak.core.start_scheduler" title="Link to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
-<li><p>Fire main every 5 minutes from Monday to Sunday</p></li>
-<li><p>Fire cleanup every 2 hours</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
+  <section id="data-leak-core-algorithm">
+<h1>Data Leak - Core Algorithm<a class="headerlink" href="#data-leak-core-algorithm" title="Link to this heading"></a></h1>
 </section>
 
 
