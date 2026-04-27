@@ -55,7 +55,7 @@ export class Login extends Component {
                                 name="password"
                                 onChange={this.onChange}
                                 value={password}
-                                maxLength="30"
+                                maxLength="100"
                             />
                         </div>
                         <div style={{ marginBottom: "1.5rem" }} />

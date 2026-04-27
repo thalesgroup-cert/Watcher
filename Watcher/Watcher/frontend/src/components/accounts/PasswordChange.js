@@ -44,7 +44,7 @@ export class PasswordChange extends Component {
                                             name="old_password"
                                             onChange={this.onChange}
                                             value={old_password}
-                                            maxLength="30"
+                                            maxLength="100"
                                         />
                                     </Form.Group>
 
@@ -55,7 +55,7 @@ export class PasswordChange extends Component {
                                             name="password"
                                             onChange={this.onChange}
                                             value={password}
-                                            maxLength="30"
+                                            maxLength="100"
                                         />
                                     </Form.Group>
 
@@ -66,7 +66,7 @@ export class PasswordChange extends Component {
                                             name="confirmed_password"
                                             onChange={this.onChange}
                                             value={confirmed_password}
-                                            maxLength="30"
+                                            maxLength="100"
                                         />
                                     </Form.Group>
 
