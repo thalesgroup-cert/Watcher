@@ -57,7 +57,13 @@ jobs:
         python manage.py runserver 127.0.0.1:8000 &
         sleep 10
         timeout 60 bash -c 'until curl -f http://127.0.0.1:8000; do sleep 2; done'
-        npm run cypress:run
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+
+    - name: Run Cypress e2e tests
+      working-directory: ./Watcher
+      run: npm run cypress:run
       env:
         DB_USER: root
         DB_PASSWORD: root
