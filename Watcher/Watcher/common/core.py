@@ -253,7 +253,7 @@ APP_CONFIG_SLACK = {
     },
 }
 
-# Configuration for Citadel 
+# Configuration for Citadel
 APP_CONFIG_CITADEL = {
     'threats_watcher': {
         'content_template': (

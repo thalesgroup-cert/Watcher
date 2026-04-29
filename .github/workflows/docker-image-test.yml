@@ -35,8 +35,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0
-        npm install &
-        wait
+        npm install
         npx cypress install
     
     - name: Run back-end tests
