@@ -309,7 +309,7 @@ export class KeywordMonitored extends Component {
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
                                                         <td colSpan="3" className="text-center text-muted py-4">
-                                                            No keywords found
+                                                            No results found
                                                         </td>
                                                     </tr>
                                                 ) : (

@@ -154,15 +154,9 @@ describe('Threats Watcher - E2E Test Suite', () => {
         .first()
         .should('exist');
       
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
-        .should('exist')
-        .within(() => {
-          cy.get('.overflow-hidden').first().should('exist');
-          
-          cy.get('.overflow-hidden').eq(1).should('exist').within(() => {
-            cy.get('table, h4:contains("Trendy Words")', { timeout: 10000 }).should('exist');
-          });
-        });
+      cy.contains('.card-header', 'Word List', { timeout: 15000 }).closest('.card.h-100.shadow-sm').should('exist').within(() => {
+        cy.get('table', { timeout: 10000 }).should('exist');
+      });
     });
 
     it('should load data automatically', () => {
@@ -191,18 +185,15 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
   describe('Word Cloud Display and Interaction', () => {
     it('should display word cloud component', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
+      cy.contains('.card-header', 'Word Cloud', { timeout: 15000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
         .within(() => {
-          cy.get('.overflow-hidden').first().within(() => {
-            cy.get('svg, canvas, div', { timeout: 10000 }).should('exist');
-          });
+          cy.get('svg, canvas, div', { timeout: 10000 }).should('exist');
         });
     });
 
     it('should handle word cloud interactions', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative svg, .d-flex.w-100.h-100.position-relative canvas', { timeout: 15000 })
-        .should('be.visible');
+      cy.contains('.card-header', 'Word Cloud', { timeout: 15000 }).closest('.card.h-100.shadow-sm').should('exist');
       
       cy.get('body').then(($body) => {
         const wordElements = $body.find('text, span, div').filter((index, element) => {
@@ -232,26 +223,20 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer functionality', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 })
+      cy.contains('.card-header', 'Trend & Sources', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
-        .then(($container) => {
-          const hasResizableStructure = $container.find('.overflow-hidden').length >= 2;
-          
-          if (hasResizableStructure) {
-            cy.log('ResizableContainer structure found');
-          } else {
-            cy.log('ResizableContainer may have different structure');
-          }
+        .then(($card) => {
+          cy.log('Trend & Sources panel found');
         });
     });
   });
 
   describe('Word List Display and Management', () => {
     it('should display trendy words table', () => {
-      cy.get('h4:contains("Trendy Words")', { timeout: 15000 }).should('exist');
+      cy.contains('.card-header', 'Word List', { timeout: 15000 }).should('exist');
       cy.get('table', { timeout: 15000 }).should('exist');
       
-      cy.get('table').within(() => {
+      cy.get('table').first().within(() => {
         cy.get('thead').should('exist');
         cy.get('tbody').should('exist');
       });
@@ -273,7 +258,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should display word statistics correctly', () => {
-      cy.get('table thead').within(() => {
+      cy.get('table thead').first().within(() => {
         cy.get('th').should('contain', 'Name');
         cy.get('th').should('contain', 'Caught');
         cy.get('th').should('contain', 'Reliability');
@@ -452,7 +437,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
           cy.wrap(wordElements).click();
           cy.wait(500);
           
-          cy.get('.d-flex.w-100.h-100.position-relative').eq(1).should('exist');
+          cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist');
         }
       });
     });
@@ -594,10 +579,10 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify layout structure specific to Threats Watcher', () => {
-      cy.get('.container-fluid.mt-3').should('exist');
+      cy.get('.container-fluid').should('exist');
       cy.get('.row').should('have.length.at.least', 1);
       
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 }).should('exist');
+      cy.get('.card.h-100.shadow-sm', { timeout: 10000 }).should('exist');
       
       cy.get('table', { timeout: 10000 }).should('exist');
     });
@@ -609,19 +594,9 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer divider interactions', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .then(($container) => {
-          const resizer = $container.find('[style*="cursor: col-resize"], [style*="cursor: ew-resize"], [class*="resizer"]');
-          
-          if (resizer.length > 0) {
-            cy.wrap(resizer.first()).dblclick({ force: true });
-            cy.wait(500);
-            cy.log('Divider interaction tested');
-          } else {
-            cy.log('No interactive divider found - container may use different resize mechanism');
-          }
-        });
+      cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('Trend & Sources panel found - PanelGrid layout verified');
+      });
     });
   });
 
@@ -706,9 +681,9 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     it('should verify all major components are loaded', () => {
       cy.get('.container-fluid').should('exist');
-      cy.get('.d-flex.w-100.h-100.position-relative').should('exist')
-      cy.get('table.table-striped').should('exist');
-      cy.get('h4:contains("Trendy Words")').should('exist');
+      cy.get('.card.h-100.shadow-sm').should('have.length.at.least', 1);
+      cy.get('table').should('exist');
+      cy.contains('.card-header', 'Word List').should('exist');
       
       cy.get('body').then(($body) => {
         const hasWeeklyBreaking = $body.find('.position-fixed').length > 0;
@@ -723,7 +698,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     it('should test filter save functionality', () => {
       cy.wait(2000);
       
-      cy.get('button:contains("Save Filter")')
+      cy.get('button:contains("Save Filter")').first()
         .should('be.visible')
         .scrollIntoView()
         .wait(500)
@@ -766,51 +741,56 @@ describe('Threats Watcher - E2E Test Suite', () => {
   after(() => {
     cy.log('Starting Threats Watcher cleanup...');
     
-    // Clean up test banned words
-    cy.request({
-      method: 'GET',
-      url: '/api/threats_watcher/bannedword/',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((word) => {
-          if (word.name.includes('test-') || word.name.includes('e2e-') || word.name.includes('Test ')) {
-            cy.request({
-              method: 'DELETE',
-              url: `/api/threats_watcher/bannedword/${word.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+    const authData = Cypress.env('authData');
+    if (authData && authData.token) {
+      // Clean up test banned words
+      cy.request({
+        method: 'GET',
+        url: '/api/threats_watcher/bannedword/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((word) => {
+            if (word.name.includes('test-') || word.name.includes('e2e-') || word.name.includes('Test ')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/threats_watcher/bannedword/${word.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
 
-    // Clean up test trendy words
-    cy.request({
-      method: 'GET',
-      url: '/api/threats_watcher/trendyword/',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((word) => {
-          if (word.name.includes('test-') || word.name.includes('e2e-')) {
-            cy.request({
-              method: 'DELETE',
-              url: `/api/threats_watcher/trendyword/${word.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+      // Clean up test trendy words
+      cy.request({
+        method: 'GET',
+        url: '/api/threats_watcher/trendyword/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((word) => {
+            if (word.name.includes('test-') || word.name.includes('e2e-')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/threats_watcher/trendyword/${word.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
+    } else {
+      cy.log('No auth token available - skipping cleanup');
+    }
 
     // Clear localStorage
     cy.window().then((win) => {

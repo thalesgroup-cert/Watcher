@@ -3,6 +3,7 @@ import {
     ADD_LEGITIMATE_DOMAIN,
     PATCH_LEGITIMATE_DOMAIN,
     DELETE_LEGITIMATE_DOMAIN,
+    GET_LEGITIMATE_DOMAIN_STATISTICS,
 } from '../actions/types.js';
 
 const initialState = {
@@ -73,7 +74,7 @@ export default function(state = initialState, action) {
                 domainsCount: Math.max(0, state.domainsCount - 1)
             };
 
-        case 'GET_LEGITIMATE_DOMAIN_STATISTICS':
+        case GET_LEGITIMATE_DOMAIN_STATISTICS:
             return {
                 ...state,
                 statistics: action.payload

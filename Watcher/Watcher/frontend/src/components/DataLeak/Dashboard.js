@@ -4,8 +4,18 @@ import {getAlerts, getKeyWords} from "../../actions/DataLeak";
 import SearchPatterns from "./SearchPatterns";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
+import DataLeakStats from "./DataLeakStats";
 import TableManager from '../common/TableManager';
-import ResizableContainer from '../common/ResizableContainer';
+import PanelGrid from '../common/PanelGrid';
+
+const DEFAULT_LAYOUT = [
+    { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 2, minH: 3  },
+    { i: 'alerts',   x: 0, y: 8,  w: 8,  h: 11, minW: 4, minH: 5  },
+    { i: 'patterns', x: 8, y: 8,  w: 4,  h: 11, minW: 3, minH: 5  },
+    { i: 'archived', x: 0, y: 19, w: 12, h: 9,  minW: 6, minH: 5  },
+];
+
+const DEFAULT_ACTIVE = ['stats', 'alerts', 'patterns', 'archived'];
 
 const FILTER_CONFIG = [
     {
@@ -165,15 +175,71 @@ class Dashboard extends Component {
     };
 
     onDataFiltered = (filteredData) => {
-        this.setState({ filteredAlerts: filteredData });
+        setTimeout(() => this.setState({ filteredAlerts: filteredData }), 0);
     };
 
+    buildPanels() {
+        const { globalFilters } = this.state;
+        const { alerts } = this.props;
+        const filteredAlerts = this.state.filteredAlerts;
+        const dataToPass = filteredAlerts.length > 0 ? filteredAlerts : alerts;
+
+        return {
+            stats: {
+                label: 'Statistics',
+                icon: 'bar_chart',
+                tooltip: 'Overview of total alerts, active threats, and keyword coverage',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <DataLeakStats />
+                    </div>
+                ),
+            },
+            alerts: {
+                label: 'Alerts',
+                icon: 'notifications',
+                tooltip: 'Active data leak alerts matching your monitored search patterns',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <Alerts
+                            globalFilters={globalFilters}
+                            filteredData={dataToPass}
+                        />
+                    </div>
+                ),
+            },
+            patterns: {
+                label: 'Search Patterns',
+                icon: 'search',
+                tooltip: 'Keywords and patterns used to detect data leaks on the web',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <SearchPatterns
+                            globalFilters={globalFilters}
+                            filteredData={dataToPass}
+                        />
+                    </div>
+                ),
+            },
+            archived: {
+                label: 'Archived Alerts',
+                icon: 'archive',
+                tooltip: 'Resolved or dismissed data leak alerts kept for audit purposes',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <ArchivedAlerts
+                            globalFilters={globalFilters}
+                            filteredData={dataToPass}
+                        />
+                    </div>
+                ),
+            },
+        };
+    }
+
     render() {
-        const { globalFilters, filteredAlerts } = this.state;
         const { alerts } = this.props;
         const filterConfig = this.getFilterConfig();
-
-        const dataToPass = filteredAlerts.length > 0 ? filteredAlerts : alerts;
 
         return (
             <Fragment>
@@ -198,39 +264,14 @@ class Dashboard extends Component {
                             </Fragment>
                         )}
                     </TableManager>
-
-                    <div className="row">
-                        <div className="col-12">
-                            <ResizableContainer
-                                leftComponent={
-                                    <Alerts 
-                                        globalFilters={globalFilters} 
-                                        filteredData={dataToPass}
-                                    />
-                                }
-                                rightComponent={
-                                    <SearchPatterns 
-                                        globalFilters={globalFilters}
-                                        filteredData={dataToPass}
-                                    />
-                                }
-                                defaultLeftWidth={70}
-                                minLeftWidth={20}
-                                maxLeftWidth={85}
-                                storageKey="watcher_localstorage_layout_dataLeak"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="row mt-4">
-                        <div className="col-12">
-                            <ArchivedAlerts 
-                                globalFilters={globalFilters}
-                                filteredData={dataToPass}
-                            />
-                        </div>
-                    </div>
                 </div>
+
+                <PanelGrid
+                    panels={this.buildPanels()}
+                    defaultLayout={DEFAULT_LAYOUT}
+                    defaultActive={DEFAULT_ACTIVE}
+                    storageKey="watcher_dataleak_grid"
+                />
             </Fragment>
         );
     }

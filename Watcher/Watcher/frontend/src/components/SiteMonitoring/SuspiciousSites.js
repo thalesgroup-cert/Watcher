@@ -1151,7 +1151,7 @@ export class SuspiciousSites extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="11" className="text-center py-5">
+            <td colSpan="13" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>

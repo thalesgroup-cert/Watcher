@@ -11,7 +11,8 @@ import {
     DELETE_KEYWORD_MONITORED,
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
-    EXPORT_TO_MISP
+    EXPORT_TO_MISP,
+    GET_DNS_FINDER_STATISTICS
 } from '../actions/types';
 
 const initialState = {
@@ -26,7 +27,14 @@ const initialState = {
     keywordMonitored: [],
     keywordMonitoredCount: 0,
     keywordMonitoredNext: null,
-    keywordMonitoredPrevious: null
+    keywordMonitoredPrevious: null,
+    statistics: {
+        totalAlerts: 0,
+        newToday: 0,
+        newThisWeek: 0,
+        totalDnsMonitored: 0,
+        totalKeywords: 0,
+    }
 };
 
 export default function(state = initialState, action) {
@@ -174,6 +182,12 @@ export default function(state = initialState, action) {
 
         case EXPORT_TO_MISP:
             return state;
+
+        case GET_DNS_FINDER_STATISTICS:
+            return {
+                ...state,
+                statistics: action.payload
+            };
 
         default:
             return state;

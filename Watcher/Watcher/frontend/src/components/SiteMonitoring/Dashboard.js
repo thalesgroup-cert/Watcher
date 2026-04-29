@@ -4,6 +4,14 @@ import { getSites } from "../../actions/SiteMonitoring";
 import SuspiciousSites from "./SuspiciousSites";
 import SiteStats from "./SiteStats";
 import TableManager from '../common/TableManager';
+import PanelGrid from '../common/PanelGrid';
+
+const DEFAULT_LAYOUT = [
+    { i: 'stats', x: 0, y: 0,  w: 12, h: 9,  minW: 2, minH: 3 },
+    { i: 'sites', x: 0, y: 9,  w: 12, h: 11, minW: 5, minH: 6 },
+];
+
+const DEFAULT_ACTIVE = ['stats', 'sites'];
 
 const FILTER_CONFIG = [
     {
@@ -176,49 +184,67 @@ class Dashboard extends Component {
         }
     };
 
-    render() {
+    buildPanels() {
         const { globalFilters, filteredSites } = this.state;
         const { sites } = this.props;
         const filterConfig = this.getFilterConfig();
-        
         const hasActiveFilters = Object.values(globalFilters).some(val => val !== '');
 
+        return {
+            stats: {
+                label: 'Statistics',
+                icon: 'bar_chart',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <SiteStats />
+                    </div>
+                ),
+            },
+            sites: {
+                label: 'Suspicious Websites Monitored',
+                icon: 'link',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <TableManager
+                            data={sites}
+                            filterConfig={filterConfig}
+                            onFiltersChange={this.handleFilterChange}
+                            onDataFiltered={this.onDataFiltered}
+                            enableDateFilter={true}
+                            dateFields={['created_at', 'domain_expiry']}
+                            dateFilterWidth={2}
+                            searchFields={['domain_name', 'ticket_id', 'registrar', 'rtir']}
+                            defaultSort="created_at"
+                            moduleKey="siteMonitoring"
+                        >
+                            {({ renderFilterControls, renderFilters, renderSaveModal }) => (
+                                <Fragment>
+                                    {renderFilterControls()}
+                                    {renderFilters()}
+                                    {renderSaveModal()}
+                                </Fragment>
+                            )}
+                        </TableManager>
+                        <SuspiciousSites
+                            globalFilters={globalFilters}
+                            filteredData={hasActiveFilters && filteredSites.length > 0 ? filteredSites : null}
+                            onDataFiltered={this.onDataFiltered}
+                        />
+                    </div>
+                ),
+            },
+        };
+    }
+
+    render() {
         return (
             <Fragment>
-                <div className="container-fluid mt-4">
-                    <SiteStats />
-
-                    <TableManager
-                        data={sites}
-                        filterConfig={filterConfig}
-                        onFiltersChange={this.handleFilterChange}
-                        onDataFiltered={this.onDataFiltered}
-                        enableDateFilter={true}
-                        dateFields={['created_at', 'domain_expiry']}
-                        dateFilterWidth={2}
-                        searchFields={['domain_name', 'ticket_id', 'registrar', 'rtir']}
-                        defaultSort="created_at"
-                        moduleKey="siteMonitoring"
-                    >
-                        {({ renderFilterControls, renderFilters, renderSaveModal }) => (
-                            <Fragment>
-                                {renderFilterControls()}
-                                {renderFilters()}
-                                {renderSaveModal()}
-                            </Fragment>
-                        )}
-                    </TableManager>
-
-                    <div className="row">
-                        <div className="col-12">
-                            <SuspiciousSites 
-                                globalFilters={globalFilters} 
-                                filteredData={hasActiveFilters && filteredSites.length > 0 ? filteredSites : null}
-                                onDataFiltered={this.onDataFiltered}
-                            />
-                        </div>
-                    </div>
-                </div>
+                <PanelGrid
+                    panels={this.buildPanels()}
+                    defaultLayout={DEFAULT_LAYOUT}
+                    defaultActive={DEFAULT_ACTIVE}
+                    storageKey="watcher_site_monitoring_grid"
+                />
             </Fragment>
         );
     }

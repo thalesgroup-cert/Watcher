@@ -674,7 +674,10 @@ def generate_weekly_summary():
                 summary_text=summary_text
             )
             from .core import send_threats_watcher_notifications
-            send_threats_watcher_notifications(summary_text)
+            send_threats_watcher_notifications({
+                'notification_type': 'weeklysummary',
+                'summary_text': summary_text,
+            })
             logger.info("Weekly summary notifications sent")
         else:
             logger.info("No valid summaries generated this week")
@@ -683,7 +686,10 @@ def generate_weekly_summary():
         logger.error(f"Weekly summary generation failed: {e}", exc_info=True)
         from .core import send_threats_watcher_notifications
         try:
-            send_threats_watcher_notifications({'summary_text': "Weekly threat analysis failed due to technical issue."})
+            send_threats_watcher_notifications({
+                'notification_type': 'weeklysummary',
+                'summary_text': "Weekly threat analysis failed due to technical issue.",
+            })
         except Exception:
             logger.exception("Failed to send failure notification")
     finally:
@@ -923,7 +929,7 @@ def generate_breaking_news(trendy_word):
                 prod_str = ", ".join(top_products)
                 s = f"{trendy_word.name}: {prod_str} affected"
                 if impact:
-                    s += f" — {impact} impact"
+                    s += f" - {impact} impact"
                 s += "."
                 sentences.append(s)
             elif top_orgs:
@@ -953,6 +959,7 @@ def generate_breaking_news(trendy_word):
         )
 
         payload = {
+            'notification_type': 'breakingnews',
             'keyword': trendy_word.name,
             'occurrences': getattr(trendy_word, 'occurrences', None),
             'summary_text': summary_text,
@@ -974,10 +981,8 @@ def generate_breaking_news(trendy_word):
         return None
 
 
-def generate_trendy_word_summary(trendy_word_id):
-    """Generate AI summary for a specific TrendyWord."""
-    logger.info(f"Generating summary for TrendyWord ID: {trendy_word_id}")
-
+def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
+    """Generate AI summary for a keyword using a provided PostUrl list."""
     summarizer = get_summarizer_pipeline()
     tokenizer = get_summarizer_tokenizer()
     if not summarizer or not tokenizer:
@@ -985,15 +990,6 @@ def generate_trendy_word_summary(trendy_word_id):
         return None
 
     try:
-        trendy_word = TrendyWord.objects.get(id=trendy_word_id)
-    except TrendyWord.DoesNotExist:
-        logger.error(f"TrendyWord not found: {trendy_word_id}")
-        return None
-
-    try:
-        posturls_qs = trendy_word.posturls.all().order_by('-created_at')[:15]
-        posturls = list(posturls_qs)
-
         if not posturls:
             return None
 
@@ -1010,14 +1006,14 @@ def generate_trendy_word_summary(trendy_word_id):
                 continue
 
         if not raw_texts:
-            logger.info(f"No valid content for '{trendy_word.name}'")
+            logger.info(f"No valid content for '{keyword}'")
             return None
 
         unique_texts = deduplicate_titles(raw_texts)
         corpus = "\n\n".join(unique_texts[:12]).strip()
 
         if len(corpus) < 40:
-            logger.info(f"Corpus too small for '{trendy_word.name}' (len={len(corpus)})")
+            logger.info(f"Corpus too small for '{keyword}' (len={len(corpus)})")
             return None
 
         # Generate summary
@@ -1025,14 +1021,14 @@ def generate_trendy_word_summary(trendy_word_id):
             input_tokens = len(tokenizer.encode(corpus))
         except Exception:
             input_tokens = len(corpus.split())
-        
+
         max_len = min(150, max(80, input_tokens // 2))
         min_len = max(40, max_len // 2)
 
         try:
             result = summarizer(corpus, max_length=max_len, min_length=min_len, truncation=True, do_sample=False)
         except Exception as e:
-            logger.error(f"Summarizer failed for '{trendy_word.name}': {e}")
+            logger.error(f"Summarizer failed for '{keyword}': {e}")
             result = None
 
         summary_raw = None
@@ -1088,16 +1084,16 @@ def generate_trendy_word_summary(trendy_word_id):
                                 raise
                         summary_raw = model_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
             except Exception as e:
-                logger.error(f"Model.generate fallback failed for '{trendy_word.name}': {e}")
+                logger.error(f"Model.generate fallback failed for '{keyword}': {e}")
                 return None
 
         if not summary_raw or not summary_raw.strip():
-            logger.error(f"Empty summary after all attempts for '{trendy_word.name}'")
+            logger.error(f"Empty summary after all attempts for '{keyword}'")
             return None
 
         summary_text = clean_text_and_metadata(summary_raw.strip())
         summary_text = re.sub(r'\s+', ' ', summary_text).strip()
-        
+
         if not summary_text.endswith((".", "!", "?")):
             summary_text += "."
 
@@ -1140,13 +1136,32 @@ def generate_trendy_word_summary(trendy_word_id):
 
         summary_obj, created = Summary.objects.update_or_create(
             type='trendy_word_summary',
-            keywords=trendy_word.name,
+            keywords=keyword,
             defaults={'summary_text': final_summary}
         )
-        
-        logger.info(f"Summary {'created' if created else 'updated'} for '{trendy_word.name}' (id={summary_obj.id}, {len(summary_text.split())} words)")
+
+        logger.info(f"Summary {'created' if created else 'updated'} for '{keyword}' (id={summary_obj.id}, {len(summary_text.split())} words)")
         return summary_obj
 
     except Exception as e:
-        logger.error(f"Summary generation failed for '{trendy_word.name}': {e}", exc_info=True)
+        logger.error(f"Summary generation failed for '{keyword}': {e}", exc_info=True)
         return None
+
+
+def generate_keyword_summary_from_posturls(keyword: str, posturls: list):
+    """Generate/update keyword summary from a list of PostUrl objects."""
+    return _generate_summary_for_keyword_posts(keyword, posturls)
+
+
+def generate_trendy_word_summary(trendy_word_id):
+    """Generate AI summary for a specific TrendyWord."""
+    logger.info(f"Generating summary for TrendyWord ID: {trendy_word_id}")
+
+    try:
+        trendy_word = TrendyWord.objects.get(id=trendy_word_id)
+    except TrendyWord.DoesNotExist:
+        logger.error(f"TrendyWord not found: {trendy_word_id}")
+        return None
+
+    posturls = list(trendy_word.posturls.all().order_by('-created_at')[:15])
+    return _generate_summary_for_keyword_posts(trendy_word.name, posturls)

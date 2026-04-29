@@ -1,7 +1,7 @@
 from abc import ABC
 
 from rest_framework import serializers
-from .models import TrendyWord, PostUrl, BannedWord, Summary
+from .models import Source, TrendyWord, PostUrl, BannedWord, Summary, MonitoredKeyword
 
 
 class TrackListingField(serializers.RelatedField, ABC):
@@ -11,7 +11,13 @@ class TrackListingField(serializers.RelatedField, ABC):
         return '%s,%s' % (value.url, value.created_at)
 
 
-# TrendyWord Serializer
+# Source Serializer
+class SourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Source
+        fields = ['id', 'url', 'confident', 'country', 'country_code', 'created_at']
+
+
 class TrendyWordSerializer(serializers.ModelSerializer):
     posturls = TrackListingField(many=True)
 
@@ -30,4 +36,17 @@ class BannedWordSerializer(serializers.ModelSerializer):
 class SummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Summary
+        fields = '__all__'
+
+
+# MonitoredKeyword Serializer
+class MonitoredKeywordSerializer(serializers.ModelSerializer):
+    level_display = serializers.CharField(source='get_level_display', read_only=True)
+    posturls = serializers.SerializerMethodField()
+
+    def get_posturls(self, obj):
+        return ['%s,%s' % (p.url, p.created_at) for p in obj.posturls.all()]
+
+    class Meta:
+        model = MonitoredKeyword
         fields = '__all__'

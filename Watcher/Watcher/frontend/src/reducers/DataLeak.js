@@ -4,7 +4,8 @@ import {
     DATALEAK_DELETE_KEYWORD,
     DATALEAK_ADD_KEYWORD,
     DATALEAK_PATCH_KEYWORD,
-    DATALEAK_UPDATE_ALERT
+    DATALEAK_UPDATE_ALERT,
+    GET_DATA_LEAK_STATISTICS
 } from '../actions/types.js';
 
 const initialState = {
@@ -15,7 +16,14 @@ const initialState = {
     alerts: [],
     alertsCount: 0,
     alertsNext: null,
-    alertsPrevious: null
+    alertsPrevious: null,
+    statistics: {
+        totalAlerts: 0,
+        activeAlerts: 0,
+        newToday: 0,
+        newThisWeek: 0,
+        totalKeywords: 0,
+    }
 };
 
 export default function (state = initialState, action) {
@@ -98,6 +106,12 @@ export default function (state = initialState, action) {
                 alerts: state.alerts.map(alert =>
                     alert.id === action.payload.id ? action.payload : alert
                 )
+            };
+
+        case GET_DATA_LEAK_STATISTICS:
+            return {
+                ...state,
+                statistics: action.payload
             };
 
         default:

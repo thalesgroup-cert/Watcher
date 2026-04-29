@@ -1,6 +1,7 @@
 # Web Framework and Application Enhancements
+drf-spectacular==0.28.0
 mysqlclient==2.2.7
-django==5.2.11
+django==5.2.13
 django-mysql==4.19.0
 djangorestframework==3.16.1
 django-rest-knox==4.2.0
@@ -19,7 +20,7 @@ sphinx-rtd-theme==3.0.2
 myst-parser==4.0.1
 
 # Natural Language Processing and Similarity Checking
-nltk==3.9.2
+nltk==3.9.4
 python-tlsh==4.5.0
 
 # Networking and DNS Utilities

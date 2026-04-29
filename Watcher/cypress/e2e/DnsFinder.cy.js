@@ -195,33 +195,12 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display main sections with ResizableContainers', () => {
-      cy.get('.container-fluid.mt-4', { timeout: 15000 }).should('exist');
+      cy.get('.container-fluid', { timeout: 15000 }).should('exist');
 
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
-        .first()
-        .should('exist')
-        .within(() => {
-          cy.get('.overflow-hidden').first().should('exist').within(() => {
-            cy.get('h4:contains("Alerts")').should('exist');
-          });
-
-          cy.get('.overflow-hidden').eq(1).should('exist').within(() => {
-            cy.get('h4:contains("Corporate DNS")').should('exist');
-          });
-        });
-
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .should('exist')
-        .within(() => {
-          cy.get('.overflow-hidden').first().should('exist').within(() => {
-            cy.get('h4:contains("Archived Alerts")').should('exist');
-          });
-
-          cy.get('.overflow-hidden').eq(1).should('exist').within(() => {
-            cy.get('h4:contains("Corporate Keywords")').should('exist');
-          });
-        });
+      cy.contains('.card-header', 'DNS Alerts', { timeout: 15000 }).should('exist');
+      cy.contains('.card-header', 'DNS Monitored').should('exist');
+      cy.contains('.card-header', 'Archived Alerts').should('exist');
+      cy.contains('.card-header', 'Keyword Monitored').should('exist');
     });
 
     it('should display TableManager filter controls', () => {
@@ -260,10 +239,7 @@ describe('DNS Finder - E2E Test Suite', () => {
 
   describe('DNS Monitored Display and Management', () => {
     it('should display DNS monitored table in ResizableContainer', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Corporate DNS")', { timeout: 10000 }).should('exist');
           cy.get('h6:contains("Dnstwist Algorithm")', { timeout: 10000 }).should('exist');
@@ -272,10 +248,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display DNS monitored data when available', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'watcher.com');
@@ -306,10 +279,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display edit and delete buttons for authenticated users', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('.material-icons:contains("edit")').should('exist');
           cy.get('.material-icons:contains("delete")').should('exist');
@@ -317,10 +287,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle DNS edit workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("edit")')
         .first()
         .scrollIntoView()
@@ -333,10 +300,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle DNS deletion workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("delete")')
         .first()
         .click();
@@ -348,10 +312,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should sort DNS monitored table', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table th:contains("Domain Name")').click();
           cy.wait(500);
@@ -363,10 +324,7 @@ describe('DNS Finder - E2E Test Suite', () => {
 
   describe('Keyword Monitored Display and Management', () => {
     it('should display keyword monitored table in ResizableContainer', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Corporate Keywords")', { timeout: 10000 }).should('exist');
           cy.get('h6:contains("Certificate Transparency")', { timeout: 10000 }).should('exist');
@@ -375,10 +333,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display keyword monitored data when available', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'watcher');
@@ -409,10 +364,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display edit and delete buttons for authenticated users', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('.material-icons:contains("edit")').should('exist');
           cy.get('.material-icons:contains("delete")').should('exist');
@@ -420,10 +372,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle keyword edit workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("edit")')
         .first()
         .scrollIntoView()
@@ -435,10 +384,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle keyword deletion workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("delete")')
         .first()
         .click();
@@ -450,10 +396,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should sort keyword monitored table', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .eq(1)
+      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table th:contains("Name")').click();
           cy.wait(500);
@@ -463,10 +406,7 @@ describe('DNS Finder - E2E Test Suite', () => {
 
   describe('Alerts Display and Management', () => {
     it('should display alerts table in ResizableContainer', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Alerts")', { timeout: 10000 }).should('exist');
           cy.get('table', { timeout: 10000 }).should('exist');
@@ -474,10 +414,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display alert data structure correctly', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table thead th').should('contain', 'ID');
           cy.get('table thead th').should('contain', 'Twisted DNS');
@@ -488,10 +425,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display active alerts (status=true)', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'vvatcher.com');
@@ -499,20 +433,14 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display alert action buttons', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .find('table tbody tr')
         .first()
         .within(() => {
           cy.get('button:contains("Disable")').should('exist');
         });
   
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('button').then(($buttons) => {
             const addButtons = $buttons.toArray().filter(btn => {
@@ -532,10 +460,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle alert disable workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .find('table tbody tr')
         .first()
         .find('button:contains("Disable")')
@@ -548,20 +473,14 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display MISP export buttons', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('button[title*="Export"], i.material-icons:contains("cloud_upload")').should('exist');
         });
     });
 
     it('should display MISP status badges', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('i.material-icons').filter((index, icon) => {
             const text = Cypress.$(icon).text();
@@ -571,10 +490,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle add to website monitoring workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .then(($container) => {
           const addButton = $container.find('button').filter((index, btn) => {
             const text = Cypress.$(btn).text();
@@ -595,10 +511,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
   
     it('should sort alerts table', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table th:contains("ID")').click();
           cy.wait(500);
@@ -608,10 +521,7 @@ describe('DNS Finder - E2E Test Suite', () => {
 
   describe('Archived Alerts Display and Management', () => {
     it('should display archived alerts table in ResizableContainer', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Archived Alerts")', { timeout: 10000 }).should('exist');
           cy.get('table', { timeout: 10000 }).should('exist');
@@ -619,10 +529,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display archived alerts (status=false)', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'vvatcher.fr');
@@ -630,20 +537,14 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display Enable button for archived alerts', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('button:contains("Enable")').should('exist');
         });
     });
 
     it('should handle alert enable workflow', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
         .find('button:contains("Enable")')
         .first()
         .click();
@@ -655,10 +556,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should sort archived alerts table', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table th:contains("Fuzzer")').click();
           cy.wait(500);
@@ -668,53 +566,28 @@ describe('DNS Finder - E2E Test Suite', () => {
 
   describe('ResizableContainer Functionality', () => {
     it('should display ResizableContainer dividers', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 })
+      cy.get('.card.h-100.shadow-sm', { timeout: 10000 })
         .should('have.length.at.least', 2);
 
-      cy.get('.d-flex.w-100.h-100.position-relative').each(($container) => {
-        cy.wrap($container).then(($el) => {
-          const hasResizer = $el.find('[style*="cursor"], .resizer, [class*="divider"]').length > 0;
-          cy.log(`Container has resizer: ${hasResizer}`);
+      cy.get('.card.h-100.shadow-sm').each(($card) => {
+        cy.wrap($card).then(($el) => {
+          cy.log(`Panel card found with ${$el.find('table').length} tables`);
         });
       });
     });
 
     it('should handle divider double-click to reset', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .then(($container) => {
-          const resizer = $container.find('[style*="cursor: col-resize"], [style*="cursor: ew-resize"]');
-          
-          if (resizer.length > 0) {
-            cy.wrap(resizer.first()).dblclick({ force: true });
-            cy.wait(500);
-            cy.log('First divider double-click tested');
-          }
-        });
-
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .then(($container) => {
-          const resizer = $container.find('[style*="cursor: col-resize"], [style*="cursor: ew-resize"]');
-          
-          if (resizer.length > 0) {
-            cy.wrap(resizer.first()).dblclick({ force: true });
-            cy.wait(500);
-            cy.log('Second divider double-click tested');
-          }
-        });
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('DNS Alerts panel found - PanelGrid layout verified');
+      });
+      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('DNS Monitored panel found - PanelGrid layout verified');
+      });
     });
 
     it('should show tooltip on divider hover', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('[title*="Drag to resize"]')
-        .should('exist');
-
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('[title*="Drag to resize"]')
-        .should('exist');
+      cy.get('.card.h-100.shadow-sm [title="Hide DNS Alerts"]').should('exist');
+      cy.get('.card.h-100.shadow-sm [title="Hide DNS Monitored"]').should('exist');
     });
   });
 
@@ -730,10 +603,7 @@ describe('DNS Finder - E2E Test Suite', () => {
 
     it('should handle complete alert status change workflow', () => {
       // Disable an active alert
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .find('button:contains("Disable")')
         .first()
         .click();
@@ -744,10 +614,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.wait(1000);
 
       // Enable an archived alert
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .eq(1)
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
         .find('button:contains("Enable")')
         .first()
         .click();
@@ -763,10 +630,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.wait(1000);
 
       // Check that data is filtered
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .find('.overflow-hidden')
-        .first()
+      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
         .find('table tbody tr')
         .should('have.length.at.least', 1);
     });
@@ -781,10 +645,10 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should verify layout structure specific to DNS Finder', () => {
-      cy.get('.container-fluid.mt-4').should('exist');
-      cy.get('.row').should('have.length.at.least', 2);
+      cy.get('.container-fluid').should('exist');
+      cy.get('.row').should('have.length.at.least', 1);
 
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 })
+      cy.get('.card.h-100.shadow-sm', { timeout: 10000 })
         .should('have.length.at.least', 2);
 
       cy.get('table', { timeout: 10000 }).should('have.length.at.least', 2);
@@ -899,8 +763,8 @@ describe('DNS Finder - E2E Test Suite', () => {
 
     it('should verify all major components are loaded', () => {
       cy.get('.container-fluid').should('exist');
-      cy.get('.d-flex.w-100.h-100.position-relative').should('have.length.at.least', 2);
-      cy.get('table.table-striped').should('have.length.at.least', 2);
+      cy.get('.card.h-100.shadow-sm').should('have.length.at.least', 2);
+      cy.get('table').should('have.length.at.least', 2);
       cy.get('h4:contains("Alerts")').should('exist');
       cy.get('h4:contains("Corporate DNS")').should('exist');
       cy.get('h4:contains("Archived Alerts")').should('exist');
@@ -911,51 +775,56 @@ describe('DNS Finder - E2E Test Suite', () => {
   after(() => {
     cy.log('Starting DNS Finder cleanup...');
 
-    // Clean up test DNS entries
-    cy.request({
-      method: 'GET',
-      url: '**/api/dns_finder/dns_monitored/**',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((dns) => {
-          if (dns.domain_name.includes('test-') || dns.domain_name.includes('e2e-')) {
-            cy.request({
-              method: 'DELETE',
-              url: `**/api/dns_finder/dns_monitored/${dns.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+    const authData = Cypress.env('authData');
+    if (authData && authData.token) {
+      // Clean up test DNS entries
+      cy.request({
+        method: 'GET',
+        url: '/api/dns_finder/dns_monitored/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((dns) => {
+            if (dns.domain_name.includes('test-') || dns.domain_name.includes('e2e-')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/dns_finder/dns_monitored/${dns.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
 
-    // Clean up test keyword entries
-    cy.request({
-      method: 'GET',
-      url: '**/api/dns_finder/keyword_monitored/**',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((keyword) => {
-          if (keyword.name.includes('test-') || keyword.name.includes('e2e-')) {
-            cy.request({
-              method: 'DELETE',
-              url: `**/api/dns_finder/keyword_monitored/${keyword.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+      // Clean up test keyword entries
+      cy.request({
+        method: 'GET',
+        url: '/api/dns_finder/keyword_monitored/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((keyword) => {
+            if (keyword.name.includes('test-') || keyword.name.includes('e2e-')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/dns_finder/keyword_monitored/${keyword.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
+    } else {
+      cy.log('No auth token available - skipping cleanup');
+    }
 
     // Clear localStorage and sessionStorage
     cy.window().then((win) => {

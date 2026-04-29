@@ -20,6 +20,8 @@ from .mail_template.site_monitoring_template import get_site_monitoring_template
 from .mail_template.dns_finder_template import get_dns_finder_template
 from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_transparency_template
 from .mail_template.dns_finder_group_template import get_dns_finder_group_template
+from .mail_template.cyber_watch_template import get_cyber_watch_template
+from .mail_template.udrp_template import get_udrp_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 import tldextract
@@ -55,6 +57,11 @@ def start_scheduler():
                       replace_existing=True)
 
     scheduler.add_job(update_all_ssl_certificates, 'cron', day_of_week='mon-sun', hour='*/6', id='ssl_check_job',
+                      max_instances=1,
+                      replace_existing=True)
+
+    from site_monitoring.udrp import check_udrp_statuses
+    scheduler.add_job(check_udrp_statuses, 'cron', day_of_week='mon-sun', hour='*/6', id='udrp_check_job',
                       max_instances=1,
                       replace_existing=True)
 
@@ -171,6 +178,79 @@ APP_CONFIG_SLACK = {
         'channel': SLACK_CHANNEL,
         'url_suffix': '#/dns_finder/',
     },
+    'cyber_watch_new_cve': {
+        'content_template': (
+            "*[CYBER WATCH - NEW CVE] 🛡️ {cve_id} detected ({severity})*\n\n"
+            "Dear team,\n\n"
+            "A new CVE has been fetched:\n\n"
+            "*• CVE ID:* {cve_id}\n"
+            "*• Severity:* {severity}\n"
+            "*• CVSS Score:* {cvss_score}\n"
+            "*• Description:* {description}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_cve_hit': {
+        'content_template': (
+            "*[CYBER WATCH - CVE HIT] 🎯 Rule '{rule_name}' matched {cve_id}*\n\n"
+            "Dear team,\n\n"
+            "A CVE watch rule has been triggered:\n\n"
+            "*• Rule:* {rule_name}\n"
+            "*• CVE ID:* {cve_id}\n"
+            "*• Keyword:* {keyword}\n"
+            "*• Severity:* {severity}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_new_victim': {
+        'content_template': (
+            "*[CYBER WATCH - NEW VICTIM] 🏴‍☠️ {victim_name} ({group_name})*\n\n"
+            "Dear team,\n\n"
+            "A new ransomware victim has been detected:\n\n"
+            "*• Victim:* {victim_name}\n"
+            "*• Group:* {group_name}\n"
+            "*• Country:* {country}\n"
+            "*• Sector:* {sector}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_victim_hit': {
+        'content_template': (
+            "*[CYBER WATCH - VICTIM HIT] 🎯 Rule '{rule_name}' matched {victim_name} ({group_name})*\n\n"
+            "Dear team,\n\n"
+            "A ransomware victim watch rule has been triggered:\n\n"
+            "*• Rule:* {rule_name}\n"
+            "*• Victim:* {victim_name}\n"
+            "*• Group:* {group_name}\n"
+            "*• Sector:* {sector}\n"
+            "*• Country:* {country}\n"
+            "*• Matched Keyword:* {keyword}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/cyber_watch',
+    },
+    'udrp_decision': {
+        'content_template': (
+            "*[UDRP DECISION] ⚖️ {domain_name_sanitized}*\n\n"
+            "Dear team,\n\n"
+            "A UDRP decision has been detected for a monitored domain:\n\n"
+            "*• Domain:* {domain_name_sanitized}\n"
+            "*• Decision:* {decision_label}\n"
+            "*• Date:* {date}\n"
+            "*• Ticket:* {ticket}\n"
+            "*• Source:* udrpsearch.com\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'channel': SLACK_CHANNEL,
+        'url_suffix': '#/website_monitoring/',
+    },
 }
 
 # Configuration for Citadel
@@ -277,6 +357,106 @@ APP_CONFIG_CITADEL = {
         'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/dns_finder/',
     },
+    'cyber_watch_new_cve': {
+        'content_template': (
+            "<p><strong><h4>[CYBER WATCH - NEW CVE] 🛡️ {cve_id} detected ({severity})</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A new CVE has been fetched:</p>"
+            "<ul>"
+            "<li><strong>CVE ID:</strong> {cve_id}</li>"
+            "<li><strong>Severity:</strong> {severity}</li>"
+            "<li><strong>CVSS Score:</strong> {cvss_score}</li>"
+            "<li><strong>Description:</strong> {description}</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_cve_hit': {
+        'content_template': (
+            "<p><strong><h4>[CYBER WATCH - CVE HIT] 🎯 Rule '{rule_name}' matched {cve_id}</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A CVE watch rule has been triggered:</p>"
+            "<ul>"
+            "<li><strong>Rule:</strong> {rule_name}</li>"
+            "<li><strong>CVE ID:</strong> {cve_id}</li>"
+            "<li><strong>Keyword:</strong> {keyword}</li>"
+            "<li><strong>Severity:</strong> {severity}</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_new_victim': {
+        'content_template': (
+            "<p><strong><h4>[CYBER WATCH - NEW VICTIM] 🏴‍☠️ {victim_name} ({group_name})</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A new ransomware victim has been detected:</p>"
+            "<ul>"
+            "<li><strong>Victim:</strong> {victim_name}</li>"
+            "<li><strong>Group:</strong> {group_name}</li>"
+            "<li><strong>Country:</strong> {country}</li>"
+            "<li><strong>Sector:</strong> {sector}</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_victim_hit': {
+        'content_template': (
+            "<p><strong><h4>[CYBER WATCH - VICTIM HIT] 🎯 Rule '{rule_name}' matched {victim_name} ({group_name})</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A ransomware victim watch rule has been triggered:</p>"
+            "<ul>"
+            "<li><strong>Rule:</strong> {rule_name}</li>"
+            "<li><strong>Victim:</strong> {victim_name}</li>"
+            "<li><strong>Group:</strong> {group_name}</li>"
+            "<li><strong>Sector:</strong> {sector}</li>"
+            "<li><strong>Country:</strong> {country}</li>"
+            "<li><strong>Matched Keyword:</strong> {keyword}</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/cyber_watch',
+    },
+    'udrp_decision': {
+        'content_template': (
+            "<p><strong><h4>[UDRP DECISION] ⚖️ {domain_name_sanitized}</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A UDRP decision has been detected for a monitored domain:</p>"
+            "<ul>"
+            "<li><strong>Domain:</strong> {domain_name_sanitized}</li>"
+            "<li><strong>Decision:</strong> {decision_label}</li>"
+            "<li><strong>Date:</strong> {date}</li>"
+            "<li><strong>Ticket:</strong> {ticket}</li>"
+            "<li><strong>Source:</strong> udrpsearch.com</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/website_monitoring/',
+    },
+    'udrp_decision': {
+        'content_template': (
+            "<p><strong><h4>[UDRP DECISION] ⚖️ {domain_name_sanitized}</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A UDRP decision has been detected for a monitored domain:</p>"
+            "<ul>"
+            "<li><strong>Domain:</strong> {domain_name_sanitized}</li>"
+            "<li><strong>Decision:</strong> {decision_label}</li>"
+            "<li><strong>Date:</strong> {date}</li>"
+            "<li><strong>Ticket:</strong> {ticket}</li>"
+            "<li><strong>Source:</strong> udrpsearch.com</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'citadel_room_id': CITADEL_ROOM_ID,
+        'url_suffix': '#/website_monitoring/',
+    },
 }
 
 
@@ -344,6 +524,73 @@ APP_CONFIG_THEHIVE = {
         'pap': 1,
         'tags': settings.THE_HIVE_TAGS
     },
+    'cyber_watch_new_cve': {
+        'title': "New CVE - {cve_id} | Severity: {severity} | CVSS: {cvss_score}",
+        'description_template': (
+            "## CyberWatch - New CVE Detected\n\n"
+            "| Field | Value |\n"
+            "|-------|-------|\n"
+            "| **CVE ID** | {cve_id} |\n"
+            "| **Severity** | {severity} |\n"
+            "| **CVSS Score** | {cvss_score} |\n\n"
+            "### Description\n\n"
+            "{description}\n\n"
+        ),
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+        'tags': settings.THE_HIVE_TAGS
+    },
+    'cyber_watch_cve_hit': {
+        'title': "CVE Rule Hit - {rule_name} matched {cve_id} [{severity}]",
+        'description_template': (
+            "## CyberWatch - CVE Watch Rule Triggered\n\n"
+            "| Field | Value |\n"
+            "|-------|-------|\n"
+            "| **Rule** | {rule_name} |\n"
+            "| **CVE ID** | {cve_id} |\n"
+            "| **Matched Keyword** | {keyword} |\n"
+            "| **Severity** | {severity} |\n\n"
+        ),
+        'severity': 2,
+        'tlp': 2,
+        'pap': 2,
+        'tags': settings.THE_HIVE_TAGS
+    },
+    'cyber_watch_new_victim': {
+        'title': "New Ransomware Victim - {victim_name} | {group_name} | {sector}",
+        'description_template': (
+            "## CyberWatch - New Ransomware Victim Detected\n\n"
+            "| Field | Value |\n"
+            "|-------|-------|\n"
+            "| **Victim** | {victim_name} |\n"
+            "| **Group** | {group_name} |\n"
+            "| **Country** | {country} |\n"
+            "| **Sector** | {sector} |\n\n"
+        ),
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+        'tags': settings.THE_HIVE_TAGS
+    },
+    'cyber_watch_victim_hit': {
+        'title': "Victim Rule Hit - {rule_name} matched {victim_name} ({group_name})",
+        'description_template': (
+            "## CyberWatch - Ransomware Victim Watch Rule Triggered\n\n"
+            "| Field | Value |\n"
+            "|-------|-------|\n"
+            "| **Rule triggered** | {rule_name} |\n"
+            "| **Victim** | {victim_name} |\n"
+            "| **Group** | {group_name} |\n"
+            "| **Sector** | {sector} |\n"
+            "| **Country** | {country} |\n"
+            "| **Matched keyword** | {keyword} |\n\n"
+        ),
+        'severity': 2,
+        'tlp': 2,
+        'pap': 2,
+        'tags': settings.THE_HIVE_TAGS
+    },
 }
 
 
@@ -384,6 +631,26 @@ APP_CONFIG_EMAIL = {
     'dns_finder_group': {
         'subject': "[{alerts_number} ALERTS] DNS Finder",
         'template_func': get_dns_finder_group_template,
+    },
+    'cyber_watch_new_cve': {
+        'subject': "New CVE - {cve_id} ({severity})",
+        'template_func': get_cyber_watch_template,
+    },
+    'cyber_watch_cve_hit': {
+        'subject': "Rule Hit - {rule_name} matched {cve_id} [{severity}]",
+        'template_func': get_cyber_watch_template,
+    },
+    'cyber_watch_new_victim': {
+        'subject': "New Ransomware Victim - {victim_name} | {group_name}",
+        'template_func': get_cyber_watch_template,
+    },
+    'cyber_watch_victim_hit': {
+        'subject': "Rule Hit - {rule_name} matched {victim_name} ({group_name})",
+        'template_func': get_cyber_watch_template,
+    },
+    'udrp_decision': {
+        'subject': "[UDRP DECISION] {domain_name_sanitized}",
+        'template_func': get_udrp_template,
     },
 }
 
@@ -481,6 +748,33 @@ def collect_observables(app_name, context_data):
                     }
                     observables.append(parent_observable)
 
+    elif app_name == 'cyber_watch':
+        notification_type = context_data.get('notification_type', '')
+        if notification_type in ('new_cve', 'cve_hit'):
+            cve_id = context_data.get('cve_id', '')
+            severity = context_data.get('severity', 'N/A')
+            if cve_id:
+                observables.append({"dataType": "other", "data": cve_id, "tags": ["cve", f"severity:{severity}"]})
+            keyword = context_data.get('keyword', '')
+            if keyword and notification_type == 'cve_hit':
+                observables.append({"dataType": "other", "data": keyword, "tags": ["matched-keyword", "cve-watch-rule"]})
+        elif notification_type in ('new_victim', 'victim_hit'):
+            victim_name = context_data.get('victim_name', '')
+            group_name = context_data.get('group_name', '')
+            sector = context_data.get('sector', '')
+            country = context_data.get('country', '')
+            keyword = context_data.get('keyword', '')
+            if victim_name:
+                observables.append({"dataType": "other", "data": victim_name, "tags": ["ransomware-victim", f"group:{group_name}"]})
+            if group_name:
+                observables.append({"dataType": "other", "data": group_name, "tags": ["ransomware-group"]})
+            if sector and sector != 'N/A':
+                observables.append({"dataType": "other", "data": sector, "tags": ["victim-sector"]})
+            if country and country != 'N/A':
+                observables.append({"dataType": "other", "data": country, "tags": ["victim-country"]})
+            if keyword and notification_type == 'victim_hit':
+                observables.append({"dataType": "other", "data": keyword, "tags": ["matched-keyword", "victim-watch-rule"]})
+
     observables = [observable for observable in observables if observable['data'] is not None and observable['data'] != 'None']
 
     return observables
@@ -511,10 +805,24 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
         else:
             template_key = 'threats_watcher'
 
+    # Special handling for cyber_watch to detect notification sub-type
+    elif app_name == 'cyber_watch':
+        notification_type = context_data.get('notification_type', '')
+        if notification_type == 'new_cve':
+            template_key = 'cyber_watch_new_cve'
+        elif notification_type == 'cve_hit':
+            template_key = 'cyber_watch_cve_hit'
+        elif notification_type == 'new_victim':
+            template_key = 'cyber_watch_new_victim'
+        elif notification_type == 'victim_hit':
+            template_key = 'cyber_watch_victim_hit'
+        else:
+            template_key = 'cyber_watch_new_cve'
+
     app_config_slack = APP_CONFIG_SLACK.get(template_key)
     app_config_citadel = APP_CONFIG_CITADEL.get(template_key)
-    app_config_thehive = APP_CONFIG_THEHIVE.get(app_name)
-    app_config_email = APP_CONFIG_EMAIL.get(app_name)
+    app_config_thehive = APP_CONFIG_THEHIVE.get(template_key) or APP_CONFIG_THEHIVE.get(app_name)
+    app_config_email = APP_CONFIG_EMAIL.get(template_key) or APP_CONFIG_EMAIL.get(app_name)
 
     if not app_config_slack or not app_config_citadel or not app_config_thehive or not app_config_email:
         return
@@ -774,6 +1082,83 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder'
             }
+
+        elif app_name == 'cyber_watch':
+            notification_type = context_data.get('notification_type', '')
+            details_url = settings.WATCHER_URL + app_config_slack['url_suffix']
+            email_body = get_cyber_watch_template(context_data)
+
+            if notification_type == 'new_cve':
+                cve_id = context_data.get('cve_id', 'N/A')
+                severity = context_data.get('severity', 'N/A')
+                cvss_score = context_data.get('cvss_score', 'N/A')
+                description = context_data.get('description', '')[:300]
+                event_summary = f"CVE {cve_id} - {severity}"
+                common_data = {
+                    'cve_id': cve_id,
+                    'severity': severity,
+                    'cvss_score': cvss_score,
+                    'description': description,
+                    'notification_type': notification_type,
+                    'event_summary': event_summary,
+                    'details_url': details_url,
+                    'app_name': 'cyber_watch',
+                }
+            elif notification_type == 'cve_hit':
+                cve_id = context_data.get('cve_id', 'N/A')
+                rule_name = context_data.get('rule_name', 'N/A')
+                keyword = context_data.get('keyword', 'N/A')
+                severity = context_data.get('severity', 'N/A')
+                event_summary = f"Rule '{rule_name}' matched {cve_id}"
+                common_data = {
+                    'cve_id': cve_id,
+                    'rule_name': rule_name,
+                    'keyword': keyword,
+                    'severity': severity,
+                    'notification_type': notification_type,
+                    'event_summary': event_summary,
+                    'details_url': details_url,
+                    'app_name': 'cyber_watch',
+                }
+            elif notification_type == 'new_victim':
+                victim_name = context_data.get('victim_name', 'N/A')
+                group_name = context_data.get('group_name', 'N/A')
+                country = context_data.get('country', 'N/A')
+                sector = context_data.get('sector', 'N/A')
+                event_summary = f"{victim_name} ({group_name})"
+                common_data = {
+                    'victim_name': victim_name,
+                    'group_name': group_name,
+                    'country': country,
+                    'sector': sector,
+                    'notification_type': notification_type,
+                    'event_summary': event_summary,
+                    'details_url': details_url,
+                    'app_name': 'cyber_watch',
+                }
+            elif notification_type == 'victim_hit':
+                victim_name = context_data.get('victim_name', 'N/A')
+                group_name = context_data.get('group_name', 'N/A')
+                rule_name = context_data.get('rule_name', 'N/A')
+                keyword = context_data.get('keyword', 'N/A')
+                sector = context_data.get('sector', 'N/A')
+                country = context_data.get('country', 'N/A')
+                event_summary = f"Rule '{rule_name}' matched {victim_name} ({group_name})"
+                common_data = {
+                    'victim_name': victim_name,
+                    'group_name': group_name,
+                    'rule_name': rule_name,
+                    'keyword': keyword,
+                    'sector': sector,
+                    'country': country,
+                    'notification_type': notification_type,
+                    'event_summary': event_summary,
+                    'details_url': details_url,
+                    'app_name': 'cyber_watch',
+                }
+            else:
+                logger.warning(f"Unknown cyber_watch notification_type: {notification_type}")
+                return
 
 
         send_notification(
@@ -1170,7 +1555,15 @@ def update_legitimate_domains_rdap_data():
         except Exception as e:
             logger.error(f"Error processing {domain.domain_name}: {str(e)}")
 
-    # Update SSL certificates for legitimate domains
+
+def update_legitimate_domains_ssl_data():
+    """
+    Update SSL certificate expiry for all legitimate domains.
+
+    Runs every 6 hours via the scheduler (separate from the 2-minute RDAP job
+    so SSL checks do not flood logs or timeout unnecessarily).
+    """
+    close_old_connections()
     logger.info("CRON TASK: SSL Certificate Check for Legitimate Domains")
     from .utils.ssl_checker import SSLCertificateChecker
     

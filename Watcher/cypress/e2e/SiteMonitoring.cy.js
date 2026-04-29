@@ -279,7 +279,7 @@ describe('Site Monitoring - E2E Test Suite', () => {
     });
 
     it('should display SiteStats dashboard', () => {
-      cy.get('.container-fluid.mt-4', { timeout: 15000 }).should('exist');
+      cy.get('.container-fluid', { timeout: 15000 }).should('exist');
       
       cy.get('.card.border-0.shadow-sm', { timeout: 15000 }).should('have.length.at.least', 4);
       
@@ -649,7 +649,7 @@ describe('Site Monitoring - E2E Test Suite', () => {
     });
 
     it('should verify layout structure specific to Site Monitoring', () => {
-      cy.get('.container-fluid.mt-4').should('exist');
+      cy.get('.container-fluid').should('exist');
       cy.get('.row').should('have.length.at.least', 2);
       
       cy.get('.card.border-0.shadow-sm').should('have.length.at.least', 4);
@@ -766,28 +766,33 @@ describe('Site Monitoring - E2E Test Suite', () => {
   after(() => {
     cy.log('Starting Site Monitoring cleanup...');
     
-    // Clean up test sites
-    cy.request({
-      method: 'GET',
-      url: '/api/site_monitoring/site/',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((site) => {
-          if (site.domain_name.includes('test-') || site.domain_name.includes('e2e-')) {
-            cy.request({
-              method: 'DELETE',
-              url: `/api/site_monitoring/site/${site.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+    const authData = Cypress.env('authData');
+    if (authData && authData.token) {
+      // Clean up test sites
+      cy.request({
+        method: 'GET',
+        url: '/api/site_monitoring/site/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((site) => {
+            if (site.domain_name.includes('test-') || site.domain_name.includes('e2e-')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/site_monitoring/site/${site.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
+    } else {
+      cy.log('No auth token available - skipping cleanup');
+    }
 
     // Clear localStorage items specific to Site Monitoring
     cy.window().then((win) => {

@@ -7,7 +7,8 @@ import {
     ADD_SITE,
     PATCH_SITE,
     UPDATE_SITE_ALERT,
-    EXPORT_MISP
+    EXPORT_MISP,
+    GET_SITE_STATISTICS
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
@@ -157,7 +158,7 @@ export const getSiteStatistics = () => (dispatch, getState) => {
     axios.get(endpoint, tokenConfig(getState))
         .then(res => {
             dispatch({
-                type: 'GET_SITE_STATISTICS',
+                type: GET_SITE_STATISTICS,
                 payload: res.data
             });
         })
@@ -166,7 +167,7 @@ export const getSiteStatistics = () => (dispatch, getState) => {
                 dispatch(returnErrors(err.response.data, err.response.status));
             }
             dispatch({
-                type: 'GET_SITE_STATISTICS',
+                type: GET_SITE_STATISTICS,
                 payload: {
                     total: 0,
                     malicious: 0,

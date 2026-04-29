@@ -318,7 +318,9 @@ class TableManager extends Component {
         filtered = this.sortData(filtered, sortBy, sortDirection);
         
         if (this.props.onDataFiltered) {
-            this.props.onDataFiltered(filtered);
+            const cb = this.props.onDataFiltered;
+            const result = filtered;
+            setTimeout(() => cb(result), 0);
         }
         
         this.setState({ filteredData: filtered });
@@ -374,6 +376,10 @@ class TableManager extends Component {
         this.setState({ 
             itemsPerPage: newItemsPerPage, 
             currentPage: 1 
+        }, () => {
+            if (this.props.onItemsPerPageChange) {
+                this.props.onItemsPerPageChange(newItemsPerPage);
+            }
         });
     };
 
@@ -759,6 +765,20 @@ class TableManager extends Component {
                             </Button>
                         </div>
                     </div>
+                    {/* Search result count hint */}
+                    {(() => {
+                        const { filteredData } = this.state;
+                        const activeSearch = filterConfig.find(f => f.type === 'search' && filters[f.key]);
+                        if (!activeSearch || !filteredData) return null;
+                        const count = filteredData.length;
+                        return (
+                            <div className="mt-2">
+                                <small className="text-muted">
+                                    {count} result{count !== 1 ? 's' : ''} for &ldquo;{filters[activeSearch.key]}&rdquo;
+                                </small>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         );

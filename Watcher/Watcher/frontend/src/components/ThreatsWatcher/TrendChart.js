@@ -5,78 +5,96 @@ import moment from 'moment';
 export class TrendChart extends Component {
 
     chartRef = React.createRef();
-    myChartRef;
+    chartInstance = null;
 
     componentDidMount() {
-        this.myChartRef = this.chartRef.current.getContext("2d");
+        if (this.props.word) {
+            this.buildChart();
+        }
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.word !== this.props.word || prevProps.postUrls !== this.props.postUrls) {
+            this.buildChart();
+        }
+    }
+
+    componentWillUnmount() {
+        this.destroyChart();
+    }
+
+    destroyChart() {
+        if (this.chartInstance) {
+            this.chartInstance.destroy();
+            this.chartInstance = null;
+        }
+    }
+
+    buildChart() {
+        if (!this.props.word) {
+            this.destroyChart();
+            return;
+        }
+
+        const canvas = this.chartRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+
+        let postUrlsFormatted = [];
+        (this.props.postUrls || []).forEach(element => {
+            try {
+                const date = moment(new Date(element.split(',', 2)[1].split(' ', 2)[0])).format("YYYY-MM-DD");
+                postUrlsFormatted.push({ date });
+            } catch (_) {}
+        });
+
+        const groupBy = key => array =>
+            array.reduce((acc, obj) => {
+                const value = obj[key];
+                acc[value] = (acc[value] || []).concat(obj);
+                return acc;
+            }, {});
+
+        const grouped = groupBy('date')(postUrlsFormatted);
+        const postsByDate = Object.entries(grouped).map(([key, value]) => ({ x: key, y: value.length }));
+
+        this.destroyChart();
+        this.chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: `${this.props.word} trend`,
+                        data: postsByDate,
+                        fill: true,
+                        borderColor: 'rgba(2,136,209,1)',
+                        backgroundColor: 'rgba(2,136,209,0.4)',
+                        lineTension: 0.15,
+                        borderJoinStyle: 'round'
+                    }
+                ]
+            },
+            options: {
+                events: null,
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        time: { unit: 'day' }
+                    }],
+                    yAxes: [{
+                        ticks: { stepSize: 1 }
+                    }]
+                }
+            }
+        });
     }
 
     render() {
-        if (this.props.word) {
-            let postUrlsFormatted = [];
-            let dot = {}, formattedDate = {};
-            this.props.postUrls.forEach(element => {
-                formattedDate = {
-                    date: moment(new Date(element.split(',', 2)[1].split(' ', 2)[0])).format("YYYY-MM-DD"),
-                };
-                postUrlsFormatted.push(formattedDate)
-            });
-            const groupBy = key => array =>
-                array.reduce((objectsByKeyValue, obj) => {
-                    const value = obj[key];
-                    objectsByKeyValue[value] = (objectsByKeyValue[value] || []).concat(obj);
-                    return objectsByKeyValue;
-                }, {});
-
-            const func = groupBy('date');
-            postUrlsFormatted = func(postUrlsFormatted);
-            
-            const postsByDate = [];
-            for (let [key, value] of Object.entries(postUrlsFormatted)) {
-                dot = {
-                    x: key,
-                    y: value.length
-                };
-                postsByDate.push(dot);
-            }
-
-            const chart = new Chart(this.myChartRef, {
-                type: 'line',
-                data: {
-                    datasets: [
-                        {
-                            label: `${this.props.word} trend`,
-                            data: postsByDate,
-                            fill: true,
-                            borderColor: 'rgba(2,136,209,1)',
-                            backgroundColor: 'rgba(2,136,209,0.4)',
-                            lineTension: 0.15,
-                            borderJoinStyle: 'round'
-                        }
-                    ]
-                },
-                options: {
-                    events: null,
-                    scales: {
-                        xAxes: [{
-                            type: 'time',
-                            time: {
-                                unit: 'day'
-                            }
-                        }],
-                        yAxes: [{
-                            ticks: {
-                                stepSize: 1,
-                            }
-                        }]
-                    }
-                }
-            });
-        }
         return (
             <Fragment>
                 <div className="row">
-                    <canvas id="myChart" ref={this.chartRef} height="50"
+                    <canvas ref={this.chartRef} height="50"
                             style={{
                                 background: 'white',
                                 display: this.props.word ? 'block' : 'none',
@@ -84,7 +102,7 @@ export class TrendChart extends Component {
                             }}></canvas>
                 </div>
             </Fragment>
-        )
+        );
     }
 }
 

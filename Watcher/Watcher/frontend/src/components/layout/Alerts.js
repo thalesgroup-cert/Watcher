@@ -13,35 +13,32 @@ export class Alerts extends Component {
     componentDidUpdate(prevProps) {
         const {error, alert, message} = this.props;
         if (error !== prevProps.error) {
-            if (error.msg.username) {
-                alert.error(`Username: ${error.msg.username.join()}`);
-            }
-            if (error.msg.password) {
-                alert.error(`Password: ${error.msg.password.join()}`);
-            }
-            if (error.msg.non_field_errors) {
-                error.msg.non_field_errors.map(error => {
-                    alert.error(error);
-                });
-            }
-            if (error.msg.name) {
-                error.msg.name.map(error => {
-                    alert.error(error);
-                });
-            }
-            if (error.msg.old_password) {
-                error.msg.old_password.map(error => {
-                    alert.error(`Old Password: ${error}`);
-                });
-            }
-            if (error.msg.domain_name) {
-                alert.error(error.msg.domain_name.join());
-            }
-            if (error.msg.rtir) {
-                alert.error(error.msg.rtir.join());
-            }
-            if (error.msg.detail) {
-                alert.error(error.msg.detail);
+            const msg = error && error.msg;
+            if (msg) {
+                if (msg.username) {
+                    alert.error(`Username: ${msg.username.join()}`);
+                }
+                if (msg.password) {
+                    alert.error(`Password: ${msg.password.join()}`);
+                }
+                if (msg.non_field_errors) {
+                    msg.non_field_errors.map(err => alert.error(err));
+                }
+                if (msg.name) {
+                    msg.name.map(err => alert.error(err));
+                }
+                if (msg.old_password) {
+                    msg.old_password.map(err => alert.error(`Old Password: ${err}`));
+                }
+                if (msg.domain_name) {
+                    alert.error(msg.domain_name.join());
+                }
+                if (msg.rtir) {
+                    alert.error(msg.rtir.join());
+                }
+                if (msg.detail) {
+                    alert.error(msg.detail);
+                }
             }
         }
 

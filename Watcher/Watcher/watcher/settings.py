@@ -115,6 +115,14 @@ CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io
 # Link to SearxNG Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searxng:8080/')
 
+# Cyber Watch - External Threat Intelligence APIs
+CYBER_WATCH_CVE_API_URL = os.environ.get('CYBER_WATCH_CVE_API_URL', 'https://cve.circl.lu/api/last')
+CYBER_WATCH_RANSOMWARE_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_GROUPS_URL', 'https://api.ransomware.live/v2/groups')
+CYBER_WATCH_RANSOMWARE_VICTIMS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_VICTIMS_URL', 'https://api.ransomware.live/v2/recentvictims')
+CYBER_WATCH_RANSOMLOOK_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_GROUPS_URL', 'https://www.ransomlook.io/api/groups')
+CYBER_WATCH_RANSOMLOOK_RECENT_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_RECENT_URL', 'https://www.ransomlook.io/api/recent')
+CYBER_WATCH_RANSOMLOOK_ACTORS_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_ACTORS_URL', 'https://www.ransomlook.io/api/actors')
+
 # The Hive Setup
 THE_HIVE_URL = os.environ.get('THE_HIVE_URL', '')
 THE_HIVE_VERIFY_SSL = os.environ.get('THE_HIVE_VERIFY_SSL', False)
@@ -123,7 +131,7 @@ if THE_HIVE_VERIFY_SSL == "True":
 if THE_HIVE_VERIFY_SSL == "False":
     THE_HIVE_VERIFY_SSL = False
 THE_HIVE_KEY = os.environ.get('THE_HIVE_KEY', '')
-THE_HIVE_CUSTOM_FIELD = os.environ.get('THE_HIVE_CUSTOM_FIELD', 'watcher-id')
+THE_HIVE_CUSTOM_FIELD = os.environ.get('THE_HIVE_CUSTOM_FIELD', '')
 THE_HIVE_EMAIL_SENDER = os.environ.get('THE_HIVE_EMAIL_SENDER', 'watcher@watcher.com')
 THE_HIVE_TAGS = os.environ.get('THE_HIVE_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting").split(",")
 
@@ -173,13 +181,34 @@ INSTALLED_APPS = [
     'django.contrib.admindocs',
     'accounts',
     'import_export',
+    'cyber_watch',
+    'drf_spectacular',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES':
-        ('knox.auth.TokenAuthentication',)
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'knox.auth.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Watcher API',
+    'DESCRIPTION': 'Watcher - Open Source AI-powered Cyber Threat Intelligence & Hunting Platform. Developed with Django & React JS. ',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SECURITY': [{'knoxTokenAuth': []}],
+    'COMPONENT_SECURITY_SCHEMES': {
+        'knoxTokenAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'Knox token authentication. Format: **Token &lt;your_token&gt;**',
+        }
+    },
 }
 
 REST_KNOX = {
@@ -345,6 +374,14 @@ LOGGING = {
             'maxBytes': 5 * 1024 * 1024,
             'backupCount': 3,
         },
+        'file_cyber_watch': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'cyber_watch.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
     },
     "loggers": {
         'watcher.common': {
@@ -369,6 +406,11 @@ LOGGING = {
         },
         'watcher.site_monitoring': {
             'handlers': ['file_site_monitoring', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.cyber_watch': {
+            'handlers': ['file_cyber_watch', 'console'],
             'level': TRACE_LEVEL,
             'propagate': False,
         },

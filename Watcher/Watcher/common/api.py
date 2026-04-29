@@ -76,11 +76,18 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
                 expiry__lte=soon.date()
             ).count()
             
+            today = now.date()
+            week_ago = now - timedelta(days=7)
+            new_today = queryset.filter(created_at__date=today).count()
+            new_this_week = queryset.filter(created_at__gte=week_ago).count()
+
             stats = {
                 'total': total,
                 'repurchased': repurchased,
                 'expired': expired,
-                'expiringSoon': expiring_soon
+                'expiringSoon': expiring_soon,
+                'newToday': new_today,
+                'newThisWeek': new_this_week,
             }
             
             

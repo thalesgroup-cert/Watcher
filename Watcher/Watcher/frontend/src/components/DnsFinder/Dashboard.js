@@ -6,7 +6,18 @@ import ArchivedAlerts from "./ArchivedAlerts";
 import DnsMonitored from "./DnsMonitored";
 import KeywordMonitored from "./KeywordMonitored";
 import TableManager from '../common/TableManager';
-import ResizableContainer from '../common/ResizableContainer';
+import DnsFinderStats from "./DnsFinderStats";
+import PanelGrid from '../common/PanelGrid';
+
+const DEFAULT_LAYOUT = [
+    { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 2, minH: 3 },
+    { i: 'alerts',   x: 0, y: 8,  w: 7,  h: 11, minW: 4, minH: 5 },
+    { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
+    { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
+    { i: 'keywords', x: 7, y: 19, w: 5,  h: 11, minW: 3, minH: 5 },
+];
+
+const DEFAULT_ACTIVE = ['stats', 'alerts', 'dns', 'archived', 'keywords'];
 
 const FILTER_CONFIG = [
     {
@@ -218,63 +229,95 @@ class Dashboard extends Component {
         this.setState({ filteredAlerts: filteredData });
     };
 
-    render() {
+    buildPanels() {
         const { globalFilters, filteredAlerts } = this.state;
         const { alerts } = this.props;
         const filterConfig = this.getFilterConfig();
-
         const dataToPass = filteredAlerts.length > 0 ? filteredAlerts : alerts;
 
+        return {
+            stats: {
+                label: 'Statistics',
+                icon: 'bar_chart',
+                tooltip: 'Overview of DNS alerts, monitored domains, and keyword patterns',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <DnsFinderStats />
+                    </div>
+                ),
+            },
+            alerts: {
+                label: 'DNS Alerts',
+                icon: 'notifications',
+                tooltip: 'Suspicious domain registrations detected via certificate transparency logs',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <TableManager
+                            data={alerts}
+                            filterConfig={filterConfig}
+                            onFiltersChange={this.handleFilterChange}
+                            onDataFiltered={this.onDataFiltered}
+                            enableDateFilter={true}
+                            dateFields={['created_at']}
+                            dateFilterWidth={2}
+                            searchFields={['dns_twisted.domain_name', 'dns_twisted.keyword_monitored.name', 'dns_twisted.dns_monitored.domain_name', 'dns_twisted.fuzzer', 'id']}
+                            defaultSort="created_at"
+                            moduleKey="dnsFinder"
+                        >
+                            {({ renderFilterControls, renderFilters, renderSaveModal }) => (
+                                <Fragment>
+                                    {renderFilterControls()}
+                                    {renderFilters()}
+                                    {renderSaveModal()}
+                                </Fragment>
+                            )}
+                        </TableManager>
+                        <Alerts globalFilters={globalFilters} filteredData={dataToPass} />
+                    </div>
+                ),
+            },
+            dns: {
+                label: 'DNS Monitored',
+                icon: 'dns',
+                tooltip: 'List of domains being watched for typosquatting and phishing variants',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <DnsMonitored globalFilters={globalFilters} filteredData={dataToPass} />
+                    </div>
+                ),
+            },
+            archived: {
+                label: 'Archived Alerts',
+                icon: 'archive',
+                tooltip: 'Resolved or dismissed DNS alerts kept for audit and reference',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <ArchivedAlerts globalFilters={globalFilters} filteredData={dataToPass} />
+                    </div>
+                ),
+            },
+            keywords: {
+                label: 'Keyword Monitored',
+                icon: 'search',
+                tooltip: 'Keywords used to detect suspicious domain registrations in CertStream',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <KeywordMonitored globalFilters={globalFilters} />
+                    </div>
+                ),
+            },
+        };
+    }
+
+    render() {
         return (
             <Fragment>
-                <div className="container-fluid mt-4">
-                    <TableManager
-                        data={alerts}
-                        filterConfig={filterConfig}
-                        onFiltersChange={this.handleFilterChange}
-                        onDataFiltered={this.onDataFiltered}
-                        enableDateFilter={true}
-                        dateFields={['created_at']}
-                        dateFilterWidth={2}
-                        searchFields={['dns_twisted.domain_name', 'dns_twisted.keyword_monitored.name', 'dns_twisted.dns_monitored.domain_name', 'dns_twisted.fuzzer', 'id']}
-                        defaultSort="created_at"
-                        moduleKey="dnsFinder"
-                    >
-                        {({ renderFilterControls, renderFilters, renderSaveModal }) => (
-                            <Fragment>
-                                {renderFilterControls()}
-                                {renderFilters()}
-                                {renderSaveModal()}
-                            </Fragment>
-                        )}
-                    </TableManager>
-
-                    <div className="row">
-                        <div className="col-12">
-                            <ResizableContainer
-                                leftComponent={<Alerts globalFilters={globalFilters} filteredData={dataToPass} />}
-                                rightComponent={<DnsMonitored globalFilters={globalFilters} filteredData={dataToPass} />}
-                                defaultLeftWidth={65}
-                                minLeftWidth={20}
-                                maxLeftWidth={85}
-                                storageKey="watcher_localstorage_layout_dnsFinder"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="row mt-4">
-                        <div className="col-12">
-                            <ResizableContainer
-                                leftComponent={<ArchivedAlerts globalFilters={globalFilters} filteredData={dataToPass} />}
-                                rightComponent={<KeywordMonitored globalFilters={globalFilters} />}
-                                defaultLeftWidth={65}
-                                minLeftWidth={20}
-                                maxLeftWidth={85}
-                                storageKey="watcher_localstorage_layout_dnsFinder_secondary"
-                            />
-                        </div>
-                    </div>
-                </div>
+                <PanelGrid
+                    panels={this.buildPanels()}
+                    defaultLayout={DEFAULT_LAYOUT}
+                    defaultActive={DEFAULT_ACTIVE}
+                    storageKey="watcher_dns_finder_grid"
+                />
             </Fragment>
         );
     }

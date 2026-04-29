@@ -5,7 +5,8 @@ import {
     ADD_SITE,
     PATCH_SITE,
     UPDATE_SITE_ALERT,
-    EXPORT_MISP
+    EXPORT_MISP,
+    GET_SITE_STATISTICS
 } from '../actions/types.js';
 
 const initialState = {
@@ -117,7 +118,7 @@ export default function (state = initialState, action) {
                 )
             };
 
-        case 'GET_SITE_STATISTICS':
+        case GET_SITE_STATISTICS:
             return {
                 ...state,
                 statistics: action.payload

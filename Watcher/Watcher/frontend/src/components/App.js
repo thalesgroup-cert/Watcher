@@ -1,5 +1,5 @@
 import React, {Component, Fragment, useState, useEffect} from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import {
     HashRouter as Router,
     Route,
@@ -17,6 +17,7 @@ import DataLeakDashboard from './DataLeak/Dashboard'
 import SiteMonitoringDashboard from './SiteMonitoring/Dashboard'
 import DnsFinderDashboard from './DnsFinder/Dashboard'
 import LegitimateDomainsDashboard from './LegitimateDomains/Dashboard';
+import CyberWatchDashboard from './CyberWatch/Dashboard';
 import NotFound from './common/NotFound';
 import AlertTemplate from "./common/AlertTemplate";
 
@@ -111,6 +112,7 @@ class App extends Component {
                                         <PrivateRoute exact path="/data_leak" component={DataLeakDashboard}/>
                                         <PrivateRoute exact path="/website_monitoring" component={SiteMonitoringDashboard}/>
                                         <PrivateRoute exact path="/dns_finder" component={DnsFinderDashboard}/>
+                                        <PrivateRoute exact path="/cyber_watch" component={CyberWatchDashboard}/>
                                         <Route component={NotFound}/>
                                     </Switch>
                                 </div>
@@ -125,4 +127,4 @@ class App extends Component {
     }
 }
 
-ReactDOM.render(<App/>, document.getElementById('app'));
+createRoot(document.getElementById('app')).render(<App/>);

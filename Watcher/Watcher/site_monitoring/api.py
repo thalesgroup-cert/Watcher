@@ -48,12 +48,19 @@ class SiteViewSet(viewsets.ModelViewSet):
             
             # Legal team involvement
             legal_team = queryset.filter(legal_team=True).count()
-            
+
+            today = datetime.now().date()
+            week_ago = datetime.now() - timedelta(days=7)
+            new_today = queryset.filter(created_at__date=today).count()
+            new_this_week = queryset.filter(created_at__gte=week_ago).count()
+
             stats = {
                 'total': total,
                 'malicious': malicious,
                 'takedownRequests': takedown_requests,
-                'legalTeam': legal_team
+                'legalTeam': legal_team,
+                'newToday': new_today,
+                'newThisWeek': new_this_week,
             }
                         
             return Response(stats, status=status.HTTP_200_OK)

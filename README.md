@@ -33,17 +33,17 @@ Watcher is a Django & React JS platform designed to discover and monitor emergin
 
 Watcher empowers your security operations with comprehensive threat detection and monitoring:
 
-- **AI-Driven Threat Intelligence** — Transform raw threat data into actionable intelligence with automated weekly digests of top-5 trending cybersecurity topics, real-time breaking news alerts when threats emerge, on-demand summaries for any security keyword including related CVE and threat actor details.
+- **AI-Driven Threat Intelligence** - Transform raw threat data into actionable intelligence with automated weekly digests of top-5 trending cybersecurity topics, real-time breaking news alerts when threats emerge, on-demand summaries for any security keyword including related CVE and threat actor details.
 
-- **Emerging Threat Detection** — Monitor cybersecurity trends via RSS feeds from CERT-FR (www.cert.ssi.gouv.fr), CERT-EU (www.cert.europa.eu), US-CERT (www.us-cert.gov), Australian Cyber Security Centre (www.cyber.gov.au), and more. Track new vulnerabilities, malware campaigns, and threat advisories as they appear.
+- **Emerging Threat Detection** - Monitor cybersecurity trends via RSS feeds from CERT-FR (www.cert.ssi.gouv.fr), CERT-EU (www.cert.europa.eu), US-CERT (www.us-cert.gov), Australian Cyber Security Centre (www.cyber.gov.au), and more. Track new vulnerabilities, malware campaigns, and threat advisories as they appear.
 
-- **Legitimate Domain Management** — Centralized approved domains with expiry, repurchase status, registrar info, and contacts. Easily convert monitored malicious domains into legitimate ones.
+- **Legitimate Domain Management** - Centralized approved domains with expiry, repurchase status, registrar info, and contacts. Easily convert monitored malicious domains into legitimate ones.
 
-- **Information Leak Monitoring** — Detect sensitive data exposure across the webs including Pastebin, StackOverflow, GitHub, GitLab, Bitbucket, APKMirror, npm registries, and other platforms. Catch leaked credentials, API keys, and confidential information early.
+- **Information Leak Monitoring** - Detect sensitive data exposure across the webs including Pastebin, StackOverflow, GitHub, GitLab, Bitbucket, APKMirror, npm registries, and other platforms. Catch leaked credentials, API keys, and confidential information early.
 
-- **Malicious Domain Surveillance** — Monitor malicious domains for changes in IP addresses, mail/MX records, and web content. Use [TLSH](https://github.com/trendmicro/tlsh) fuzzy hashing to detect modifications. Automatic RDAP/WHOIS checks with registrar and expiry alerts.
+- **Malicious Domain Surveillance** - Monitor malicious domains for changes in IP addresses, mail/MX records, and web content. Use [TLSH](https://github.com/trendmicro/tlsh) fuzzy hashing to detect modifications. Automatic RDAP/WHOIS checks with registrar and expiry alerts.
 
-- **Suspicious Domain Detection** — Identify potentially malicious domains targeting your organisation via:
+- **Suspicious Domain Detection** - Identify potentially malicious domains targeting your organisation via:
   - **Domain Generation Algorithm Detection** using [dnstwist](https://github.com/elceef/dnstwist) to find typosquatting, homograph attacks, and similar domain variants
   - **Certificate Transparency Monitoring** via [certstream](https://github.com/CaliDog/certstream-python) to catch newly registered suspicious domains in real-time
 
@@ -51,28 +51,28 @@ Watcher empowers your security operations with comprehensive threat detection an
 
 Extend Watcher's capabilities with powerful integrations and management tools:
 
-- **TheHive Full Synchronization** — Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/README.html#thehive-export)
-- **MISP Integration** — Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
-- **Flexible Authentication** — Support for both LDAP and local authentication systems
-- **Smart Notifications** — Receive email, Slack, or Citadel alerts for critical findings and threshold violations
-- **Ticketing System Integration** — Automatically feed your ticketing system with security findings
-- **Comprehensive Admin Interface** — Manage all aspects of Watcher through Django's powerful admin panel
-- **Advanced Access Control** — Granular user permissions and group management for team collaboration
-- **Modern UI Experience** — A modern interface with customizable themes, resizable dashboard panels, advanced filtering with saved filter sets, and persistent user preferences
+- **TheHive Full Synchronization** - Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/README.html#thehive-export)
+- **MISP Integration** - Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
+- **Flexible Authentication** - Support for both LDAP and local authentication systems
+- **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations
+- **Ticketing System Integration** - Automatically feed your ticketing system with security findings
+- **Comprehensive Admin Interface** - Manage all aspects of Watcher through Django's powerful admin panel
+- **Advanced Access Control** - Granular user permissions and group management for team collaboration
+- **Modern UI Experience** - A modern interface with customizable themes, resizable dashboard panels, advanced filtering with saved filter sets, and persistent user preferences
 
 ## Involved dependencies
 
 Watcher leverages open source tools and libraries:
-- [**Hugging Face Transformers**](https://huggingface.co/docs/transformers) — AI/ML framework powering threat intelligence summarization and entity extraction
-- [**google/flan-t5-base**](https://huggingface.co/google/flan-t5-base) — Text-to-text generation model for AI-powered threat summaries
-- [**dslim/bert-base-NER**](https://huggingface.co/dslim/bert-base-NER) — Named Entity Recognition for automatic IOC extraction
-- [**certstream**](https://github.com/CaliDog/certstream-python) — Certificate Transparency monitoring
-- [**dnstwist**](https://github.com/elceef/dnstwist) — Domain name permutation engine
-- [**SearxNG**](https://github.com/searxng/searxng) — Privacy-respecting metasearch engine
-- [**PyMISP**](https://github.com/MISP/PyMISP) — MISP threat intelligence platform integration
-- [**TLSH**](https://github.com/trendmicro/tlsh) — Fuzzy hashing for content similarity detection
-- [**shadow-useragent**](https://github.com/lobstrio/shadow-useragent) — User-Agent rotation library
-- [**NLTK**](https://www.nltk.org/) — Natural Language Toolkit for text processing
+- [**Hugging Face Transformers**](https://huggingface.co/docs/transformers) - AI/ML framework powering threat intelligence summarization and entity extraction
+- [**google/flan-t5-base**](https://huggingface.co/google/flan-t5-base) - Text-to-text generation model for AI-powered threat summaries
+- [**dslim/bert-base-NER**](https://huggingface.co/dslim/bert-base-NER) - Named Entity Recognition for automatic IOC extraction
+- [**certstream**](https://github.com/CaliDog/certstream-python) - Certificate Transparency monitoring
+- [**dnstwist**](https://github.com/elceef/dnstwist) - Domain name permutation engine
+- [**SearxNG**](https://github.com/searxng/searxng) - Privacy-respecting metasearch engine
+- [**PyMISP**](https://github.com/MISP/PyMISP) - MISP threat intelligence platform integration
+- [**TLSH**](https://github.com/trendmicro/tlsh) - Fuzzy hashing for content similarity detection
+- [**shadow-useragent**](https://github.com/lobstrio/shadow-useragent) - User-Agent rotation library
+- [**NLTK**](https://www.nltk.org/) - Natural Language Toolkit for text processing
 
 ## App Preview
 

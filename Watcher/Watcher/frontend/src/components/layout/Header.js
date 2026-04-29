@@ -203,6 +203,17 @@ const UserDropdown = ({ user, logout }) => {
     );
 };
 
+const PAGE_TITLES = {
+    '/':                   'Watcher',
+    '/legitimate_domains': 'Legitimate Domains - Watcher',
+    '/cyber_watch':        'Cyber Watch - Watcher',
+    '/data_leak':          'Data Leak - Watcher',
+    '/website_monitoring': 'Website Monitoring - Watcher',
+    '/dns_finder':         'Twisted DNS Finder - Watcher',
+    '/login':              'Login - Watcher',
+    '/password_change':    'Password Change - Watcher',
+};
+
 export class Header extends Component {
     static propTypes = {
         auth: PropTypes.object.isRequired,
@@ -210,6 +221,21 @@ export class Header extends Component {
         location: PropTypes.object.isRequired,
         history: PropTypes.object.isRequired
     };
+
+    updateTitle() {
+        const path = this.props.location.pathname;
+        document.title = PAGE_TITLES[path] || 'Watcher';
+    }
+
+    componentDidMount() {
+        this.updateTitle();
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.location.pathname !== this.props.location.pathname) {
+            this.updateTitle();
+        }
+    }
 
     handleLoginClick = (e) => {
         e.preventDefault();
@@ -286,6 +312,15 @@ export class Header extends Component {
                                     className={({ isActive }) => `nav-link ${isActive ? 'text-white fw-bold' : ''}`}
                                 >
                                     Legitimate Domains
+                                </NavLink>
+                            </li>
+                            <li className="nav-item">
+                                <NavLink
+                                    to="/cyber_watch"
+                                    replace
+                                    className={({ isActive }) => `nav-link ${isActive ? 'text-white fw-bold' : ''}`}
+                                >
+                                    Cyber Watch
                                 </NavLink>
                             </li>
                             <li className="nav-item">

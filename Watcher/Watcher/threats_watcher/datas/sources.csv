@@ -1,222 +1,222 @@
-confident;url
-1;https://www.cybereason.com/blog/rss.xml
-2;https://www.acunetix.com/blog/feed/
-1;https://securityintelligence.com/news/feed/
-1;https://www.exabeam.com/feed/
-1;https://www.cylance.com/rss/GlobalCylanceThreatReport
-2;https://labs.withsecure.com/publications
-2;https://www.techtarget.com/searchsecurity/
-1;https://feeds.feedburner.com/nakedsecurity
-1;https://feeds.feedburner.com/ctovision
-1;https://cert.pl/en/rss.xml
-1;https://www.sentinelone.com/blog/feed/
-1;https://www.crowdstrike.com/blog/feed/
-1;https://www.ibm.com/blogs/security/feed/
-2;https://www.imperva.com/blog/feed/
-1;https://blog.qualys.com/feed
-1;https://blog.checkpoint.com/feed/
-3;https://duo.com/feed
-2;https://feeds.feedburner.com/cyberark
-1;https://unit42.paloaltonetworks.com/feed/
-2;https://blog.sucuri.net/feed
-3;https://www.kaspersky.com/blog/feed/
-1;https://www.veracode.com/blog/feed
-3;https://heimdalsecurity.com/blog/feed/
-1;https://blog.talosintelligence.com/rss/
-3;https://feeds.feedburner.com/TheSecurityLedger
-1;https://www.recordedfuture.com/feed
-3;https://blog.malwarebytes.com/feed/
-2;https://techcrunch.com/tag/cybersecurity/feed/
-3;https://itsecuritynews.info/feed/
-1;https://www.silicon.co.uk/category/security/feed
-3;https://www.techrepublic.com/rssfeeds/topic/security/
-3;https://www.securitynewspaper.com/feed/
-3;https://securityboulevard.com/feed/
-2;https://www.schneier.com/blog/atom.xml
-3;http://feeds.feedburner.com/TheHackersNews
-3;https://www.clearnetwork.com/feed/
-1;https://lab.wallarm.com/feed/
-1;https://www.cybersecuritycloudexpo.com/feed/
-1;https://www.empowerelearning.com/blog/feed/
-1;https://www.virtru.com/blog/rss.xml
-1;https://www.canarytrap.com/feed/
-1;https://www.ignyteplatform.com/feed/
-1;https://www.cyberpilot.io/cyberpilot-blog/rss.xml
-1;https://www.tsfactory.com/forums/blogs/category/infosec-digest/feed/
-1;https://www.idsalliance.org/feed/
-1;https://www.erdalozkaya.com/feed/
-1;https://be4sec.com/feed/
-1;https://wesecureapp.com/feed/
-1;https://dataprivacymanager.net/feed/
-1;https://www.vistainfosec.com/feed/
-1;https://www.cm-alliance.com/cybersecurity-blog/rss.xml
-2;https://any.run/cybersecurity-blog/feed/
-1;https://tacsecurity.com/feed/
-2;https://blog.entersoftsecurity.com/feed/
-1;https://www.cyberdb.co/blog/?utm_source=feedspot
-3;https://blog.securityinnovation.com/rss.xml
-1;https://socprime.com/feed/
-2;https://sectigostore.com/blog/feed/
-2;https://www.seqrite.com/blog/feed/
-3;https://www.webroot.com/blog/feed/
-3;https://blogs.quickheal.com/feed/
-1;https://www.acunetix.com/blog/?utm_source=feedspot
-3;https://www.scnsoft.com/blog/category/information-security/atom
-2;https://www.proofpoint.com/us/rss.xml
-2;https://www.nist.gov/blogs/cybersecurity-insights/rss.xml
-2;https://cyble.com/feed/
-3;https://olukaiiisosicyber.tech/f.atom
-3;https://www.zataz.com/feed/
-3;https://www.datasecuritybreach.fr/feed/
-3;https://www.undernews.fr/feed
-3;https://blog.knowbe4.com/rss.xml
-2;https://www.malwarebytes.com/blog/feed/index.xml
-3;https://www.hackercombat.com/feed/
-1;https://www.helpnetsecurity.com/rss
-2;https://www.hackingarticles.in/feed/
-3;https://www.schneier.com/feed/
-2;https://www.welivesecurity.com/en/rss/feed/
-1;https://isc.sans.edu/xml.html
-3;https://cybersguards.com/feed/
-2;https://www.kb.cert.org/vuls/atomfeed/
-2;https://www.schneier.com/feed/atom/
-2;http://schneier.com/blog/atom.xml
-2;https://www.welivesecurity.com/feed/
-2;https://www.incibe-cert.es/feed/avisos-seguridad/all
-1;https://www.cert.ssi.gouv.fr/ioc/feed/
-1;https://www.cert.ssi.gouv.fr/cti/feed/
-1;https://nakedsecurity.sophos.com/feed/
-2;https://www.jpcert.or.jp/english/rss/jpcert-en.rdf
-1;https://www.kb.cert.org/vuls/atomfeed
-1;https://isc.sans.edu/rssfeed.xml
-1;https://linuxsecurity.com/linuxsecurity_articles.xml
-2;https://www.debian.org/security/dsa
-1;https://alas.aws.amazon.com/alas.rss
-2;https://feeds.feedburner.com/feedburner/Talos?format=xml
-1;https://www.cert.ssi.gouv.fr/alerte/feed/
-3;https://korben.info/feed
-1;https://www.bleepingcomputer.com/feed/
-1;https://krebsonsecurity.com/feed/
-2;https://blogs.vmware.com/security/rss
-3;https://www.infosecurity-magazine.com/rss/webinars/
-3;https://security.stackexchange.com/feeds
-2;https://www.phishlabs.com/feed/
-1;https://www.us-cert.gov/ncas/alerts.xml
-2;https://blog.cloudflare.com/rss/
-2;https://thehackernews.com/feeds/posts/default
-3;https://www.weforum.org/agenda/cybersecurity/feed/
-3;https://www.hackread.com/feed/
-3;https://www.computerweekly.com/rss/All-Computer-Weekly-content.xml
-3;https://www.cyberscoop.com/feed/
-3;https://www.infosecurity-magazine.com/rss/blogs/
-3;https://www.wired.com/feed/category/security/latest/rss
-3;https://www.cisomag.com/feed/
-3;https://securityparrot.com/feed/
-1;https://www.jbspeakr.cc/index.xml
-1;https://www.theguardian.com/technology/data-computer-security/rss
-2;https://www.secureblink.com/rss-feeds/threat-feed
-1;https://www.exploitone.com/feed/
-1;https://adamlevin.com/feed/
-2;https://www.tripwire.com/state-of-security/feed/
-1;http://securityaffairs.co/wordpress/feed
-2;https://blog.zonealarm.com/feed/
-3;https://www.computerworld.com/feed/
-3;https://medium.com/feed/@vaceituno
-3;https://davinciforensics.co.za/cybersecurity/feed/
-3;https://medium.com/feed/@2ndsightlab
-3;https://ventureinsecurity.net/feed
-1;https://cybersecuritynews.com/feed/
-1;https://www.cybersecuritydive.com/feeds/news/
-2;https://economictimes.indiatimes.com/tech/information-tech/rssfeeds/78570530.cms
-2;https://cybersecurityventures.com/feed/
-1;https://www.cyber.gov.au/rss/alerts
-2;https://thecyberexpress.com/feed/
-3;https://cio.economictimes.indiatimes.com/rss/internet
-3;https://cio.economictimes.indiatimes.com/rss/data-center
-3;https://cio.economictimes.indiatimes.com/rss/digital-security
-3;https://cio.economictimes.indiatimes.com/rss/next-gen-technologies
-2;https://www.securitymagazine.com/rss/topic/2236
-3;https://siecledigital.fr/cybersecurite/feed/
-3;https://www.itpro.com/feeds/tag/security
-3;https://www.homelandsecuritynewswire.com/topics/cybersecurity
-3;https://marcoramilli.com/feed/
-1;https://www.troyhunt.com/rss/
-3;https://www.securityweek.com/rss
-2;https://cybersafe.news/feed/
-3;https://www.govinfosecurity.com/rss-feeds
-2;https://www.cyberdefensemagazine.com/feed/
-1;https://www.securityweek.com/feed/
-1;https://www.cisa.gov/uscert/ics/advisories/advisories.xml
-1;https://www.cyber.gov.au/acsc/view-all-content/alerts/rss
-1;https://www.darkreading.com/rss.xml
-1;https://www.zdnet.com/blog/security/rss.xml
-1;https://securityaffairs.co/feed
-1;https://www.cyber.gov.au/acsc/view-all-content/advisories/rss
-1;https://www.theregister.com/security/headlines.atom
-1;https://www.cisa.gov/uscert/ncas/alerts.xml
-1;https://bsky.app/profile/cert-fr.bsky.social/rss
-1;https://bsky.app/profile/anssi-fr.bsky.social/rss
-1;https://bsky.app/profile/haveibeenpwned.com/rss
-1;https://bsky.app/profile/sekoia.io/rss
-1;https://bsky.app/profile/virusbtn.bsky.social/rss
-2;https://bsky.app/profile/falconfeedsio.bsky.social/rss
-2;https://bsky.app/profile/osintcombine.bsky.social/rss
-2;https://bsky.app/profile/cybdetective.bsky.social/rss
-2;https://bsky.app/profile/campuscodi.risky.biz/rss
-2;https://bsky.app/profile/vulnerability-lookup.social.circl.lu.ap.brid.gy/rss
-2;https://bsky.app/profile/infosec.skyfleet.blue/rss
-2;https://bsky.app/profile/cve.skyfleet.blue/rss
-2;https://bsky.app/profile/hackingne.ws/rss
-2;https://bsky.app/profile/ransomwaresommelier.com/rss
-2;https://bsky.app/profile/itarmy-ua.bsky.social/rss
-2;https://bsky.app/profile/hackread.bsky.social/rss
-3;https://bsky.app/profile/dinosn.bsky.social/rss
-3;https://bsky.app/profile/hacker.at.thenote.app/rss
-3;https://bsky.app/profile/keesnk.bsky.social/rss
-3;https://bsky.app/profile/headteacherupdate.bsky.social/rss
-3;https://bsky.app/profile/reconbee.bsky.social/rss
-3;https://bsky.app/profile/heitec.bsky.social/rss
-3;https://bsky.app/profile/happygeek.bsky.social/rss
-3;https://bsky.app/profile/ninjaowl.ai/rss
-3;https://bsky.app/profile/untersin.gr/rss
-3;https://bsky.app/profile/onyphe.io/rss
-3;https://bsky.app/profile/gabrielthierry.bsky.social/rss
-3;https://bsky.app/profile/derutyf.bsky.social/rss
-3;https://bsky.app/profile/cedricpernet.bsky.social/rss
-3;https://bsky.app/profile/undercodenews.bsky.social/rss
-3;https://bsky.app/profile/taltechtreks.com/rss
-3;https://bsky.app/profile/cyber-asia.bsky.social/rss
-3;https://bsky.app/profile/cti-news.bsky.social/rss
-3;https://bsky.app/profile/techhelpkb.bsky.social/rss
-3;https://bsky.app/profile/mbissey.bsky.social/rss
-3;https://bsky.app/profile/geekfeed.bsky.social/rss
-3;https://bsky.app/profile/seifreed.bsky.social/rss
-3;https://bsky.app/profile/rcinghio.bsky.social/rss
-3;https://bsky.app/profile/technadu.com/rss
-3;https://bsky.app/profile/innovirtuoso.bsky.social/rss
-3;https://bsky.app/profile/pearswick.press/rss
-3;https://bsky.app/profile/peter-ruairc.bsky.social/rss
-3;https://bsky.app/profile/lorenzofb.bsky.social/rss
-3;https://bsky.app/profile/technijian.bsky.social/rss
-1;http://www.cerist.dz/index.php/en/?format=feed&type=rss
-1;https://cert.at/cert-at.en.blog.rss_2.0.xml
-1;https://cert.be/en/rss
-1;https://cyber.gc.ca/webservice/en/rss/alerts
-1;https://cyber.gc.ca/webservice/en/rss/news
-1;https://www.egcert.eg/feed/
-1;https://www.kyberturvallisuuskeskus.fi/feed/rss/en
-1;https://www.kyberturvallisuuskeskus.fi/sites/default/files/rss/news.xml
-1;https://www.kyberturvallisuuskeskus.fi/sites/default/files/rss/vulns.xml
-1;https://www.kyberturvallisuuskeskus.fi/feed/rss/en/399
-1;https://www.govcert.gov.hk/en/rss_security_alerts.xml
-1;https://www.hkcert.org/getrss/security-bulletin
-1;https://www.jpcert.or.jp/english/rss/jpcert-en.rdf
-1;https://blogs.jpcert.or.jp/en/atom.xml
-1;https://cert.lv/en/feed/rss/all
-1;https://feeds.english.ncsc.nl/news.rss
-1;https://www.cert.si/en/category/news/feed/
-1;https://www.ccn-cert.cni.es/component/obrss/rss-ultimas-vulnerabilidades.feed
-1;https://www.govcert.ch/blog/rss.xml
-1;https://www.govcert.ch/whitepapers/rss.xml
-1;https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml
-1;https://www.cisa.gov/uscert/ncas/all.xml
+confident;url;country;country_code
+1;https://www.cybereason.com/blog/rss.xml;United States;US
+2;https://www.acunetix.com/blog/feed/;United States;US
+1;https://securityintelligence.com/news/feed/;United States;US
+1;https://www.exabeam.com/feed/;United States;US
+1;https://www.cylance.com/rss/GlobalCylanceThreatReport;United States;US
+2;https://labs.withsecure.com/publications;Finland;FI
+2;https://www.techtarget.com/searchsecurity/;United States;US
+1;https://feeds.feedburner.com/nakedsecurity;United States;US
+1;https://feeds.feedburner.com/ctovision;United States;US
+1;https://cert.pl/en/rss.xml;Poland;PL
+1;https://www.sentinelone.com/blog/feed/;United States;US
+1;https://www.crowdstrike.com/blog/feed/;United States;US
+1;https://www.ibm.com/blogs/security/feed/;United States;US
+2;https://www.imperva.com/blog/feed/;United States;US
+1;https://blog.qualys.com/feed;United States;US
+1;https://blog.checkpoint.com/feed/;Israel;IL
+3;https://duo.com/feed;United States;US
+2;https://feeds.feedburner.com/cyberark;United States;US
+1;https://unit42.paloaltonetworks.com/feed/;United States;US
+2;https://blog.sucuri.net/feed;United States;US
+3;https://www.kaspersky.com/blog/feed/;Russia;RU
+1;https://www.veracode.com/blog/feed;United States;US
+3;https://heimdalsecurity.com/blog/feed/;Denmark;DK
+1;https://blog.talosintelligence.com/rss/;United States;US
+3;https://feeds.feedburner.com/TheSecurityLedger;United States;US
+1;https://www.recordedfuture.com/feed;United States;US
+3;https://blog.malwarebytes.com/feed/;United States;US
+2;https://techcrunch.com/tag/cybersecurity/feed/;United States;US
+3;https://itsecuritynews.info/feed/;United States;US
+1;https://www.silicon.co.uk/category/security/feed;United Kingdom;GB
+3;https://www.techrepublic.com/rssfeeds/topic/security/;United States;US
+3;https://www.securitynewspaper.com/feed/;United States;US
+3;https://securityboulevard.com/feed/;United States;US
+2;https://www.schneier.com/blog/atom.xml;United States;US
+3;http://feeds.feedburner.com/TheHackersNews;United States;US
+3;https://www.clearnetwork.com/feed/;United States;US
+1;https://lab.wallarm.com/feed/;United States;US
+1;https://www.cybersecuritycloudexpo.com/feed/;United Kingdom;GB
+1;https://www.empowerelearning.com/blog/feed/;United States;US
+1;https://www.virtru.com/blog/rss.xml;United States;US
+1;https://www.canarytrap.com/feed/;United States;US
+1;https://www.ignyteplatform.com/feed/;United States;US
+1;https://www.cyberpilot.io/cyberpilot-blog/rss.xml;Denmark;DK
+1;https://www.tsfactory.com/forums/blogs/category/infosec-digest/feed/;United States;US
+1;https://www.idsalliance.org/feed/;United States;US
+1;https://www.erdalozkaya.com/feed/;Australia;AU
+1;https://be4sec.com/feed/;Belgium;BE
+1;https://wesecureapp.com/feed/;India;IN
+1;https://dataprivacymanager.net/feed/;Croatia;HR
+1;https://www.vistainfosec.com/feed/;United States;US
+1;https://www.cm-alliance.com/cybersecurity-blog/rss.xml;United Kingdom;GB
+2;https://any.run/cybersecurity-blog/feed/;United States;US
+1;https://tacsecurity.com/feed/;United States;US
+2;https://blog.entersoftsecurity.com/feed/;United States;US
+1;https://www.cyberdb.co/blog/?utm_source=feedspot;Israel;IL
+3;https://blog.securityinnovation.com/rss.xml;United States;US
+1;https://socprime.com/feed/;United States;US
+2;https://sectigostore.com/blog/feed/;United States;US
+2;https://www.seqrite.com/blog/feed/;India;IN
+3;https://www.webroot.com/blog/feed/;United States;US
+3;https://blogs.quickheal.com/feed/;India;IN
+1;https://www.acunetix.com/blog/?utm_source=feedspot;United States;US
+3;https://www.scnsoft.com/blog/category/information-security/atom;United States;US
+2;https://www.proofpoint.com/us/rss.xml;United States;US
+2;https://www.nist.gov/blogs/cybersecurity-insights/rss.xml;United States;US
+2;https://cyble.com/feed/;United States;US
+3;https://olukaiiisosicyber.tech/f.atom;Nigeria;NG
+3;https://www.zataz.com/feed/;France;FR
+3;https://www.datasecuritybreach.fr/feed/;France;FR
+3;https://www.undernews.fr/feed;France;FR
+3;https://blog.knowbe4.com/rss.xml;United States;US
+2;https://www.malwarebytes.com/blog/feed/index.xml;United States;US
+3;https://www.hackercombat.com/feed/;India;IN
+1;https://www.helpnetsecurity.com/rss;Slovenia;SI
+2;https://www.hackingarticles.in/feed/;India;IN
+3;https://www.schneier.com/feed/;United States;US
+2;https://www.welivesecurity.com/en/rss/feed/;Slovakia;SK
+1;https://isc.sans.edu/xml.html;United States;US
+3;https://cybersguards.com/feed/;United States;US
+2;https://www.kb.cert.org/vuls/atomfeed/;United States;US
+2;https://www.schneier.com/feed/atom/;United States;US
+2;http://schneier.com/blog/atom.xml;United States;US
+2;https://www.welivesecurity.com/feed/;Slovakia;SK
+2;https://www.incibe-cert.es/feed/avisos-seguridad/all;Spain;ES
+1;https://www.cert.ssi.gouv.fr/ioc/feed/;France;FR
+1;https://www.cert.ssi.gouv.fr/cti/feed/;France;FR
+1;https://nakedsecurity.sophos.com/feed/;United Kingdom;GB
+2;https://www.jpcert.or.jp/english/rss/jpcert-en.rdf;Japan;JP
+1;https://www.kb.cert.org/vuls/atomfeed;United States;US
+1;https://isc.sans.edu/rssfeed.xml;United States;US
+1;https://linuxsecurity.com/linuxsecurity_articles.xml;United States;US
+2;https://www.debian.org/security/dsa;United States;US
+1;https://alas.aws.amazon.com/alas.rss;United States;US
+2;https://feeds.feedburner.com/feedburner/Talos?format=xml;United States;US
+1;https://www.cert.ssi.gouv.fr/alerte/feed/;France;FR
+3;https://korben.info/feed;France;FR
+1;https://www.bleepingcomputer.com/feed/;United States;US
+1;https://krebsonsecurity.com/feed/;United States;US
+2;https://blogs.vmware.com/security/rss;United States;US
+3;https://www.infosecurity-magazine.com/rss/webinars/;United Kingdom;GB
+3;https://security.stackexchange.com/feeds;United States;US
+2;https://www.phishlabs.com/feed/;United States;US
+1;https://www.us-cert.gov/ncas/alerts.xml;United States;US
+2;https://blog.cloudflare.com/rss/;United States;US
+2;https://thehackernews.com/feeds/posts/default;India;IN
+3;https://www.weforum.org/agenda/cybersecurity/feed/;Switzerland;CH
+3;https://www.hackread.com/feed/;United Kingdom;GB
+3;https://www.computerweekly.com/rss/All-Computer-Weekly-content.xml;United Kingdom;GB
+3;https://www.cyberscoop.com/feed/;United States;US
+3;https://www.infosecurity-magazine.com/rss/blogs/;United Kingdom;GB
+3;https://www.wired.com/feed/category/security/latest/rss;United States;US
+3;https://www.cisomag.com/feed/;United States;US
+3;https://securityparrot.com/feed/;United States;US
+1;https://www.jbspeakr.cc/index.xml;United States;US
+1;https://www.theguardian.com/technology/data-computer-security/rss;United Kingdom;GB
+2;https://www.secureblink.com/rss-feeds/threat-feed;India;IN
+1;https://www.exploitone.com/feed/;United States;US
+1;https://adamlevin.com/feed/;United States;US
+2;https://www.tripwire.com/state-of-security/feed/;United States;US
+1;http://securityaffairs.co/wordpress/feed;Italy;IT
+2;https://blog.zonealarm.com/feed/;Israel;IL
+3;https://www.computerworld.com/feed/;United States;US
+3;https://medium.com/feed/@vaceituno;United States;US
+3;https://davinciforensics.co.za/cybersecurity/feed/;South Africa;ZA
+3;https://medium.com/feed/@2ndsightlab;United States;US
+3;https://ventureinsecurity.net/feed;United States;US
+1;https://cybersecuritynews.com/feed/;United States;US
+1;https://www.cybersecuritydive.com/feeds/news/;United States;US
+2;https://economictimes.indiatimes.com/tech/information-tech/rssfeeds/78570530.cms;India;IN
+2;https://cybersecurityventures.com/feed/;United States;US
+1;https://www.cyber.gov.au/rss/alerts;Australia;AU
+2;https://thecyberexpress.com/feed/;India;IN
+3;https://cio.economictimes.indiatimes.com/rss/internet;India;IN
+3;https://cio.economictimes.indiatimes.com/rss/data-center;India;IN
+3;https://cio.economictimes.indiatimes.com/rss/digital-security;India;IN
+3;https://cio.economictimes.indiatimes.com/rss/next-gen-technologies;India;IN
+2;https://www.securitymagazine.com/rss/topic/2236;United States;US
+3;https://siecledigital.fr/cybersecurite/feed/;France;FR
+3;https://www.itpro.com/feeds/tag/security;United Kingdom;GB
+3;https://www.homelandsecuritynewswire.com/topics/cybersecurity;United States;US
+3;https://marcoramilli.com/feed/;Italy;IT
+1;https://www.troyhunt.com/rss/;Australia;AU
+3;https://www.securityweek.com/rss;United States;US
+2;https://cybersafe.news/feed/;United States;US
+3;https://www.govinfosecurity.com/rss-feeds;United States;US
+2;https://www.cyberdefensemagazine.com/feed/;United States;US
+1;https://www.securityweek.com/feed/;United States;US
+1;https://www.cisa.gov/uscert/ics/advisories/advisories.xml;United States;US
+1;https://www.cyber.gov.au/acsc/view-all-content/alerts/rss;Australia;AU
+1;https://www.darkreading.com/rss.xml;United States;US
+1;https://www.zdnet.com/blog/security/rss.xml;United States;US
+1;https://securityaffairs.co/feed;Italy;IT
+1;https://www.cyber.gov.au/acsc/view-all-content/advisories/rss;Australia;AU
+1;https://www.theregister.com/security/headlines.atom;United Kingdom;GB
+1;https://www.cisa.gov/uscert/ncas/alerts.xml;United States;US
+1;https://bsky.app/profile/cert-fr.bsky.social/rss;France;FR
+1;https://bsky.app/profile/anssi-fr.bsky.social/rss;France;FR
+1;https://bsky.app/profile/haveibeenpwned.com/rss;Australia;AU
+1;https://bsky.app/profile/sekoia.io/rss;France;FR
+1;https://bsky.app/profile/virusbtn.bsky.social/rss;United Kingdom;GB
+2;https://bsky.app/profile/falconfeedsio.bsky.social/rss;India;IN
+2;https://bsky.app/profile/osintcombine.bsky.social/rss;United States;US
+2;https://bsky.app/profile/cybdetective.bsky.social/rss;Russia;RU
+2;https://bsky.app/profile/campuscodi.risky.biz/rss;Romania;RO
+2;https://bsky.app/profile/vulnerability-lookup.social.circl.lu.ap.brid.gy/rss;Luxembourg;LU
+2;https://bsky.app/profile/infosec.skyfleet.blue/rss;United States;US
+2;https://bsky.app/profile/cve.skyfleet.blue/rss;United States;US
+2;https://bsky.app/profile/hackingne.ws/rss;United States;US
+2;https://bsky.app/profile/ransomwaresommelier.com/rss;United States;US
+2;https://bsky.app/profile/itarmy-ua.bsky.social/rss;Ukraine;UA
+2;https://bsky.app/profile/hackread.bsky.social/rss;United Kingdom;GB
+3;https://bsky.app/profile/dinosn.bsky.social/rss;United States;US
+3;https://bsky.app/profile/hacker.at.thenote.app/rss;United States;US
+3;https://bsky.app/profile/keesnk.bsky.social/rss;Netherlands;NL
+3;https://bsky.app/profile/headteacherupdate.bsky.social/rss;United Kingdom;GB
+3;https://bsky.app/profile/reconbee.bsky.social/rss;United States;US
+3;https://bsky.app/profile/heitec.bsky.social/rss;Germany;DE
+3;https://bsky.app/profile/happygeek.bsky.social/rss;United Kingdom;GB
+3;https://bsky.app/profile/ninjaowl.ai/rss;United States;US
+3;https://bsky.app/profile/untersin.gr/rss;Greece;GR
+3;https://bsky.app/profile/onyphe.io/rss;France;FR
+3;https://bsky.app/profile/gabrielthierry.bsky.social/rss;France;FR
+3;https://bsky.app/profile/derutyf.bsky.social/rss;France;FR
+3;https://bsky.app/profile/cedricpernet.bsky.social/rss;France;FR
+3;https://bsky.app/profile/undercodenews.bsky.social/rss;United States;US
+3;https://bsky.app/profile/taltechtreks.com/rss;United States;US
+3;https://bsky.app/profile/cyber-asia.bsky.social/rss;United States;US
+3;https://bsky.app/profile/cti-news.bsky.social/rss;United States;US
+3;https://bsky.app/profile/techhelpkb.bsky.social/rss;United States;US
+3;https://bsky.app/profile/mbissey.bsky.social/rss;France;FR
+3;https://bsky.app/profile/geekfeed.bsky.social/rss;Japan;JP
+3;https://bsky.app/profile/seifreed.bsky.social/rss;Sweden;SE
+3;https://bsky.app/profile/rcinghio.bsky.social/rss;Italy;IT
+3;https://bsky.app/profile/technadu.com/rss;United States;US
+3;https://bsky.app/profile/innovirtuoso.bsky.social/rss;United States;US
+3;https://bsky.app/profile/pearswick.press/rss;United Kingdom;GB
+3;https://bsky.app/profile/peter-ruairc.bsky.social/rss;Ireland;IE
+3;https://bsky.app/profile/lorenzofb.bsky.social/rss;United States;US
+3;https://bsky.app/profile/technijian.bsky.social/rss;United States;US
+1;http://www.cerist.dz/index.php/en/?format=feed&type=rss;Algeria;DZ
+1;https://cert.at/cert-at.en.blog.rss_2.0.xml;Austria;AT
+1;https://cert.be/en/rss;Belgium;BE
+1;https://cyber.gc.ca/webservice/en/rss/alerts;Canada;CA
+1;https://cyber.gc.ca/webservice/en/rss/news;Canada;CA
+1;https://www.egcert.eg/feed/;Egypt;EG
+1;https://www.kyberturvallisuuskeskus.fi/feed/rss/en;Finland;FI
+1;https://www.kyberturvallisuuskeskus.fi/sites/default/files/rss/news.xml;Finland;FI
+1;https://www.kyberturvallisuuskeskus.fi/sites/default/files/rss/vulns.xml;Finland;FI
+1;https://www.kyberturvallisuuskeskus.fi/feed/rss/en/399;Finland;FI
+1;https://www.govcert.gov.hk/en/rss_security_alerts.xml;Hong Kong;HK
+1;https://www.hkcert.org/getrss/security-bulletin;Hong Kong;HK
+1;https://www.jpcert.or.jp/english/rss/jpcert-en.rdf;Japan;JP
+1;https://blogs.jpcert.or.jp/en/atom.xml;Japan;JP
+1;https://cert.lv/en/feed/rss/all;Latvia;LV
+1;https://feeds.english.ncsc.nl/news.rss;Netherlands;NL
+1;https://www.cert.si/en/category/news/feed/;Slovenia;SI
+1;https://www.ccn-cert.cni.es/component/obrss/rss-ultimas-vulnerabilidades.feed;Spain;ES
+1;https://www.govcert.ch/blog/rss.xml;Switzerland;CH
+1;https://www.govcert.ch/whitepapers/rss.xml;Switzerland;CH
+1;https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml;United Kingdom;GB
+1;https://www.cisa.gov/uscert/ncas/all.xml;United States;US

@@ -199,50 +199,71 @@ def perform_single_rdap_lookup(domain):
     """
     try:
         rdap = RDAPDiscovery(domain.domain_name)
-        
-        if rdap.fetch_rdap_data():
-            registrar = rdap.get_registrar()
-            expiration_date = rdap.get_expiration_date()
-            registration_date = rdap.get_registration_date()
-            
-            updated = False
-            update_info = []
-            old_legitimacy = domain.legitimacy
-            
-            # Process registrar information
-            if registrar:
-                domain.registrar = registrar
-                updated = True
-                update_info.append(f"registrar='{registrar}' (RDAP)")
-                
-                # Auto-update legitimacy based on registration status
-                if domain.auto_update_legitimacy_on_registration():
-                    update_info.append(f"legitimacy: {old_legitimacy} → {domain.legitimacy} (now registered)")
-                    logger.info(f"Auto-updated legitimacy for {domain.domain_name}: available/disabled → registered")
-            
-            if expiration_date:
-                domain.domain_expiry = expiration_date
-                updated = True
-                update_info.append(f"domain_expiry='{expiration_date}' (RDAP)")
-            
-            if registration_date:
-                domain.domain_created_at = registration_date
-                updated = True
-                update_info.append(f"domain_created_at='{registration_date}' (RDAP)")
-            
-            if updated:
-                domain.save()
-                logger.info(f"Successfully updated RDAP data for {domain.domain_name}: {', '.join(update_info)}")
-                return True
-            else:
-                logger.info(f"No RDAP data found for domain {domain.domain_name}, falling back to WHOIS")
-                return perform_single_whois_lookup(domain)
-        else:
-            logger.info(f"RDAP lookup failed for domain {domain.domain_name}, falling back to WHOIS")
+
+        if not rdap.fetch_rdap_data():
+            if rdap.domain_not_registered:
+                logger.debug(
+                    f"{domain.domain_name} is not registered "
+                    f"(confirmed by RDAP) - skipping WHOIS"
+                )
+                return False
+
             return perform_single_whois_lookup(domain)
-            
-    except Exception as e:
-        logger.error(f"Error processing RDAP lookup for {domain.domain_name}: {str(e)}, falling back to WHOIS")
+
+        registrar = rdap.get_registrar()
+        expiration_date = rdap.get_expiration_date()
+        registration_date = rdap.get_registration_date()
+
+        updated = False
+        update_info = []
+        old_legitimacy = domain.legitimacy
+
+        if registrar:
+            domain.registrar = registrar
+            updated = True
+            update_info.append(f"registrar='{registrar}' (RDAP)")
+
+            if domain.auto_update_legitimacy_on_registration():
+                update_info.append(
+                    f"legitimacy: {old_legitimacy} → {domain.legitimacy}"
+                    f" (now registered)"
+                )
+                logger.info(
+                    f"Auto-updated legitimacy for {domain.domain_name}: "
+                    f"available/disabled → registered"
+                )
+
+        if expiration_date:
+            domain.domain_expiry = expiration_date
+            updated = True
+            update_info.append(f"domain_expiry='{expiration_date}' (RDAP)")
+
+        if registration_date:
+            domain.domain_created_at = registration_date
+            updated = True
+            update_info.append(
+                f"domain_created_at='{registration_date}' (RDAP)"
+            )
+
+        if updated:
+            domain.save()
+            logger.info(
+                f"Successfully updated RDAP data for {domain.domain_name}: "
+                f"{', '.join(update_info)}"
+            )
+            return True
+
+        logger.debug(
+            f"No usable RDAP fields for {domain.domain_name}, "
+            f"falling back to WHOIS"
+        )
+        return perform_single_whois_lookup(domain)
+
+    except Exception as exc:
+        logger.error(
+            f"Error processing RDAP lookup for {domain.domain_name}: {exc}, "
+            f"falling back to WHOIS"
+        )
         return perform_single_whois_lookup(domain)
 
 

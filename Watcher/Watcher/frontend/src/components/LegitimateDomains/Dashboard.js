@@ -1,11 +1,19 @@
 import React, { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { getLegitimateDomains } from '../../actions/LegitimateDomain';
-import LegitimateDomains from './LegitimateDomains';
+import { getLegitimateDomains, getLegitimateDomainsBatch } from '../../actions/LegitimateDomain';
 import LegitimateStats from './LegitimateStats';
+import LegitimateDomains from './LegitimateDomains';
+import PanelGrid from '../common/PanelGrid';
 import store from "../../store";
 import {setIsPasswordChanged} from "../../actions/auth";
+
+const DEFAULT_LAYOUT = [
+    { i: 'stats',   x: 0, y: 0, w: 12, h: 9,  minW: 2, minH: 3 },
+    { i: 'domains', x: 0, y: 3, w: 12, h: 11, minW: 5, minH: 6 },
+];
+
+const DEFAULT_ACTIVE = ['stats', 'domains'];
 
 class Dashboard extends Component {
     static propTypes = {
@@ -14,6 +22,7 @@ class Dashboard extends Component {
         domainsCount: PropTypes.number,
         domainsNext: PropTypes.string,
         getLegitimateDomains: PropTypes.func.isRequired,
+        getLegitimateDomainsBatch: PropTypes.func.isRequired,
     };
 
     constructor(props) {
@@ -46,49 +55,48 @@ class Dashboard extends Component {
         }
     };
 
-    loadRemainingDomainsInBackground = async () => {
-        const { domainsNext } = this.props;
-        
-        if (!domainsNext) {
-            return;
-        }
-
-        try {
-            let currentPage = 2;
-            let hasMore = true;
-
-            while (hasMore) {
-                try {
-                    const response = await this.props.getLegitimateDomains(currentPage, 100);
-                    hasMore = response.next !== null;
-                    currentPage++;
-
-                    if (hasMore) {
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                    }
-                } catch (error) {
-                    hasMore = false;
-                }
-            }
-        } catch (error) {
+    loadRemainingDomainsInBackground = () => {
+        if (this.props.domainsNext) {
+            this.props.getLegitimateDomainsBatch(2, 100);
         }
     };
 
-    onDataFiltered = (filteredData) => {
-        this.setState({ filteredDomains: filteredData });
+    onDataFiltered = (filteredDomains) => {
+        this.setState({ filteredDomains });
     };
+
+    buildPanels() {
+        return {
+            stats: {
+                label: 'Statistics',
+                icon: 'bar_chart',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <LegitimateStats />
+                    </div>
+                ),
+            },
+            domains: {
+                label: 'Legitimate Domains',
+                icon: 'domain',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <LegitimateDomains onDataFiltered={this.onDataFiltered} />
+                    </div>
+                ),
+            },
+        };
+    }
 
     render() {
         return (
             <Fragment>
-                <div className="container-fluid mt-3">
-                    <div className="row">
-                        <div className="col-lg-12">
-                            <LegitimateStats />
-                            <LegitimateDomains onDataFiltered={this.onDataFiltered} />
-                        </div>
-                    </div>
-                </div>
+                <PanelGrid
+                    panels={this.buildPanels()}
+                    defaultLayout={DEFAULT_LAYOUT}
+                    defaultActive={DEFAULT_ACTIVE}
+                    storageKey="watcher_legitimate_domains_grid"
+                />
             </Fragment>
         );
     }
@@ -102,5 +110,6 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
-    getLegitimateDomains
+    getLegitimateDomains,
+    getLegitimateDomainsBatch,
 })(Dashboard);
