@@ -20,7 +20,7 @@ FROM node:18-bookworm-slim AS frontend-builder
 
 WORKDIR /frontend
 
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
 
 COPY . .
