@@ -39,6 +39,6 @@ shadow-useragent==0.0.17
 pymisp==2.5.17.3
 
 # NER-BERT model
-transformers==4.36.0
+transformers==5.0.0rc3
 tokenizers>=0.15.2
 numpy==1.26.4
