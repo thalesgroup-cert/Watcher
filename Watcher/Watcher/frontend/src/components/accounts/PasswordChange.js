@@ -76,7 +76,7 @@ export class PasswordChange extends Component {
                                             variant="primary"
                                             disabled={(password !== confirmed_password) || password === "" || confirmed_password === "" || old_password === ""}
                                         >
-                                            Change Password
+                                            Password Change
                                         </Button>
                                     </div>
                                 </Form>

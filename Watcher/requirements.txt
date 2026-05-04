@@ -42,4 +42,7 @@ pymisp==2.5.17.3
 # NER-BERT model
 transformers==4.36.0
 tokenizers>=0.15.2
+
+# OIDC / SSO
+mozilla-django-oidc>=5.0.0
 numpy==1.26.4

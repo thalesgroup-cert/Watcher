@@ -22,10 +22,11 @@ import NotFound from './common/NotFound';
 import AlertTemplate from "./common/AlertTemplate";
 
 import PrivateRoute from "./common/PrivateRoute";
+import Profile from "./accounts/Profile";
 
 import {Provider} from 'react-redux';
 import store from "../store";
-import {loadUser} from "../actions/auth";
+import {loadUser, loginWithToken} from "../actions/auth";
 import { ThemeProvider } from '../contexts/ThemeContext';
 
 // Alert Options
@@ -91,7 +92,14 @@ function ScrollToTopButton() {
 
 class App extends Component {
     componentDidMount() {
-        store.dispatch(loadUser());
+        const params = new URLSearchParams(window.location.search);
+        const ssoToken = params.get('sso_token');
+        if (ssoToken) {
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+            store.dispatch(loginWithToken(ssoToken));
+        } else {
+            store.dispatch(loadUser());
+        }
     }
 
     render() {
@@ -108,6 +116,7 @@ class App extends Component {
                                         <Route exact path="/" component={Dashboard}/>
                                         <Route exact path="/login" component={Login}/>
                                         <PrivateRoute exact path="/password_change" component={PasswordChange}/>
+                                        <PrivateRoute exact path="/profile" component={Profile}/>
                                         <Route exact path="/legitimate_domains" component={LegitimateDomainsDashboard}/>
                                         <PrivateRoute exact path="/data_leak" component={DataLeakDashboard}/>
                                         <PrivateRoute exact path="/website_monitoring" component={SiteMonitoringDashboard}/>

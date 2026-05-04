@@ -39,6 +39,7 @@ AUTH_LDAP_USER_ATTR_MAP = {
 
 AUTHENTICATION_BACKENDS = (
     "django_auth_ldap.backend.LDAPBackend",
+    "accounts.oidc.WatcherOIDCBackend",
     "django.contrib.auth.backends.ModelBackend",
 )
 
@@ -183,6 +184,7 @@ INSTALLED_APPS = [
     'import_export',
     'cyber_watch',
     'drf_spectacular',
+    'mozilla_django_oidc',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -244,6 +246,25 @@ TEMPLATES = [
         },
     },
 ]
+
+# OIDC / SSO
+# Enable SSO login via an OpenID Connect provider.
+OIDC_ENABLED = os.environ.get('OIDC_ENABLED', 'False') == 'True'
+OIDC_COMPANY_NAME = os.environ.get('OIDC_COMPANY_NAME', '')
+OIDC_RP_CLIENT_ID = os.environ.get('OIDC_RP_CLIENT_ID', '')
+OIDC_RP_CLIENT_SECRET = os.environ.get('OIDC_RP_CLIENT_SECRET', '')
+OIDC_OP_AUTHORIZATION_ENDPOINT = os.environ.get('OIDC_OP_AUTHORIZATION_ENDPOINT', '')
+OIDC_OP_TOKEN_ENDPOINT = os.environ.get('OIDC_OP_TOKEN_ENDPOINT', '')
+OIDC_OP_USER_ENDPOINT = os.environ.get('OIDC_OP_USER_ENDPOINT', '')
+OIDC_OP_JWKS_ENDPOINT = os.environ.get('OIDC_OP_JWKS_ENDPOINT', '')
+OIDC_OP_ISSUER = os.environ.get('OIDC_OP_ISSUER', '')
+OIDC_RP_SIGN_ALGO = 'RS256'
+OIDC_RP_SCOPES = 'openid email profile'
+OIDC_USE_PKCE = True
+OIDC_STORE_ACCESS_TOKEN = False
+OIDC_STORE_ID_TOKEN = False
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 
 WSGI_APPLICATION = 'watcher.wsgi.application'
 

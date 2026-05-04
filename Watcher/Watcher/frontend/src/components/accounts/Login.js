@@ -35,6 +35,17 @@ export class Login extends Component {
             <div className="col-md-6 m-auto">
                 <div className="card card-body mt-5">
                     <h2 className="text-center">Login</h2>
+                    <div className="mb-3">
+                        <a
+                            href={window.OIDC_ENABLED ? "/api/auth/oidc/login/" : "#"}
+                            className={`btn btn-outline-primary w-100${window.OIDC_ENABLED ? '' : ' disabled'}`}
+                            style={window.OIDC_ENABLED ? {} : {opacity: 0.5, pointerEvents: 'none'}}
+                        >
+                            <i className="material-icons me-1 align-middle" style={{fontSize: 18, verticalAlign: 'middle'}}>vpn_key</i>
+                            {' '}Sign in with {window.OIDC_COMPANY_NAME ? `${window.OIDC_COMPANY_NAME} SSO` : 'SSO'}
+                        </a>
+                    </div>
+                    <div className="text-center text-muted mb-3" style={{fontSize: 12}}>OR</div>
                     <form onSubmit={this.onSubmit}>
                         <div className="mb-3">
                             <label>Username</label>

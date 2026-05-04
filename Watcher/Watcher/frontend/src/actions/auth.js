@@ -125,6 +125,16 @@ export const passwordChange = (old_password, password) => (dispatch, getState) =
         });
 };
 
+// LOGIN WITH SSO TOKEN (from OIDC callback redirect)
+export const loginWithToken = (token) => (dispatch) => {
+    localStorage.setItem('token', token);
+    dispatch({
+        type: LOGIN_SUCCESS,
+        payload: { token }
+    });
+    dispatch(loadUser());
+};
+
 export const setIsPasswordChanged = () => (dispatch) => {
     dispatch({type: IS_PASSWORD_CHANGED});
 };

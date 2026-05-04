@@ -138,9 +138,9 @@ class LegitimateStats extends Component {
         const lifecycleChartData = {
             labels: monthLabels,
             datasets: [
-                { label: 'Registered',       data: registeredCounts, backgroundColor: C.info.faded,    hoverBackgroundColor: C.info.hover,    borderWidth: 0 },
-                { label: 'Added to Watcher', data: addedCounts,      backgroundColor: C.primary.faded, hoverBackgroundColor: C.primary.hover, borderWidth: 0 },
-                { label: 'Expiring',         data: expiringCounts,   backgroundColor: C.warning.faded, hoverBackgroundColor: C.warning.hover, borderWidth: 0 },
+                { label: 'Registered',       data: registeredCounts, backgroundColor: C.info.faded,    hoverBackgroundColor: C.info.hover,    borderWidth: 0, barPercentage: 0.7, categoryPercentage: 0.85 },
+                { label: 'Added to Watcher', data: addedCounts,      backgroundColor: C.primary.faded, hoverBackgroundColor: C.primary.hover, borderWidth: 0, barPercentage: 0.7, categoryPercentage: 0.85 },
+                { label: 'Expiring',         data: expiringCounts,   backgroundColor: C.warning.faded, hoverBackgroundColor: C.warning.hover, borderWidth: 0, barPercentage: 0.7, categoryPercentage: 0.85 },
             ],
         };
         const lifecycleOptions = {
@@ -148,7 +148,7 @@ class LegitimateStats extends Component {
             legend: { display: true, position: 'bottom', labels: { fontColor: '#858796', padding: 12, boxWidth: 12, fontSize: 11 } },
             tooltips: { mode: 'index', intersect: false, bodyFontColor: '#fff', backgroundColor: 'rgba(0,0,0,0.8)' },
             scales: {
-                xAxes: [{ ticks: { fontColor: '#858796', fontSize: 10 }, gridLines: { display: false }, barPercentage: 0.7, categoryPercentage: 0.85 }],
+                xAxes: [{ ticks: { fontColor: '#858796', fontSize: 10 }, gridLines: { display: false } }],
                 yAxes: [{ ticks: { beginAtZero: true, precision: 0, fontColor: '#858796' }, gridLines: { color: 'rgba(100,100,120,0.12)', drawBorder: false } }],
             },
         };

@@ -3,7 +3,7 @@ import { Link, NavLink, withRouter } from "react-router-dom";
 import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { logout } from "../../actions/auth";
-import { useTheme } from "../../contexts/ThemeContext";
+
 
 
 function positionMenuUnderButton(button, menu, gap = 6) {
@@ -43,8 +43,7 @@ function positionMenuUnderButton(button, menu, gap = 6) {
     menu.style.visibility = originalVisibility;
 }
 
-const ThemeSelector = () => {
-    const { currentTheme, availableThemes, changeTheme } = useTheme();
+const HelpButton = () => {
     const [isOpen, setIsOpen] = React.useState(false);
     const buttonRef = useRef(null);
     const menuRef = useRef(null);
@@ -52,7 +51,6 @@ const ThemeSelector = () => {
     const handleToggle = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
         if (!isOpen && buttonRef.current && menuRef.current) {
             positionMenuUnderButton(buttonRef.current, menuRef.current);
         }
@@ -66,84 +64,44 @@ const ThemeSelector = () => {
                 setIsOpen(false);
             }
         };
-
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
 
     return (
         <div className="btn-group position-relative me-2">
-            <button 
+            <button
                 ref={buttonRef}
                 className="btn btn-secondary dropdown-toggle ms-2"
-                type="button" 
+                type="button"
                 onClick={handleToggle}
-                aria-haspopup="true" 
+                title="Help"
+                aria-haspopup="true"
                 aria-expanded={isOpen}
             >
-                <i className="material-icons me-1 align-middle small">brush</i>
-                <span className="align-middle">{availableThemes[currentTheme].name}</span>
+                <i className="material-icons align-middle small">help_outline</i>
             </button>
-            <div 
-                ref={menuRef}
-                className={`dropdown-menu shadow-lg border-0 ${isOpen ? 'show' : ''}`}
-                style={{ minWidth: '280px' }}
-            >
-                <div className="dropdown-header d-flex align-items-center">
-                    <i className="material-icons me-2 small text-secondary">color_lens</i>
-                    <strong>Choose Theme</strong>
-                </div>
-                <div className="dropdown-divider"></div>
-                {Object.entries(availableThemes).map(([key, theme]) => (
-                    <div
-                        key={key}
-                        className={`dropdown-item ${currentTheme === key ? 'active' : ''} p-3 ${currentTheme === key ? '' : 'border-bottom'}`}
-                        onClick={() => {
-                            changeTheme(key);
-                            setIsOpen(false);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                    >
-                        <div className="d-flex align-items-center">
-                            <div className="me-3" style={{ minWidth: '100px' }}>
-                                <img 
-                                    src={`/static/img/themes/${key}-preview.png`}
-                                    alt={`${theme.name} preview`}
-                                    className={`rounded ${currentTheme === key ? 'border border-primary border-2' : 'border'}`}
-                                    style={{ 
-                                        width: '100px', 
-                                        height: '60px', 
-                                        objectFit: 'cover'
-                                    }}
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
-                            </div>
-                            
-                            <div className="flex-grow-1">
-                                <div className={`${currentTheme === key ? 'fw-bold' : ''} small mb-1`}>
-                                    {theme.name}
-                                    {currentTheme === key && (
-                                        <i className="material-icons ms-2 text-primary align-middle" style={{ fontSize: 16 }}>
-                                            check_circle
-                                        </i>
-                                    )}
-                                </div>
-                                <div className={`small ${currentTheme === key ? 'text-white-50' : 'text-muted'}`}>
-                                    {theme.description}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                <div className="dropdown-divider"></div>
-                <div className="dropdown-item-text text-center text-muted small p-2">
-                    <i className="material-icons me-1 align-middle" style={{ fontSize: 12 }}>info</i>
-                    Theme preference is saved automatically
-                </div>
+            <div ref={menuRef} className={`dropdown-menu dropdown-menu-end ${isOpen ? 'show' : ''}`} style={{ minWidth: 200 }}>
+                <a
+                    className="dropdown-item"
+                    href="https://thalesgroup-cert.github.io/Watcher/README.html#api-key-creation-management"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setIsOpen(false)}
+                >
+                    <i className="material-icons me-2 align-middle small">article</i>
+                    API Docs
+                </a>
+                <a
+                    className="dropdown-item"
+                    href="https://github.com/thalesgroup-cert/Watcher"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setIsOpen(false)}
+                >
+                    <i className="material-icons me-2 align-middle small">info</i>
+                    About Watcher
+                </a>
             </div>
         </div>
     );
@@ -194,6 +152,11 @@ const UserDropdown = ({ user, logout }) => {
                 </span>
             </button>
             <div ref={menuRef} className={`dropdown-menu dropdown-menu-end ${isOpen ? 'show' : ''}`}>
+                <Link className="dropdown-item" to="/profile" onClick={() => setIsOpen(false)}>
+                    <i className="material-icons me-2 align-middle small">person</i>
+                    My Profile
+                </Link>
+                <div className="dropdown-divider"></div>
                 <button className="dropdown-item" onClick={() => { logout(); setIsOpen(false); }}>
                     <i className="material-icons me-2 align-middle small">logout</i>
                     Logout
@@ -212,6 +175,7 @@ const PAGE_TITLES = {
     '/dns_finder':         'Twisted DNS Finder - Watcher',
     '/login':              'Login - Watcher',
     '/password_change':    'Password Change - Watcher',
+    '/profile':             'My Profile - Watcher',
 };
 
 export class Header extends Component {
@@ -253,12 +217,7 @@ export class Header extends Component {
         const authLinks = (
             <Fragment>
                 <li className="nav-item">
-                    <Link to="/password_change" className="nav-link" replace>
-                        Password Change
-                    </Link>
-                </li>
-                <li className="nav-item">
-                    <ThemeSelector />
+                    <HelpButton />
                 </li>
                 <li className="nav-item">
                     <UserDropdown user={user} logout={this.props.logout} />
@@ -269,12 +228,12 @@ export class Header extends Component {
         const guestLinks = (
             <Fragment>
                 <li className="nav-item">
+                    <HelpButton />
+                </li>
+                <li className="nav-item">
                     <a href="#" className="nav-link" onClick={this.handleLoginClick}>
                         Login
                     </a>
-                </li>
-                <li className="nav-item">
-                    <ThemeSelector />
                 </li>
             </Fragment>
         );

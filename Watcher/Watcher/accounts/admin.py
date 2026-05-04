@@ -4,7 +4,7 @@ from django.utils.html import escape
 from django.urls import reverse, NoReverseMatch
 from django.contrib.auth.models import User
 from django.utils.safestring import mark_safe
-from .models import APIKey
+from .models import APIKey, UserProfile
 from .api import generate_api_key
 from django.contrib import messages
 from django import forms
@@ -307,4 +307,121 @@ class AuthTokenAdmin(admin.ModelAdmin):
         return False
  
 admin.site.unregister(AuthToken)
+
+
+THEME_CHOICES = [
+    ('bootstrap', 'Watcher Default'),
+    ('flatly', 'Flatly'),
+    ('cosmo', 'Cosmo'),
+    ('lux', 'Lux'),
+    ('minty', 'Minty'),
+    ('morph', 'Morph'),
+    ('sandstone', 'Sandstone'),
+    ('united', 'United'),
+    ('yeti', 'Yeti'),
+    ('cyborg', 'Cyborg'),
+    ('darkly', 'Darkly'),
+    ('slate', 'Slate'),
+    ('solar', 'Solar'),
+    ('superhero', 'Superhero'),
+    ('brite', 'Brite'),
+]
+
+MODULE_LAYOUT_LABELS = {
+    'watcher_threats_grid':            'Threats Watcher',
+    'watcher_dataleak_grid':           'Data Leak',
+    'watcher_dns_finder_grid':         'DNS Finder',
+    'watcher_site_monitoring_grid':    'Site Monitoring',
+    'watcher_cyber_watch_grid':        'Cyber Watch',
+    'watcher_legitimate_domains_grid': 'Legitimate Domains',
+}
+
+_PANEL_ICONS = {
+    'stats': '📊', 'alerts': '🔔', 'patterns': '🔍', 'archived': '📁',
+    'cloud': '☁️', 'words': '📝', 'map': '🗺️', 'victims': '👥',
+    'cve': '🛡️', 'trend': '📈', 'dns': '🌐', 'keywords': '🔑',
+    'sites': '🌍', 'monitored': '👁️', 'watchrules': '📋',
+    'sources': '📡', 'banned': '🚫', 'domains': '🔗',
+}
+
+
+class UserProfileAdminForm(forms.ModelForm):
+    theme = forms.ChoiceField(choices=THEME_CHOICES, required=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ('user', 'theme', 'preferences')
+        widgets = {
+            'preferences': forms.Textarea(attrs={'rows': 10, 'style': 'font-family:monospace;font-size:12px;'}),
+        }
+
+
+def _render_layout_panel(title, layout):
+    """Render a miniature grid preview for admin."""
+    if not isinstance(layout, list):
+        return ''
+    max_x, max_y, max_w, max_h = 12, 0, 0, 0
+    for item in layout:
+        max_y = max(max_y, item.get('y', 0) + item.get('h', 1))
+    if max_y == 0:
+        return ''
+    scale_x, scale_y = 300 / 12, min(200 / max(max_y, 1), 8)
+    cells_html = ''
+    for item in layout:
+        left = item.get('x', 0) * scale_x
+        top = item.get('y', 0) * scale_y
+        width = item.get('w', 1) * scale_x - 2
+        height = item.get('h', 1) * scale_y - 2
+        label = item.get('i', '?')
+        icon = _PANEL_ICONS.get(label, '▪')
+        cells_html += (
+            f'<div style="position:absolute;left:{left:.1f}px;top:{top:.1f}px;'
+            f'width:{width:.1f}px;height:{height:.1f}px;background:#e8f0fe;border:1px solid #aac;'
+            f'border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;'
+            f'overflow:hidden;color:#334;font-weight:600;">'
+            f'{icon} {label}</div>'
+        )
+    return (
+        f'<div style="margin:6px 0 12px;"><strong style="font-size:12px;color:#555;">{title}</strong>'
+        f'<div style="position:relative;width:300px;height:{max_y * scale_y:.0f}px;'
+        f'background:#f8f9fa;border:1px solid #ccc;border-radius:4px;overflow:hidden;margin-top:4px;">'
+        f'{cells_html}</div></div>'
+    )
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    form = UserProfileAdminForm
+    list_display = ('user', 'theme', 'has_custom_layouts')
+    list_filter = ('theme',)
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('layout_previews',)
+
+    fieldsets = (
+        ('User', {'fields': ('user',)}),
+        ('Appearance', {'fields': ('theme',)}),
+        ('Layout Preferences (JSON)', {
+            'classes': ('collapse',),
+            'fields': ('preferences',),
+            'description': 'Raw JSON storage for panel layouts and saved filters.'
+        }),
+        ('Layout Previews', {'fields': ('layout_previews',)}),
+    )
+
+    def has_custom_layouts(self, obj):
+        layouts = obj.preferences.get('layouts', {})
+        count = sum(1 for v in layouts.values() if v)
+        return f'{count} module(s)' if count else '—'
+    has_custom_layouts.short_description = 'Custom Layouts'
+
+    def layout_previews(self, obj):
+        layouts = obj.preferences.get('layouts', {})
+        if not layouts:
+            return mark_safe('<em style="color:#999;">No custom layouts saved yet.</em>')
+        html = ''
+        for key, layout in layouts.items():
+            label = MODULE_LAYOUT_LABELS.get(key, key)
+            html += _render_layout_panel(label, layout)
+        return mark_safe(html or '<em style="color:#999;">Empty.</em>')
+    layout_previews.short_description = 'Visual Layout Previews'
 admin.site.register(AuthToken, AuthTokenAdmin)

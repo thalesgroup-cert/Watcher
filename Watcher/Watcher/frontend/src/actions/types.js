@@ -1,3 +1,9 @@
+// PROFILE
+export const PROFILE_LOADED    = "PROFILE_LOADED";
+export const PROFILE_UPDATED   = "PROFILE_UPDATED";
+export const PROFILE_LOADING   = "PROFILE_LOADING";
+export const PROFILE_ERROR     = "PROFILE_ERROR";
+
 // COMMON
 export const GET_ERRORS      = "GET_ERRORS";
 export const CREATE_MESSAGE  = "CREATE_MESSAGE";

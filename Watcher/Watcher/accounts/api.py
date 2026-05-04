@@ -1,7 +1,8 @@
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from knox.models import AuthToken
-from .serializers import UserSerializer, LoginSerializer, UserPasswordChangeSerializer
+from .serializers import UserSerializer, LoginSerializer, UserPasswordChangeSerializer, UserProfileSerializer
+from .models import UserProfile
 from django.utils import timezone
 
 
@@ -44,3 +45,17 @@ def generate_api_key(user, expiration):
     token_instance, raw_key = AuthToken.objects.create(user=user, expiry=expiry)
     
     return raw_key, token_instance
+
+
+# User Profile API
+class ProfileAPI(generics.RetrieveUpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)

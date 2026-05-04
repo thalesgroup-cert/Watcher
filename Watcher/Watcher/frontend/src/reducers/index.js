@@ -1,6 +1,7 @@
 import {combineReducers} from "redux";
 import leads from './leads';
 import auth from './auth';
+import profile from './profile';
 import messages from './messages';
 import errors from "./errors";
 import DataLeak from "./DataLeak";
@@ -20,6 +21,7 @@ export default combineReducers({
     WorldMap,
     errors,
     messages,
-    auth
+    auth,
+    profile
 });
 

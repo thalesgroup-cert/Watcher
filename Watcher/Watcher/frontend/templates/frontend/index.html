@@ -18,12 +18,27 @@
 <div id="app"></div>
 
 <script>
+window.OIDC_ENABLED = {{ oidc_enabled }};
+window.OIDC_COMPANY_NAME = "{{ oidc_company_name }}";
+</script>
+
+<script>
 window.AVAILABLE_THEMES = {
     'bootstrap': '{% static "css/themes/bootstrap.min.css" %}',
     'flatly': '{% static "css/themes/flatly.min.css" %}',
     'cyborg': '{% static "css/themes/cyborg.min.css" %}',
     'superhero': '{% static "css/themes/superhero.min.css" %}',
-    'brite': '{% static "css/themes/brite.min.css" %}'
+    'brite': '{% static "css/themes/brite.min.css" %}',
+    'lux': '{% static "css/themes/lux.min.css" %}',
+    'darkly': '{% static "css/themes/darkly.min.css" %}',
+    'slate': '{% static "css/themes/slate.min.css" %}',
+    'cosmo': '{% static "css/themes/cosmo.min.css" %}',
+    'morph': '{% static "css/themes/morph.min.css" %}',
+    'sandstone': '{% static "css/themes/sandstone.min.css" %}',
+    'solar': '{% static "css/themes/solar.min.css" %}',
+    'united': '{% static "css/themes/united.min.css" %}',
+    'yeti': '{% static "css/themes/yeti.min.css" %}',
+    'minty': '{% static "css/themes/minty.min.css" %}'
 };
 </script>
 

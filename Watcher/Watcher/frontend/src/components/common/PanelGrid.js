@@ -18,6 +18,7 @@ import PropTypes from 'prop-types';
 import GridLayout, { WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import preferencesService from '../../services/preferencesService';
 
 const AutoWidthGrid = WidthProvider(GridLayout);
 const DRAG_HANDLE = 'pg-drag-handle';
@@ -53,12 +54,20 @@ class PanelGrid extends Component {
 
 
     _lsKey   = (suffix) => `${this.props.storageKey}_${suffix}`;
-    _lsRead  = (suffix, def) => {
-        try { const v = localStorage.getItem(this._lsKey(suffix)); return v ? JSON.parse(v) : def; }
-        catch (_) { return def; }
-    };
-    _lsWrite = (suffix, val) => {
-        try { localStorage.setItem(this._lsKey(suffix), JSON.stringify(val)); } catch (_) {}
+    _lsRead  = (suffix, def) => preferencesService.get(this._lsKey(suffix), def);
+    _lsWrite = (suffix, val) => preferencesService.set(this._lsKey(suffix), val);
+    _lsRemove = (suffix) => preferencesService.remove(this._lsKey(suffix));
+
+    // Re-hydrate from preferences once the service fires ready
+    _onPrefsReady = () => {
+        const layout = preferencesService.get(this._lsKey('layout'), this.props.defaultLayout);
+        const active = preferencesService.get(this._lsKey('active'), this.props.defaultActive);
+        const resized = preferencesService.get(this._lsKey('resized'), []);
+        this.setState({
+            layout,
+            activePanels: new Set(active),
+            manuallyResized: new Set(resized),
+        });
     };
 
 
@@ -72,6 +81,17 @@ class PanelGrid extends Component {
         };
     }
 
+
+    componentDidMount() {
+        // if service wasn't ready at construction time, re-hydrate when it fires
+        if (!preferencesService.isReady()) {
+            window.addEventListener('watcher:prefs:ready', this._onPrefsReady);
+        }
+    }
+
+    componentWillUnmount() {
+        window.removeEventListener('watcher:prefs:ready', this._onPrefsReady);
+    }
 
     componentDidUpdate(prevProps) {
         // forceActivate: open panels when reference changes
@@ -192,7 +212,7 @@ class PanelGrid extends Component {
                             <li><strong>Resize a panel</strong> - drag the resize handle at the bottom-right corner of any panel</li>
                             <li><strong>Auto-resize</strong> - panels automatically grow when you increase items-per-page in a table; manually resizing a panel locks its height to your choice</li>
                             <li><strong>Reset Layout</strong> - restores all panels to their default positions, sizes and visibility</li>
-                            <li>Your layout is <strong>saved automatically</strong> in the browser between sessions</li>
+                            <li>Your layout is <strong>saved automatically</strong> to your account across all devices</li>
                         </ul>
                     </div>
                 </div>
