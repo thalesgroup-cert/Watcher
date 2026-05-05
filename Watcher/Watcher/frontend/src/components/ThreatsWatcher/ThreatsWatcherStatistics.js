@@ -151,7 +151,7 @@ class ThreatsWatcherStatistics extends Component {
                     {visibleIndices.length === 0 ? (
                         <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted py-5">
                             <i className="material-icons mb-2" style={{ fontSize: 40, opacity: 0.18 }}>visibility_off</i>
-                            <small>All panels hidden — click an eye below to show one</small>
+                            <small>All panels hidden - click an eye below to show one</small>
                         </div>
                     ) : ActiveComponent ? <ActiveComponent /> : null}
 

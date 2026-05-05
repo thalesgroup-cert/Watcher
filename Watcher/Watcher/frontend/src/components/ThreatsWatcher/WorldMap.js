@@ -414,44 +414,42 @@ function WorldMap({
                     <span title="RSS Sources" className="d-flex align-items-center gap-1">
                         <span style={{ color: DOT.sources.hex }}>●</span>
                         <strong>{sourcesCount}</strong>
-                        <span className="text-muted">sources</span>
+                        <span className="text-body">sources</span>
                     </span>
-                    <span className="text-muted">│</span>
+                    <span className="text-body">│</span>
                     <span title="Trending words" className="d-flex align-items-center gap-1">
                         <span style={{ color: DOT.trending.hex }}>●</span>
                         <strong>{trendCount}</strong>
-                        <span className="text-muted">trends</span>
+                        <span className="text-body">trends</span>
                     </span>
-                    <span className="text-muted">│</span>
+                    <span className="text-body">│</span>
                     <span title="Ransomware victims" className="d-flex align-items-center gap-1">
                         <span style={{ color: DOT.victims.hex }}>●</span>
                         <strong>{vicCount}</strong>
-                        <span className="text-muted">victims</span>
+                        <span className="text-body">victims</span>
                     </span>
                 </div>
             </div>
 
-            <div className="card border-secondary shadow" style={{ position: 'absolute', top: 10, right: 10, zIndex: 60, minWidth: 140 }}>
-                {/* Toggle */}
-                <button
-                    className="btn btn-sm btn-secondary w-100 d-flex align-items-center justify-content-between border-0 border-bottom rounded-bottom-0"
+            <div className="card shadow-sm" style={{ position: 'absolute', top: 10, right: 10, zIndex: 60, minWidth: 148 }}>
+                <div className="card-header py-1 px-2 d-flex align-items-center justify-content-between"
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => setPanelOpen(o => !o)}
                     title={panelOpen ? 'Collapse' : 'Expand'}
-                    style={{ fontSize: '0.75rem' }}
                 >
-                    <span className="text-white-50">Controls</span>
-                    <i className="material-icons" style={{ fontSize: '0.9rem' }}>{panelOpen ? 'expand_less' : 'expand_more'}</i>
-                </button>
+                    <span className="fw-semibold small">Controls</span>
+                    <i className="material-icons text-body" style={{ fontSize: '1rem' }}>{panelOpen ? 'expand_less' : 'expand_more'}</i>
+                </div>
                 {panelOpen && (
                     <div className="card-body p-2" style={{ fontSize: '0.75rem' }}>
                         {/* Basemap */}
-                        <div className="text-uppercase text-white-50 mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.06em' }}>Basemap</div>
+                        <p className="text-body text-uppercase mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.06em' }}>Basemap</p>
                         <div className="d-flex flex-column gap-1 mb-2">
                             {Object.entries(BASEMAPS).map(([key, b]) => (
                                 <button
                                     key={key}
                                     onClick={() => setBasemap(key)}
-                                    className={`btn btn-sm text-start d-flex align-items-center gap-1 ${basemap === key ? 'btn-primary' : 'btn-outline-light'}`}
+                                    className={`btn btn-sm text-body d-flex align-items-center gap-1 ${basemap === key ? 'btn-primary' : 'btn-outline-secondary'}`}
                                     style={{ fontSize: '0.72rem', padding: '2px 8px' }}
                                 >
                                     <span>{b.emoji}</span> {b.label}
@@ -459,10 +457,10 @@ function WorldMap({
                             ))}
                         </div>
 
-                        <hr className="my-1 border-secondary" />
+                        <hr className="my-1" />
 
                         {/* Projection */}
-                        <div className="text-uppercase text-white-50 mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.06em' }}>Projection</div>
+                        <p className="text-body text-uppercase mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.06em' }}>Projection</p>
                         <div className="btn-group w-100 mb-2" role="group">
                             {[
                                 { key: false, icon: '🗾', label: 'Flat'  },
@@ -471,7 +469,7 @@ function WorldMap({
                                 <button
                                     key={String(opt.key)}
                                     onClick={() => setGlobeMode(opt.key)}
-                                    className={`btn btn-sm ${globeMode === opt.key ? 'btn-primary' : 'btn-outline-light'}`}
+                                    className={`btn btn-sm ${globeMode === opt.key ? 'btn-primary' : 'btn-outline-secondary'}`}
                                     style={{ fontSize: '0.72rem', padding: '2px 4px' }}
                                 >
                                     {opt.icon} {opt.label}
@@ -479,20 +477,20 @@ function WorldMap({
                             ))}
                         </div>
 
-                        <hr className="my-1 border-secondary" />
+                        <hr className="my-1" />
 
                         {/* Layer toggles */}
-                        <div className="text-uppercase text-white-50 mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.06em' }}>Layers</div>
+                        <p className="text-body text-uppercase mb-1" style={{ fontSize: '0.62rem', letterSpacing: '0.06em' }}>Layers</p>
                         <div className="d-flex flex-column gap-1 mb-2">
                             {[
-                                { key: 'sources',  label: 'Sources',  dot: DOT.sources },
-                                { key: 'trending', label: 'Trends',   dot: DOT.trending },
-                                { key: 'victims',  label: 'Victims',  dot: DOT.victims },
+                                { key: 'sources',  label: 'Sources', dot: DOT.sources },
+                                { key: 'trending', label: 'Trends',  dot: DOT.trending },
+                                { key: 'victims',  label: 'Victims', dot: DOT.victims },
                             ].map(({ key, label, dot }) => (
                                 <button
                                     key={key}
                                     onClick={() => toggleLayer(key)}
-                                    className={`btn btn-sm text-start d-flex align-items-center gap-2 ${visible[key] ? 'btn-outline-light' : 'btn-secondary text-white-50'}`}
+                                    className={`btn btn-sm text-body d-flex align-items-center gap-2 ${visible[key] ? 'btn-outline-secondary' : 'btn-secondary'}`}
                                     style={{ fontSize: '0.72rem', padding: '2px 8px' }}
                                 >
                                     <span style={{
@@ -506,12 +504,12 @@ function WorldMap({
                             ))}
                         </div>
 
-                        <hr className="my-1 border-secondary" />
+                        <hr className="my-1" />
 
                         {/* Reset */}
                         <button
                             onClick={() => setViewState(INITIAL_VIEW_STATE)}
-                            className="btn btn-sm btn-outline-light w-100 d-flex align-items-center justify-content-center gap-1"
+                            className="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1"
                             style={{ fontSize: '0.72rem', padding: '2px 8px' }}
                         >
                             <i className="material-icons" style={{ fontSize: '0.9rem' }}>home</i> Reset view

@@ -16,7 +16,7 @@ urlpatterns = [
     path('api/auth/profile', ProfileAPI.as_view()),
 ] + router.urls
 
-# OIDC routes — only registered when SSO is enabled
+# OIDC routes - only registered when SSO is enabled
 if getattr(settings, 'OIDC_ENABLED', False):
     urlpatterns += [
         path('api/auth/oidc/login/', OIDCAuthenticationRequestView.as_view(), name='oidc_authentication_init'),

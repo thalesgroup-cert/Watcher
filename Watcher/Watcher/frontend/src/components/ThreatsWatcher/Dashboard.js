@@ -105,7 +105,7 @@ class Dashboard extends Component {
             stats: {
                 label: 'Statistics',
                 icon: 'bar_chart',
-                tooltip: 'Carousel: Threats Watcher · Ransomware · CVE — auto-advances every 3 minutes',
+                tooltip: 'Carousel: Threats Watcher · Ransomware · CVE - auto-advances every 3 minutes',
                 children: <ThreatsWatcherStatistics />,
             },
 

@@ -411,7 +411,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     def has_custom_layouts(self, obj):
         layouts = obj.preferences.get('layouts', {})
         count = sum(1 for v in layouts.values() if v)
-        return f'{count} module(s)' if count else '—'
+        return f'{count} module(s)' if count else '-'
     has_custom_layouts.short_description = 'Custom Layouts'
 
     def layout_previews(self, obj):

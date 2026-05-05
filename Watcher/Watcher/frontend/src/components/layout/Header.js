@@ -89,7 +89,7 @@ const HelpButton = () => {
                     rel="noopener noreferrer"
                     onClick={() => setIsOpen(false)}
                 >
-                    <i className="material-icons me-2 align-middle small">article</i>
+                    <i className="material-icons me-2 align-middle small">notes</i>
                     API Docs
                 </a>
                 <a
