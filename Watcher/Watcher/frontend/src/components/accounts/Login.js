@@ -7,7 +7,8 @@ import { login } from "../../actions/auth";
 export class Login extends Component {
     state = {
         username: "",
-        password: ""
+        password: "",
+        ssoError: false,
     };
 
     static propTypes = {
@@ -15,6 +16,14 @@ export class Login extends Component {
         isAuthenticated: PropTypes.bool,
         location: PropTypes.object
     };
+
+    componentDidMount() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('sso_error')) {
+            this.setState({ ssoError: true });
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
+    }
 
     onSubmit = e => {
         e.preventDefault();
@@ -30,11 +39,17 @@ export class Login extends Component {
             return <Redirect to={redirectPath} />;
         }
 
-        const { username, password } = this.state;
+        const { username, password, ssoError } = this.state;
         return (
             <div className="col-md-6 m-auto">
                 <div className="card card-body mt-5">
-                    <h2 className="text-center mb-4">Login</h2>
+                    <h2 className="text-center text-body mb-4">Login</h2>
+                    {ssoError && (
+                        <div className="alert alert-danger d-flex align-items-center gap-2" role="alert">
+                            <i className="material-icons" style={{ fontSize: 18 }}>error_outline</i>
+                            SSO authentication failed. Please try again or sign in with your credentials.
+                        </div>
+                    )}
                     <div className="mb-3">
                         <a
                             href={window.OIDC_ENABLED ? "/api/auth/oidc/login/" : "#"}

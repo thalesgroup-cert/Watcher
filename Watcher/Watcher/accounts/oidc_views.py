@@ -25,4 +25,4 @@ class SSOCallbackView(OIDCAuthenticationCallbackView):
 
     def login_failure(self):
         logger.warning('OIDC SSO: authentication failure')
-        return redirect('/#/login?sso_error=1')
+        return redirect('/?sso_error=1#/login')

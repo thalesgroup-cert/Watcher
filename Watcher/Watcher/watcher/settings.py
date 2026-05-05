@@ -263,8 +263,7 @@ OIDC_RP_SCOPES = 'openid email profile'
 OIDC_USE_PKCE = True
 OIDC_STORE_ACCESS_TOKEN = False
 OIDC_STORE_ID_TOKEN = False
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+OIDC_REDIRECT_URI = os.environ.get('OIDC_REDIRECT_URI', '')
 
 WSGI_APPLICATION = 'watcher.wsgi.application'
 
