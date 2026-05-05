@@ -259,11 +259,15 @@ OIDC_OP_USER_ENDPOINT = os.environ.get('OIDC_OP_USER_ENDPOINT', '')
 OIDC_OP_JWKS_ENDPOINT = os.environ.get('OIDC_OP_JWKS_ENDPOINT', '')
 OIDC_OP_ISSUER = os.environ.get('OIDC_OP_ISSUER', '')
 OIDC_RP_SIGN_ALGO = 'RS256'
-OIDC_RP_SCOPES = 'openid email profile'
+OIDC_RP_SCOPES = 'openid email'
 OIDC_USE_PKCE = True
 OIDC_STORE_ACCESS_TOKEN = False
 OIDC_STORE_ID_TOKEN = False
 OIDC_REDIRECT_URI = os.environ.get('OIDC_REDIRECT_URI', '')
+
+# Reverse-proxy headers — the upstream proxy must set these explicitly.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 WSGI_APPLICATION = 'watcher.wsgi.application'
 

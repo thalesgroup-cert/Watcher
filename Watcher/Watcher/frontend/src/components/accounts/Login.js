@@ -3,16 +3,17 @@ import { Redirect } from "react-router-dom";
 import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { login } from "../../actions/auth";
+import { createMessage } from "../../actions/messages";
 
 export class Login extends Component {
     state = {
         username: "",
         password: "",
-        ssoError: false,
     };
 
     static propTypes = {
         login: PropTypes.func.isRequired,
+        createMessage: PropTypes.func.isRequired,
         isAuthenticated: PropTypes.bool,
         location: PropTypes.object
     };
@@ -20,8 +21,8 @@ export class Login extends Component {
     componentDidMount() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('sso_error')) {
-            this.setState({ ssoError: true });
             window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+            this.props.createMessage({ ssoError: "SSO authentication failed. Please try again or sign in with your credentials." });
         }
     }
 
@@ -39,17 +40,11 @@ export class Login extends Component {
             return <Redirect to={redirectPath} />;
         }
 
-        const { username, password, ssoError } = this.state;
+        const { username, password } = this.state;
         return (
             <div className="col-md-6 m-auto">
                 <div className="card card-body mt-5">
                     <h2 className="text-center text-body mb-4">Login</h2>
-                    {ssoError && (
-                        <div className="alert alert-danger d-flex align-items-center gap-2" role="alert">
-                            <i className="material-icons" style={{ fontSize: 18 }}>error_outline</i>
-                            SSO authentication failed. Please try again or sign in with your credentials.
-                        </div>
-                    )}
                     <div className="mb-3">
                         <a
                             href={window.OIDC_ENABLED ? "/api/auth/oidc/login/" : "#"}
@@ -109,5 +104,5 @@ const mapStateToProps = state => ({
 
 export default connect(
     mapStateToProps,
-    { login }
+    { login, createMessage }
 )(Login);

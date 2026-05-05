@@ -58,6 +58,9 @@ export class Alerts extends Component {
             if (message.passwordChange) {
                 alert.success(message.passwordChange);
             }
+            if (message.ssoError) {
+                alert.error(message.ssoError);
+            }
         }
     }
 
