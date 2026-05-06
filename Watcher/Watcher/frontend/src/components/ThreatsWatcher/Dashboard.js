@@ -14,12 +14,13 @@ import RansomwareVictims from './RansomwareVictims';
 import ThreatsWatcherStatistics from './ThreatsWatcherStatistics';
 import CVEVulnerabilities from './CVEVulnerabilities';
 import PanelGrid from '../common/PanelGrid';
+import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 import store from '../../store';
 import { setIsPasswordChanged } from '../../actions/auth';
 
 
 const DEFAULT_LAYOUT = [
-    { i: 'stats',   x: 0, y: 0,  w: 12, h: 10, minW: 2, minH: 3, moved: false, static: false },
+    { i: 'stats',   x: 0, y: 0,  w: 12, h: 10, minW: 6, minH: 3, moved: false, static: false },
     { i: 'cloud',   x: 0, y: 10, w: 6,  h: 10, minW: 3, minH: 5, moved: false, static: false },
     { i: 'words',   x: 6, y: 10, w: 6,  h: 10, minW: 3, minH: 5, moved: false, static: false },
     { i: 'victims', x: 6, y: 20, w: 6,  h: 10, minW: 3, minH: 5, moved: false, static: false },
@@ -146,6 +147,7 @@ class Dashboard extends Component {
                     <WorldMapPanel
                         embedded
                         onCountrySelect={this.handleCountrySelect}
+                        filterCountry={selectedMapCountry}
                     />
                 ),
             },
@@ -188,7 +190,7 @@ class Dashboard extends Component {
                             defaultLeftWidth={50}
                             minLeftWidth={30}
                             maxLeftWidth={70}
-                            storageKey="watcher_localstorage_layout_postUrls_summary"
+                            storageKey="watcher_postUrls_summary"
                         />
                         <div className="mt-3">
                             <TrendChart postUrls={postUrls} word={word} />
@@ -219,6 +221,7 @@ class Dashboard extends Component {
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
                     storageKey="watcher_threats_grid"
+                    layoutPresets={LAYOUT_PRESETS['watcher_threats_grid']}
                     forceActivate={this.state.word ? ['trend'] : null}
                     layoutOverrides={this.computeLayoutOverrides()}
                 />

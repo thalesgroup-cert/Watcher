@@ -53,15 +53,15 @@ InfoTip.propTypes = { text: PropTypes.string.isRequired };
 
 const KpiCard = ({ title, value, sub, icon, variant }) => (
     <div className={"card border-0 shadow-sm h-100 bg-" + variant}>
-        <div className="card-body d-flex align-items-center p-4">
+        <div className="card-body d-flex align-items-center p-3">
             <div className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
                  style={{ width: 50, height: 50, minWidth: 50, minHeight: 50 }}>
                 <i className={"material-icons text-" + variant} style={{ fontSize: 28 }}>{icon}</i>
             </div>
-            <div className="flex-fill">
+            <div className="flex-fill" style={{ minWidth: 0 }}>
                 <div className="text-white-50 text-uppercase fw-bold small mb-1"
                      style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>{title}</div>
-                <div className="text-white fw-bold h2 mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>
+                <div className="text-white fw-bold mb-1" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.8rem)', lineHeight: 1.1, wordBreak: 'break-all' }}>
                     {typeof value === 'number' ? value.toLocaleString() : value}
                 </div>
                 {sub && <div className="text-white-50 small" style={{ fontSize: '0.8rem' }}>{sub}</div>}
@@ -191,20 +191,20 @@ class LegitimateStats extends Component {
         return (
             <div>
                 {/* KPI Cards */}
-                <div className="row mb-4">
-                    <div className="col-xl-3 col-md-6 mb-4">
+                <div className="row g-2 mb-3">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="TOTAL DOMAINS" value={statistics.total || 0}
                                  sub="all tracked domains" icon="link" variant="primary" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="REPURCHASED" value={statistics.repurchased || 0}
                                  sub="successfully reclaimed" icon="check_circle" variant="success" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="EXPIRED" value={statistics.expired || 0}
                                  sub="past expiry, not renewed" icon="error" variant="danger" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="EXPIRING SOON" value={statistics.expiringSoon || 0}
                                  sub="within the next 30 days" icon="warning" variant="warning" />
                     </div>

@@ -6,7 +6,7 @@ import {Button, Modal, Container, Row, Col, Form, Badge, Alert, Accordion, Card}
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 
-// Regex patterns organized by theme (inspired by AIL)
+// Regex patterns organized by theme
 const REGEX_PATTERNS = {
     'Data Leaks & Breaches': [
         { name: 'Leak Keywords', pattern: '(leak|breach|dump|database)', description: 'Common leak-related terms' },
@@ -604,7 +604,8 @@ export class KeyWords extends Component {
 
     render() {
         const { keywords, auth, globalFilters } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'data_leak.change_keyword' || p === 'data_leak.delete_keyword')));
 
         return (
             <Fragment>
@@ -689,7 +690,7 @@ export class KeyWords extends Component {
                                                                 />
                                                             </td>
                                                             <td className="text-end" style={{whiteSpace: 'nowrap'}}>
-                                                                {isAuthenticated && (
+                                                                {canManage && (
                                                                     <>
                                                                         <button 
                                                                             className="btn btn-outline-warning btn-sm me-2"

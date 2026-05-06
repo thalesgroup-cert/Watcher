@@ -8,9 +8,10 @@ import KeywordMonitored from "./KeywordMonitored";
 import TableManager from '../common/TableManager';
 import DnsFinderStats from "./DnsFinderStats";
 import PanelGrid from '../common/PanelGrid';
+import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 
 const DEFAULT_LAYOUT = [
-    { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 2, minH: 3 },
+    { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
     { i: 'alerts',   x: 0, y: 8,  w: 7,  h: 11, minW: 4, minH: 5 },
     { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
     { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
@@ -317,6 +318,7 @@ class Dashboard extends Component {
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
                     storageKey="watcher_dns_finder_grid"
+                    layoutPresets={LAYOUT_PRESETS['watcher_dns_finder_grid']}
                 />
             </Fragment>
         );

@@ -67,7 +67,8 @@ class ArchivedAlerts extends Component {
 
     renderCVETable = () => {
         const { archivedCVEs, unarchiveCVE, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'cyber_watch.change_cvealert' || p === 'cyber_watch.delete_cvealert')));
         return (
             <TableManager
                 data={archivedCVEs}
@@ -93,7 +94,7 @@ class ArchivedAlerts extends Component {
                                             <th className="text-center" role="button" onClick={() => handleSort('severity')}>Severity {renderSortIcons('severity')}</th>
                                             <th>Information</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('published')}>Published {renderSortIcons('published')}</th>
-                                            {isAuthenticated && <th className="text-end">Actions</th>}
+                                            {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -148,7 +149,7 @@ class ArchivedAlerts extends Component {
                                                         : <span className="text-muted">-</span>
                                                     }
                                                 </td>
-                                                {isAuthenticated && (
+                                                {canManage && (
                                                     <td className="text-end align-middle">
                                                         <button
                                                             className="btn btn-outline-primary btn-sm"
@@ -174,7 +175,8 @@ class ArchivedAlerts extends Component {
 
     renderHitsTable = () => {
         const { archivedHits, unarchiveHit, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'cyber_watch.change_cvealert' || p === 'cyber_watch.change_ransomwarevictim' || p === 'cyber_watch.change_watchrulehit')));
         return (
             <TableManager
                 data={archivedHits}
@@ -208,13 +210,13 @@ class ArchivedAlerts extends Component {
                                             <th role="button" onClick={() => handleSort('object_id')}>Match {renderSortIcons('object_id')}</th>
                                             <th role="button" onClick={() => handleSort('matched_keyword')}>Keyword {renderSortIcons('matched_keyword')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('hit_at')}>Date {renderSortIcons('hit_at')}</th>
-                                            {isAuthenticated && <th className="text-end">Actions</th>}
+                                            {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
                                             <tr>
-                                                <td colSpan={isAuthenticated ? 6 : 5} className="text-center text-muted py-4">
+                                                <td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">
                                                     No archived hits
                                                 </td>
                                             </tr>
@@ -237,7 +239,7 @@ class ArchivedAlerts extends Component {
                                                 <td className="text-center align-middle">
                                                     <DateWithTooltip date={hit.hit_at} includeTime={true} type="created" />
                                                 </td>
-                                                {isAuthenticated && (
+                                                {canManage && (
                                                     <td className="text-end align-middle">
                                                         <button
                                                             className="btn btn-outline-primary btn-sm"
@@ -263,7 +265,8 @@ class ArchivedAlerts extends Component {
 
     renderVictimTable = () => {
         const { archivedVictims, unarchiveVictim, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'cyber_watch.change_ransomwarevictim' || p === 'cyber_watch.delete_ransomwarevictim')));
         return (
             <TableManager
                 data={archivedVictims}
@@ -289,7 +292,7 @@ class ArchivedAlerts extends Component {
                                             <th className="text-center" role="button" onClick={() => handleSort('country')}>Country {renderSortIcons('country')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('sector')}>Sector {renderSortIcons('sector')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('attacked_at')}>Attacked {renderSortIcons('attacked_at')}</th>
-                                            {isAuthenticated && <th className="text-end">Actions</th>}
+                                            {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -322,7 +325,7 @@ class ArchivedAlerts extends Component {
                                                 <td className="text-center align-middle">
                                                     <DateWithTooltip date={v.attacked_at} includeTime={true} type="created" />
                                                 </td>
-                                                {isAuthenticated && (
+                                                {canManage && (
                                                     <td className="text-end align-middle">
                                                         <button
                                                             className="btn btn-outline-primary btn-sm"

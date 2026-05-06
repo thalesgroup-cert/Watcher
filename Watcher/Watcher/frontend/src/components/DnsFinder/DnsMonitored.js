@@ -232,7 +232,8 @@ export class DnsMonitored extends Component {
 
     render() {
         const { dnsMonitored, auth, globalFilters } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'dns_finder.change_dnsmonitored' || p === 'dns_finder.delete_dnsmonitored')));
 
         const renderLoadingState = () => (
             <tr>
@@ -326,7 +327,7 @@ export class DnsMonitored extends Component {
                                                                 />
                                                             </td>
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
-                                                                {isAuthenticated && (
+                                                                {canManage && (
                                                                     <>
                                                                         <button
                                                                             className="btn btn-outline-warning btn-sm me-2"

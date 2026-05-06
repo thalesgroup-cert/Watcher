@@ -49,19 +49,19 @@ InfoTip.propTypes = { text: PropTypes.string.isRequired };
 
 const KpiCard = ({ title, value, sub, icon, variant }) => (
     <div className={"card border-0 shadow-sm h-100 bg-" + variant}>
-        <div className="card-body d-flex align-items-center p-4">
+        <div className="card-body d-flex align-items-center p-3">
             <div
                 className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
                 style={{ width: 50, height: 50, minWidth: 50, minHeight: 50 }}
             >
                 <i className={"material-icons text-" + variant} style={{ fontSize: 28 }}>{icon}</i>
             </div>
-            <div className="flex-fill">
+            <div className="flex-fill" style={{ minWidth: 0 }}>
                 <div className="text-white-50 text-uppercase fw-bold small mb-1"
                      style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                     {title}
                 </div>
-                <div className="text-white fw-bold h2 mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>
+                <div className="text-white fw-bold mb-1" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.8rem)', lineHeight: 1.1, wordBreak: 'break-all' }}>
                     {typeof value === 'number' ? value.toLocaleString() : value}
                 </div>
                 {sub && <div className="text-white-50 small" style={{ fontSize: '0.8rem' }}>{sub}</div>}
@@ -87,6 +87,16 @@ class ThreatsWatcherStats extends Component {
         sources:                     PropTypes.array.isRequired,
         getThreatsWatcherStatistics: PropTypes.func.isRequired,
     };
+
+    shouldComponentUpdate(nextProps) {
+        return (
+            nextProps.leads             !== this.props.leads             ||
+            nextProps.statistics        !== this.props.statistics        ||
+            nextProps.monitoredKeywords !== this.props.monitoredKeywords ||
+            nextProps.bannedWords       !== this.props.bannedWords       ||
+            nextProps.sources           !== this.props.sources
+        );
+    }
 
     componentDidMount() {
         this.props.getThreatsWatcherStatistics();
@@ -183,23 +193,23 @@ class ThreatsWatcherStats extends Component {
         return (
             <div>
                 {/* KPI Cards */}
-                <div className="row mb-4">
-                    <div className="col-xl-3 col-md-6 mb-4">
+                <div className="row g-2 mb-3">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="Total Words" value={totalWords}
                                  sub={"+" + newThisWeek + " this week"}
                                  icon="list_alt" variant="primary" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="New Today" value={newToday}
                                  sub="words discovered today"
                                  icon="add_circle_outline" variant="success" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="RSS Sources" value={totalSources}
                                  sub="monitored feeds"
                                  icon="rss_feed" variant="info" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="Banned Words" value={bannedCount}
                                  sub={monCount + " monitored keywords"}
                                  icon="block" variant="danger" />
@@ -249,7 +259,7 @@ class ThreatsWatcherStats extends Component {
                                 ) : (
                                     <div className="d-flex flex-column align-items-center justify-content-center py-5 text-muted">
                                         <i className="material-icons mb-2" style={{ fontSize: 40, opacity: 0.2 }}>bar_chart</i>
-                                        <small>Waiting for word data…</small>
+                                        <small>No trending words recorded yet</small>
                                     </div>
                                 )}
                             </div>

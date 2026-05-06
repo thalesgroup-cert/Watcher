@@ -1,5 +1,6 @@
 import React, { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { getCVEs, getWatchRuleHits, archiveCVE, archiveHit } from '../../actions/CyberWatch';
 import { OverlayTrigger, Tooltip, Modal, Badge } from 'react-bootstrap';
@@ -34,6 +35,22 @@ const FILTER_CONFIG = [
         ]
     },
 ];
+
+const EmptyHitsState = ({ type }) => (
+    <tr>
+        <td colSpan={99} className="text-center py-5">
+            <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                <span className="fw-semibold">No results found</span>
+                <span className="small">
+                    No {type} matched your Watch Rules yet.{' '}
+                    <Link to="/cyber_watch" className="text-primary">
+                        Add or review your rules on Cyber Watch
+                    </Link>
+                </span>
+            </div>
+        </td>
+    </tr>
+);
 
 const HITS_FILTER_CONFIG = [
     {
@@ -223,7 +240,8 @@ class CVEVulnerabilities extends Component {
     render() {
         const { cves, auth } = this.props;
         const { activeTab } = this.state;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'cyber_watch.change_cvealert' || p === 'cyber_watch.delete_cvealert')));
         const cveHits = this.getCVEHits();
         const colCount = 5;
 
@@ -237,7 +255,7 @@ class CVEVulnerabilities extends Component {
                             className={`nav-link ${activeTab === 'hits' ? 'active' : ''}`}
                             onClick={() => this.setState({ activeTab: 'hits' })}
                         >
-                            CVE Hits ({cveHits.length})
+                            My Watch Rules Hits ({cveHits.length})
                         </button>
                     </li>
                     <li className="nav-item">
@@ -300,11 +318,7 @@ class CVEVulnerabilities extends Component {
                                                 </thead>
                                                 <tbody>
                                                     {paginatedData.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={colCount} className="text-center text-muted py-4">
-                                                                No results found
-                                                            </td>
-                                                        </tr>
+                                                        <EmptyHitsState type="CVE vulnerabilities" />
                                                     ) : (
                                                         paginatedData.map(hit => {
                                                             const cve = this.getCVEForHit(hit);
@@ -344,7 +358,7 @@ class CVEVulnerabilities extends Component {
                                                                         >
                                                                             <i className="material-icons" style={{ fontSize: '1rem', verticalAlign: 'middle' }}>info</i>
                                                                         </button>
-                                                                        {isAuthenticated && (
+                                                                        {canManage && (
                                                                             <button
                                                                                 className="btn btn-outline-warning btn-sm"
                                                                                 onClick={() => this.props.archiveHit(hit.id)}
@@ -415,13 +429,13 @@ class CVEVulnerabilities extends Component {
                                                         <th className="text-center" role="button" onClick={() => handleSort('published')}>
                                                             Published {renderSortIcons('published')}
                                                         </th>
-                                                        {isAuthenticated && <th className="text-end">Actions</th>}
+                                                        {canManage && <th className="text-end">Actions</th>}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {paginatedData.length === 0 ? (
                                                         <tr>
-                                                            <td colSpan={isAuthenticated ? 6 : 5} className="text-center text-muted py-4">
+                                                            <td colSpan={99} className="text-center text-muted py-4">
                                                                 No results found
                                                             </td>
                                                         </tr>
@@ -508,7 +522,7 @@ class CVEVulnerabilities extends Component {
                                                                         <span className="text-muted">-</span>
                                                                     )}
                                                                 </td>
-                                                                {isAuthenticated && (
+                                                                {canManage && (
                                                                     <td className="text-end align-middle">
                                                                         <button
                                                                             className="btn btn-outline-warning btn-sm"

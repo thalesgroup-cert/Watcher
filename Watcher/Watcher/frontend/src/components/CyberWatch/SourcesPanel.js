@@ -181,14 +181,24 @@ class SourcesPanel extends Component {
 
     render() {
         const { sources, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
         const { showHelp, showAddModal, showEditModal, showDeleteModal, deleteUrl, form, editId } = this.state;
+
+        const canManage = isAuthenticated && !!user && (
+            user.is_superuser ||
+            user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.some(p =>
+                p === 'threats_watcher.add_source' ||
+                p === 'threats_watcher.change_source' ||
+                p === 'threats_watcher.delete_source'
+            ))
+        );
 
         return (
             <Fragment>
                 <div className="d-flex justify-content-between align-items-center mb-3">
                     <h4>RSS Sources</h4>
-                    {isAuthenticated && (
+                    {canManage && (
                         <button className="btn btn-success" onClick={this.openAddModal}>
                             <i className="material-icons me-1" style={{ verticalAlign: 'middle', fontSize: '18px' }}>add_circle</i>
                             Add Source
@@ -241,12 +251,12 @@ class SourcesPanel extends Component {
                                             <th className="text-center" role="button" onClick={() => handleSort('country_code')}>Country {renderSortIcons('country_code')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('confident')}>Confidence {renderSortIcons('confident')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('created_at')}>Added {renderSortIcons('created_at')}</th>
-                                            {isAuthenticated && <th className="text-end">Actions</th>}
+                                            {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={isAuthenticated ? 5 : 4} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 5 : 4} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(source => (
                                             <tr key={source.id}>
                                                 <td className="align-middle" style={{ maxWidth: 280, wordBreak: 'break-all' }}>
@@ -270,13 +280,13 @@ class SourcesPanel extends Component {
                                                         ? <DateWithTooltip date={source.created_at} type="created" />
                                                         : <span className="text-muted">-</span>}
                                                 </td>
-                                                {isAuthenticated && (
+                                                {canManage && (
                                                     <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                         <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.openEditModal(source)}>
-                                                            <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                         </button>
-                                                        <button className="btn btn-outline-danger btn-sm" title="Delete" onClick={() => this.openDeleteModal(source.id, source.url)}>
-                                                            <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                        <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.openDeleteModal(source.id, source.url)}>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                         </button>
                                                     </td>
                                                 )}
@@ -291,6 +301,7 @@ class SourcesPanel extends Component {
                     )}
                 </TableManager>
 
+                {canManage && (<>
                 <Modal show={showAddModal} onHide={() => this.setState({ showAddModal: false })} centered>
                     <Modal.Header closeButton><Modal.Title>Add RSS Source</Modal.Title></Modal.Header>
                     <Modal.Body>
@@ -333,6 +344,7 @@ class SourcesPanel extends Component {
                         </form>
                     </Modal.Footer>
                 </Modal>
+                </>)}
             </Fragment>
         );
     }

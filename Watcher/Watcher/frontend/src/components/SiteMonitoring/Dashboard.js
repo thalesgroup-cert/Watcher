@@ -5,9 +5,10 @@ import SuspiciousSites from "./SuspiciousSites";
 import SiteStats from "./SiteStats";
 import TableManager from '../common/TableManager';
 import PanelGrid from '../common/PanelGrid';
+import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 
 const DEFAULT_LAYOUT = [
-    { i: 'stats', x: 0, y: 0,  w: 12, h: 9,  minW: 2, minH: 3 },
+    { i: 'stats', x: 0, y: 0,  w: 12, h: 9,  minW: 6, minH: 3 },
     { i: 'sites', x: 0, y: 9,  w: 12, h: 11, minW: 5, minH: 6 },
 ];
 
@@ -244,6 +245,7 @@ class Dashboard extends Component {
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
                     storageKey="watcher_site_monitoring_grid"
+                    layoutPresets={LAYOUT_PRESETS['watcher_site_monitoring_grid']}
                 />
             </Fragment>
         );

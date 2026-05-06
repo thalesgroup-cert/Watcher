@@ -419,7 +419,9 @@ export class MonitoredKeywords extends Component {
 
     render() {
         const { show, onHide, monitoredKeywords, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canAdd = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('threats_watcher.add_monitoredkeyword')));
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'threats_watcher.change_monitoredkeyword' || p === 'threats_watcher.delete_monitoredkeyword')));
         const { isLoading, showHelp } = this.state;
 
         return (
@@ -458,7 +460,7 @@ export class MonitoredKeywords extends Component {
                                     </div>
                                 )}
                             </div>
-                            {isAuthenticated && (
+                            {canAdd && (
                                 <button
                                     className="btn btn-success"
                                     onClick={() => this.setState({ showAddModal: true })}
@@ -517,13 +519,13 @@ export class MonitoredKeywords extends Component {
                                                                 <th className="text-center" role="button" onClick={() => handleSort('last_seen')}>
                                                                     Last Seen {renderSortIcons('last_seen')}
                                                                 </th>
-                                                                {isAuthenticated && <th className="text-end">Actions</th>}
+                                                                {canManage && <th className="text-end">Actions</th>}
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {paginatedData.length === 0 ? (
                                                                 <tr>
-                                                                    <td colSpan={isAuthenticated ? 5 : 4} className="text-center text-muted py-4">
+                                                                    <td colSpan={canManage ? 5 : 4} className="text-center text-muted py-4">
                                                                         No monitored keywords found.
                                                                     </td>
                                                                 </tr>
@@ -551,7 +553,7 @@ export class MonitoredKeywords extends Component {
                                                                                 <span className="text-muted fst-italic">Never</span>
                                                                             )}
                                                                         </td>
-                                                                        {isAuthenticated && (
+                                                                        {canManage && (
                                                                             <td
                                                                                 className="text-end align-middle"
                                                                                 style={{ whiteSpace: 'nowrap' }}

@@ -12,42 +12,27 @@ const SLIDES = [
     { id: 'cve',        label: 'CVE',              icon: 'security',    component: CVEStats           },
 ];
 
-class ProgressBar extends Component {
-    constructor(props) {
-        super(props);
-        this.state = { width: 0 };
-        this._start = null;
-        this._raf   = null;
-    }
-    componentDidMount()      { this._tick(); }
-    componentDidUpdate(prev) {
-        if (prev.slideKey !== this.props.slideKey) {
-            cancelAnimationFrame(this._raf);
-            this._start = null;
-            this.setState({ width: 0 }, () => this._tick());
-        }
-    }
-    componentWillUnmount() { cancelAnimationFrame(this._raf); }
-    _tick = () => {
-        this._raf = requestAnimationFrame(ts => {
-            if (!this._start) this._start = ts;
-            const pct = Math.min(100, ((ts - this._start) / AUTO_ADVANCE_MS) * 100);
-            this.setState({ width: pct });
-            if (pct < 100) this._tick();
-        });
-    };
-    render() {
-        return (
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: 'rgba(0,0,0,0.05)' }}>
-                <div style={{
-                    height: '100%', width: this.state.width + '%',
-                    background: 'rgba(78,115,223,0.45)',
-                    transition: 'width 0.3s linear',
-                }} />
-            </div>
-        );
-    }
+const PROGRESS_STYLE_ID = 'tw-progress-keyframes';
+if (typeof document !== 'undefined' && !document.getElementById(PROGRESS_STYLE_ID)) {
+    const style = document.createElement('style');
+    style.id = PROGRESS_STYLE_ID;
+    style.textContent = `@keyframes tw-progress { from { width: 0% } to { width: 100% } }`;
+    document.head.appendChild(style);
 }
+
+const ProgressBar = ({ slideKey }) => (
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: 'rgba(0,0,0,0.05)' }}>
+        <div
+            key={slideKey}
+            style={{
+                height: '100%',
+                width: '0%',
+                background: 'rgba(78,115,223,0.45)',
+                animation: `tw-progress ${AUTO_ADVANCE_MS}ms linear forwards`,
+            }}
+        />
+    </div>
+);
 
 const ArrowBtn = ({ direction, onClick, disabled }) => (
     <button

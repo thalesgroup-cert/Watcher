@@ -5,11 +5,12 @@ import { getLegitimateDomains, getLegitimateDomainsBatch } from '../../actions/L
 import LegitimateStats from './LegitimateStats';
 import LegitimateDomains from './LegitimateDomains';
 import PanelGrid from '../common/PanelGrid';
+import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 import store from "../../store";
 import {setIsPasswordChanged} from "../../actions/auth";
 
 const DEFAULT_LAYOUT = [
-    { i: 'stats',   x: 0, y: 0, w: 12, h: 9,  minW: 2, minH: 3 },
+    { i: 'stats',   x: 0, y: 0, w: 12, h: 9,  minW: 6, minH: 3 },
     { i: 'domains', x: 0, y: 3, w: 12, h: 11, minW: 5, minH: 6 },
 ];
 
@@ -96,6 +97,7 @@ class Dashboard extends Component {
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
                     storageKey="watcher_legitimate_domains_grid"
+                    layoutPresets={LAYOUT_PRESETS['watcher_legitimate_domains_grid']}
                 />
             </Fragment>
         );

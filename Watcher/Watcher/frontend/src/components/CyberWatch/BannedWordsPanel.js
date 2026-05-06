@@ -71,14 +71,24 @@ class BannedWordsPanel extends Component {
 
     render() {
         const { bannedWords, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
         const { showHelp, showAddModal, addName, showEditModal, editName, showDeleteModal, deleteName } = this.state;
+
+        const canManage = isAuthenticated && !!user && (
+            user.is_superuser ||
+            user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.some(p =>
+                p === 'threats_watcher.add_bannedword' ||
+                p === 'threats_watcher.change_bannedword' ||
+                p === 'threats_watcher.delete_bannedword'
+            ))
+        );
 
         return (
             <Fragment>
                 <div className="d-flex justify-content-between align-items-center mb-3">
                     <h4>Banned Words</h4>
-                    {isAuthenticated && (
+                    {canManage && (
                         <button className="btn btn-success" onClick={() => this.setState({ showAddModal: true })}>
                             <i className="material-icons me-1" style={{ verticalAlign: 'middle', fontSize: '18px' }}>add_circle</i>
                             Add Banned Word
@@ -127,12 +137,12 @@ class BannedWordsPanel extends Component {
                                         <tr>
                                             <th role="button" onClick={() => handleSort('name')}>Word {renderSortIcons('name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('created_at')}>Added {renderSortIcons('created_at')}</th>
-                                            {isAuthenticated && <th className="text-end">Actions</th>}
+                                            {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={isAuthenticated ? 3 : 2} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 3 : 2} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(bw => (
                                             <tr key={bw.id}>
                                                 <td className="align-middle fw-semibold">{bw.name}</td>
@@ -141,13 +151,13 @@ class BannedWordsPanel extends Component {
                                                         ? <DateWithTooltip date={bw.created_at} type="created" />
                                                         : <span className="text-muted">-</span>}
                                                 </td>
-                                                {isAuthenticated && (
+                                                {canManage && (
                                                     <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                         <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.openEditModal(bw)}>
-                                                            <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                         </button>
-                                                        <button className="btn btn-outline-danger btn-sm" title="Delete" onClick={() => this.openDeleteModal(bw.id, bw.name)}>
-                                                            <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                        <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.openDeleteModal(bw.id, bw.name)}>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                         </button>
                                                     </td>
                                                 )}
@@ -162,6 +172,7 @@ class BannedWordsPanel extends Component {
                     )}
                 </TableManager>
 
+                {canManage && (<>
                 <Modal show={showAddModal} onHide={() => this.setState({ showAddModal: false })} centered>
                     <Modal.Header closeButton><Modal.Title>Add Banned Word</Modal.Title></Modal.Header>
                     <Modal.Body>
@@ -219,6 +230,7 @@ class BannedWordsPanel extends Component {
                         </form>
                     </Modal.Footer>
                 </Modal>
+                </>)}
             </Fragment>
         );
     }

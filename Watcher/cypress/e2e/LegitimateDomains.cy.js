@@ -237,32 +237,32 @@ describe('Legitimate Domains - E2E Test Suite', () => {
 
     it('should display correct statistics counts', () => {
       cy.get('.card.border-0.shadow-sm').first().within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Total domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
       });
 
       cy.get('.card.border-0.shadow-sm').eq(1).within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Repurchased domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
       });
 
       cy.get('.card.border-0.shadow-sm').eq(2).within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Expired domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
       });
 
       cy.get('.card.border-0.shadow-sm').eq(3).within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Expiring soon domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
@@ -596,8 +596,8 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       cy.get('table tbody tr').should('have.length.at.least', 1);
 
       cy.get('.card.border-0.shadow-sm').first().within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text);
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.replace(/,/g, ''));
           cy.log(`Filtered domains count: ${num}`);
           expect(num).to.be.at.least(0);
           if (num > 0) {
@@ -769,10 +769,19 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       cy.log('No auth token available - skipping cleanup');
     }
 
-    // Clear localStorage items specific to Legitimate Domains
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('watcher_localstorage_items_legitimateDomains');
-      win.localStorage.removeItem('watcher_localstorage_filters_legitimateDomains');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });

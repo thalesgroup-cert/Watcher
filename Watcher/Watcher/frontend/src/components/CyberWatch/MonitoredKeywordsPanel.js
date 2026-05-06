@@ -15,9 +15,9 @@ import DateWithTooltip from '../common/DateWithTooltip';
 const LEVEL_VALUES = ['warm', 'hot', 'super_hot'];
 const LEVEL_FLAMES = { warm: '🔥', hot: '🔥🔥', super_hot: '🔥🔥🔥' };
 const LEVEL_OPTIONS = [
-    { value: 'warm',      label: 'Warm',      desc: 'Low activity – keyword seen rarely' },
-    { value: 'hot',       label: 'Hot',       desc: 'Moderate activity (≥ 3 hits)' },
-    { value: 'super_hot', label: 'Super Hot', desc: 'High activity (≥ 10 hits)' },
+    { value: 'warm',      label: 'Warm',      desc: 'Low activity – keyword seen rarely', threshold: '< 3 occurrences',  badge: 'bg-warning text-dark' },
+    { value: 'hot',       label: 'Hot',       desc: 'Moderate activity',                  threshold: '≥ 3 occurrences',  badge: 'bg-danger'            },
+    { value: 'super_hot', label: 'Super Hot', desc: 'High activity',                      threshold: '≥ 10 occurrences', badge: 'bg-danger'            },
 ];
 
 const FILTER_CONFIG = [
@@ -124,31 +124,36 @@ class MonitoredKeywordsPanel extends Component {
     renderLevelSelector = (value, onChange) => {
         const idx = LEVEL_VALUES.indexOf(value);
         const safeIdx = idx === -1 ? 0 : idx;
+        const current = LEVEL_OPTIONS[safeIdx];
+
         return (
             <Form.Group className="mb-3">
-                <Form.Label><strong>Alert Level</strong></Form.Label>
-                <div className="px-1 pt-1">
-                    <input
-                        type="range"
-                        className="form-range"
-                        min={0} max={2} step={1}
-                        value={safeIdx}
-                        onChange={e => onChange(LEVEL_VALUES[parseInt(e.target.value)])}
-                    />
-                    <div className="d-flex justify-content-between">
-                        {LEVEL_OPTIONS.map(o => (
-                            <div key={o.value} className="text-center" style={{ flex: '1', fontSize: '0.78rem' }}>
-                                <div style={{ fontSize: '1.2rem' }}>{LEVEL_FLAMES[o.value]}</div>
-                                <div className={`fw-semibold ${value === o.value ? 'text-primary' : 'text-muted'}`}>
-                                    {o.label}
-                                </div>
-                                <div className="text-muted" style={{ fontSize: '0.72rem' }}>{o.desc}</div>
-                            </div>
-                        ))}
-                    </div>
+                <Form.Label>
+                    <strong>Alert Level</strong>
+                    {' '}
+                    <span className={`badge ${current.badge} ms-1`}>
+                        {LEVEL_FLAMES[value]} {current.label}
+                    </span>
+                </Form.Label>
+                <input
+                    type="range"
+                    className="form-range"
+                    min={0}
+                    max={LEVEL_VALUES.length - 1}
+                    step={1}
+                    value={safeIdx}
+                    onChange={e => onChange(LEVEL_VALUES[parseInt(e.target.value)])}
+                />
+                <div className="d-flex justify-content-between mt-1">
+                    {LEVEL_OPTIONS.map(o => (
+                        <div key={o.value} className="text-center" style={{ flex: 1 }}>
+                            <div><small className="text-muted">{LEVEL_FLAMES[o.value]} {o.label}</small></div>
+                            <div><small className="text-muted fst-italic" style={{ fontSize: '0.68rem' }}>{o.threshold}</small></div>
+                        </div>
+                    ))}
                 </div>
-                <Form.Text className="text-muted mt-2 d-block">
-                    The level auto-escalates based on occurrence count. You can override it here.
+                <Form.Text className="text-muted mt-1 d-block">
+                    {current.desc} ({current.threshold}). The level auto-escalates based on occurrence count.
                 </Form.Text>
             </Form.Group>
         );
@@ -156,7 +161,9 @@ class MonitoredKeywordsPanel extends Component {
 
     render() {
         const { monitoredKeywords, auth } = this.props;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canAdd = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('threats_watcher.add_monitoredkeyword')));
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'threats_watcher.change_monitoredkeyword' || p === 'threats_watcher.delete_monitoredkeyword')));
         const { showHelp, showAddModal, addName, addLevel, showEditModal, editName, editLevel,
                 showDeleteModal, selectedName, showSourcesModal, sourcesKeyword, sourcesPosturls } = this.state;
 
@@ -164,7 +171,7 @@ class MonitoredKeywordsPanel extends Component {
             <Fragment>
                 <div className="d-flex justify-content-between align-items-center mb-3">
                     <h4>Monitored Keywords</h4>
-                    {isAuthenticated && (
+                    {canAdd && (
                         <button className="btn btn-success" onClick={() => this.setState({ showAddModal: true })}>
                             <i className="material-icons me-1" style={{ verticalAlign: 'middle', fontSize: '18px' }}>add_circle</i>
                             Add Keyword
@@ -216,12 +223,12 @@ class MonitoredKeywordsPanel extends Component {
                                             <th className="text-center" role="button" onClick={() => handleSort('level')}>Level {renderSortIcons('level')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('occurrences')}>Occurrences {renderSortIcons('occurrences')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('last_seen')}>Last Seen {renderSortIcons('last_seen')}</th>
-                                            {isAuthenticated && <th className="text-end">Actions</th>}
+                                            {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={isAuthenticated ? 5 : 4} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 5 : 4} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(mk => (
                                             <tr key={mk.id} style={{ cursor: 'pointer' }} onClick={() => this.openSourcesModal(mk)} title="Click to see detected sources">
                                                 <td className="align-middle fw-semibold">{mk.name}</td>
@@ -232,13 +239,13 @@ class MonitoredKeywordsPanel extends Component {
                                                         ? <DateWithTooltip date={mk.last_seen} includeTime={true} type="updated" />
                                                         : <span className="text-muted fst-italic">Never</span>}
                                                 </td>
-                                                {isAuthenticated && (
+                                                {canManage && (
                                                     <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                                                         <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.openEditModal(mk)}>
-                                                            <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                         </button>
-                                                        <button className="btn btn-outline-danger btn-sm" title="Delete" onClick={() => this.openDeleteModal(mk.id, mk.name)}>
-                                                            <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                        <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.openDeleteModal(mk.id, mk.name)}>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                         </button>
                                                     </td>
                                                 )}

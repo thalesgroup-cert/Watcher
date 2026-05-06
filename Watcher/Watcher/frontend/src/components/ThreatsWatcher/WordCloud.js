@@ -19,7 +19,7 @@ const getBootstrapColor = (className) => {
 
 const options = {
     enableTooltip: true,
-    deterministic: false,
+    deterministic: true,
     fontFamily: 'arial',
     fontSizes: [20, 90],
     fontStyle: 'normal',
@@ -175,7 +175,7 @@ export class WordCloud extends Component {
         const words = dataToUse.map(lead => {
             const isMonitored = monitoredSeen.has(lead.name.toLowerCase());
             return {
-                text: isMonitored ? `${lead.name} *` : lead.name,
+                text: isMonitored ? `${lead.name}*` : lead.name,
                 value: lead.occurrences,
             };
         });
@@ -184,7 +184,7 @@ export class WordCloud extends Component {
             const existingNames = new Set(dataToUse.map(l => l.name.toLowerCase()));
             monitoredKeywords
                 .filter(mk => mk.last_seen && !existingNames.has(mk.name.toLowerCase()))
-                .forEach(mk => words.push({ text: `${mk.name} *`, value: 1 }));
+                .forEach(mk => words.push({ text: `${mk.name}*`, value: 1 }));
         }
 
         if (words.length === 0) {

@@ -6,12 +6,13 @@
  * panels         {Object}   Panel definitions: { label, icon, tooltip, children }
  * defaultLayout  {Array}    react-grid-layout layout array
  * defaultActive  {Array}    Keys of panels shown by default
- * storageKey     {string}   Prefix for localStorage
+ * storageKey     {string}   Prefix for DB preference keys (via preferencesService)
  * cols           {number}   Grid columns (default 12)
  * rowHeight      {number}   Row height in px (default 55)
  * toolbarExtra   {node}     Extra content in toolbar right side
  * forceActivate  {Array}    Force these panel keys open (watched by ref)
  * layoutOverrides {Object}  { [panelKey]: { h } } - auto height per panel (skipped if user manually resized)
+ * layoutPresets   {Array}    Named presets from layoutPresets.js; used to smart-reset to the active preset.
  */
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
@@ -40,6 +41,7 @@ class PanelGrid extends Component {
         toolbarExtra:    PropTypes.node,
         forceActivate:   PropTypes.array,
         layoutOverrides: PropTypes.object,
+        layoutPresets:   PropTypes.array,
     };
 
     static defaultProps = {
@@ -50,6 +52,7 @@ class PanelGrid extends Component {
         toolbarExtra:    null,
         forceActivate:   null,
         layoutOverrides: null,
+        layoutPresets:   null,
     };
 
 
@@ -63,10 +66,12 @@ class PanelGrid extends Component {
         const layout = preferencesService.get(this._lsKey('layout'), this.props.defaultLayout);
         const active = preferencesService.get(this._lsKey('active'), this.props.defaultActive);
         const resized = preferencesService.get(this._lsKey('resized'), []);
+        const activePresetId = preferencesService.get(this._lsKey('preset'), 'default');
         this.setState({
             layout,
             activePanels: new Set(active),
             manuallyResized: new Set(resized),
+            activePresetId,
         });
     };
 
@@ -78,19 +83,28 @@ class PanelGrid extends Component {
             layout:          this._lsRead('layout', props.defaultLayout),
             manuallyResized: new Set(this._lsRead('resized', [])),
             showHelp:        false,
+            activePresetId:  this._lsRead('preset', 'default'),
         };
     }
 
+
+    _onLayoutUpdated = (e) => {
+        if (e.detail?.storageKey === this.props.storageKey) {
+            this._onPrefsReady();
+        }
+    };
 
     componentDidMount() {
         // if service wasn't ready at construction time, re-hydrate when it fires
         if (!preferencesService.isReady()) {
             window.addEventListener('watcher:prefs:ready', this._onPrefsReady);
         }
+        window.addEventListener('watcher:layout:updated', this._onLayoutUpdated);
     }
 
     componentWillUnmount() {
         window.removeEventListener('watcher:prefs:ready', this._onPrefsReady);
+        window.removeEventListener('watcher:layout:updated', this._onLayoutUpdated);
     }
 
     componentDidUpdate(prevProps) {
@@ -156,10 +170,16 @@ class PanelGrid extends Component {
     };
 
     resetLayout = () => {
-        const next = new Set(this.props.defaultActive);
-        const freshLayout = [...this.props.defaultLayout];
-        const emptyResized = new Set();
-        this.setState({ activePanels: next, layout: freshLayout, manuallyResized: emptyResized });
+        const { layoutPresets, storageKey } = this.props;
+        const activePresetId = this.state.activePresetId || 'default';
+        const preset = layoutPresets
+            ? (layoutPresets.find(p => p.id === activePresetId) || layoutPresets.find(p => p.id === 'default'))
+            : null;
+        const resetLayout = preset ? preset.layout : this.props.defaultLayout;
+        const resetActive = preset ? preset.active : this.props.defaultActive;
+        const next = new Set(resetActive);
+        const freshLayout = resetLayout.map(p => ({ ...p }));
+        this.setState({ activePanels: next, layout: freshLayout, manuallyResized: new Set() });
         this._lsWrite('active', [...next]);
         this._lsWrite('layout', freshLayout);
         this._lsWrite('resized', []);
@@ -221,8 +241,14 @@ class PanelGrid extends Component {
     }
 
     renderToolbar() {
-        const { panels, toolbarExtra } = this.props;
-        const { activePanels } = this.state;
+        const { panels, toolbarExtra, layoutPresets } = this.props;
+        const { activePanels, activePresetId } = this.state;
+        const activePreset = layoutPresets
+            ? (layoutPresets.find(p => p.id === activePresetId) || layoutPresets[0])
+            : null;
+        const presetLabel = activePresetId === 'custom'
+            ? 'Custom'
+            : (activePreset?.name || null);
 
         return (
             <div className="d-flex justify-content-start mb-3 mt-3 flex-wrap" style={{ gap: '10px', padding: '0 8px' }}>
@@ -248,7 +274,7 @@ class PanelGrid extends Component {
                         type="button"
                         className="btn btn-secondary d-inline-flex align-items-center"
                         onClick={this.resetLayout}
-                        title="Reset layout and visible panels to defaults"
+                        title={presetLabel ? `Reset to "${presetLabel}" preset` : 'Reset layout and visible panels to defaults'}
                     >
                         <i className="material-icons me-1 align-middle" style={{ fontSize: 20 }}>refresh</i>
                         <span className="align-middle">Reset Layout</span>

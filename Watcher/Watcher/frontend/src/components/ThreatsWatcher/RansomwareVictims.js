@@ -1,11 +1,28 @@
 import React, { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { getRansomwareVictims, getWatchRuleHits, archiveVictim, archiveHit } from '../../actions/CyberWatch';
 import { ISO2_TO_GEO, isoToFlag } from '../../utils/isoCountries';
 import { Modal, Badge } from 'react-bootstrap';
+
+const EmptyHitsState = ({ type }) => (
+    <tr>
+        <td colSpan={99} className="text-center py-5">
+            <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                <span className="fw-semibold">No results found</span>
+                <span className="small">
+                    No {type} matched your Watch Rules yet.{' '}
+                    <Link to="/cyber_watch" className="text-primary">
+                        Add or review your rules on Cyber Watch
+                    </Link>
+                </span>
+            </div>
+        </td>
+    </tr>
+);
 
 const FILTER_CONFIG = [
     {
@@ -191,7 +208,8 @@ class RansomwareVictims extends Component {
     render() {
         const { ransomwareVictims, filterCountry, auth } = this.props;
         const { activeTab } = this.state;
-        const { isAuthenticated } = auth;
+        const { isAuthenticated, user } = auth;
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'cyber_watch.change_ransomwarevictim' || p === 'cyber_watch.delete_ransomwarevictim')));
         const ransomwareHits = this.getRansomwareHits();
 
         // Pre-filter by country so TableManager sees a new data prop and re-applies filters.
@@ -268,7 +286,7 @@ class RansomwareVictims extends Component {
                             className={`nav-link ${activeTab === 'hits' ? 'active' : ''}`}
                             onClick={() => this.setState({ activeTab: 'hits' })}
                         >
-                            Hits Victims ({ransomwareHits.length})
+                            My Watch Rules Hits ({ransomwareHits.length})
                         </button>
                     </li>
                     <li className="nav-item">
@@ -338,11 +356,7 @@ class RansomwareVictims extends Component {
                                                 </thead>
                                                 <tbody>
                                                     {paginatedData.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={5} className="text-center text-muted py-4">
-                                                                No results found
-                                                            </td>
-                                                        </tr>
+                                                        <EmptyHitsState type="ransomware victims" />
                                                     ) : (
                                                         paginatedData.map(hit => {
                                                             const parts = (hit.object_id || '').split('::');
@@ -373,7 +387,7 @@ class RansomwareVictims extends Component {
                                                                         >
                                                                             <i className="material-icons" style={{ fontSize: '1rem', verticalAlign: 'middle' }}>info</i>
                                                                         </button>
-                                                                        {isAuthenticated && (
+                                                                        {canManage && (
                                                                             <button
                                                                                 className="btn btn-outline-warning btn-sm"
                                                                                 onClick={() => this.props.archiveHit(hit.id)}
@@ -452,7 +466,7 @@ class RansomwareVictims extends Component {
                                                         onClick={() => handleSort('attacked_at')}>
                                                         Attacked {renderSortIcons('attacked_at')}
                                                     </th>
-                                                    {isAuthenticated && <th className="text-center">Actions</th>}
+                                                    {canManage && <th className="text-center">Actions</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -502,7 +516,7 @@ class RansomwareVictims extends Component {
                                                                     type="created"
                                                                 />
                                                             </td>
-                                                            {isAuthenticated && (
+                                                            {canManage && (
                                                                 <td className="text-center align-middle" onClick={e => e.stopPropagation()}>
                                                                     <button
                                                                         className="btn btn-outline-warning btn-sm"

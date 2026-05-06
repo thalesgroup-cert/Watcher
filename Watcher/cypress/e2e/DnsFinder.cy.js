@@ -826,15 +826,19 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.log('No auth token available - skipping cleanup');
     }
 
-    // Clear localStorage and sessionStorage
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('watcher_localstorage_layout_dnsFinder');
-      win.localStorage.removeItem('watcher_localstorage_layout_dnsFinder_secondary');
-      win.localStorage.removeItem('watcher_localstorage_items_dnsFinder');
-      win.localStorage.removeItem('watcher_localstorage_items_dnsFinder_archived');
-      win.localStorage.removeItem('watcher_localstorage_items_dnsFinder_domains');
-      win.localStorage.removeItem('watcher_localstorage_items_dnsFinder_keywords');
-      win.localStorage.removeItem('watcher_localstorage_filters_dnsFinder');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });

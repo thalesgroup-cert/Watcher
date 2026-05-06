@@ -68,6 +68,9 @@ const HelpButton = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
 
+    const swaggerUrl   = window.WATCHER_HELP_BUTTON_URL;
+    const swaggerLabel = window.WATCHER_HELP_BUTTON_LABEL || 'API Swagger';
+
     return (
         <div className="btn-group position-relative me-2">
             <button
@@ -82,15 +85,28 @@ const HelpButton = () => {
                 <i className="material-icons align-middle small">help_outline</i>
             </button>
             <div ref={menuRef} className={`dropdown-menu dropdown-menu-end ${isOpen ? 'show' : ''}`} style={{ minWidth: 200 }}>
+                {swaggerUrl && (
+                    <a
+                        className="dropdown-item"
+                        href={swaggerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setIsOpen(false)}
+                    >
+                        <i className="material-icons me-2 align-middle small">settings</i>
+                        {swaggerLabel}
+                    </a>
+                )}
+                {swaggerUrl && <div className="dropdown-divider"></div>}
                 <a
                     className="dropdown-item"
-                    href="https://thalesgroup-cert.github.io/Watcher/README.html#api-key-creation-management"
+                    href="https://thalesgroup-cert.github.io/Watcher/"
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setIsOpen(false)}
                 >
                     <i className="material-icons me-2 align-middle small">notes</i>
-                    API Docs
+                    Documentation
                 </a>
                 <a
                     className="dropdown-item"
@@ -111,6 +127,13 @@ const UserDropdown = ({ user, logout }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const buttonRef = useRef(null);
     const menuRef = useRef(null);
+
+    const initials = user
+        ? ((user.first_name && user.last_name
+            ? `${user.first_name[0]}${user.last_name[0]}`
+            : (user.first_name || user.username || '?')[0]
+          ).toUpperCase())
+        : '?';
 
     const handleToggle = (e) => {
         e.preventDefault();
@@ -146,7 +169,17 @@ const UserDropdown = ({ user, logout }) => {
                 aria-haspopup="true" 
                 aria-expanded={isOpen}
             >
-                <i className="material-icons me-1 align-middle small">account_circle</i>
+                <span
+                    className="me-2 align-middle d-inline-flex align-items-center justify-content-center"
+                    style={{
+                        width: 24, height: 24, borderRadius: '50%',
+                        background: 'linear-gradient(160deg, #052f84, #3584b4)',
+                        color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0,
+                        lineHeight: 1, verticalAlign: 'middle',
+                    }}
+                >
+                    {initials}
+                </span>
                 <span className="align-middle">
                     {user ? `${user.first_name || user.username}` : "User"}
                 </span>

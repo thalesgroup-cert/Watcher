@@ -81,6 +81,49 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     cy.intercept('DELETE', '**/api/threats_watcher/trendyword/*', { statusCode: 204 }).as('deleteTrendyWord');
 
+    // Statistics carousel intercepts
+    cy.intercept('GET', '**/api/threats_watcher/source/statistics/**', {
+      statusCode: 200,
+      body: {
+        totalWords: 3,
+        newToday: 1,
+        newThisWeek: 3,
+        totalSources: 5,
+        bannedWords: 2,
+        monitoredKeywords: 2
+      }
+    }).as('getThreatsStats');
+
+    cy.intercept('GET', '**/api/cyber_watch/ransomware/victims/**', {
+      statusCode: 200,
+      body: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, post_title: 'Victim Corp A', gang_name: 'LockBit', published: '2025-06-19T10:00:00Z', country: 'FR', activity: 'Finance' },
+          { id: 2, post_title: 'Victim Corp B', gang_name: 'BlackCat', published: '2025-06-18T12:00:00Z', country: 'US', activity: 'Healthcare' }
+        ]
+      }
+    }).as('getRansomwareVictims');
+
+    cy.intercept('GET', '**/api/cyber_watch/cves/**', {
+      statusCode: 200,
+      body: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, cve_id: 'CVE-2025-1234', description: 'Test CVE', cvss: 8.5, published: '2025-06-19T10:00:00Z' }
+        ]
+      }
+    }).as('getCVEs');
+
+    cy.intercept('GET', '**/api/cyber_watch/watch-rule-hits/**', {
+      statusCode: 200,
+      body: { count: 0, next: null, previous: null, results: [] }
+    }).as('getWatchRuleHits');
+
     // Mock auth endpoints with test credentials
     cy.intercept('GET', '/api/auth/user/', {
       statusCode: 200, 
@@ -106,8 +149,24 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     }).as('login');
 
-    // Use the authentication helper
-    cy.authenticateWithTestUser();
+    // Authenticate inline with extended URL timeout (avoids 4000ms default in commands.js)
+    cy.visit('/#/login');
+    cy.get('input[type="text"], input[name="username"]', { timeout: 15000 })
+      .should('be.visible').type(credentials.username);
+    cy.get('input[type="password"], input[name="password"]')
+      .should('be.visible').type(credentials.password);
+    cy.get('button[type="submit"], button:contains("Login")')
+      .should('not.be.disabled').click();
+    cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
+    cy.get('.navbar').should('exist');
+    cy.window().then((win) => {
+      const token = win.localStorage.getItem('token') || win.sessionStorage.getItem('token');
+      Cypress.env('authData', {
+        token: token || 'mock-token-123456789',
+        user: win.localStorage.getItem('user') || null,
+        isAuthenticated: true,
+      });
+    });
 
     // Navigate to ThreatsWatcher
     cy.visit('/#/');
@@ -792,17 +851,97 @@ describe('Threats Watcher - E2E Test Suite', () => {
       cy.log('No auth token available - skipping cleanup');
     }
 
-    // Clear localStorage
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('viewedUrls');
-      win.localStorage.removeItem('watcher_localstorage_layout_threatsWatcher');
-      win.localStorage.removeItem('watcher_localstorage_layout_postUrls_summary');
-      win.localStorage.removeItem('watcher_localstorage_items_threatsWatcher_wordlist');
-      win.localStorage.removeItem('watcher_localstorage_filters_threatsWatcher_wordlist');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });
     
     cy.log('Threats Watcher cleanup completed');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('Statistics Dashboard (Carousel)', () => {
+    it('should display the Statistics panel', () => {
+      cy.contains('.card-header', 'Statistics', { timeout: 15000 })
+        .closest('.card.h-100.shadow-sm')
+        .should('exist');
+    });
+
+    it('should display KPI cards inside the statistics panel', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('.card.border-0.shadow-sm', { timeout: 10000 }).should('have.length.at.least', 3);
+        });
+    });
+
+    it('should display KPI values in stat cards', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('.card.border-0.shadow-sm').first().within(() => {
+            cy.get('.text-white.fw-bold').should('exist');
+          });
+        });
+    });
+
+    it('should display carousel navigation dots', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          // Carousel has nav dot buttons
+          cy.get('button[style*="border-radius"], [class*="dot"], [class*="indicator"]').should('have.length.at.least', 2);
+        });
+    });
+
+    it('should display slide label for Threats Watcher stats', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.contains('Threats Watcher').should('exist');
+        });
+    });
+
+    it('should display progress bar at the bottom of stats card', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('[style*="position: absolute"], .position-absolute').should('exist');
+        });
+    });
+
+    it('should display Ransomware label on second slide', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          // Navigate to second dot
+          cy.get('button[style*="border-radius"]').eq(1).click({ force: true });
+          cy.wait(600);
+          cy.contains('Ransomware').should('exist');
+        });
+    });
+
+    it('should display CVE label on third slide', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          // Navigate to third dot
+          cy.get('button[style*="border-radius"]').eq(2).click({ force: true });
+          cy.wait(600);
+          cy.contains('CVE').should('exist');
+        });
+    });
   });
 });

@@ -149,7 +149,7 @@ const pill = (extra = {}) => ({
 function WorldMap({
     sources, leads, ransomwareVictims,
     getSources, getRansomwareVictims,
-    onCountrySelect, embedded,
+    onCountrySelect, embedded, filterCountry,
 }) {
     const [viewState, setViewState]     = useState(INITIAL_VIEW_STATE);
     const [geoJson, setGeoJson]         = useState(null);
@@ -157,6 +157,10 @@ function WorldMap({
     const [globeMode, setGlobeMode]     = useState(false);
     const [selectedIso, setSelectedIso] = useState(null);
     const [hoveredInfo, setHoveredInfo] = useState(null);
+
+    useEffect(() => {
+        setSelectedIso(filterCountry || null);
+    }, [filterCountry]);
     const [visible, setVisible]         = useState({ sources: true, trending: true, victims: true });
     const [panelOpen, setPanelOpen]     = useState(true);
 
@@ -533,7 +537,7 @@ function WorldMap({
             {selectedIso && (
                 <div className="card shadow-sm border-warning d-flex flex-row align-items-center gap-2 px-2 py-1" style={{ position: 'absolute', bottom: 24, left: 10, zIndex: 60 }}>
                     <span style={{ fontSize: '0.9rem' }}>{isoToFlag(selectedIso)}</span>
-                    <span className="fw-semibold" style={{ fontSize: '0.78rem' }}>{selectedIso}</span>
+                    <span className="fw-semibold" style={{ fontSize: '0.78rem' }}>{isoToGeoName(selectedIso) || selectedIso}</span>
                     <button
                         onClick={() => { setSelectedIso(null); if (onCountrySelect) onCountrySelect(null); }}
                         title="Deselect"

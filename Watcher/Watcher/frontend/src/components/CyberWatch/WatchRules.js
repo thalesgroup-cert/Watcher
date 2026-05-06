@@ -238,7 +238,17 @@ class WatchRules extends Component {
     render() {
         const { watchRules } = this.props;
         const { showHelp } = this.state;
-        const { isAuthenticated: authd } = this.props.auth;
+        const { isAuthenticated, user } = this.props.auth;
+        const canAdd = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.includes('cyber_watch.add_watchrule'))
+        );
+        const canManage = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.some(p =>
+                p === 'cyber_watch.change_watchrule' || p === 'cyber_watch.delete_watchrule'
+            ))
+        );
 
         return (
             <Fragment>
@@ -247,7 +257,7 @@ class WatchRules extends Component {
                     <h4>
                         Watch Rules
                     </h4>
-                    {authd && (
+                    {canAdd && (
                         <button className="btn btn-success" onClick={this.openAddModal}>
                             <i className="material-icons me-1" style={{ verticalAlign: 'middle', fontSize: '18px' }}>add_circle</i>
                             Add Rule
@@ -305,13 +315,13 @@ class WatchRules extends Component {
                                                     <th className="text-center" role="button" onClick={() => handleSort('scope')}>Scope {renderSortIcons('scope')}</th>
                                                     <th className="text-center" role="button" onClick={() => handleSort('hits_count')}>Hits {renderSortIcons('hits_count')}</th>
                                                     <th className="text-end" role="button" onClick={() => handleSort('is_active')}>Active {renderSortIcons('is_active')}</th>
-                                                    {authd && <th className="text-end">Actions</th>}
+                                                    {canManage && <th className="text-end">Actions</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={authd ? 6 : 5} className="text-center text-muted py-4">
+                                                        <td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -337,7 +347,7 @@ class WatchRules extends Component {
                                                                     ? <span className="badge bg-success">Yes</span>
                                                                     : <span className="badge bg-secondary">No</span>}
                                                             </td>
-                                                            {authd && (
+                                                            {canManage && (
                                                                 <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                                     <button className="btn btn-outline-warning btn-sm me-2"
                                                                         title="Edit"

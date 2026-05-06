@@ -794,10 +794,19 @@ describe('Site Monitoring - E2E Test Suite', () => {
       cy.log('No auth token available - skipping cleanup');
     }
 
-    // Clear localStorage items specific to Site Monitoring
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('watcher_localstorage_items_siteMonitoring');
-      win.localStorage.removeItem('watcher_localstorage_filters_siteMonitoring');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });

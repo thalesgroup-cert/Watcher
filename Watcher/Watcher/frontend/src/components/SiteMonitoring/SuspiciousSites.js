@@ -1164,6 +1164,17 @@ export class SuspiciousSites extends Component {
 
     render() {
         const { sites, auth, globalFilters, filteredData } = this.props;
+        const { isAuthenticated, user } = auth;
+        const canAdd = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.includes('site_monitoring.add_site'))
+        );
+        const canManage = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.some(p =>
+                p === 'site_monitoring.change_site' || p === 'site_monitoring.delete_site'
+            ))
+        );
         const dataToUse = filteredData || this.state.filteredSites || sites;
 
         const filterConfig = [
@@ -1212,7 +1223,7 @@ export class SuspiciousSites extends Component {
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <h4>Suspicious Websites Monitored</h4>
                     <div>
-                        {auth.isAuthenticated && (
+                        {canAdd && (
                             <Button variant="success" onClick={this.displayAddModal}>
                                 <i className="material-icons" style={{ verticalAlign: 'middle' }}>add_circle</i>
                                 <span className="ms-2">Add Domain</span>
@@ -1401,6 +1412,7 @@ export class SuspiciousSites extends Component {
                                                                 <span className="me-2">
                                                                     {this.exportButton(site)}
                                                                 </span>
+                                                                {canManage && (
                                                                 <button
                                                                     onClick={() => this.displayEditModal(site)}
                                                                     className="btn btn-outline-warning btn-sm me-2"
@@ -1408,6 +1420,8 @@ export class SuspiciousSites extends Component {
                                                                 >
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                                 </button>
+                                                                )}
+                                                                {canManage && (
                                                                 <button
                                                                     onClick={() => this.displayDeleteModal(site.id, site.domain_name)}
                                                                     className="btn btn-outline-danger btn-sm me-2"
@@ -1415,6 +1429,7 @@ export class SuspiciousSites extends Component {
                                                                 >
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                                 </button>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     ))

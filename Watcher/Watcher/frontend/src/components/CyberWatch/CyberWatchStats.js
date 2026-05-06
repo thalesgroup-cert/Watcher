@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Row, Col } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 
 
@@ -57,11 +56,11 @@ class CyberWatchStats extends Component {
         const stats = buildStats(monitoredKeywords, sources, bannedWords, watchRules, watchRuleHits);
 
         return (
-            <Row xs={1} md={2} xl={5} className="g-3">
+            <div className="row g-2 mb-3">
                 {stats.map((card, i) => (
-                    <Col key={i}>
+                    <div key={i} className="col-6 col-xl mb-3">
                         <div className={`card border-0 shadow-sm h-100 bg-${card.variant}`}>
-                            <div className="card-body d-flex align-items-center p-4">
+                            <div className="card-body d-flex align-items-center p-3">
                                 <div
                                     className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
                                     style={{ width: 50, height: 50, minWidth: 50, minHeight: 50 }}
@@ -73,7 +72,7 @@ class CyberWatchStats extends Component {
                                         {card.icon}
                                     </i>
                                 </div>
-                                <div className="flex-fill">
+                                <div className="flex-fill" style={{ minWidth: 0 }}>
                                     <div
                                         className="text-white-50 text-uppercase fw-bold small mb-1"
                                         style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}
@@ -81,8 +80,8 @@ class CyberWatchStats extends Component {
                                         {card.title}
                                     </div>
                                     <div
-                                        className="text-white fw-bold h2 mb-1"
-                                        style={{ fontSize: '2rem', lineHeight: 1 }}
+                                        className="text-white fw-bold mb-1"
+                                        style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.8rem)', lineHeight: 1.1, wordBreak: 'break-all' }}
                                     >
                                         {card.value}
                                     </div>
@@ -92,9 +91,9 @@ class CyberWatchStats extends Component {
                                 </div>
                             </div>
                         </div>
-                    </Col>
+                    </div>
                 ))}
-            </Row>
+            </div>
         );
     }
 }

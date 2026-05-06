@@ -6,9 +6,10 @@ import SourcesPanel from './SourcesPanel';
 import BannedWordsPanel from './BannedWordsPanel';
 import ArchivedAlerts from './ArchivedAlerts';
 import PanelGrid from '../common/PanelGrid';
+import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 
 const DEFAULT_LAYOUT = [
-    { i: 'stats',     x: 0, y: 0,  w: 12, h: 4,  minW: 4, minH: 4 },
+    { i: 'stats',     x: 0, y: 0,  w: 12, h: 4,  minW: 6, minH: 4 },
     { i: 'monitored', x: 0, y: 4,  w: 6,  h: 11, minW: 4, minH: 5 },
     { i: 'watchrules',x: 6, y: 4,  w: 6,  h: 11, minW: 4, minH: 5 },
     { i: 'sources',   x: 0, y: 15, w: 6,  h: 11, minW: 4, minH: 5 },
@@ -92,6 +93,7 @@ class CyberWatchDashboard extends Component {
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
                     storageKey="watcher_cyber_watch_grid"
+                    layoutPresets={LAYOUT_PRESETS['watcher_cyber_watch_grid']}
                 />
             </Fragment>
         );

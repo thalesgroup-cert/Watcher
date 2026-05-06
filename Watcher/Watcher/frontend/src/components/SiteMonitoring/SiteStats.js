@@ -24,6 +24,14 @@ const LEGIT_LABELS = [
     'Malicious (registered)',
     'Malicious (avail./disabled)',
 ];
+const LEGIT_COLORS_HEX = [
+    '#6c757d', // 1 Unknown
+    '#ffc107', // 2 Suspicious, not harmful
+    '#fd7e14', // 3 Suspicious, likely harmful (reg.)
+    '#fd7e14', // 4 Suspicious, likely harmful (avail.)
+    '#dc3545', // 5 Malicious (registered)
+    '#dc3545', // 6 Malicious (avail./disabled)
+];
 const LEGIT_COLORS = [C.info, C.warning, C.warning, C.danger, C.danger, C.primary];
 
 const InfoTip = ({ text }) => (
@@ -35,16 +43,16 @@ InfoTip.propTypes = { text: PropTypes.string.isRequired };
 
 const KpiCard = ({ title, value, sub, icon, variant }) => (
     <div className={"card border-0 shadow-sm h-100 bg-" + variant}>
-        <div className="card-body d-flex align-items-center p-4">
+        <div className="card-body d-flex align-items-center p-3">
             <div className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
                  style={{ width: 50, height: 50, minWidth: 50, minHeight: 50 }}>
                 <i className={"material-icons text-" + variant}
                    style={{ fontSize: 28, lineHeight: 1, display: 'block' }}>{icon}</i>
             </div>
-            <div className="flex-fill">
+            <div className="flex-fill" style={{ minWidth: 0 }}>
                 <div className="text-white-50 text-uppercase fw-bold small mb-1"
                      style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>{title}</div>
-                <div className="text-white fw-bold h2 mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>
+                <div className="text-white fw-bold mb-1" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.8rem)', lineHeight: 1.1, wordBreak: 'break-all' }}>
                     {typeof value === 'number' ? value.toLocaleString() : value}
                 </div>
                 {sub && <div className="text-white-50 small" style={{ fontSize: '0.8rem' }}>{sub}</div>}
@@ -149,7 +157,7 @@ class SiteStats extends Component {
 
         const legitBuckets  = [0, 0, 0, 0, 0, 0];
         sites.forEach(s => { if (s.legitimacy >= 1 && s.legitimacy <= 6) legitBuckets[s.legitimacy - 1]++; });
-        const nonZeroLegit  = LEGIT_LABELS.map((l, i) => ({ l, v: legitBuckets[i], c: LEGIT_COLORS[i] })).filter(x => x.v > 0);
+        const nonZeroLegit  = LEGIT_LABELS.map((l, i) => ({ l, v: legitBuckets[i], c: { solid: LEGIT_COLORS_HEX[i], faded: LEGIT_COLORS_HEX[i] + 'b3', hover: LEGIT_COLORS_HEX[i] } })).filter(x => x.v > 0);
 
         const timelineData = {
             labels: dayLabels,
@@ -185,20 +193,20 @@ class SiteStats extends Component {
 
         return (
             <div>
-                <div className="row mb-4">
-                    <div className="col-xl-3 col-md-6 mb-4">
+                <div className="row g-2 mb-3">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="TOTAL SITES" value={statistics.total ?? 0}
                                  sub="suspicious websites tracked" icon="link" variant="primary" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="MALICIOUS" value={statistics.malicious ?? 0}
                                  sub="confirmed malicious" icon="dangerous" variant="danger" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="TAKEDOWN REQUESTS" value={statistics.takedownRequests ?? 0}
                                  sub="sites under takedown" icon="block" variant="warning" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col-6 col-xl-3 mb-3">
                         <KpiCard title="LEGAL TEAM" value={statistics.legalTeam ?? 0}
                                  sub="legal team involvement" icon="gavel" variant="success" />
                     </div>

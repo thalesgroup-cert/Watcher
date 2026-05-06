@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Form, Button, Modal, Container, Row, Col } from 'react-bootstrap';
+import preferencesService from '../../services/preferencesService';
 
 export const renderSortIcons = (field, sortBy, sortDirection) => {
     const active = sortBy === field;
@@ -76,7 +77,7 @@ const DATE_RANGE_OPTIONS = [
     { value: 'custom', label: 'Custom Range' }
 ];
 
-const GLOBAL_FILTER_VISIBILITY_KEY = 'watcher_localstorage_filterVisibility';
+const GLOBAL_FILTER_VISIBILITY_KEY = 'watcher_filter_visibility';
 
 class TableManager extends Component {
     constructor(props) {
@@ -119,6 +120,19 @@ class TableManager extends Component {
             this.applyFilters();
         });
 
+        this._onPrefsReady = () => {
+            if (!this.mounted) return;
+            const saved = preferencesService.get(`watcher_table_items_${this.moduleKey}`, null);
+            if (saved !== null && saved !== this.state.itemsPerPage) {
+                this.setState({ itemsPerPage: saved, currentPage: 1 });
+            }
+            const savedFilters = preferencesService.get(`watcher_filters_${this.moduleKey}`, null);
+            if (savedFilters) {
+                this.setState({ savedFilters });
+            }
+        };
+        window.addEventListener('watcher:prefs:ready', this._onPrefsReady);
+
         setTimeout(() => {
             if (this.mounted) {
                 this.setupResizeObserver();
@@ -136,6 +150,10 @@ class TableManager extends Component {
             clearTimeout(this.updateHeightTimer);
         }
         window.removeEventListener('resize', this.updateContainerHeight);
+        if (this._onPrefsReady) {
+            window.removeEventListener('watcher:prefs:ready', this._onPrefsReady);
+        }
+        this._adaptivePanelEl = null;
     }
 
     componentDidUpdate(prevProps, prevState) {
@@ -175,35 +193,56 @@ class TableManager extends Component {
     };
 
     loadItemsPerPageFromStorage = () => {
-        try {
-            const saved = localStorage.getItem(`watcher_localstorage_items_${this.moduleKey}`);
-            return saved ? parseInt(saved, 10) : (this.props.itemsPerPage || 5);
-        } catch (error) {
-            return this.props.itemsPerPage || 5;
+        const key = `watcher_table_items_${this.moduleKey}`;
+        if (preferencesService.isReady()) {
+            const saved = preferencesService.get(key, null);
+            return saved !== null ? saved : (this.props.itemsPerPage || 5);
         }
+        return this.props.itemsPerPage || 5;
     };
 
     saveItemsPerPageToStorage = (itemsPerPage) => {
-        try {
-            localStorage.setItem(`watcher_localstorage_items_${this.moduleKey}`, itemsPerPage.toString());
-        } catch (error) {
-            console.error('Error saving items per page:', error);
-        }
+        preferencesService.set(`watcher_table_items_${this.moduleKey}`, itemsPerPage);
+    };
+
+    static PAGE_SIZES = [5, 10, 25, 50, 100];
+    static TABLE_ROW_HEIGHT_PX = 60;
+    static TABLE_OVERHEAD_PX = 150;
+
+    _computeAdaptiveItemsPerPage = () => {
+        const el = this._adaptivePanelEl;
+        if (!el) return null;
+        const available = el.getBoundingClientRect().height - TableManager.TABLE_OVERHEAD_PX;
+        if (available <= 0) return null;
+        const fittable = Math.floor(available / TableManager.TABLE_ROW_HEIGHT_PX);
+        const best = [...TableManager.PAGE_SIZES].reverse().find(s => s <= fittable) || TableManager.PAGE_SIZES[0];
+        return best;
     };
 
     setupResizeObserver = () => {
         if (!this.mounted) return;
         
+        this._resizeObserverInitialized = false;
+
         this.updateContainerHeight = this.updateContainerHeight.bind(this);
         window.addEventListener('resize', this.updateContainerHeight);
 
         if (window.ResizeObserver && this.containerRef.current) {
             this.resizeObserver = new ResizeObserver(() => {
                 this.updateContainerHeight();
+                if (!this._resizeObserverInitialized) {
+                    this._resizeObserverInitialized = true;
+                } else {
+                    const best = this._computeAdaptiveItemsPerPage();
+                    if (best !== null && best !== this.state.itemsPerPage) {
+                        this.handleItemsPerPageChange(best);
+                    }
+                }
             });
             
             const parentElement = this.containerRef.current.closest('.h-100, .container-fluid, .row');
             if (parentElement) {
+                this._adaptivePanelEl = parentElement;
                 this.resizeObserver.observe(parentElement);
             }
         }
@@ -456,35 +495,28 @@ class TableManager extends Component {
     };
 
     loadSavedFilters = () => {
-        try {
-            const saved = localStorage.getItem(`watcher_localstorage_filters_${this.moduleKey}`);
-            if (saved) {
-                this.setState({ savedFilters: JSON.parse(saved) });
-            }
-        } catch (error) {
-            console.error('Error loading saved filters:', error);
+        const key = `watcher_filters_${this.moduleKey}`;
+        if (preferencesService.isReady()) {
+            const saved = preferencesService.get(key, null);
+            if (saved) this.setState({ savedFilters: saved });
+        } else {
+            // Will be hydrated via watcher:prefs:ready listener
         }
     };
 
     saveFiltersToStorage = (name, filters) => {
-        try {
-            const { dateRange, customStartDate, customEndDate } = this.state;
-            const filterData = {
-                filters,
-                dateRange,
-                customStartDate,
-                customEndDate,
-                savedAt: new Date().toISOString()
-            };
-            
-            const currentSaved = { ...this.state.savedFilters };
-            currentSaved[name] = filterData;
-            
-            localStorage.setItem(`watcher_localstorage_filters_${this.moduleKey}`, JSON.stringify(currentSaved));
-            this.setState({ savedFilters: currentSaved });
-        } catch (error) {
-            console.error('Error saving filters:', error);
-        }
+        const { dateRange, customStartDate, customEndDate } = this.state;
+        const filterData = {
+            filters,
+            dateRange,
+            customStartDate,
+            customEndDate,
+            savedAt: new Date().toISOString()
+        };
+        const currentSaved = { ...this.state.savedFilters };
+        currentSaved[name] = filterData;
+        preferencesService.set(`watcher_filters_${this.moduleKey}`, currentSaved);
+        this.setState({ savedFilters: currentSaved });
     };
 
     loadFilterFromStorage = (name) => {
@@ -508,8 +540,7 @@ class TableManager extends Component {
     deleteFilterFromStorage = (name) => {
         const currentSaved = { ...this.state.savedFilters };
         delete currentSaved[name];
-        
-        localStorage.setItem(`watcher_localstorage_filters_${this.moduleKey}`, JSON.stringify(currentSaved));
+        preferencesService.set(`watcher_filters_${this.moduleKey}`, currentSaved);
         this.setState({ savedFilters: currentSaved });
     };
 

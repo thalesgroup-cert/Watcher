@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import {getLeads, deleteLead, addBannedWord, getMonitoredKeywords} from "../../actions/leads";
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { ISO2_TO_GEO, isoToFlag } from '../../utils/isoCountries';
@@ -282,7 +283,13 @@ export class WordList extends Component {
     }
 
     render() {
-        const { isAuthenticated } = this.props.auth;
+        const { isAuthenticated, user } = this.props.auth;
+        const canManage = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.some(p =>
+                p === 'threats_watcher.change_trendyword' || p === 'threats_watcher.delete_trendyword'
+            ))
+        );
         const { filterCountry, onCountrySelect } = this.props;
         const monitoredKeywords = this.props.monitoredKeywords || [];
         const monitoredMap = new Map(monitoredKeywords.map(mk => [mk.name.toLowerCase(), mk]));
@@ -424,16 +431,24 @@ export class WordList extends Component {
                                                                 {(() => {
                                                                     const mk = monitoredMap.get((lead.name || '').toLowerCase());
                                                                     const FLAMES = { warm: '🔥', hot: '🔥🔥', super_hot: '🔥🔥🔥' };
+                                                                    if (mk) {
+                                                                        return (
+                                                                            <OverlayTrigger
+                                                                                placement="top"
+                                                                                overlay={
+                                                                                    <Tooltip>
+                                                                                        {FLAMES[mk.level] || '🔥'} {mk.level?.replace('_', ' ')}
+                                                                                    </Tooltip>
+                                                                                }
+                                                                            >
+                                                                                <span className="mb-0" style={{ fontSize: '1rem', cursor: 'default' }}>
+                                                                                    {lead.name}*
+                                                                                </span>
+                                                                            </OverlayTrigger>
+                                                                        );
+                                                                    }
                                                                     return (
                                                                         <span className="mb-0" style={{ fontSize: '1rem' }}>
-                                                                            {mk && (
-                                                                                <span
-                                                                                    title={`Monitored keyword - level: ${mk.level}`}
-                                                                                    style={{ marginRight: 6, fontSize: '1rem' }}
-                                                                                >
-                                                                                    {FLAMES[mk.level] || '🔥'}
-                                                                                </span>
-                                                                            )}
                                                                             {lead.name}
                                                                         </span>
                                                                     );
@@ -471,7 +486,7 @@ export class WordList extends Component {
                                                                 </small>
                                                             </td>
                                                             <td className="text-center align-middle" onClick={(e) => e.stopPropagation()}>
-                                                                {isAuthenticated && authLinks(lead.id, lead.name)}
+                                                                {canManage && authLinks(lead.id, lead.name)}
                                                             </td>
                                                         </tr>
                                                     ))

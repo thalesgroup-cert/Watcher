@@ -655,12 +655,19 @@ describe('Data Leak - E2E Test Suite', () => {
       cy.log('No auth token available - skipping cleanup');
     }
 
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('watcher_localstorage_layout_dataLeak');
-      win.localStorage.removeItem('watcher_localstorage_items_dataLeak_alerts');
-      win.localStorage.removeItem('watcher_localstorage_items_dataLeak_archived');
-      win.localStorage.removeItem('watcher_localstorage_items_dataLeak_keywords');
-      win.localStorage.removeItem('watcher_localstorage_filters_dataLeak');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });

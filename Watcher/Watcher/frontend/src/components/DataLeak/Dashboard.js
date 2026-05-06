@@ -7,9 +7,10 @@ import ArchivedAlerts from "./ArchivedAlerts";
 import DataLeakStats from "./DataLeakStats";
 import TableManager from '../common/TableManager';
 import PanelGrid from '../common/PanelGrid';
+import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 
 const DEFAULT_LAYOUT = [
-    { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 2, minH: 3  },
+    { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3  },
     { i: 'alerts',   x: 0, y: 8,  w: 8,  h: 11, minW: 4, minH: 5  },
     { i: 'patterns', x: 8, y: 8,  w: 4,  h: 11, minW: 3, minH: 5  },
     { i: 'archived', x: 0, y: 19, w: 12, h: 9,  minW: 6, minH: 5  },
@@ -271,6 +272,7 @@ class Dashboard extends Component {
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
                     storageKey="watcher_dataleak_grid"
+                    layoutPresets={LAYOUT_PRESETS['watcher_dataleak_grid']}
                 />
             </Fragment>
         );

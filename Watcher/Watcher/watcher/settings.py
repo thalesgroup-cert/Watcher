@@ -106,6 +106,10 @@ WATCHER_URL = os.environ.get('WATCHER_URL', '')
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
 GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
 
+# Help button (custom link shown in the Header help dropdown)
+WATCHER_HELP_BUTTON_LABEL = os.environ.get('WATCHER_HELP_BUTTON_LABEL', 'API Docs')
+WATCHER_HELP_BUTTON_URL   = os.environ.get('WATCHER_HELP_BUTTON_URL',   '/api/docs/')
+
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
