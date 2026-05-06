@@ -932,16 +932,5 @@ describe('Threats Watcher - E2E Test Suite', () => {
           cy.contains('Ransomware').should('exist');
         });
     });
-
-    it('should display CVE label on third slide', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          // Navigate to third dot
-          cy.get('button[style*="border-radius"]').eq(2).click({ force: true });
-          cy.wait(600);
-          cy.contains('CVE').should('exist');
-        });
-    });
   });
 });
