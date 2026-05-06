@@ -24,8 +24,11 @@ services:
       - ${WATCHER_PATH}/.env
       - ./.env
     tty: true
+    volumes:
+      - "${CA_PATH}/rootcafile.pem:/etc/private/rootcafile.pem:ro"
     environment:
       no_proxy: "${NO_PROXY},searxng,db_watcher"
+      REQUESTS_CA_BUNDLE: /etc/private/rootcafile.pem
     networks:
       - watcher_network
 

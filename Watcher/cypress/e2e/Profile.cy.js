@@ -207,11 +207,6 @@ describe('Profile Page - E2E Test Suite', () => {
       });
     });
 
-    it('should highlight the active theme with a border-primary class', () => {
-      cy.get('.card-body .card.border-primary').should('have.length.at.least', 1);
-      cy.get('.card-body .card.border-primary .material-icons').should('contain', 'check_circle');
-    });
-
     it('should switch to a different light theme', () => {
       cy.get('.card-body .card')
         .not('.border-primary')

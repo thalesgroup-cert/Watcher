@@ -17,10 +17,15 @@ class SSOCallbackView(OIDCAuthenticationCallbackView):
     """
 
     def login_success(self):
-        user = self.request.user
+        user = self.user
+
+        if not user or not user.is_authenticated:
+            logger.error("OIDC: user is not authenticated")
+            return self.login_failure()
+
         _, raw_token = AuthToken.objects.create(user)
         logger.info('OIDC SSO: Knox token issued for user %s', user.username)
-        # Redirect to the SPA root; the frontend will consume the token
+
         return redirect('/?' + urlencode({'sso_token': raw_token}))
 
     def login_failure(self):
