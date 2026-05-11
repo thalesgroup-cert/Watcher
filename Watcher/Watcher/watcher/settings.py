@@ -218,7 +218,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 REST_KNOX = {
-  'SECURE_HASH_ALGORITHM': 'cryptography.hazmat.primitives.hashes.SHA3_512',  
+  'SECURE_HASH_ALGORITHM': 'hashlib.sha3_512',
   'TOKEN_TTL': timedelta(hours=10),
 }
 
