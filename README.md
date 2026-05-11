@@ -35,7 +35,7 @@ Watcher empowers your security operations with comprehensive threat detection an
 
 - **AI-Driven Threat Intelligence** - Transform raw threat data into actionable intelligence with automated weekly digests of top-5 trending cybersecurity topics, real-time breaking news alerts when threats emerge, on-demand summaries for any security keyword including related CVE and threat actor details.
 
-- **CyberWatch — External Threat Intelligence** - Continuously fetch, correlate, and surface external threat data: CVEs from [cve.circl.lu](https://cve.circl.lu), ransomware victims and groups from [ransomware.live](https://ransomware.live) and [ransomlook.io](https://ransomlook.io). Define keyword-based Watch Rules to get alerted when specific threats match your organisation's context.
+- **CyberWatch - CVE & Ransomware Intelligence** - Continuously fetch, correlate, and surface external threat data: CVEs from [cve.circl.lu](https://cve.circl.lu), ransomware victims and groups from [ransomware.live](https://ransomware.live) and [ransomlook.io](https://ransomlook.io). Define keyword-based Watch Rules to get alerted when specific threats match your organisation's context.
 
 - **Emerging Threat Detection** - Monitor cybersecurity trends via RSS feeds from CERT-FR (www.cert.ssi.gouv.fr), CERT-EU (www.cert.europa.eu), US-CERT (www.us-cert.gov), Australian Cyber Security Centre (www.cyber.gov.au), and more. Track new vulnerabilities, malware campaigns, and threat advisories as they appear.
 
