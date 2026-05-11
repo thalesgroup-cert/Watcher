@@ -23,8 +23,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | November 03, 2025 - 10:57:42
-    watcher          | Django version 5.2.7, using settings 'watcher.settings'
+    watcher          | May 11, 2026 - 12:26:52
+    watcher          | Django version 6.0.5, using settings 'watcher.settings'
     watcher          | Starting development server at http://0.0.0.0:9002/
     watcher          | Quit the server with CONTROL-C.
 
@@ -157,6 +157,64 @@ Now, you can restart your instance and the parameters will be taken into account
 
     docker compose down
     docker compose up
+
+### SSO / OpenID Connect Settings
+
+Watcher supports federated login via any **OpenID Connect (OIDC)** provider (Keycloak, Azure AD, etc.).
+
+In the `.env` file:
+
+    # SSO / OIDC Setup
+    OIDC_ENABLED=False
+    OIDC_COMPANY_NAME=
+    OIDC_RP_CLIENT_ID=
+    OIDC_RP_CLIENT_SECRET=
+    OIDC_OP_AUTHORIZATION_ENDPOINT=
+    OIDC_OP_TOKEN_ENDPOINT=
+    OIDC_OP_USER_ENDPOINT=
+    OIDC_OP_JWKS_ENDPOINT=
+    OIDC_OP_ISSUER=
+    OIDC_REDIRECT_URI=
+
+Set `OIDC_ENABLED=True` to activate the SSO login button and the OIDC routes.
+
+The callback URL to register with your identity provider is:
+
+    https://<your-domain>/api/auth/oidc/callback/
+
+> **Note:** `OIDC_VERIFY_SSL` accepts `True` (system CA store), `False` (disable verification), or an absolute path to a PEM CA-bundle, required when the IdP uses a corporate or self-signed certificate chain.
+
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker compose down
+    docker compose up
+
+### CyberWatch Settings
+
+Configure the external threat intelligence feed endpoints used by the CyberWatch module. All variables have working defaults and can be left unset.
+
+In the `.env` file:
+
+    # CyberWatch Setup
+    CYBER_WATCH_CVE_API_URL=https://cve.circl.lu/api/last
+    CYBER_WATCH_RANSOMWARE_GROUPS_URL=
+    CYBER_WATCH_RANSOMWARE_VICTIMS_URL=
+    CYBER_WATCH_RANSOMLOOK_GROUPS_URL=
+    CYBER_WATCH_RANSOMLOOK_RECENT_URL=
+    CYBER_WATCH_RANSOMLOOK_ACTORS_URL=
+
+Now, you can restart your instance and the parameters will be taken into account:
+
+    docker compose down
+    docker compose up
+
+### Configurable Help Button
+
+The header help quick-link is configurable via environment variables:
+
+    # Help button
+    WATCHER_HELP_BUTTON_LABEL=API Docs
+    WATCHER_HELP_BUTTON_URL=/api/docs/
 
 ## Troubleshooting
 ### Remove the database
@@ -424,7 +482,16 @@ GET /api/data_leak/keyword/?page=1&page_size=1000
 - Maximum page size is 1000 items
 - Most frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.
 
-Below, you will find our 5 modules with their API functions:
+### Interactive API Documentation
+
+Watcher ships with a fully auto-generated REST API documentation powered by **drf-spectacular**.
+
+- **Swagger UI** — available at `/api/docs/` — interactive interface to browse every endpoint, inspect request/response schemas, and execute authenticated calls directly from the browser.
+- **OpenAPI 3 schema** — downloadable at `/api/schema/` (JSON/YAML) for import into Postman, Insomnia, or any API client.
+
+All six modules are fully covered, including the `/statistics/` endpoints and the CyberWatch Watch Rule engine.
+
+Below, you will find our 6 modules with their API functions:
 
 <details>
 
@@ -603,6 +670,57 @@ Below, you will find our 5 modules with their API functions:
 
 <details>
 
+<summary>CyberWatch</summary> <br>
+
+`^api/cyber_watch/cves/$`
+- **HTTP Method:** GET
+- **Pagination:** Yes (100 items per page by default)
+- **Description:**
+  - **GET:** Returns a paginated list of CVE alerts fetched from cve.circl.lu.
+- **Usage:** Used to display CVE monitoring data in the CyberWatch dashboard.
+
+`^api/cyber_watch/cves/statistics/$`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Returns aggregated CVE statistics (total, critical, high, new today).
+- **Usage:** Used to display the CVEStats KPI panel.
+
+`^api/cyber_watch/ransomware/victims/$`
+- **HTTP Method:** GET
+- **Pagination:** Yes (100 items per page by default)
+- **Description:**
+  - **GET:** Returns a paginated list of ransomware victims fetched from ransomware.live and ransomlook.io.
+- **Usage:** Used to display victim data in the CyberWatch dashboard.
+
+`^api/cyber_watch/ransomware/statistics/$`
+- **HTTP Method:** GET
+- **Pagination:** No
+- **Description:**
+  - **GET:** Returns aggregated ransomware statistics (total victims, groups, new this week).
+- **Usage:** Used to display the RansomwareStats KPI panel.
+
+`^api/cyber_watch/watch-rules/$`
+- **HTTP Method:** GET, POST, PATCH, DELETE
+- **Pagination:** Yes (100 items per page by default)
+- **Description:**
+  - **GET:** Returns all defined watch rules.
+  - **POST:** Creates a new keyword-based watch rule scoped to CVEs, ransomware victims, or both.
+  - **PATCH:** Updates an existing watch rule.
+  - **DELETE:** Removes a watch rule.
+- **Usage:** Manage keyword alert rules from the CyberWatch dashboard.
+
+`^api/cyber_watch/watch-rule-hits/$`
+- **HTTP Method:** GET
+- **Pagination:** Yes (100 items per page by default)
+- **Description:**
+  - **GET:** Returns all recorded rule hits (deduplicated matches between rules and incoming data).
+- **Usage:** Display rule match history in the CyberWatch module.
+
+</details> <br>
+
+<details>
+
 <summary>Threat Intelligence Summaries</summary> <br>
 
 `^api/threats_watcher/summary/?type=weekly_summary`
@@ -655,6 +773,7 @@ Watcher provides automatic integration with [TheHive](https://strangebee.com/the
 - **Data Leak**: Automatically creates alerts when data leaks are detected via keywords.
 - **Website Monitoring**: Automatically creates alerts in TheHive when site changes are detected.
 - **DNS Finder**: Automatically exports twisted DNS findings and certificate transparency alerts.
+- **CyberWatch**: Automatically pushes CVE alerts and ransomware victim matches (rule hits) as tagged observables.
 
 ### TheHive Integration Features
 
@@ -736,9 +855,65 @@ To add **several** words:
 - Click on **Action** dropdown.
 - Select "**Delete & Blocklist selected trendy words**".
 
+## CyberWatch Module
+
+CyberWatch is a standalone threat intelligence module that continuously fetches, correlates, and surfaces external threat data directly inside Watcher.
+
+### CVE Monitoring
+
+- Fetches CVEs from [cve.circl.lu](https://cve.circl.lu) on a 30-minute schedule.
+- Stores CVE ID, severity, CVSS score, full description, and external references.
+- Dedicated statistics panel with KPI cards for total CVEs, critical/high severity counts, and new items today.
+
+### Ransomware Intelligence
+
+- Pulls ransomware group and victim data from [ransomware.live](https://ransomware.live) and [ransomlook.io](https://ransomlook.io).
+- Stores victim name, ransomware group, country, sector, and attack date.
+
+### Watch Rule Engine
+
+Users can define keyword-based rules scoped to CVEs, ransomware victims, or both:
+
+1. Navigate to `/cyber_watch`.
+2. Click **Add Watch Rule**.
+3. Enter a keyword and choose the scope (CVEs / victims / both).
+4. Matches are recorded automatically and deduplicated.
+
+Notifications fire across all four channels (Email, Slack, Citadel, TheHive) for each rule hit.
+
+## UDRP Tracking
+
+Automated UDRP (Uniform Domain-Name Dispute-Resolution Policy) case monitoring integrated into Site Monitoring.
+
+- Two new fields on monitored sites: `udrp_status` (`pending` / `won` / `lost` / `unknown`) and `udrp_last_checked`.
+- A scheduled job queries the WIPO UDRP database every 6 hours for every site where `legal_team = True`.
+- When a case is **won**, the domain is automatically transferred to Legitimate Domains.
+- Notifications fire on all four channels (TheHive, Slack, Citadel, Email) when a decision is detected or changes.
+
+## User Profile Page
+
+A dedicated `/profile` route provides a centralised settings and preferences hub.
+
+### Account Settings
+- Displays user avatar, username, email, role badges (Superuser, Staff, groups), and group permissions.
+- Direct link to the password change page and logout button.
+
+### Theme Picker
+- All available themes displayed as cards with preview thumbnails.
+- The active theme is highlighted; selecting a new one applies it immediately and persists via `localStorage`.
+
+### Dashboard Layout Manager
+- All six module dashboards listed with a live **MiniGrid** preview of the current panel arrangement.
+- Each card shows the active preset name, panel count, and available presets.
+- Clicking a card opens a **Layout Presets & Editor** modal:
+  - *Presets* tab — named ready-made layouts (Default, Compact, Analytics).
+  - *Custom Editor* tab — free-form drag-and-drop editor.
+- A *Reset to Default* button restores the module's default preset.
+- Layout changes made in the profile page are reflected immediately on open dashboards without a page reload.
+
 ## AI-Powered Threat Intelligence
 
-Watcher v3.0 introduces **AI-driven threat analysis** using Hugging Face transformers for automated threat detection and summarization.
+Watcher v3.4.0 uses **AI-driven threat analysis** powered by Hugging Face transformers for automated threat detection and summarization.
 
 ### Breaking News Detection
 
@@ -791,35 +966,36 @@ Watcher uses BERT-based NER for threat intelligence extraction:
 
 ### Theme Switcher
 
-Watcher offers **5 pre-built themes** with persistent user preferences:
+Watcher offers **15 pre-built Bootswatch themes** with persistent user preferences, accessible from the [User Profile](#user-profile-page) page:
 
-1. **Darkly** (Default): Modern dark theme
-2. **Flatly**: Clean light theme
-3. **Cyborg**: Cyberpunk-inspired dark theme
-4. **Superhero**: Bold dark theme with vibrant accents
-5. **Brite**: High-contrast light theme
+**Dark Themes:** Darkly (default), Cyborg, Superhero, Slate, Solar
+
+**Light Themes:** Flatly, Brite, Cosmo, Lux, Minty, Morph, Sandstone, United, Yeti
 
 **How to Change Theme**:
-1. Click on **User Profile** (top-right)
-2. Select **Theme Switcher**
-3. Choose your preferred theme
-4. Preference saved in browser localStorage
+1. Click on **User Profile** (top-right corner)
+2. Go to the **Themes** section
+3. Click on the desired theme card, applied instantly site-wide
 
 ### Resizable Dashboard Panels
 
-All modules now support **user-customizable panel widths**:
+All six module dashboards use a free-form grid layout via the shared `PanelGrid` component:
 
-- **Drag & Drop**: Resize panels by dragging dividers
-- **Persistent Layout**: Saved per-user, per-module
-- **Reset Option**: Restore default layout via settings
+- **Drag & Drop**: Freely move and resize panels within each dashboard.
+- **Preset Layouts**: Choose from named presets (Default, Compact, Analytics) from the [User Profile](#user-profile-page) page.
+- **Custom Editor**: Build your own layout with a full drag-and-drop editor.
+- **Persistent Layout**: Saved per-user, per-module via `localStorage`.
+- **Reset Option**: Restore the active preset or default layout at any time.
 
 ### Advanced Table Filters
 
-All data tables include **enhanced filtering**:
+All data tables include **enhanced filtering** with preference persistence:
 
-1. **Filter Builder**: Click filter icon to add conditions
-2. **Save Filter Sets**: Name and save custom filters
-3. **Quick Apply**: Load saved filters with one click
+1. **Filter Builder**: Click the filter icon to add conditions.
+2. **Save Filter Sets**: Name and save custom filter configurations.
+3. **Quick Apply**: Load saved filters with one click.
+4. **Adaptive Pagination**: Items-per-page auto-adjusts to fill available panel height.
+5. **Persistent Preferences**: Filter visibility and page size are restored on next load.
 
 ## Archived Alerts
 Once you have processed an alert, you can archive it.
@@ -978,7 +1154,7 @@ Watcher includes comprehensive unit tests to ensure code quality and reliability
 
 ### Test Coverage & Technologies
 
-The test suite covers all 5 main modules of Watcher:
+The test suite covers all 6 main modules of Watcher:
 
 - **Back-End Tests**: Python's standard unittest module
   - `common/tests.py`
@@ -986,7 +1162,7 @@ The test suite covers all 5 main modules of Watcher:
   - Module-specific test files for each component
 
 - **Front-End Tests**: Cypress framework for JavaScript testing
-  - Cypress tests for all 5 modules
+  - Cypress tests for all 6 modules
   - End-to-end testing scenarios
 
 ### Automated CI/CD Testing
