@@ -73,8 +73,7 @@ export class Login extends Component {
                                     <span className="fw-bold fs-4">Watcher</span>
                                 </div>
                                 <p className="small opacity-75" style={{ maxWidth: 260 }}>
-                                    Open-source platform for digital threat monitoring
-                                    and early-warning detection.
+                                    Open Source AI-powered Cyber Threat Intelligence & Hunting Platform.
                                 </p>
                             </div>
 
