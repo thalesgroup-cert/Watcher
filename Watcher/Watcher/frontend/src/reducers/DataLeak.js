@@ -1,10 +1,13 @@
 import {
     DATALEAK_GET_KEYWORDS,
+    DATALEAK_GET_KEYWORDS_ALL,
     DATALEAK_GET_ALERTS,
+    DATALEAK_GET_ALERTS_ALL,
     DATALEAK_DELETE_KEYWORD,
     DATALEAK_ADD_KEYWORD,
     DATALEAK_PATCH_KEYWORD,
-    DATALEAK_UPDATE_ALERT
+    DATALEAK_UPDATE_ALERT,
+    GET_DATA_LEAK_STATISTICS
 } from '../actions/types.js';
 
 const initialState = {
@@ -15,7 +18,17 @@ const initialState = {
     alerts: [],
     alertsCount: 0,
     alertsNext: null,
-    alertsPrevious: null
+    alertsPrevious: null,
+    // Stats-only: all items loaded at once
+    allAlerts: [],
+    allKeywords: [],
+    statistics: {
+        totalAlerts: 0,
+        activeAlerts: 0,
+        newToday: 0,
+        newThisWeek: 0,
+        totalKeywords: 0,
+    }
 };
 
 export default function (state = initialState, action) {
@@ -99,6 +112,18 @@ export default function (state = initialState, action) {
                     alert.id === action.payload.id ? action.payload : alert
                 )
             };
+
+        case GET_DATA_LEAK_STATISTICS:
+            return {
+                ...state,
+                statistics: action.payload
+            };
+
+        case DATALEAK_GET_ALERTS_ALL:
+            return { ...state, allAlerts: Array.isArray(action.payload) ? action.payload : [] };
+
+        case DATALEAK_GET_KEYWORDS_ALL:
+            return { ...state, allKeywords: Array.isArray(action.payload) ? action.payload : [] };
 
         default:
             return state;

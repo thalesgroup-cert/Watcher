@@ -1,8 +1,10 @@
 import {
     GET_LEGITIMATE_DOMAINS,
+    GET_LEGITIMATE_DOMAINS_ALL,
     ADD_LEGITIMATE_DOMAIN,
     PATCH_LEGITIMATE_DOMAIN,
     DELETE_LEGITIMATE_DOMAIN,
+    GET_LEGITIMATE_DOMAIN_STATISTICS,
 } from '../actions/types.js';
 
 const initialState = {
@@ -10,6 +12,8 @@ const initialState = {
     domainsCount: 0,
     domainsNext: null,
     domainsPrevious: null,
+    // Stats-only: all items loaded at once
+    allDomains: [],
     statistics: {
         total: 0,
         repurchased: 0,
@@ -73,11 +77,14 @@ export default function(state = initialState, action) {
                 domainsCount: Math.max(0, state.domainsCount - 1)
             };
 
-        case 'GET_LEGITIMATE_DOMAIN_STATISTICS':
+        case GET_LEGITIMATE_DOMAIN_STATISTICS:
             return {
                 ...state,
                 statistics: action.payload
             };
+
+        case GET_LEGITIMATE_DOMAINS_ALL:
+            return { ...state, allDomains: Array.isArray(action.payload) ? action.payload : [] };
 
         default:
             return state;

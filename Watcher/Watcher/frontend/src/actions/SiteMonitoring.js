@@ -3,11 +3,14 @@ import axios from 'axios';
 import {
     GET_SITES,
     GET_SITE_ALERTS,
+    GET_SITES_ALL,
+    GET_SITE_ALERTS_ALL,
     DELETE_SITE,
     ADD_SITE,
     PATCH_SITE,
     UPDATE_SITE_ALERT,
-    EXPORT_MISP
+    EXPORT_MISP,
+    GET_SITE_STATISTICS
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
@@ -157,7 +160,7 @@ export const getSiteStatistics = () => (dispatch, getState) => {
     axios.get(endpoint, tokenConfig(getState))
         .then(res => {
             dispatch({
-                type: 'GET_SITE_STATISTICS',
+                type: GET_SITE_STATISTICS,
                 payload: res.data
             });
         })
@@ -166,7 +169,7 @@ export const getSiteStatistics = () => (dispatch, getState) => {
                 dispatch(returnErrors(err.response.data, err.response.status));
             }
             dispatch({
-                type: 'GET_SITE_STATISTICS',
+                type: GET_SITE_STATISTICS,
                 payload: {
                     total: 0,
                     malicious: 0,
@@ -174,5 +177,35 @@ export const getSiteStatistics = () => (dispatch, getState) => {
                     legalTeam: 0
                 }
             });
+        });
+};
+
+// GET ALL SITES (stats only – no pagination)
+export const getAllSites = () => (dispatch, getState) => {
+    return axios
+        .get('/api/site_monitoring/site/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_SITES_ALL,
+                payload: res.data.results || res.data
+            });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+// GET ALL SITE ALERTS (stats only – no pagination)
+export const getAllSiteAlerts = () => (dispatch, getState) => {
+    return axios
+        .get('/api/site_monitoring/alert/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_SITE_ALERTS_ALL,
+                payload: res.data.results || res.data
+            });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };

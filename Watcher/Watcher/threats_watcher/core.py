@@ -1,6 +1,6 @@
 # coding=utf-8
 import logging
-from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber
+from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber, MonitoredKeyword
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
@@ -239,6 +239,14 @@ def fetch_last_posts(nb_max_post):
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching {url}: {e}")
 
+    # Fetch monitored keywords once for efficiency
+    monitored_keywords = list(MonitoredKeyword.objects.all())
+
+    # Pre-fetch seen posturl URLs per monitored keyword to avoid double-counting
+    mk_seen_urls: dict[int, set] = {}
+    for mk in monitored_keywords:
+        mk_seen_urls[mk.id] = set(mk.posturls.values_list('url', flat=True))
+
     for feed in feeds:
         count = 1
         for entry in feed.entries:
@@ -254,6 +262,29 @@ def fetch_last_posts(nb_max_post):
                 link = entry.get('link') or entry.get('guid') or entry.get('id') or None
                 title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
                 title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
+
+                # Check if any MonitoredKeyword appears in the post title/content (case-insensitive)
+                if monitored_keywords and title_clean:
+                    content_raw = entry.get('content', [{}])[0].get('value', '') if entry.get('content') else (entry.get('summary', '') or entry.get('description', '') or '')
+                    content_clean = re.sub(r'<[^>]+>', '', content_raw).strip()
+                    post_text = (title_clean + " " + content_clean).lower()
+                    for mk in monitored_keywords:
+                        if mk.name.lower() in post_text:
+                            # Only count a new occurrence if this article URL hasn't been
+                            # linked before (prevents inflated counts from repeated CRON runs).
+                            if link and link in mk_seen_urls.get(mk.id, set()):
+                                continue  # already counted for this article
+                            mk.occurrences += 1
+                            mk.last_seen = timezone.now()
+                            mk.update_level()
+                            mk.save()
+                            # Link the article PostUrl to this keyword for source tracking
+                            if link:
+                                post_obj, _ = PostUrl.objects.get_or_create(url=link, defaults={'created_at': dt if dt != "no-date" else timezone.now()})
+                                mk.posturls.add(post_obj)
+                                mk_seen_urls[mk.id].add(link)  # update local cache
+                            logger.info(f"MonitoredKeyword '{mk.name}' detected - occurrences: {mk.occurrences}, level: {mk.level}")
+
                 if link and title_clean:
                     tmp_posts[title_clean] = link
                     posts_published[link] = dt
@@ -553,9 +584,20 @@ def send_threats_watcher_notifications(content):
         return
 
     context_data = {}
+    subscription_type = 'trendy_words'
+    notification_type = 'regular'
     if isinstance(content, dict):
+        requested_type = content.get('notification_type')
+        if requested_type in ('regular', 'weeklysummary', 'breakingnews'):
+            notification_type = requested_type
+        else:
+            notification_type = 'breakingnews'
+
+        if content.get('subscription_type') in ('trendy_words', 'monitored_keywords'):
+            subscription_type = content.get('subscription_type')
+
         context_data = {
-            'notification_type': 'breakingnews',
+            'notification_type': notification_type,
             'keyword': content.get('keyword', ''),
             'occurrences': content.get('occurrences', 0),
             'summary_text': content.get('summary_text', '')
@@ -573,6 +615,18 @@ def send_threats_watcher_notifications(content):
             'email_words': content
         }
     else:
+        return
+
+    if notification_type == 'weeklysummary':
+        subscribers = subscribers.filter(notify_weekly_summary=True)
+    elif notification_type == 'breakingnews':
+        subscribers = subscribers.filter(notify_breaking_news=True)
+    elif subscription_type == 'monitored_keywords':
+        subscribers = subscribers.filter(notify_monitored_keywords=True)
+    else:
+        subscribers = subscribers.filter(notify_trendy_words=True)
+
+    if not subscribers.exists():
         return
 
     send_app_specific_notifications('threats_watcher', context_data, subscribers)

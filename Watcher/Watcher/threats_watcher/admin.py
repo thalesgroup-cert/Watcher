@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, Summary, Subscriber
+from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 from django.utils.html import format_html
@@ -16,9 +16,9 @@ class SourceResource(resources.ModelResource):
 
 @admin.register(Source)
 class SourceAdmin(ImportExportModelAdmin):
-    list_display = ['url', 'created_at']
-    list_filter = ['created_at']
-    search_fields = ['url']
+    list_display = ['url', 'country_code', 'country', 'confident', 'created_at']
+    list_filter  = ['country_code', 'created_at']
+    search_fields = ['url', 'country', 'country_code']
     resource_class = SourceResource
 
 
@@ -34,6 +34,14 @@ class BannedWordAdmin(ImportExportModelAdmin):
     list_filter = ['created_at']
     search_fields = ['name']
     resource_class = BannedWordResource
+
+
+@admin.register(MonitoredKeyword)
+class MonitoredKeywordAdmin(admin.ModelAdmin):
+    list_display = ['name', 'level', 'occurrences', 'last_seen', 'created_at']
+    list_filter = ['level', 'created_at']
+    search_fields = ['name']
+    readonly_fields = ['occurrences', 'last_seen', 'created_at']
 
 
 @admin.register(Summary)
@@ -115,8 +123,16 @@ class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
 
 
 class SubscriberAdmin(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
-    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    list_display = (
+        'user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel',
+        'notify_trendy_words', 'notify_monitored_keywords',
+        'notify_weekly_summary', 'notify_breaking_news'
+    )
+    list_filter = (
+        'email', 'thehive', 'slack', 'citadel',
+        'notify_trendy_words', 'notify_monitored_keywords',
+        'notify_weekly_summary', 'notify_breaking_news'
+    )
     search_fields = ('user_rec__username',)
     fieldsets = (
         (None, { 
@@ -125,6 +141,13 @@ class SubscriberAdmin(admin.ModelAdmin):
         ('Notification Channels', {
             'fields': ('email', 'thehive', 'slack', 'citadel'),
             'description': "Select the notification channels for this subscriber."
+        }),
+        ('Subscription Types', {
+            'fields': (
+                'notify_trendy_words', 'notify_monitored_keywords',
+                'notify_weekly_summary', 'notify_breaking_news'
+            ),
+            'description': "Choose which Threats Watcher event types trigger a notification."
         }),
     )
 

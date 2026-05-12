@@ -1,6 +1,5 @@
-from django.shortcuts import render
+from django.views.generic import TemplateView
 
 
-def index(request):
-    # This command will render index.html from the frontend folder
-    return render(request, 'frontend/index.html')
+class IndexView(TemplateView):
+    template_name = 'frontend/index.html'

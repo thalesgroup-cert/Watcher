@@ -32,9 +32,17 @@ class Command(BaseCommand, ABC):
                 confident = int(row['confident']) if row['confident'].isdigit() else 1
                 url = row['url'].strip()
 
+                defaults = {'confident': confident}
+                country = row.get('country', '').strip()
+                country_code = row.get('country_code', '').strip()
+                if country:
+                    defaults['country'] = country
+                if country_code:
+                    defaults['country_code'] = country_code
+
                 Source.objects.update_or_create(
                     url=url,
-                    defaults={'confident': confident}
+                    defaults=defaults
                 )
             print(str(timezone.now()) + " - Updated RSS Sources.")
 

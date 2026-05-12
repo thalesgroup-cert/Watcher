@@ -49,6 +49,25 @@ class Site(models.Model):
     domain_created_at = models.DateField(blank=True, null=True)  # Domain registration date
     ssl_expiry = models.DateField(blank=True, null=True)  # SSL certificate expiration date
 
+    UDRP_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('won', 'Won (transferred/cancelled)'),
+        ('lost', 'Lost'),
+        ('unknown', 'Unknown'),
+    ]
+    udrp_status = models.CharField(
+        max_length=20,
+        choices=UDRP_STATUS_CHOICES,
+        blank=True,
+        null=True,
+        help_text="UDRP case status - populated automatically when legal_team=True.",
+    )
+    udrp_last_checked = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Timestamp of the last automatic UDRP status check.",
+    )
+
     def auto_update_legitimacy_on_registration(self):
         """
         Auto-update legitimacy when domain becomes registered (registrar found)

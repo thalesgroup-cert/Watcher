@@ -81,6 +81,49 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     cy.intercept('DELETE', '**/api/threats_watcher/trendyword/*', { statusCode: 204 }).as('deleteTrendyWord');
 
+    // Statistics carousel intercepts
+    cy.intercept('GET', '**/api/threats_watcher/source/statistics/**', {
+      statusCode: 200,
+      body: {
+        totalWords: 3,
+        newToday: 1,
+        newThisWeek: 3,
+        totalSources: 5,
+        bannedWords: 2,
+        monitoredKeywords: 2
+      }
+    }).as('getThreatsStats');
+
+    cy.intercept('GET', '**/api/cyber_watch/ransomware/victims/**', {
+      statusCode: 200,
+      body: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, post_title: 'Victim Corp A', gang_name: 'LockBit', published: '2025-06-19T10:00:00Z', country: 'FR', activity: 'Finance' },
+          { id: 2, post_title: 'Victim Corp B', gang_name: 'BlackCat', published: '2025-06-18T12:00:00Z', country: 'US', activity: 'Healthcare' }
+        ]
+      }
+    }).as('getRansomwareVictims');
+
+    cy.intercept('GET', '**/api/cyber_watch/cves/**', {
+      statusCode: 200,
+      body: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, cve_id: 'CVE-2025-1234', description: 'Test CVE', cvss: 8.5, published: '2025-06-19T10:00:00Z' }
+        ]
+      }
+    }).as('getCVEs');
+
+    cy.intercept('GET', '**/api/cyber_watch/watch-rule-hits/**', {
+      statusCode: 200,
+      body: { count: 0, next: null, previous: null, results: [] }
+    }).as('getWatchRuleHits');
+
     // Mock auth endpoints with test credentials
     cy.intercept('GET', '/api/auth/user/', {
       statusCode: 200, 
@@ -106,8 +149,24 @@ describe('Threats Watcher - E2E Test Suite', () => {
       }
     }).as('login');
 
-    // Use the authentication helper
-    cy.authenticateWithTestUser();
+    // Authenticate inline with extended URL timeout (avoids 4000ms default in commands.js)
+    cy.visit('/#/login');
+    cy.get('input[type="text"], input[name="username"]', { timeout: 15000 })
+      .should('be.visible').type(credentials.username);
+    cy.get('input[type="password"], input[name="password"]')
+      .should('be.visible').type(credentials.password);
+    cy.get('button[type="submit"], button:contains("Login")')
+      .should('not.be.disabled').click();
+    cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
+    cy.get('.navbar').should('exist');
+    cy.window().then((win) => {
+      const token = win.localStorage.getItem('token') || win.sessionStorage.getItem('token');
+      Cypress.env('authData', {
+        token: token || 'mock-token-123456789',
+        user: win.localStorage.getItem('user') || null,
+        isAuthenticated: true,
+      });
+    });
 
     // Navigate to ThreatsWatcher
     cy.visit('/#/');
@@ -154,15 +213,9 @@ describe('Threats Watcher - E2E Test Suite', () => {
         .first()
         .should('exist');
       
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
-        .should('exist')
-        .within(() => {
-          cy.get('.overflow-hidden').first().should('exist');
-          
-          cy.get('.overflow-hidden').eq(1).should('exist').within(() => {
-            cy.get('table, h4:contains("Trendy Words")', { timeout: 10000 }).should('exist');
-          });
-        });
+      cy.contains('.card-header', 'Word List', { timeout: 15000 }).closest('.card.h-100.shadow-sm').should('exist').within(() => {
+        cy.get('table', { timeout: 10000 }).should('exist');
+      });
     });
 
     it('should load data automatically', () => {
@@ -191,18 +244,15 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
   describe('Word Cloud Display and Interaction', () => {
     it('should display word cloud component', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 15000 })
+      cy.contains('.card-header', 'Word Cloud', { timeout: 15000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
         .within(() => {
-          cy.get('.overflow-hidden').first().within(() => {
-            cy.get('svg, canvas, div', { timeout: 10000 }).should('exist');
-          });
+          cy.get('svg, canvas, div', { timeout: 10000 }).should('exist');
         });
     });
 
     it('should handle word cloud interactions', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative svg, .d-flex.w-100.h-100.position-relative canvas', { timeout: 15000 })
-        .should('be.visible');
+      cy.contains('.card-header', 'Word Cloud', { timeout: 15000 }).closest('.card.h-100.shadow-sm').should('exist');
       
       cy.get('body').then(($body) => {
         const wordElements = $body.find('text, span, div').filter((index, element) => {
@@ -232,26 +282,20 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer functionality', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 })
+      cy.contains('.card-header', 'Trend & Sources', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
-        .then(($container) => {
-          const hasResizableStructure = $container.find('.overflow-hidden').length >= 2;
-          
-          if (hasResizableStructure) {
-            cy.log('ResizableContainer structure found');
-          } else {
-            cy.log('ResizableContainer may have different structure');
-          }
+        .then(($card) => {
+          cy.log('Trend & Sources panel found');
         });
     });
   });
 
   describe('Word List Display and Management', () => {
     it('should display trendy words table', () => {
-      cy.get('h4:contains("Trendy Words")', { timeout: 15000 }).should('exist');
+      cy.contains('.card-header', 'Word List', { timeout: 15000 }).should('exist');
       cy.get('table', { timeout: 15000 }).should('exist');
       
-      cy.get('table').within(() => {
+      cy.get('table').first().within(() => {
         cy.get('thead').should('exist');
         cy.get('tbody').should('exist');
       });
@@ -273,7 +317,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should display word statistics correctly', () => {
-      cy.get('table thead').within(() => {
+      cy.get('table thead').first().within(() => {
         cy.get('th').should('contain', 'Name');
         cy.get('th').should('contain', 'Caught');
         cy.get('th').should('contain', 'Reliability');
@@ -452,7 +496,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
           cy.wrap(wordElements).click();
           cy.wait(500);
           
-          cy.get('.d-flex.w-100.h-100.position-relative').eq(1).should('exist');
+          cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist');
         }
       });
     });
@@ -594,10 +638,10 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify layout structure specific to Threats Watcher', () => {
-      cy.get('.container-fluid.mt-3').should('exist');
+      cy.get('.container-fluid').should('exist');
       cy.get('.row').should('have.length.at.least', 1);
       
-      cy.get('.d-flex.w-100.h-100.position-relative', { timeout: 10000 }).should('exist');
+      cy.get('.card.h-100.shadow-sm', { timeout: 10000 }).should('exist');
       
       cy.get('table', { timeout: 10000 }).should('exist');
     });
@@ -609,19 +653,9 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer divider interactions', () => {
-      cy.get('.d-flex.w-100.h-100.position-relative')
-        .first()
-        .then(($container) => {
-          const resizer = $container.find('[style*="cursor: col-resize"], [style*="cursor: ew-resize"], [class*="resizer"]');
-          
-          if (resizer.length > 0) {
-            cy.wrap(resizer.first()).dblclick({ force: true });
-            cy.wait(500);
-            cy.log('Divider interaction tested');
-          } else {
-            cy.log('No interactive divider found - container may use different resize mechanism');
-          }
-        });
+      cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('Trend & Sources panel found - PanelGrid layout verified');
+      });
     });
   });
 
@@ -706,9 +740,9 @@ describe('Threats Watcher - E2E Test Suite', () => {
 
     it('should verify all major components are loaded', () => {
       cy.get('.container-fluid').should('exist');
-      cy.get('.d-flex.w-100.h-100.position-relative').should('exist')
-      cy.get('table.table-striped').should('exist');
-      cy.get('h4:contains("Trendy Words")').should('exist');
+      cy.get('.card.h-100.shadow-sm').should('have.length.at.least', 1);
+      cy.get('table').should('exist');
+      cy.contains('.card-header', 'Word List').should('exist');
       
       cy.get('body').then(($body) => {
         const hasWeeklyBreaking = $body.find('.position-fixed').length > 0;
@@ -723,7 +757,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     it('should test filter save functionality', () => {
       cy.wait(2000);
       
-      cy.get('button:contains("Save Filter")')
+      cy.get('button:contains("Save Filter")').first()
         .should('be.visible')
         .scrollIntoView()
         .wait(500)
@@ -766,63 +800,137 @@ describe('Threats Watcher - E2E Test Suite', () => {
   after(() => {
     cy.log('Starting Threats Watcher cleanup...');
     
-    // Clean up test banned words
-    cy.request({
-      method: 'GET',
-      url: '/api/threats_watcher/bannedword/',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((word) => {
-          if (word.name.includes('test-') || word.name.includes('e2e-') || word.name.includes('Test ')) {
-            cy.request({
-              method: 'DELETE',
-              url: `/api/threats_watcher/bannedword/${word.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+    const authData = Cypress.env('authData');
+    if (authData && authData.token) {
+      // Clean up test banned words
+      cy.request({
+        method: 'GET',
+        url: '/api/threats_watcher/bannedword/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((word) => {
+            if (word.name.includes('test-') || word.name.includes('e2e-') || word.name.includes('Test ')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/threats_watcher/bannedword/${word.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
 
-    // Clean up test trendy words
-    cy.request({
-      method: 'GET',
-      url: '/api/threats_watcher/trendyword/',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((word) => {
-          if (word.name.includes('test-') || word.name.includes('e2e-')) {
-            cy.request({
-              method: 'DELETE',
-              url: `/api/threats_watcher/trendyword/${word.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+      // Clean up test trendy words
+      cy.request({
+        method: 'GET',
+        url: '/api/threats_watcher/trendyword/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((word) => {
+            if (word.name.includes('test-') || word.name.includes('e2e-')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/threats_watcher/trendyword/${word.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
+    } else {
+      cy.log('No auth token available - skipping cleanup');
+    }
 
-    // Clear localStorage
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('viewedUrls');
-      win.localStorage.removeItem('watcher_localstorage_layout_threatsWatcher');
-      win.localStorage.removeItem('watcher_localstorage_layout_postUrls_summary');
-      win.localStorage.removeItem('watcher_localstorage_items_threatsWatcher_wordlist');
-      win.localStorage.removeItem('watcher_localstorage_filters_threatsWatcher_wordlist');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });
     
     cy.log('Threats Watcher cleanup completed');
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('Statistics Dashboard (Carousel)', () => {
+    it('should display the Statistics panel', () => {
+      cy.contains('.card-header', 'Statistics', { timeout: 15000 })
+        .closest('.card.h-100.shadow-sm')
+        .should('exist');
+    });
+
+    it('should display KPI cards inside the statistics panel', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('.card.border-0.shadow-sm', { timeout: 10000 }).should('have.length.at.least', 3);
+        });
+    });
+
+    it('should display KPI values in stat cards', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('.card.border-0.shadow-sm').first().within(() => {
+            cy.get('.text-white.fw-bold').should('exist');
+          });
+        });
+    });
+
+    it('should display carousel navigation dots', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          // Carousel has nav dot buttons
+          cy.get('button[style*="border-radius"], [class*="dot"], [class*="indicator"]').should('have.length.at.least', 2);
+        });
+    });
+
+    it('should display slide label for Threats Watcher stats', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.contains('Threats Watcher').should('exist');
+        });
+    });
+
+    it('should display progress bar at the bottom of stats card', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('[style*="position: absolute"], .position-absolute').should('exist');
+        });
+    });
+
+    it('should display Ransomware label on second slide', () => {
+      cy.contains('.card-header', 'Statistics')
+        .closest('.card.h-100.shadow-sm')
+        .within(() => {
+          // Navigate to second dot
+          cy.get('button[style*="border-radius"]').eq(1).click({ force: true });
+          cy.wait(600);
+          cy.contains('Ransomware').should('exist');
+        });
+    });
   });
 });

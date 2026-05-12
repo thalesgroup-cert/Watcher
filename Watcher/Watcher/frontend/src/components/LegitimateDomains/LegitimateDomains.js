@@ -768,13 +768,23 @@ class LegitimateDomains extends Component {
 
     render() {
         const domains = this.props.domains;
-        const { isAuthenticated } = this.props.auth;
+        const { isAuthenticated, user } = this.props.auth;
+        const canAdd = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.includes('common.add_legitimatedomain'))
+        );
+        const canManage = isAuthenticated && !!user && (
+            user.is_superuser || user.is_staff ||
+            (Array.isArray(user.permissions) && user.permissions.some(p =>
+                p === 'common.change_legitimatedomain' || p === 'common.delete_legitimatedomain'
+            ))
+        );
 
         return (
             <Fragment>
                 <div className="d-flex justify-content-between align-items-center mb-3">
                     <h4>Legitimate Domains</h4>
-                    {isAuthenticated && (
+                    {canAdd && (
                         <button className="btn btn-success" onClick={this.displayAddModal}>
                             <i className="material-icons me-1" style={{ verticalAlign: 'middle', fontSize: '18px' }}>add_circle</i>
                             Add Domain
@@ -860,7 +870,7 @@ class LegitimateDomains extends Component {
                                                             Comments
                                                         </th>
                                                     )}
-                                                    {isAuthenticated && <th />}
+                                                    {canManage && <th />}
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -868,7 +878,7 @@ class LegitimateDomains extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={isAuthenticated ? "10" : "6"} className="text-center text-muted py-4">
+                                                        <td colSpan={canManage ? "10" : isAuthenticated ? "9" : "6"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -980,16 +990,16 @@ class LegitimateDomains extends Component {
                                                                     )}
                                                                 </td>
                                                             )}
-                                                            {isAuthenticated && (
-                                                                <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                                                            {canManage && (
+                                                                <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                                     <button className="btn btn-outline-primary btn-sm me-2" title="Export" onClick={() => this.displayExportModal(domain)}>
-                                                                        <i className="material-icons" style={{ fontSize: 17 }}>cloud_upload</i>
+                                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>cloud_upload</i>
                                                                     </button>
                                                                     <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.displayEditModal(domain)}>
-                                                                        <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
+                                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                                     </button>
                                                                     <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}>
-                                                                        <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                                     </button>
                                                                 </td>
                                                             )}

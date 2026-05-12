@@ -35,7 +35,6 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
     const [typing, setTyping] = useState(true);
     const [postsCount, setPostsCount] = useState(0);
 
-    // Typing effect
     useEffect(() => {
         if (summary?.summary_text) {
             let i = 0;
@@ -105,7 +104,7 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
         const errorConfig = {
             'not_found': {
                 title: 'Keyword Not Found',
-                message: `The keyword "${word}" is not currently trending in our database.`
+                message: `The keyword "${word}" was not found in Trendy Words or Monitored Keywords.`
             },
             'insufficient_data': {
                 title: 'Insufficient Data',

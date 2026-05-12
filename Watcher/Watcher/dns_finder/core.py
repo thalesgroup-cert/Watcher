@@ -55,11 +55,6 @@ def is_legitimate_domain(domain):
     """
     Check if domain or its parent domain is in the Legitimate Domains list.
     
-    Example:
-        - domain = "subdomain.thalesgroup.com"
-        - If "thalesgroup.com" is in LegitimateDomain -> return True
-        - If "subdomain.thalesgroup.com" is in LegitimateDomain -> return True
-    
     :param domain: Domain to check (Str).
     :rtype: bool
     """

@@ -14,6 +14,16 @@ class Source(models.Model):
     """
     url = models.URLField(max_length=750, unique=True)
     confident = models.IntegerField(default=1)
+    country = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Country this RSS source primarily covers (e.g. 'France', 'United States')"
+    )
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        help_text="ISO 3166-1 alpha-2 country code (e.g. 'FR', 'US')"
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -155,6 +165,47 @@ def auto_generate_trendy_word_summary(sender, instance, created, **kwargs):
             logger.error(f"Failed to auto-generate summary for '{instance.name}': {e}", exc_info=True)
 
 
+class MonitoredKeyword(models.Model):
+    """
+    Stores keywords manually defined by users to monitor in RSS feeds.
+    Level escalates automatically based on occurrence count.
+    """
+    LEVEL_CHOICES = [
+        ('warm',      'Warm'),
+        ('hot',       'Hot'),
+        ('super_hot', 'Super Hot'),
+    ]
+    LEVEL_THRESHOLDS = {
+        'warm': 1, 'hot': 3, 'super_hot': 10
+    }
+
+    name        = models.CharField(max_length=150, unique=True)
+    level       = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='warm',
+                                   help_text="Auto-computed from occurrence count, can be overridden")
+    threshold   = models.IntegerField(default=1,
+                                      help_text="Number of RSS occurrences needed to escalate to next level")
+    last_seen   = models.DateTimeField(null=True, blank=True)
+    occurrences = models.IntegerField(default=0)
+    posturls    = models.ManyToManyField(PostUrl, blank=True,
+                                         help_text="RSS article URLs where this keyword was detected")
+    created_at  = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-occurrences', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.level})"
+
+    def update_level(self):
+        """Auto-escalate level based on occurrence count."""
+        if self.occurrences >= 10:
+            self.level = 'super_hot'
+        elif self.occurrences >= 3:
+            self.level = 'hot'
+        else:
+            self.level = 'warm'
+
+
 class Subscriber(models.Model):
     """
     List of the alert subscriber(s).
@@ -166,6 +217,11 @@ class Subscriber(models.Model):
     thehive = models.BooleanField(default=False, verbose_name="TheHive")
     slack = models.BooleanField(default=False, verbose_name="Slack")
     citadel = models.BooleanField(default=False, verbose_name="Citadel")
+
+    notify_trendy_words = models.BooleanField(default=True, verbose_name="Trendy Words")
+    notify_monitored_keywords = models.BooleanField(default=True, verbose_name="Monitored Keywords")
+    notify_weekly_summary = models.BooleanField(default=True, verbose_name="Weekly Summary")
+    notify_breaking_news = models.BooleanField(default=True, verbose_name="Breaking News")
 
     class Meta:
         verbose_name_plural = 'subscribers'

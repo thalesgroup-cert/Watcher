@@ -1,21 +1,29 @@
 import {combineReducers} from "redux";
+import config from './config';
 import leads from './leads';
 import auth from './auth';
+import profile from './profile';
 import messages from './messages';
 import errors from "./errors";
 import DataLeak from "./DataLeak";
 import SiteMonitoring from "./SiteMonitoring";
 import DnsFinder from "./DnsFinder";
 import LegitimateDomain from "./LegitimateDomain";
+import CyberWatch from "./CyberWatch";
+import WorldMap from "./WorldMap";
 
 export default combineReducers({
+    config,
     leads,
     DataLeak,
     SiteMonitoring,
     DnsFinder,
     LegitimateDomain,
+    CyberWatch,
+    WorldMap,
     errors,
     messages,
-    auth
+    auth,
+    profile
 });
 

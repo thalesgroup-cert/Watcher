@@ -4,13 +4,30 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from .models import UserProfile
 
 
 # User Serializer
 class UserSerializer(serializers.ModelSerializer):
+    groups = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+
+    def get_groups(self, obj):
+        return [g.name for g in obj.groups.all()]
+
+    def get_permissions(self, obj):
+        return sorted(list(obj.get_all_permissions()))
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'email')
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'is_staff', 'is_superuser', 'groups', 'permissions')
+
+
+# UserProfile Serializer
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('theme', 'preferences')
 
 
 # Login Serializer

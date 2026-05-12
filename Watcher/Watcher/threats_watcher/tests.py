@@ -8,7 +8,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
-from threats_watcher.models import Source, PostUrl, TrendyWord, BannedWord, Subscriber, Summary
+from threats_watcher.models import Source, PostUrl, TrendyWord, BannedWord, Subscriber, Summary, MonitoredKeyword
 from threats_watcher.serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer
 
 
@@ -371,3 +371,87 @@ class PerformanceTest(TestCase):
             
             self.assertTrue(cleanup_works)
             mock_cleanup.assert_called_once()
+
+
+class MonitoredKeywordModelTest(TestCase):
+    """Test MonitoredKeyword model behaviour."""
+
+    def test_create_default_level(self):
+        mk = MonitoredKeyword.objects.create(name="Alice")
+        self.assertEqual(mk.level, 'warm')
+        self.assertEqual(mk.occurrences, 0)
+        self.assertIsNone(mk.last_seen)
+
+    def test_update_level_escalates_correctly(self):
+        mk = MonitoredKeyword(name="CVE-2025-1234", occurrences=0)
+        mk.update_level(); self.assertEqual(mk.level, 'warm')
+        mk.occurrences = 3
+        mk.update_level(); self.assertEqual(mk.level, 'hot')
+        mk.occurrences = 10
+        mk.update_level(); self.assertEqual(mk.level, 'super_hot')
+        mk.occurrences = 25
+        mk.update_level(); self.assertEqual(mk.level, 'super_hot')
+
+    def test_unique_name_constraint(self):
+        MonitoredKeyword.objects.create(name="UniqueKW")
+        with self.assertRaises(Exception):
+            MonitoredKeyword.objects.create(name="UniqueKW")
+
+    def test_str_representation(self):
+        mk = MonitoredKeyword.objects.create(name="Ransomware")
+        self.assertIn("Ransomware", str(mk))
+
+
+class MonitoredKeywordAPITest(APITestCase):
+    """Test MonitoredKeyword REST API endpoints."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='mktestuser', password='mktestpass')
+        self.user.user_permissions.set(
+            list(self.user.user_permissions.all())
+        )
+        # Give all permissions
+        from django.contrib.auth.models import Permission
+        for perm in Permission.objects.filter(codename__in=[
+            'add_monitoredkeyword', 'change_monitoredkeyword',
+            'delete_monitoredkeyword', 'view_monitoredkeyword'
+        ]):
+            self.user.user_permissions.add(perm)
+        instance, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_list_monitored_keywords(self):
+        MonitoredKeyword.objects.create(name="TestKW1")
+        MonitoredKeyword.objects.create(name="TestKW2")
+        response = self.client.get('/api/threats_watcher/monitored-keywords/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_monitored_keyword(self):
+        data = {'name': 'NewKeyword'}
+        response = self.client.post('/api/threats_watcher/monitored-keywords/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(MonitoredKeyword.objects.filter(name='NewKeyword').exists())
+
+    def test_delete_monitored_keyword(self):
+        mk = MonitoredKeyword.objects.create(name="ToDelete")
+        response = self.client.delete(f'/api/threats_watcher/monitored-keywords/{mk.id}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(MonitoredKeyword.objects.filter(id=mk.id).exists())
+
+    def test_patch_monitored_keyword(self):
+        mk = MonitoredKeyword.objects.create(name="OldName")
+        response = self.client.patch(
+            f'/api/threats_watcher/monitored-keywords/{mk.id}/',
+            {'name': 'UpdatedName'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mk.refresh_from_db()
+        self.assertEqual(mk.name, 'UpdatedName')
+
+    def test_serializer_includes_level_display(self):
+        mk = MonitoredKeyword.objects.create(name="LevelTest", occurrences=3)
+        mk.update_level(); mk.save()
+        response = self.client.get(f'/api/threats_watcher/monitored-keywords/{mk.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('level_display', response.data)

@@ -40,10 +40,17 @@ export const loadUser = () => (dispatch, getState) => {
 
 // LOGIN USER
 export const login = (username, password) => dispatch => {
+    // Read CSRF token from cookie
+    const csrfToken = document.cookie.split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))
+        ?.split('=')[1] || '';
+
     // Headers
     const config = {
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken,
         }
     };
 
@@ -123,6 +130,16 @@ export const passwordChange = (old_password, password) => (dispatch, getState) =
                 type: PASSWORD_CHANGE_FAIL,
             });
         });
+};
+
+// LOGIN WITH SSO TOKEN (from OIDC callback redirect)
+export const loginWithToken = (token) => (dispatch) => {
+    localStorage.setItem('token', token);
+    dispatch({
+        type: LOGIN_SUCCESS,
+        payload: { token }
+    });
+    dispatch(loadUser());
 };
 
 export const setIsPasswordChanged = () => (dispatch) => {

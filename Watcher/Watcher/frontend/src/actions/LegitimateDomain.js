@@ -1,9 +1,13 @@
 import axios from 'axios';
 import {
     GET_LEGITIMATE_DOMAINS,
+    GET_LEGITIMATE_DOMAINS_ALL,
     DELETE_LEGITIMATE_DOMAIN,
     ADD_LEGITIMATE_DOMAIN,
     PATCH_LEGITIMATE_DOMAIN,
+    EXPORT_LEGITIMATE_DOMAIN_TO_MISP,
+    RESET_EXPORT_LOADING,
+    GET_LEGITIMATE_DOMAIN_STATISTICS,
 } from "./types";
 import { createMessage, returnErrors } from "./messages";
 import { tokenConfig } from "./auth";
@@ -48,6 +52,36 @@ export const getLegitimateDomains = (page = 1, pageSize = 100) => (dispatch, get
             });
             throw err;
         });
+};
+
+
+export const getLegitimateDomainsBatch = (startPage = 2, pageSize = 100) => async (dispatch, getState) => {
+    const config = tokenConfig(getState);
+    const allResults = [];
+    let page = startPage;
+    let hasMore = true;
+
+    while (hasMore) {
+        try {
+            const res = await axios.get(
+                `/api/common/legitimate_domains/?page=${page}&page_size=${pageSize}`,
+                config
+            );
+            const data = res.data;
+            allResults.push(...(data.results || []));
+            hasMore = !!data.next;
+            page++;
+        } catch (_) {
+            hasMore = false;
+        }
+    }
+
+    if (allResults.length > 0) {
+        dispatch({
+            type: GET_LEGITIMATE_DOMAINS,
+            payload: { results: allResults, count: allResults.length, next: null, previous: null },
+        });
+    }
 };
 
 // ADD LEGITIMATE DOMAIN
@@ -110,7 +144,7 @@ export const exportToMISP = (payload) => (dispatch, getState) => {
             
             if (res.data.misp_event_uuid) {
                 dispatch({
-                    type: 'EXPORT_LEGITIMATE_DOMAIN_TO_MISP',
+                    type: EXPORT_LEGITIMATE_DOMAIN_TO_MISP,
                     payload: {
                         id: payload.id,
                         misp_event_uuid: res.data.misp_event_uuid,
@@ -128,7 +162,7 @@ export const exportToMISP = (payload) => (dispatch, getState) => {
         })
         .finally(() => {
             dispatch({ 
-                type: 'RESET_EXPORT_LOADING', 
+                type: RESET_EXPORT_LOADING, 
                 payload: payload.id 
             });
         });
@@ -147,7 +181,7 @@ export const getLegitimateDomainStatistics = () => (dispatch, getState) => {
     axios.get(endpoint, config)
         .then(res => {
             dispatch({
-                type: 'GET_LEGITIMATE_DOMAIN_STATISTICS',
+                type: GET_LEGITIMATE_DOMAIN_STATISTICS,
                 payload: res.data
             });
         })
@@ -156,7 +190,7 @@ export const getLegitimateDomainStatistics = () => (dispatch, getState) => {
                 dispatch(returnErrors(err.response.data, err.response.status));
             }
             dispatch({
-                type: 'GET_LEGITIMATE_DOMAIN_STATISTICS',
+                type: GET_LEGITIMATE_DOMAIN_STATISTICS,
                 payload: {
                     total: 0,
                     repurchased: 0,
@@ -164,5 +198,16 @@ export const getLegitimateDomainStatistics = () => (dispatch, getState) => {
                     expiringSoon: 0
                 }
             });
+        });
+};
+// GET ALL LEGITIMATE DOMAINS (stats only – no pagination)
+export const getAllLegitimateDomains = () => (dispatch, getState) => {
+    return axios
+        .get('/api/common/legitimate_domains/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: GET_LEGITIMATE_DOMAINS_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };

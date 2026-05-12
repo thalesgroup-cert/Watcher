@@ -37,18 +37,44 @@ class WhoisDiscovery:
         :return: True if WHOIS data was successfully fetched, False otherwise
         :rtype: bool
         """
-        try:
-            url = f"{self.service_url}{self.domain}"
-            
-            self.response = requests.get(
-                url,
-                verify=False,
-                timeout=30
+        if python_whois is None:
+            logger.error(
+                "python-whois is not installed. "
+                "Add 'python-whois' to requirements.txt"
             )
-            
-            return self.response.status_code == 200
-            
-        except requests.exceptions.RequestException as e:
+            return False
+
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(WHOIS_SOCKET_TIMEOUT)
+        try:
+            data = python_whois.whois(self.domain)
+
+            if data is None:
+                logger.debug(f"Empty WHOIS response for {self.domain}")
+                return False
+
+            has_data = bool(
+                data.registrar or data.expiration_date or data.creation_date
+            )
+            if not has_data:
+                logger.debug(f"No usable fields in WHOIS response for {self.domain}")
+                return False
+
+            self.whois_data = data
+            return True
+
+        except (socket.timeout, TimeoutError):
+            # Expected for unregistered / privacy-screened domains or
+            # rate-limited ccTLD WHOIS servers - not an application error.
+            logger.warning(
+                f"WHOIS connection timed out for {self.domain}"
+            )
+            return False
+
+        except Exception as exc:
+            logger.warning(
+                f"WHOIS lookup failed for {self.domain}: {exc}"
+            )
             return False
     
     def get_registrar(self):

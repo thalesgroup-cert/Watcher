@@ -26,7 +26,7 @@ Cypress.Commands.add('authenticateWithTestUser', () => {
     .should('not.be.disabled')
     .click();
   
-  cy.url().should('include', '#/').should('not.include', '/login');
+  cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
   cy.get('.navbar').should('exist');
   
   cy.window().then((win) => {

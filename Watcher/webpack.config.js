@@ -1,4 +1,8 @@
 module.exports = {
+    output: {
+        publicPath: '/static/frontend/',
+    },
+    devtool: 'source-map',
     module: {
         rules: [
             {

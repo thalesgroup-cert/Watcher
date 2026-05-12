@@ -35,8 +35,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0
-        npm install &
-        wait  
+        npm install
+        npx cypress install
     
     - name: Run back-end tests
       working-directory: ./Watcher/Watcher
@@ -56,7 +56,13 @@ jobs:
         python manage.py runserver 127.0.0.1:8000 &
         sleep 10
         timeout 60 bash -c 'until curl -f http://127.0.0.1:8000; do sleep 2; done'
-        npm run cypress:run
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+
+    - name: Run Cypress e2e tests
+      working-directory: ./Watcher
+      run: npm run cypress:run
       env:
         DB_USER: root
         DB_PASSWORD: root

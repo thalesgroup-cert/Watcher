@@ -1,5 +1,5 @@
 import React, {Component, Fragment, useState, useEffect} from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import {
     HashRouter as Router,
     Route,
@@ -17,14 +17,17 @@ import DataLeakDashboard from './DataLeak/Dashboard'
 import SiteMonitoringDashboard from './SiteMonitoring/Dashboard'
 import DnsFinderDashboard from './DnsFinder/Dashboard'
 import LegitimateDomainsDashboard from './LegitimateDomains/Dashboard';
+import CyberWatchDashboard from './CyberWatch/Dashboard';
 import NotFound from './common/NotFound';
 import AlertTemplate from "./common/AlertTemplate";
 
 import PrivateRoute from "./common/PrivateRoute";
+import Profile from "./accounts/Profile";
 
 import {Provider} from 'react-redux';
 import store from "../store";
-import {loadUser} from "../actions/auth";
+import {loadUser, loginWithToken} from "../actions/auth";
+import {loadConfig} from "../actions/config";
 import { ThemeProvider } from '../contexts/ThemeContext';
 
 // Alert Options
@@ -90,7 +93,17 @@ function ScrollToTopButton() {
 
 class App extends Component {
     componentDidMount() {
-        store.dispatch(loadUser());
+        store.dispatch(loadConfig());
+        const params = new URLSearchParams(window.location.search);
+        const ssoToken = params.get('sso_token');
+        if (window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
+        if (ssoToken) {
+            store.dispatch(loginWithToken(ssoToken));
+        } else {
+            store.dispatch(loadUser());
+        }
     }
 
     render() {
@@ -107,10 +120,12 @@ class App extends Component {
                                         <Route exact path="/" component={Dashboard}/>
                                         <Route exact path="/login" component={Login}/>
                                         <PrivateRoute exact path="/password_change" component={PasswordChange}/>
+                                        <PrivateRoute exact path="/profile" component={Profile}/>
                                         <Route exact path="/legitimate_domains" component={LegitimateDomainsDashboard}/>
                                         <PrivateRoute exact path="/data_leak" component={DataLeakDashboard}/>
                                         <PrivateRoute exact path="/website_monitoring" component={SiteMonitoringDashboard}/>
                                         <PrivateRoute exact path="/dns_finder" component={DnsFinderDashboard}/>
+                                        <PrivateRoute exact path="/cyber_watch" component={CyberWatchDashboard}/>
                                         <Route component={NotFound}/>
                                     </Switch>
                                 </div>
@@ -125,4 +140,4 @@ class App extends Component {
     }
 }
 
-ReactDOM.render(<App/>, document.getElementById('app'));
+createRoot(document.getElementById('app')).render(<App/>);

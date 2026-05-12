@@ -27,12 +27,12 @@ function isNew(dateStr) {
     return now - date < 86400000;
 }
 
-const LS_OPEN_KEY = "watcher_localstorage_weeklysummary_open";
-const LS_X_KEY = "watcher_localstorage_weeklysummary_X";
-const LS_Y_KEY = "watcher_localstorage_weeklysummary_Y";
-const LS_TAB_KEY = "watcher_localstorage_weeklysummary_active_tab";
-const LS_WEEKLY_READ_KEY = "watcher_localstorage_weekly_read_id";
-const LS_BREAKING_READ_KEY = "watcher_localstorage_breaking_read_id";
+const LS_OPEN_KEY = "watcher_weekly_open";
+const LS_X_KEY = "watcher_weekly_x";
+const LS_Y_KEY = "watcher_weekly_y";
+const LS_TAB_KEY = "watcher_weekly_active_tab";
+const LS_WEEKLY_READ_KEY = "watcher_weekly_read_id";
+const LS_BREAKING_READ_KEY = "watcher_breaking_read_id";
 const CARD_MIN_HEIGHT = 72;
 const CARD_WIDTH = 680;
 const CARD_MINIMIZED_WIDTH = 470;

@@ -39,6 +39,7 @@ AUTH_LDAP_USER_ATTR_MAP = {
 
 AUTHENTICATION_BACKENDS = (
     "django_auth_ldap.backend.LDAPBackend",
+    "accounts.oidc.WatcherOIDCBackend",
     "django.contrib.auth.backends.ModelBackend",
 )
 
@@ -105,6 +106,10 @@ WATCHER_URL = os.environ.get('WATCHER_URL', '')
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
 GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
 
+# Help button (custom link shown in the Header help dropdown)
+WATCHER_HELP_BUTTON_LABEL = os.environ.get('WATCHER_HELP_BUTTON_LABEL', 'API Docs')
+WATCHER_HELP_BUTTON_URL   = os.environ.get('WATCHER_HELP_BUTTON_URL',   '/api/docs/')
+
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
@@ -114,6 +119,14 @@ CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io
 
 # Link to SearxNG Server API
 DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searxng:8080/')
+
+# Cyber Watch - External Threat Intelligence APIs
+CYBER_WATCH_CVE_API_URL = os.environ.get('CYBER_WATCH_CVE_API_URL', 'https://cve.circl.lu/api/last')
+CYBER_WATCH_RANSOMWARE_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_GROUPS_URL', 'https://api.ransomware.live/v2/groups')
+CYBER_WATCH_RANSOMWARE_VICTIMS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_VICTIMS_URL', 'https://api.ransomware.live/v2/recentvictims')
+CYBER_WATCH_RANSOMLOOK_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_GROUPS_URL', 'https://www.ransomlook.io/api/groups')
+CYBER_WATCH_RANSOMLOOK_RECENT_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_RECENT_URL', 'https://www.ransomlook.io/api/recent')
+CYBER_WATCH_RANSOMLOOK_ACTORS_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_ACTORS_URL', 'https://www.ransomlook.io/api/actors')
 
 # The Hive Setup
 THE_HIVE_URL = os.environ.get('THE_HIVE_URL', '')
@@ -173,17 +186,39 @@ INSTALLED_APPS = [
     'django.contrib.admindocs',
     'accounts',
     'import_export',
+    'cyber_watch',
+    'drf_spectacular',
+    'mozilla_django_oidc',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES':
-        ('knox.auth.TokenAuthentication',)
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'knox.auth.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Watcher API',
+    'DESCRIPTION': 'Watcher - Open Source AI-powered Cyber Threat Intelligence & Hunting Platform. Developed with Django & React JS. ',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SECURITY': [{'knoxTokenAuth': []}],
+    'COMPONENT_SECURITY_SCHEMES': {
+        'knoxTokenAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'Knox token authentication. Format: **Token &lt;your_token&gt;**',
+        }
+    },
 }
 
 REST_KNOX = {
-  'SECURE_HASH_ALGORITHM': 'cryptography.hazmat.primitives.hashes.SHA3_512',  
+  'SECURE_HASH_ALGORITHM': 'hashlib.sha3_512',
   'TOKEN_TTL': timedelta(hours=10),
 }
 
@@ -215,6 +250,30 @@ TEMPLATES = [
         },
     },
 ]
+
+# OIDC / SSO
+# LOGIN_MODE controls both whether OIDC is active and what the login page shows.
+#   'form_only' - only the credential form, no SSO (default)
+#   'sso_only' - only the SSO button, no username/password form
+#   'both' - SSO button AND credential form
+LOGIN_MODE = os.environ.get('LOGIN_MODE', 'form_only')
+if LOGIN_MODE not in ('form_only', 'sso_only', 'both'):
+    LOGIN_MODE = 'form_only'
+OIDC_COMPANY_NAME = os.environ.get('OIDC_COMPANY_NAME', '')
+
+# Required when LOGIN_MODE is 'sso_only' or 'both'
+OIDC_RP_CLIENT_ID = os.environ.get('OIDC_RP_CLIENT_ID', '')
+OIDC_RP_CLIENT_SECRET = os.environ.get('OIDC_RP_CLIENT_SECRET', '')
+OIDC_OP_AUTHORIZATION_ENDPOINT = os.environ.get('OIDC_OP_AUTHORIZATION_ENDPOINT', '')
+OIDC_OP_TOKEN_ENDPOINT = os.environ.get('OIDC_OP_TOKEN_ENDPOINT', '')
+OIDC_OP_USER_ENDPOINT = os.environ.get('OIDC_OP_USER_ENDPOINT', '')
+OIDC_OP_JWKS_ENDPOINT = os.environ.get('OIDC_OP_JWKS_ENDPOINT', '')
+OIDC_OP_ISSUER = os.environ.get('OIDC_OP_ISSUER', '')
+OIDC_RP_SIGN_ALGO = 'RS256'
+OIDC_USE_PKCE = True
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 WSGI_APPLICATION = 'watcher.wsgi.application'
 
@@ -345,6 +404,14 @@ LOGGING = {
             'maxBytes': 5 * 1024 * 1024,
             'backupCount': 3,
         },
+        'file_cyber_watch': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'cyber_watch.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
     },
     "loggers": {
         'watcher.common': {
@@ -369,6 +436,11 @@ LOGGING = {
         },
         'watcher.site_monitoring': {
             'handlers': ['file_site_monitoring', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.cyber_watch': {
+            'handlers': ['file_cyber_watch', 'console'],
             'level': TRACE_LEVEL,
             'propagate': False,
         },

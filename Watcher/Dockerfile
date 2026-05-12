@@ -7,7 +7,7 @@
 #################################################
 #               BUILD ARGS                      #
 #################################################
-ARG PYTHON_VERSION=3.11.14
+ARG PYTHON_VERSION=3.12.10
 ARG DEBIAN_SUITE=bookworm
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -20,7 +20,7 @@ FROM node:18-bookworm-slim AS frontend-builder
 
 WORKDIR /frontend
 
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
 
 COPY . .
@@ -31,7 +31,7 @@ RUN npm install
 #################################################
 #                BACKEND BUILD                 #
 #################################################
-FROM python:3.11-slim-bookworm AS backend-builder
+FROM python:3.12-slim-bookworm AS backend-builder
 
 ENV http_proxy=${HTTP_PROXY} \
     https_proxy=${HTTPS_PROXY} \
@@ -76,7 +76,7 @@ EOF
 #################################################
 #                   RUNTIME                    #
 #################################################
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 LABEL title='Watcher' \
         description='Watcher is a Django & React JS automated platform for discovering new potentially cybersecurity threats targeting your organisation.' \

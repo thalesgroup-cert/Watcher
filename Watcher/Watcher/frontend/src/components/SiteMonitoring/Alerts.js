@@ -396,7 +396,7 @@ export class Alerts extends Component {
                                                     </button>
                                                     <button
                                                         onClick={() => this.displayStatusModal(alert.id)}
-                                                        className={`btn btn-sm ${isActive ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                                                        className={`btn btn-sm ${isActive ? 'btn-outline-warning' : 'btn-outline-primary'}`}
                                                     >
                                                         {isActive ? 'Disable' : 'Enable'}
                                                     </button>

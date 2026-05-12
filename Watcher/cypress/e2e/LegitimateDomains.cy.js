@@ -149,7 +149,7 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should display LegitimateStats dashboard', () => {
-      cy.get('.container-fluid.mt-3', { timeout: 15000 }).should('exist');
+      cy.get('.container-fluid', { timeout: 15000 }).should('exist');
 
       cy.get('.card.border-0.shadow-sm', { timeout: 15000 }).should('have.length', 4);
 
@@ -203,7 +203,7 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should display correct stat card icons', () => {
-      cy.get('.card .material-icons').then(($icons) => {
+      cy.get('.container-fluid .card.border-0.shadow-sm .material-icons').then(($icons) => {
         const iconTexts = $icons.toArray().map(icon => Cypress.$(icon).text());
         const validIcons = iconTexts.filter(text => 
           text.includes('link') || text.includes('check_circle') ||
@@ -237,32 +237,32 @@ describe('Legitimate Domains - E2E Test Suite', () => {
 
     it('should display correct statistics counts', () => {
       cy.get('.card.border-0.shadow-sm').first().within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Total domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
       });
 
       cy.get('.card.border-0.shadow-sm').eq(1).within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Repurchased domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
       });
 
       cy.get('.card.border-0.shadow-sm').eq(2).within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Expired domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
       });
 
       cy.get('.card.border-0.shadow-sm').eq(3).within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text.trim());
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.trim().replace(/,/g, ''));
           cy.log(`Expiring soon domains count: ${num}`);
           expect(num).to.be.at.least(0);
         });
@@ -596,8 +596,8 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       cy.get('table tbody tr').should('have.length.at.least', 1);
 
       cy.get('.card.border-0.shadow-sm').first().within(() => {
-        cy.get('.h2').invoke('text').then((text) => {
-          const num = parseInt(text);
+        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
+          const num = parseInt(text.replace(/,/g, ''));
           cy.log(`Filtered domains count: ${num}`);
           expect(num).to.be.at.least(0);
           if (num > 0) {
@@ -620,7 +620,7 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should verify layout structure specific to Legitimate Domains', () => {
-      cy.get('.container-fluid.mt-3').should('exist');
+      cy.get('.container-fluid').should('exist');
       cy.get('.row').should('have.length.at.least', 1);
 
       cy.get('.card.border-0.shadow-sm').should('have.length', 4);
@@ -742,33 +742,46 @@ describe('Legitimate Domains - E2E Test Suite', () => {
   after(() => {
     cy.log('Starting Legitimate Domains cleanup...');
 
-    // Clean up test domains
-    cy.request({
-      method: 'GET',
-      url: '/api/common/legitimate_domains/',
-      headers: {
-        'Authorization': `Token ${Cypress.env('authData').token}`
-      },
-      failOnStatusCode: false
-    }).then((response) => {
-      if (response.status === 200 && response.body && response.body.results) {
-        response.body.results.forEach((domain) => {
-          if (domain.domain_name.includes('test-') || domain.domain_name.includes('e2e-')) {
-            cy.request({
-              method: 'DELETE',
-              url: `/api/common/legitimate_domains/${domain.id}/`,
-              headers: { 'Authorization': `Token ${Cypress.env('authData').token}` },
-              failOnStatusCode: false
-            });
-          }
-        });
-      }
-    });
+    const authData = Cypress.env('authData');
+    if (authData && authData.token) {
+      cy.request({
+        method: 'GET',
+        url: '/api/common/legitimate_domains/',
+        headers: {
+          'Authorization': `Token ${authData.token}`
+        },
+        failOnStatusCode: false
+      }).then((response) => {
+        if (response.status === 200 && response.body && response.body.results) {
+          response.body.results.forEach((domain) => {
+            if (domain.domain_name.includes('test-') || domain.domain_name.includes('e2e-')) {
+              cy.request({
+                method: 'DELETE',
+                url: `/api/common/legitimate_domains/${domain.id}/`,
+                headers: { 'Authorization': `Token ${authData.token}` },
+                failOnStatusCode: false
+              });
+            }
+          });
+        }
+      });
+    } else {
+      cy.log('No auth token available - skipping cleanup');
+    }
 
-    // Clear localStorage items specific to Legitimate Domains
+    // Reset DB-stored preferences
+    if (authData && authData.token) {
+      cy.request({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { 'Authorization': `Token ${authData.token}` },
+        body: { preferences: {} },
+        failOnStatusCode: false
+      });
+    }
+
+    // Clear ephemeral localStorage/sessionStorage
     cy.window().then((win) => {
-      win.localStorage.removeItem('watcher_localstorage_items_legitimateDomains');
-      win.localStorage.removeItem('watcher_localstorage_filters_legitimateDomains');
       win.localStorage.clear();
       win.sessionStorage.clear();
     });
