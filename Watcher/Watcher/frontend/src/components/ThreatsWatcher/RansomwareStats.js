@@ -94,8 +94,8 @@ class RansomwareStats extends Component {
     }
 
     componentDidMount() {
-        this.props.getRansomwareVictims();
-        this.props.getWatchRuleHits();
+        this.props.getRansomwareVictims({ page_size: 10000 });
+        this.props.getWatchRuleHits({ page_size: 10000 });
     }
 
     render() {

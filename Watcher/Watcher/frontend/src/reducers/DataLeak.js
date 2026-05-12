@@ -1,6 +1,8 @@
 import {
     DATALEAK_GET_KEYWORDS,
+    DATALEAK_GET_KEYWORDS_ALL,
     DATALEAK_GET_ALERTS,
+    DATALEAK_GET_ALERTS_ALL,
     DATALEAK_DELETE_KEYWORD,
     DATALEAK_ADD_KEYWORD,
     DATALEAK_PATCH_KEYWORD,
@@ -17,6 +19,9 @@ const initialState = {
     alertsCount: 0,
     alertsNext: null,
     alertsPrevious: null,
+    // Stats-only: all items loaded at once
+    allAlerts: [],
+    allKeywords: [],
     statistics: {
         totalAlerts: 0,
         activeAlerts: 0,
@@ -113,6 +118,12 @@ export default function (state = initialState, action) {
                 ...state,
                 statistics: action.payload
             };
+
+        case DATALEAK_GET_ALERTS_ALL:
+            return { ...state, allAlerts: Array.isArray(action.payload) ? action.payload : [] };
+
+        case DATALEAK_GET_KEYWORDS_ALL:
+            return { ...state, allKeywords: Array.isArray(action.payload) ? action.payload : [] };
 
         default:
             return state;

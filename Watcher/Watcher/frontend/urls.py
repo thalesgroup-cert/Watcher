@@ -1,6 +1,8 @@
 from django.urls import path
-from . import views
+from .api import ConfigAPI
+from .views import IndexView
 
 urlpatterns = [
-    path('', views.index),
+    path('', IndexView.as_view()),
+    path('api/config/', ConfigAPI.as_view()),
 ]

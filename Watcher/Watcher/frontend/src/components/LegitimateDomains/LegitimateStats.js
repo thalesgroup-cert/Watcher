@@ -34,7 +34,7 @@ function bucketByMonth(domains, fieldFn) {
     });
     return Object.values(buckets);
 }
-import { getLegitimateDomainStatistics, getLegitimateDomains } from '../../actions/LegitimateDomain';
+import { getLegitimateDomainStatistics, getAllLegitimateDomains } from '../../actions/LegitimateDomain';
 
 const C = {
     primary: { solid: '#4e73df', faded: 'rgba(78,115,223,0.7)',  hover: 'rgba(78,115,223,1)'  },
@@ -118,12 +118,12 @@ class LegitimateStats extends Component {
         statistics:                    PropTypes.object.isRequired,
         domains:                       PropTypes.array.isRequired,
         getLegitimateDomainStatistics: PropTypes.func.isRequired,
-        getLegitimateDomains:          PropTypes.func.isRequired,
+        getAllLegitimateDomains:        PropTypes.func.isRequired,
     };
 
     componentDidMount() {
         this.props.getLegitimateDomainStatistics();
-        this.props.getLegitimateDomains();
+        this.props.getAllLegitimateDomains();
     }
 
     render() {
@@ -268,7 +268,7 @@ class LegitimateStats extends Component {
 
 const mapStateToProps = state => ({
     statistics: state.LegitimateDomain.statistics || {},
-    domains:    state.LegitimateDomain.domains    || [],
+    domains:    state.LegitimateDomain.allDomains || [],
 });
 
-export default connect(mapStateToProps, { getLegitimateDomainStatistics, getLegitimateDomains })(LegitimateStats);
+export default connect(mapStateToProps, { getLegitimateDomainStatistics, getAllLegitimateDomains })(LegitimateStats);

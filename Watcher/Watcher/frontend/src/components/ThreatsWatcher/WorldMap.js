@@ -324,6 +324,7 @@ function WorldMap({
             },
             filled: false,
             stroked: true,
+            wrapLongitude: true,
             getLineColor: [251, 191, 36, 255],
             lineWidthMinPixels: 2.5,
             lineWidthMaxPixels: 4,

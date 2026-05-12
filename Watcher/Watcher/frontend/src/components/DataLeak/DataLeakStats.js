@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { Bar, HorizontalBar, Doughnut } from 'react-chartjs-2';
-import { getDataLeakStatistics, getAlerts, getKeyWords } from '../../actions/DataLeak';
+import { getDataLeakStatistics, getAllDataLeakAlerts, getAllDataLeakKeywords } from '../../actions/DataLeak';
 
 const C = {
     primary: { solid: '#4e73df', faded: 'rgba(78,115,223,0.7)',  hover: 'rgba(78,115,223,1)'  },
@@ -110,18 +110,18 @@ const doughnutOptions = {
 
 class DataLeakStats extends Component {
     static propTypes = {
-        statistics:            PropTypes.object.isRequired,
-        alerts:                PropTypes.array.isRequired,
-        keywords:              PropTypes.array.isRequired,
-        getDataLeakStatistics: PropTypes.func.isRequired,
-        getAlerts:             PropTypes.func.isRequired,
-        getKeyWords:           PropTypes.func.isRequired,
+        statistics:              PropTypes.object.isRequired,
+        alerts:                  PropTypes.array.isRequired,
+        keywords:                PropTypes.array.isRequired,
+        getDataLeakStatistics:   PropTypes.func.isRequired,
+        getAllDataLeakAlerts:     PropTypes.func.isRequired,
+        getAllDataLeakKeywords:   PropTypes.func.isRequired,
     };
 
     componentDidMount() {
         this.props.getDataLeakStatistics();
-        this.props.getAlerts();
-        this.props.getKeyWords();
+        this.props.getAllDataLeakAlerts();
+        this.props.getAllDataLeakKeywords();
     }
 
     render() {
@@ -184,7 +184,7 @@ class DataLeakStats extends Component {
                                  sub="last 7 days" icon="today" variant="warning" />
                     </div>
                     <div className="col-xl-3 col-md-6 mb-4">
-                        <KpiCard title="Keywords" value={keywords.length}
+                        <KpiCard title="Keywords" value={statistics.totalKeywords ?? keywords.length}
                                  sub="search patterns monitored" icon="search" variant="info" />
                     </div>
                 </div>
@@ -246,9 +246,9 @@ class DataLeakStats extends Component {
 }
 
 const mapStateToProps = state => ({
-    statistics: state.DataLeak.statistics || {},
-    alerts:     state.DataLeak.alerts     || [],
-    keywords:   state.DataLeak.keywords   || [],
+    statistics: state.DataLeak.statistics  || {},
+    alerts:     state.DataLeak.allAlerts   || [],
+    keywords:   state.DataLeak.allKeywords || [],
 });
 
-export default connect(mapStateToProps, { getDataLeakStatistics, getAlerts, getKeyWords })(DataLeakStats);
+export default connect(mapStateToProps, { getDataLeakStatistics, getAllDataLeakAlerts, getAllDataLeakKeywords })(DataLeakStats);

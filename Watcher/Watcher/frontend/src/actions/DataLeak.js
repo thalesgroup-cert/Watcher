@@ -2,7 +2,9 @@ import axios from 'axios';
 
 import {
     DATALEAK_GET_KEYWORDS,
+    DATALEAK_GET_KEYWORDS_ALL,
     DATALEAK_GET_ALERTS,
+    DATALEAK_GET_ALERTS_ALL,
     DATALEAK_DELETE_KEYWORD,
     DATALEAK_ADD_KEYWORD,
     DATALEAK_PATCH_KEYWORD,
@@ -132,5 +134,29 @@ export const getDataLeakStatistics = () => (dispatch, getState) => {
         .catch(err => {
             dispatch({ type: GET_DATA_LEAK_STATISTICS, payload: { totalAlerts: 0, activeAlerts: 0, newToday: 0, newThisWeek: 0, totalKeywords: 0 } });
             if (err.response) dispatch(returnErrors(err.response.data, err.response.status));
+        });
+};
+
+// GET ALL DATA LEAK ALERTS (stats only – no pagination)
+export const getAllDataLeakAlerts = () => (dispatch, getState) => {
+    return axios
+        .get('/api/data_leak/alert/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: DATALEAK_GET_ALERTS_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+// GET ALL DATA LEAK KEYWORDS (stats only – no pagination)
+export const getAllDataLeakKeywords = () => (dispatch, getState) => {
+    return axios
+        .get('/api/data_leak/keyword/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: DATALEAK_GET_KEYWORDS_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };

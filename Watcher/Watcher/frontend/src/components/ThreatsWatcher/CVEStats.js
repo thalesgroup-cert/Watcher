@@ -105,8 +105,8 @@ class CVEStats extends Component {
     }
 
     componentDidMount() {
-        this.props.getCVEs();
-        this.props.getWatchRuleHits();
+        this.props.getCVEs({ page_size: 10000 });
+        this.props.getWatchRuleHits({ page_size: 10000 });
     }
 
     render() {

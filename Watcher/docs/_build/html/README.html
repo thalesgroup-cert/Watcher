@@ -373,10 +373,31 @@ docker compose up
 <section id="sso-openid-connect-settings">
 <h3>SSO / OpenID Connect Settings<a class="headerlink" href="#sso-openid-connect-settings" title="Link to this heading"></a></h3>
 <p>Watcher supports federated login via any <strong>OpenID Connect (OIDC)</strong> provider (Keycloak, Azure AD, etc.).</p>
+<p>The login page behaviour is controlled by a single variable <code class="docutils literal notranslate"><span class="pre">LOGIN_MODE</span></code>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">form_only</span></code></p></td>
+<td><p>Username / password form only - <strong>default</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sso_only</span></code></p></td>
+<td><p>SSO button only, the credential form is hidden</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">both</span></code></p></td>
+<td><p>SSO button <strong>and</strong> the credential form are both shown</p></td>
+</tr>
+</tbody>
+</table>
 <p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># SSO / OIDC Setup
-OIDC_ENABLED=False
+# Controls the login page: form_only | sso_only | both
+LOGIN_MODE=form_only
 OIDC_COMPANY_NAME=
+# Required when LOGIN_MODE is &#39;sso_only&#39; or &#39;both&#39;
 OIDC_RP_CLIENT_ID=
 OIDC_RP_CLIENT_SECRET=
 OIDC_OP_AUTHORIZATION_ENDPOINT=
@@ -384,17 +405,14 @@ OIDC_OP_TOKEN_ENDPOINT=
 OIDC_OP_USER_ENDPOINT=
 OIDC_OP_JWKS_ENDPOINT=
 OIDC_OP_ISSUER=
-OIDC_REDIRECT_URI=
 </pre></div>
 </div>
-<p>Set <code class="docutils literal notranslate"><span class="pre">OIDC_ENABLED=True</span></code> to activate the SSO login button and the OIDC routes.</p>
+<p>Set <code class="docutils literal notranslate"><span class="pre">LOGIN_MODE=sso_only</span></code> (or <code class="docutils literal notranslate"><span class="pre">both</span></code>) and fill in the OIDC credentials to activate the SSO login button and the OIDC routes.</p>
+<p><code class="docutils literal notranslate"><span class="pre">OIDC_COMPANY_NAME</span></code> is optional - when set it is displayed on the SSO button (e.g. <code class="docutils literal notranslate"><span class="pre">Sign</span> <span class="pre">in</span> <span class="pre">with</span> <span class="pre">Acme</span> <span class="pre">Corp</span></code>).</p>
 <p>The callback URL to register with your identity provider is:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>https://&lt;your-domain&gt;/api/auth/oidc/callback/
 </pre></div>
 </div>
-<blockquote>
-<div><p><strong>Note:</strong> <code class="docutils literal notranslate"><span class="pre">OIDC_VERIFY_SSL</span></code> accepts <code class="docutils literal notranslate"><span class="pre">True</span></code> (system CA store), <code class="docutils literal notranslate"><span class="pre">False</span></code> (disable verification), or an absolute path to a PEM CA-bundle, required when the IdP uses a corporate or self-signed certificate chain.</p>
-</div></blockquote>
 <p>Now, you can restart your instance and the parameters will be taken into account:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
 docker compose up
@@ -724,8 +742,8 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 <h3>Interactive API Documentation<a class="headerlink" href="#interactive-api-documentation" title="Link to this heading"></a></h3>
 <p>Watcher ships with a fully auto-generated REST API documentation powered by <strong>drf-spectacular</strong>.</p>
 <ul class="simple">
-<li><p><strong>Swagger UI</strong> — available at <code class="docutils literal notranslate"><span class="pre">/api/docs/</span></code> — interactive interface to browse every endpoint, inspect request/response schemas, and execute authenticated calls directly from the browser.</p></li>
-<li><p><strong>OpenAPI 3 schema</strong> — downloadable at <code class="docutils literal notranslate"><span class="pre">/api/schema/</span></code> (JSON/YAML) for import into Postman, Insomnia, or any API client.</p></li>
+<li><p><strong>Swagger UI</strong> - available at <code class="docutils literal notranslate"><span class="pre">/api/docs/</span></code> - interactive interface to browse every endpoint, inspect request/response schemas, and execute authenticated calls directly from the browser.</p></li>
+<li><p><strong>OpenAPI 3 schema</strong> - downloadable at <code class="docutils literal notranslate"><span class="pre">/api/schema/</span></code> (JSON/YAML) for import into Postman, Insomnia, or any API client.</p></li>
 </ul>
 <p>All six modules are fully covered, including the <code class="docutils literal notranslate"><span class="pre">/statistics/</span></code> endpoints and the CyberWatch Watch Rule engine.</p>
 <p>Below, you will find our 6 modules with their API functions:</p>
@@ -1243,8 +1261,8 @@ the version of your MISP instance.</p>
 <li><p>Each card shows the active preset name, panel count, and available presets.</p></li>
 <li><p>Clicking a card opens a <strong>Layout Presets &amp; Editor</strong> modal:</p>
 <ul>
-<li><p><em>Presets</em> tab — named ready-made layouts (Default, Compact, Analytics).</p></li>
-<li><p><em>Custom Editor</em> tab — free-form drag-and-drop editor.</p></li>
+<li><p><em>Presets</em> tab - named ready-made layouts (Default, Compact, Analytics).</p></li>
+<li><p><em>Custom Editor</em> tab - free-form drag-and-drop editor.</p></li>
 </ul>
 </li>
 <li><p>A <em>Reset to Default</em> button restores the module’s default preset.</p></li>

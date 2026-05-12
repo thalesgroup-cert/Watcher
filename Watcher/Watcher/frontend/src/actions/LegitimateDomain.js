@@ -1,6 +1,7 @@
 import axios from 'axios';
 import {
     GET_LEGITIMATE_DOMAINS,
+    GET_LEGITIMATE_DOMAINS_ALL,
     DELETE_LEGITIMATE_DOMAIN,
     ADD_LEGITIMATE_DOMAIN,
     PATCH_LEGITIMATE_DOMAIN,
@@ -197,5 +198,16 @@ export const getLegitimateDomainStatistics = () => (dispatch, getState) => {
                     expiringSoon: 0
                 }
             });
+        });
+};
+// GET ALL LEGITIMATE DOMAINS (stats only – no pagination)
+export const getAllLegitimateDomains = () => (dispatch, getState) => {
+    return axios
+        .get('/api/common/legitimate_domains/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: GET_LEGITIMATE_DOMAINS_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };

@@ -108,9 +108,9 @@ class ThreatsWatcherStats extends Component {
         const totalWords   = statistics.totalWords  || leads.length;
         const newToday     = statistics.newToday    || 0;
         const newThisWeek  = statistics.newThisWeek || 0;
-        const totalSources = sources.length         || statistics.totalSources || 0;
-        const bannedCount  = bannedWords.length      || statistics.bannedWords  || 0;
-        const monCount     = monitoredKeywords.length|| statistics.monitoredKeywords || 0;
+        const totalSources = statistics.totalSources      ?? sources.length         ?? 0;
+        const bannedCount  = statistics.bannedWords        ?? bannedWords.length     ?? 0;
+        const monCount     = statistics.monitoredKeywords  ?? monitoredKeywords.length ?? 0;
 
         const top5      = [...leads].sort((a, b) => b.occurrences - a.occurrences).slice(0, 5);
         const topLabels = top5.map(w => w.name);

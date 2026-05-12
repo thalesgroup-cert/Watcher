@@ -27,6 +27,7 @@ import Profile from "./accounts/Profile";
 import {Provider} from 'react-redux';
 import store from "../store";
 import {loadUser, loginWithToken} from "../actions/auth";
+import {loadConfig} from "../actions/config";
 import { ThemeProvider } from '../contexts/ThemeContext';
 
 // Alert Options
@@ -92,10 +93,13 @@ function ScrollToTopButton() {
 
 class App extends Component {
     componentDidMount() {
+        store.dispatch(loadConfig());
         const params = new URLSearchParams(window.location.search);
         const ssoToken = params.get('sso_token');
-        if (ssoToken) {
+        if (window.location.search) {
             window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
+        if (ssoToken) {
             store.dispatch(loginWithToken(ssoToken));
         } else {
             store.dispatch(loadUser());

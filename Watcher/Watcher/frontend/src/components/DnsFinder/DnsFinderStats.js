@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { Bar, HorizontalBar, Doughnut } from 'react-chartjs-2';
-import { getDnsFinderStatistics, getAlerts, getDnsMonitored, getKeywordMonitored } from '../../actions/DnsFinder';
+import { getDnsFinderStatistics, getAllDnsAlerts, getAllDnsMonitored, getAllKeywordMonitored } from '../../actions/DnsFinder';
 
 const C = {
     primary: { solid: '#4e73df', faded: 'rgba(78,115,223,0.7)',  hover: 'rgba(78,115,223,1)'  },
@@ -112,25 +112,25 @@ const doughnutOptions = {
 
 class DnsFinderStats extends Component {
     static propTypes = {
-        statistics:            PropTypes.object.isRequired,
-        alerts:                PropTypes.array.isRequired,
-        dnsMonitored:          PropTypes.array.isRequired,
-        keywordMonitored:      PropTypes.array.isRequired,
-        getDnsFinderStatistics: PropTypes.func.isRequired,
-        getAlerts:             PropTypes.func.isRequired,
-        getDnsMonitored:       PropTypes.func.isRequired,
-        getKeywordMonitored:   PropTypes.func.isRequired,
+        statistics:              PropTypes.object.isRequired,
+        alerts:                  PropTypes.array.isRequired,
+        dnsMonitored:            PropTypes.array.isRequired,
+        keywordMonitored:        PropTypes.array.isRequired,
+        getDnsFinderStatistics:  PropTypes.func.isRequired,
+        getAllDnsAlerts:          PropTypes.func.isRequired,
+        getAllDnsMonitored:       PropTypes.func.isRequired,
+        getAllKeywordMonitored:   PropTypes.func.isRequired,
     };
 
     componentDidMount() {
         this.props.getDnsFinderStatistics();
-        this.props.getAlerts();
-        this.props.getDnsMonitored();
-        this.props.getKeywordMonitored();
+        this.props.getAllDnsAlerts();
+        this.props.getAllDnsMonitored();
+        this.props.getAllKeywordMonitored();
     }
 
     render() {
-        const { alerts, dnsMonitored, keywordMonitored } = this.props;
+        const { statistics, alerts, dnsMonitored, keywordMonitored } = this.props;
 
         const activeAlerts   = alerts.filter(a => a.status).length;
         const archivedAlerts = alerts.filter(a => !a.status).length;
@@ -186,11 +186,11 @@ class DnsFinderStats extends Component {
                                  sub="currently unresolved" icon="warning" variant="danger" />
                     </div>
                     <div className="col-xl-3 col-md-6 mb-4">
-                        <KpiCard title="DNS Monitored" value={dnsMonitored.length}
+                        <KpiCard title="DNS Monitored" value={statistics.totalDnsMonitored ?? dnsMonitored.length}
                                  sub="corporate domains watched" icon="dns" variant="info" />
                     </div>
                     <div className="col-xl-3 col-md-6 mb-4">
-                        <KpiCard title="Keywords" value={keywordMonitored.length}
+                        <KpiCard title="Keywords" value={statistics.totalKeywords ?? keywordMonitored.length}
                                  sub="patterns monitored" icon="search" variant="warning" />
                     </div>
                 </div>
@@ -252,9 +252,9 @@ class DnsFinderStats extends Component {
 
 const mapStateToProps = state => ({
     statistics:       state.DnsFinder.statistics       || {},
-    alerts:           state.DnsFinder.alerts           || [],
-    dnsMonitored:     state.DnsFinder.dnsMonitored     || [],
-    keywordMonitored: state.DnsFinder.keywordMonitored || [],
+    alerts:           state.DnsFinder.allAlerts           || [],
+    dnsMonitored:     state.DnsFinder.allDnsMonitored     || [],
+    keywordMonitored: state.DnsFinder.allKeywordMonitored || [],
 });
 
-export default connect(mapStateToProps, { getDnsFinderStatistics, getAlerts, getDnsMonitored, getKeywordMonitored })(DnsFinderStats);
+export default connect(mapStateToProps, { getDnsFinderStatistics, getAllDnsAlerts, getAllDnsMonitored, getAllKeywordMonitored })(DnsFinderStats);

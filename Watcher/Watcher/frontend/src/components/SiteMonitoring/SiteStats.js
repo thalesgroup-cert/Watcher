@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { Bar, HorizontalBar, Doughnut } from 'react-chartjs-2';
-import { getSiteStatistics, getSites, getSiteAlerts } from '../../actions/SiteMonitoring';
+import { getSiteStatistics, getAllSites, getAllSiteAlerts } from '../../actions/SiteMonitoring';
 
 const C = {
     primary: { solid: '#4e73df', faded: 'rgba(78,115,223,0.7)',  hover: 'rgba(78,115,223,1)'  },
@@ -130,18 +130,18 @@ const doughnutOptions = {
 
 class SiteStats extends Component {
     static propTypes = {
-        statistics:        PropTypes.object.isRequired,
-        sites:             PropTypes.array.isRequired,
-        alerts:            PropTypes.array.isRequired,
-        getSiteStatistics: PropTypes.func.isRequired,
-        getSites:          PropTypes.func.isRequired,
-        getSiteAlerts:     PropTypes.func.isRequired,
+        statistics:         PropTypes.object.isRequired,
+        sites:              PropTypes.array.isRequired,
+        alerts:             PropTypes.array.isRequired,
+        getSiteStatistics:  PropTypes.func.isRequired,
+        getAllSites:         PropTypes.func.isRequired,
+        getAllSiteAlerts:    PropTypes.func.isRequired,
     };
 
     componentDidMount() {
         this.props.getSiteStatistics();
-        this.props.getSites();
-        this.props.getSiteAlerts();
+        this.props.getAllSites();
+        this.props.getAllSiteAlerts();
     }
 
     render() {
@@ -269,8 +269,8 @@ class SiteStats extends Component {
 
 const mapStateToProps = state => ({
     statistics: state.SiteMonitoring.statistics || {},
-    sites:      state.SiteMonitoring.sites      || [],
-    alerts:     state.SiteMonitoring.alerts     || [],
+    sites:      state.SiteMonitoring.allSites   || [],
+    alerts:     state.SiteMonitoring.allAlerts  || [],
 });
 
-export default connect(mapStateToProps, { getSiteStatistics, getSites, getSiteAlerts })(SiteStats);
+export default connect(mapStateToProps, { getSiteStatistics, getAllSites, getAllSiteAlerts })(SiteStats);

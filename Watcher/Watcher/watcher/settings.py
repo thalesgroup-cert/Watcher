@@ -252,9 +252,16 @@ TEMPLATES = [
 ]
 
 # OIDC / SSO
-# Enable SSO login via an OpenID Connect provider.
-OIDC_ENABLED = os.environ.get('OIDC_ENABLED', 'False') == 'True'
+# LOGIN_MODE controls both whether OIDC is active and what the login page shows.
+#   'form_only' - only the credential form, no SSO (default)
+#   'sso_only' - only the SSO button, no username/password form
+#   'both' - SSO button AND credential form
+LOGIN_MODE = os.environ.get('LOGIN_MODE', 'form_only')
+if LOGIN_MODE not in ('form_only', 'sso_only', 'both'):
+    LOGIN_MODE = 'form_only'
 OIDC_COMPANY_NAME = os.environ.get('OIDC_COMPANY_NAME', '')
+
+# Required when LOGIN_MODE is 'sso_only' or 'both'
 OIDC_RP_CLIENT_ID = os.environ.get('OIDC_RP_CLIENT_ID', '')
 OIDC_RP_CLIENT_SECRET = os.environ.get('OIDC_RP_CLIENT_SECRET', '')
 OIDC_OP_AUTHORIZATION_ENDPOINT = os.environ.get('OIDC_OP_AUTHORIZATION_ENDPOINT', '')
@@ -263,13 +270,8 @@ OIDC_OP_USER_ENDPOINT = os.environ.get('OIDC_OP_USER_ENDPOINT', '')
 OIDC_OP_JWKS_ENDPOINT = os.environ.get('OIDC_OP_JWKS_ENDPOINT', '')
 OIDC_OP_ISSUER = os.environ.get('OIDC_OP_ISSUER', '')
 OIDC_RP_SIGN_ALGO = 'RS256'
-OIDC_RP_SCOPES = 'openid email profile'
 OIDC_USE_PKCE = True
-OIDC_STORE_ACCESS_TOKEN = False
-OIDC_STORE_ID_TOKEN = False
-OIDC_REDIRECT_URI = os.environ.get('OIDC_REDIRECT_URI', '')
 
-# Reverse-proxy headers — the upstream proxy must set these explicitly.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 

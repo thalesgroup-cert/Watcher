@@ -162,11 +162,21 @@ Now, you can restart your instance and the parameters will be taken into account
 
 Watcher supports federated login via any **OpenID Connect (OIDC)** provider (Keycloak, Azure AD, etc.).
 
+The login page behaviour is controlled by a single variable `LOGIN_MODE`:
+
+| Value | Effect |
+|---|---|
+| `form_only` | Username / password form only - **default** |
+| `sso_only` | SSO button only, the credential form is hidden |
+| `both` | SSO button **and** the credential form are both shown |
+
 In the `.env` file:
 
     # SSO / OIDC Setup
-    OIDC_ENABLED=False
+    # Controls the login page: form_only | sso_only | both
+    LOGIN_MODE=form_only
     OIDC_COMPANY_NAME=
+    # Required when LOGIN_MODE is 'sso_only' or 'both'
     OIDC_RP_CLIENT_ID=
     OIDC_RP_CLIENT_SECRET=
     OIDC_OP_AUTHORIZATION_ENDPOINT=
@@ -174,15 +184,14 @@ In the `.env` file:
     OIDC_OP_USER_ENDPOINT=
     OIDC_OP_JWKS_ENDPOINT=
     OIDC_OP_ISSUER=
-    OIDC_REDIRECT_URI=
 
-Set `OIDC_ENABLED=True` to activate the SSO login button and the OIDC routes.
+Set `LOGIN_MODE=sso_only` (or `both`) and fill in the OIDC credentials to activate the SSO login button and the OIDC routes.
+
+`OIDC_COMPANY_NAME` is optional - when set it is displayed on the SSO button (e.g. `Sign in with Acme Corp`).
 
 The callback URL to register with your identity provider is:
 
     https://<your-domain>/api/auth/oidc/callback/
-
-> **Note:** `OIDC_VERIFY_SSL` accepts `True` (system CA store), `False` (disable verification), or an absolute path to a PEM CA-bundle, required when the IdP uses a corporate or self-signed certificate chain.
 
 Now, you can restart your instance and the parameters will be taken into account:
 
@@ -486,8 +495,8 @@ GET /api/data_leak/keyword/?page=1&page_size=1000
 
 Watcher ships with a fully auto-generated REST API documentation powered by **drf-spectacular**.
 
-- **Swagger UI** — available at `/api/docs/` — interactive interface to browse every endpoint, inspect request/response schemas, and execute authenticated calls directly from the browser.
-- **OpenAPI 3 schema** — downloadable at `/api/schema/` (JSON/YAML) for import into Postman, Insomnia, or any API client.
+- **Swagger UI** - available at `/api/docs/` - interactive interface to browse every endpoint, inspect request/response schemas, and execute authenticated calls directly from the browser.
+- **OpenAPI 3 schema** - downloadable at `/api/schema/` (JSON/YAML) for import into Postman, Insomnia, or any API client.
 
 All six modules are fully covered, including the `/statistics/` endpoints and the CyberWatch Watch Rule engine.
 
@@ -906,8 +915,8 @@ A dedicated `/profile` route provides a centralised settings and preferences hub
 - All six module dashboards listed with a live **MiniGrid** preview of the current panel arrangement.
 - Each card shows the active preset name, panel count, and available presets.
 - Clicking a card opens a **Layout Presets & Editor** modal:
-  - *Presets* tab — named ready-made layouts (Default, Compact, Analytics).
-  - *Custom Editor* tab — free-form drag-and-drop editor.
+  - *Presets* tab - named ready-made layouts (Default, Compact, Analytics).
+  - *Custom Editor* tab - free-form drag-and-drop editor.
 - A *Reset to Default* button restores the module's default preset.
 - Layout changes made in the profile page are reflected immediately on open dashboards without a page reload.
 

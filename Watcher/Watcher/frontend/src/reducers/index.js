@@ -1,4 +1,5 @@
 import {combineReducers} from "redux";
+import config from './config';
 import leads from './leads';
 import auth from './auth';
 import profile from './profile';
@@ -12,6 +13,7 @@ import CyberWatch from "./CyberWatch";
 import WorldMap from "./WorldMap";
 
 export default combineReducers({
+    config,
     leads,
     DataLeak,
     SiteMonitoring,

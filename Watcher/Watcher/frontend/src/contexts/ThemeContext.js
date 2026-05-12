@@ -3,6 +3,7 @@ import axios from 'axios';
 import preferencesService from '../services/preferencesService';
 
 const ThemeContext = createContext();
+export { ThemeContext };
 
 export const THEMES = {
     bootstrap: { name: 'Watcher Default', description: 'Classic blue theme', dark: false, hidden: true },

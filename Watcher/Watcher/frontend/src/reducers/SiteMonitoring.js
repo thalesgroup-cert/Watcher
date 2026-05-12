@@ -1,6 +1,8 @@
 import {
     GET_SITES,
     GET_SITE_ALERTS,
+    GET_SITES_ALL,
+    GET_SITE_ALERTS_ALL,
     DELETE_SITE,
     ADD_SITE,
     PATCH_SITE,
@@ -18,6 +20,9 @@ const initialState = {
     alertsCount: 0,
     alertsNext: null,
     alertsPrevious: null,
+    // Stats-only: all items loaded at once
+    allSites: [],
+    allAlerts: [],
     statistics: {
         total: 0,
         malicious: 0,
@@ -123,6 +128,12 @@ export default function (state = initialState, action) {
                 ...state,
                 statistics: action.payload
             };
+
+        case GET_SITES_ALL:
+            return { ...state, allSites: Array.isArray(action.payload) ? action.payload : [] };
+
+        case GET_SITE_ALERTS_ALL:
+            return { ...state, allAlerts: Array.isArray(action.payload) ? action.payload : [] };
 
         default:
             return state;

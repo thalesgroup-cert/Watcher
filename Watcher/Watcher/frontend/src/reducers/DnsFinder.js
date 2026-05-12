@@ -1,13 +1,16 @@
 import {
     DNS_GET_ALERTS,
+    DNS_GET_ALERTS_ALL,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
     GET_DNS_MONITORED,
+    GET_DNS_MONITORED_ALL,
     DELETE_DNS_MONITORED,
     ADD_DNS_MONITORED,
     PATCH_DNS_MONITORED,
     GET_KEYWORD_MONITORED,
+    GET_KEYWORD_MONITORED_ALL,
     DELETE_KEYWORD_MONITORED,
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
@@ -28,6 +31,10 @@ const initialState = {
     keywordMonitoredCount: 0,
     keywordMonitoredNext: null,
     keywordMonitoredPrevious: null,
+    // Stats-only: all items loaded at once
+    allAlerts: [],
+    allDnsMonitored: [],
+    allKeywordMonitored: [],
     statistics: {
         totalAlerts: 0,
         newToday: 0,
@@ -188,6 +195,15 @@ export default function(state = initialState, action) {
                 ...state,
                 statistics: action.payload
             };
+
+        case DNS_GET_ALERTS_ALL:
+            return { ...state, allAlerts: Array.isArray(action.payload) ? action.payload : [] };
+
+        case GET_DNS_MONITORED_ALL:
+            return { ...state, allDnsMonitored: Array.isArray(action.payload) ? action.payload : [] };
+
+        case GET_KEYWORD_MONITORED_ALL:
+            return { ...state, allKeywordMonitored: Array.isArray(action.payload) ? action.payload : [] };
 
         default:
             return state;

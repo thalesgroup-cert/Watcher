@@ -1,14 +1,17 @@
 import axios from 'axios';
 import {
     DNS_GET_ALERTS,
+    DNS_GET_ALERTS_ALL,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
     GET_DNS_MONITORED,
+    GET_DNS_MONITORED_ALL,
     DELETE_DNS_MONITORED,
     ADD_DNS_MONITORED,
     PATCH_DNS_MONITORED,
     GET_KEYWORD_MONITORED,
+    GET_KEYWORD_MONITORED_ALL,
     DELETE_KEYWORD_MONITORED,
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
@@ -259,5 +262,41 @@ export const getDnsFinderStatistics = () => (dispatch, getState) => {
         .catch(err => {
             dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: { totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0 } });
             if (err.response) dispatch(returnErrors(err.response.data, err.response.status));
+        });
+};
+
+// GET ALL DNS ALERTS (stats only – no pagination)
+export const getAllDnsAlerts = () => (dispatch, getState) => {
+    return axios
+        .get('/api/dns_finder/alert/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: DNS_GET_ALERTS_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+// GET ALL DNS MONITORED (stats only – no pagination)
+export const getAllDnsMonitored = () => (dispatch, getState) => {
+    return axios
+        .get('/api/dns_finder/dns_monitored/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: GET_DNS_MONITORED_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+// GET ALL KEYWORD MONITORED (stats only – no pagination)
+export const getAllKeywordMonitored = () => (dispatch, getState) => {
+    return axios
+        .get('/api/dns_finder/keyword_monitored/?page=1&page_size=10000', tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: res.data.results || res.data });
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };

@@ -43,7 +43,7 @@ function positionMenuUnderButton(button, menu, gap = 6) {
     menu.style.visibility = originalVisibility;
 }
 
-const HelpButton = () => {
+const HelpButton = ({ swaggerUrl, swaggerLabel }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const buttonRef = useRef(null);
     const menuRef = useRef(null);
@@ -67,9 +67,6 @@ const HelpButton = () => {
         if (isOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
-
-    const swaggerUrl   = window.WATCHER_HELP_BUTTON_URL;
-    const swaggerLabel = window.WATCHER_HELP_BUTTON_LABEL || 'API Swagger';
 
     return (
         <div className="btn-group position-relative me-2">
@@ -246,11 +243,12 @@ export class Header extends Component {
 
     render() {
         const { isAuthenticated, user } = this.props.auth;
+        const { helpButtonUrl, helpButtonLabel } = this.props.config;
 
         const authLinks = (
             <Fragment>
                 <li className="nav-item">
-                    <HelpButton />
+                    <HelpButton swaggerUrl={helpButtonUrl} swaggerLabel={helpButtonLabel} />
                 </li>
                 <li className="nav-item">
                     <UserDropdown user={user} logout={this.props.logout} />
@@ -261,7 +259,7 @@ export class Header extends Component {
         const guestLinks = (
             <Fragment>
                 <li className="nav-item">
-                    <HelpButton />
+                    <HelpButton swaggerUrl={helpButtonUrl} swaggerLabel={helpButtonLabel} />
                 </li>
                 <li className="nav-item">
                     <a href="#" className="nav-link" onClick={this.handleLoginClick}>
@@ -351,7 +349,8 @@ export class Header extends Component {
 }
 
 const mapStateToProps = state => ({
-    auth: state.auth
+    auth:   state.auth,
+    config: state.config,
 });
 
 export default withRouter(connect(mapStateToProps, { logout })(Header));
