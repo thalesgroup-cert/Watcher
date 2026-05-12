@@ -8,15 +8,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Install Watcher &mdash; Watcher 3.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=3eb8911e"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -62,6 +62,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#access-watcher-remotely-within-your-server-instance">Access Watcher remotely within your server instance</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#misp-settings">MISP Settings</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#ldap-settings">LDAP Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sso-openid-connect-settings">SSO / OpenID Connect Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cyberwatch-settings">CyberWatch Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configurable-help-button">Configurable Help Button</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
@@ -89,6 +92,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#api-key-creation-management">API Key Creation &amp; Management</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#pagination">Pagination</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#interactive-api-documentation">Interactive API Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#specific-details">Specific Details</a></li>
 </ul>
 </li>
@@ -106,6 +110,19 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#remove-add-to-blocklist">Remove &amp; Add to Blocklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cyberwatch-module">CyberWatch Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cve-monitoring">CVE Monitoring</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ransomware-intelligence">Ransomware Intelligence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#watch-rule-engine">Watch Rule Engine</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#udrp-tracking">UDRP Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#user-profile-page">User Profile Page</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#account-settings">Account Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#theme-picker">Theme Picker</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dashboard-layout-manager">Dashboard Layout Manager</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#ai-powered-threat-intelligence">AI-Powered Threat Intelligence</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#breaking-news-detection">Breaking News Detection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#weekly-threat-intelligence-reports">Weekly Threat Intelligence Reports</a></li>
@@ -208,8 +225,8 @@
 watcher          | Performing system checks...
 watcher          | 
 watcher          | System check identified no issues (0 silenced).
-watcher          | November 03, 2025 - 10:57:42
-watcher          | Django version 5.2.7, using settings &#39;watcher.settings&#39;
+watcher          | May 11, 2026 - 12:26:52
+watcher          | Django version 6.0.5, using settings &#39;watcher.settings&#39;
 watcher          | Starting development server at http://0.0.0.0:9002/
 watcher          | Quit the server with CONTROL-C.
 </pre></div>
@@ -350,6 +367,83 @@ AUTH_LDAP_FILTER=(uid=%(user)s)
 <p>Now, you can restart your instance and the parameters will be taken into account:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
 docker compose up
+</pre></div>
+</div>
+</section>
+<section id="sso-openid-connect-settings">
+<h3>SSO / OpenID Connect Settings<a class="headerlink" href="#sso-openid-connect-settings" title="Link to this heading"></a></h3>
+<p>Watcher supports federated login via any <strong>OpenID Connect (OIDC)</strong> provider (Keycloak, Azure AD, etc.).</p>
+<p>The login page behaviour is controlled by a single variable <code class="docutils literal notranslate"><span class="pre">LOGIN_MODE</span></code>:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">form_only</span></code></p></td>
+<td><p>Username / password form only - <strong>default</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sso_only</span></code></p></td>
+<td><p>SSO button only, the credential form is hidden</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">both</span></code></p></td>
+<td><p>SSO button <strong>and</strong> the credential form are both shown</p></td>
+</tr>
+</tbody>
+</table>
+<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># SSO / OIDC Setup
+# Controls the login page: form_only | sso_only | both
+LOGIN_MODE=form_only
+OIDC_COMPANY_NAME=
+# Required when LOGIN_MODE is &#39;sso_only&#39; or &#39;both&#39;
+OIDC_RP_CLIENT_ID=
+OIDC_RP_CLIENT_SECRET=
+OIDC_OP_AUTHORIZATION_ENDPOINT=
+OIDC_OP_TOKEN_ENDPOINT=
+OIDC_OP_USER_ENDPOINT=
+OIDC_OP_JWKS_ENDPOINT=
+OIDC_OP_ISSUER=
+</pre></div>
+</div>
+<p>Set <code class="docutils literal notranslate"><span class="pre">LOGIN_MODE=sso_only</span></code> (or <code class="docutils literal notranslate"><span class="pre">both</span></code>) and fill in the OIDC credentials to activate the SSO login button and the OIDC routes.</p>
+<p><code class="docutils literal notranslate"><span class="pre">OIDC_COMPANY_NAME</span></code> is optional - when set it is displayed on the SSO button (e.g. <code class="docutils literal notranslate"><span class="pre">Sign</span> <span class="pre">in</span> <span class="pre">with</span> <span class="pre">Acme</span> <span class="pre">Corp</span></code>).</p>
+<p>The callback URL to register with your identity provider is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>https://&lt;your-domain&gt;/api/auth/oidc/callback/
+</pre></div>
+</div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
+docker compose up
+</pre></div>
+</div>
+</section>
+<section id="cyberwatch-settings">
+<h3>CyberWatch Settings<a class="headerlink" href="#cyberwatch-settings" title="Link to this heading"></a></h3>
+<p>Configure the external threat intelligence feed endpoints used by the CyberWatch module. All variables have working defaults and can be left unset.</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># CyberWatch Setup
+CYBER_WATCH_CVE_API_URL=https://cve.circl.lu/api/last
+CYBER_WATCH_RANSOMWARE_GROUPS_URL=
+CYBER_WATCH_RANSOMWARE_VICTIMS_URL=
+CYBER_WATCH_RANSOMLOOK_GROUPS_URL=
+CYBER_WATCH_RANSOMLOOK_RECENT_URL=
+CYBER_WATCH_RANSOMLOOK_ACTORS_URL=
+</pre></div>
+</div>
+<p>Now, you can restart your instance and the parameters will be taken into account:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>docker compose down
+docker compose up
+</pre></div>
+</div>
+</section>
+<section id="configurable-help-button">
+<h3>Configurable Help Button<a class="headerlink" href="#configurable-help-button" title="Link to this heading"></a></h3>
+<p>The header help quick-link is configurable via environment variables:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># Help button
+WATCHER_HELP_BUTTON_LABEL=API Docs
+WATCHER_HELP_BUTTON_URL=/api/docs/
 </pre></div>
 </div>
 </section>
@@ -643,7 +737,16 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 <li><p>Maximum page size is 1000 items</p></li>
 <li><p>Most frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.</p></li>
 </ul>
-<p>Below, you will find our 5 modules with their API functions:</p>
+</section>
+<section id="interactive-api-documentation">
+<h3>Interactive API Documentation<a class="headerlink" href="#interactive-api-documentation" title="Link to this heading"></a></h3>
+<p>Watcher ships with a fully auto-generated REST API documentation powered by <strong>drf-spectacular</strong>.</p>
+<ul class="simple">
+<li><p><strong>Swagger UI</strong> - available at <code class="docutils literal notranslate"><span class="pre">/api/docs/</span></code> - interactive interface to browse every endpoint, inspect request/response schemas, and execute authenticated calls directly from the browser.</p></li>
+<li><p><strong>OpenAPI 3 schema</strong> - downloadable at <code class="docutils literal notranslate"><span class="pre">/api/schema/</span></code> (JSON/YAML) for import into Postman, Insomnia, or any API client.</p></li>
+</ul>
+<p>All six modules are fully covered, including the <code class="docutils literal notranslate"><span class="pre">/statistics/</span></code> endpoints and the CyberWatch Watch Rule engine.</p>
+<p>Below, you will find our 6 modules with their API functions:</p>
 <details>
 <summary>Threats Watcher</summary>  <br>
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/trendyword/$</span></code></p>
@@ -869,6 +972,78 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 </ul>
 </details> <br>
 <details>
+<summary>CyberWatch</summary> <br>
+<p><code class="docutils literal notranslate"><span class="pre">^api/cyber_watch/cves/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns a paginated list of CVE alerts fetched from cve.circl.lu.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Used to display CVE monitoring data in the CyberWatch dashboard.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">^api/cyber_watch/cves/statistics/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns aggregated CVE statistics (total, critical, high, new today).</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Used to display the CVEStats KPI panel.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">^api/cyber_watch/ransomware/victims/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns a paginated list of ransomware victims fetched from ransomware.live and ransomlook.io.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Used to display victim data in the CyberWatch dashboard.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">^api/cyber_watch/ransomware/statistics/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> No</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns aggregated ransomware statistics (total victims, groups, new this week).</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Used to display the RansomwareStats KPI panel.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">^api/cyber_watch/watch-rules/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns all defined watch rules.</p></li>
+<li><p><strong>POST:</strong> Creates a new keyword-based watch rule scoped to CVEs, ransomware victims, or both.</p></li>
+<li><p><strong>PATCH:</strong> Updates an existing watch rule.</p></li>
+<li><p><strong>DELETE:</strong> Removes a watch rule.</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Manage keyword alert rules from the CyberWatch dashboard.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">^api/cyber_watch/watch-rule-hits/$</span></code></p>
+<ul class="simple">
+<li><p><strong>HTTP Method:</strong> GET</p></li>
+<li><p><strong>Pagination:</strong> Yes (100 items per page by default)</p></li>
+<li><p><strong>Description:</strong></p>
+<ul>
+<li><p><strong>GET:</strong> Returns all recorded rule hits (deduplicated matches between rules and incoming data).</p></li>
+</ul>
+</li>
+<li><p><strong>Usage:</strong> Display rule match history in the CyberWatch module.</p></li>
+</ul>
+</details> <br>
+<details>
 <summary>Threat Intelligence Summaries</summary> <br>
 <p><code class="docutils literal notranslate"><span class="pre">^api/threats_watcher/summary/?type=weekly_summary</span></code></p>
 <ul class="simple">
@@ -934,6 +1109,7 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 <li><p><strong>Data Leak</strong>: Automatically creates alerts when data leaks are detected via keywords.</p></li>
 <li><p><strong>Website Monitoring</strong>: Automatically creates alerts in TheHive when site changes are detected.</p></li>
 <li><p><strong>DNS Finder</strong>: Automatically exports twisted DNS findings and certificate transparency alerts.</p></li>
+<li><p><strong>CyberWatch</strong>: Automatically pushes CVE alerts and ransomware victim matches (rule hits) as tagged observables.</p></li>
 </ul>
 </section>
 <section id="thehive-integration-features">
@@ -1021,9 +1197,82 @@ the version of your MISP instance.</p>
 <li><p>Select “<strong>Delete &amp; Blocklist selected trendy words</strong>”.</p></li>
 </ul>
 </section>
+<section id="cyberwatch-module">
+<h2>CyberWatch Module<a class="headerlink" href="#cyberwatch-module" title="Link to this heading"></a></h2>
+<p>CyberWatch is a standalone threat intelligence module that continuously fetches, correlates, and surfaces external threat data directly inside Watcher.</p>
+<section id="cve-monitoring">
+<h3>CVE Monitoring<a class="headerlink" href="#cve-monitoring" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Fetches CVEs from <a class="reference external" href="https://cve.circl.lu">cve.circl.lu</a> on a 30-minute schedule.</p></li>
+<li><p>Stores CVE ID, severity, CVSS score, full description, and external references.</p></li>
+<li><p>Dedicated statistics panel with KPI cards for total CVEs, critical/high severity counts, and new items today.</p></li>
+</ul>
+</section>
+<section id="ransomware-intelligence">
+<h3>Ransomware Intelligence<a class="headerlink" href="#ransomware-intelligence" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Pulls ransomware group and victim data from <a class="reference external" href="https://ransomware.live">ransomware.live</a> and <a class="reference external" href="https://ransomlook.io">ransomlook.io</a>.</p></li>
+<li><p>Stores victim name, ransomware group, country, sector, and attack date.</p></li>
+</ul>
+</section>
+<section id="watch-rule-engine">
+<h3>Watch Rule Engine<a class="headerlink" href="#watch-rule-engine" title="Link to this heading"></a></h3>
+<p>Users can define keyword-based rules scoped to CVEs, ransomware victims, or both:</p>
+<ol class="arabic simple">
+<li><p>Navigate to <code class="docutils literal notranslate"><span class="pre">/cyber_watch</span></code>.</p></li>
+<li><p>Click <strong>Add Watch Rule</strong>.</p></li>
+<li><p>Enter a keyword and choose the scope (CVEs / victims / both).</p></li>
+<li><p>Matches are recorded automatically and deduplicated.</p></li>
+</ol>
+<p>Notifications fire across all four channels (Email, Slack, Citadel, TheHive) for each rule hit.</p>
+</section>
+</section>
+<section id="udrp-tracking">
+<h2>UDRP Tracking<a class="headerlink" href="#udrp-tracking" title="Link to this heading"></a></h2>
+<p>Automated UDRP (Uniform Domain-Name Dispute-Resolution Policy) case monitoring integrated into Site Monitoring.</p>
+<ul class="simple">
+<li><p>Two new fields on monitored sites: <code class="docutils literal notranslate"><span class="pre">udrp_status</span></code> (<code class="docutils literal notranslate"><span class="pre">pending</span></code> / <code class="docutils literal notranslate"><span class="pre">won</span></code> / <code class="docutils literal notranslate"><span class="pre">lost</span></code> / <code class="docutils literal notranslate"><span class="pre">unknown</span></code>) and <code class="docutils literal notranslate"><span class="pre">udrp_last_checked</span></code>.</p></li>
+<li><p>A scheduled job queries the WIPO UDRP database every 6 hours for every site where <code class="docutils literal notranslate"><span class="pre">legal_team</span> <span class="pre">=</span> <span class="pre">True</span></code>.</p></li>
+<li><p>When a case is <strong>won</strong>, the domain is automatically transferred to Legitimate Domains.</p></li>
+<li><p>Notifications fire on all four channels (TheHive, Slack, Citadel, Email) when a decision is detected or changes.</p></li>
+</ul>
+</section>
+<section id="user-profile-page">
+<h2>User Profile Page<a class="headerlink" href="#user-profile-page" title="Link to this heading"></a></h2>
+<p>A dedicated <code class="docutils literal notranslate"><span class="pre">/profile</span></code> route provides a centralised settings and preferences hub.</p>
+<section id="account-settings">
+<h3>Account Settings<a class="headerlink" href="#account-settings" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Displays user avatar, username, email, role badges (Superuser, Staff, groups), and group permissions.</p></li>
+<li><p>Direct link to the password change page and logout button.</p></li>
+</ul>
+</section>
+<section id="theme-picker">
+<h3>Theme Picker<a class="headerlink" href="#theme-picker" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>All available themes displayed as cards with preview thumbnails.</p></li>
+<li><p>The active theme is highlighted; selecting a new one applies it immediately and persists via <code class="docutils literal notranslate"><span class="pre">localStorage</span></code>.</p></li>
+</ul>
+</section>
+<section id="dashboard-layout-manager">
+<h3>Dashboard Layout Manager<a class="headerlink" href="#dashboard-layout-manager" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>All six module dashboards listed with a live <strong>MiniGrid</strong> preview of the current panel arrangement.</p></li>
+<li><p>Each card shows the active preset name, panel count, and available presets.</p></li>
+<li><p>Clicking a card opens a <strong>Layout Presets &amp; Editor</strong> modal:</p>
+<ul>
+<li><p><em>Presets</em> tab - named ready-made layouts (Default, Compact, Analytics).</p></li>
+<li><p><em>Custom Editor</em> tab - free-form drag-and-drop editor.</p></li>
+</ul>
+</li>
+<li><p>A <em>Reset to Default</em> button restores the module’s default preset.</p></li>
+<li><p>Layout changes made in the profile page are reflected immediately on open dashboards without a page reload.</p></li>
+</ul>
+</section>
+</section>
 <section id="ai-powered-threat-intelligence">
 <h2>AI-Powered Threat Intelligence<a class="headerlink" href="#ai-powered-threat-intelligence" title="Link to this heading"></a></h2>
-<p>Watcher v3.0 introduces <strong>AI-driven threat analysis</strong> using Hugging Face transformers for automated threat detection and summarization.</p>
+<p>Watcher v3.4.0 uses <strong>AI-driven threat analysis</strong> powered by Hugging Face transformers for automated threat detection and summarization.</p>
 <section id="breaking-news-detection">
 <h3>Breaking News Detection<a class="headerlink" href="#breaking-news-detection" title="Link to this heading"></a></h3>
 <p>Watcher automatically detects rapidly trending cybersecurity keywords:</p>
@@ -1085,38 +1334,36 @@ the version of your MISP instance.</p>
 <h2>User Interface Customization<a class="headerlink" href="#user-interface-customization" title="Link to this heading"></a></h2>
 <section id="theme-switcher">
 <h3>Theme Switcher<a class="headerlink" href="#theme-switcher" title="Link to this heading"></a></h3>
-<p>Watcher offers <strong>5 pre-built themes</strong> with persistent user preferences:</p>
-<ol class="arabic simple">
-<li><p><strong>Darkly</strong> (Default): Modern dark theme</p></li>
-<li><p><strong>Flatly</strong>: Clean light theme</p></li>
-<li><p><strong>Cyborg</strong>: Cyberpunk-inspired dark theme</p></li>
-<li><p><strong>Superhero</strong>: Bold dark theme with vibrant accents</p></li>
-<li><p><strong>Brite</strong>: High-contrast light theme</p></li>
-</ol>
+<p>Watcher offers <strong>15 pre-built Bootswatch themes</strong> with persistent user preferences, accessible from the <a class="reference internal" href="#user-profile-page">User Profile</a> page:</p>
+<p><strong>Dark Themes:</strong> Darkly (default), Cyborg, Superhero, Slate, Solar</p>
+<p><strong>Light Themes:</strong> Flatly, Brite, Cosmo, Lux, Minty, Morph, Sandstone, United, Yeti</p>
 <p><strong>How to Change Theme</strong>:</p>
 <ol class="arabic simple">
-<li><p>Click on <strong>User Profile</strong> (top-right)</p></li>
-<li><p>Select <strong>Theme Switcher</strong></p></li>
-<li><p>Choose your preferred theme</p></li>
-<li><p>Preference saved in browser localStorage</p></li>
+<li><p>Click on <strong>User Profile</strong> (top-right corner)</p></li>
+<li><p>Go to the <strong>Themes</strong> section</p></li>
+<li><p>Click on the desired theme card, applied instantly site-wide</p></li>
 </ol>
 </section>
 <section id="resizable-dashboard-panels">
 <h3>Resizable Dashboard Panels<a class="headerlink" href="#resizable-dashboard-panels" title="Link to this heading"></a></h3>
-<p>All modules now support <strong>user-customizable panel widths</strong>:</p>
+<p>All six module dashboards use a free-form grid layout via the shared <code class="docutils literal notranslate"><span class="pre">PanelGrid</span></code> component:</p>
 <ul class="simple">
-<li><p><strong>Drag &amp; Drop</strong>: Resize panels by dragging dividers</p></li>
-<li><p><strong>Persistent Layout</strong>: Saved per-user, per-module</p></li>
-<li><p><strong>Reset Option</strong>: Restore default layout via settings</p></li>
+<li><p><strong>Drag &amp; Drop</strong>: Freely move and resize panels within each dashboard.</p></li>
+<li><p><strong>Preset Layouts</strong>: Choose from named presets (Default, Compact, Analytics) from the <a class="reference internal" href="#user-profile-page">User Profile</a> page.</p></li>
+<li><p><strong>Custom Editor</strong>: Build your own layout with a full drag-and-drop editor.</p></li>
+<li><p><strong>Persistent Layout</strong>: Saved per-user, per-module via <code class="docutils literal notranslate"><span class="pre">localStorage</span></code>.</p></li>
+<li><p><strong>Reset Option</strong>: Restore the active preset or default layout at any time.</p></li>
 </ul>
 </section>
 <section id="advanced-table-filters">
 <h3>Advanced Table Filters<a class="headerlink" href="#advanced-table-filters" title="Link to this heading"></a></h3>
-<p>All data tables include <strong>enhanced filtering</strong>:</p>
+<p>All data tables include <strong>enhanced filtering</strong> with preference persistence:</p>
 <ol class="arabic simple">
-<li><p><strong>Filter Builder</strong>: Click filter icon to add conditions</p></li>
-<li><p><strong>Save Filter Sets</strong>: Name and save custom filters</p></li>
-<li><p><strong>Quick Apply</strong>: Load saved filters with one click</p></li>
+<li><p><strong>Filter Builder</strong>: Click the filter icon to add conditions.</p></li>
+<li><p><strong>Save Filter Sets</strong>: Name and save custom filter configurations.</p></li>
+<li><p><strong>Quick Apply</strong>: Load saved filters with one click.</p></li>
+<li><p><strong>Adaptive Pagination</strong>: Items-per-page auto-adjusts to fill available panel height.</p></li>
+<li><p><strong>Persistent Preferences</strong>: Filter visibility and page size are restored on next load.</p></li>
 </ol>
 </section>
 </section>
@@ -1300,7 +1547,7 @@ systemctl status mysql.service
 <p>Watcher includes comprehensive unit tests to ensure code quality and reliability. <strong>When contributing new features, you must include corresponding unit tests.</strong></p>
 <section id="test-coverage-technologies">
 <h3>Test Coverage &amp; Technologies<a class="headerlink" href="#test-coverage-technologies" title="Link to this heading"></a></h3>
-<p>The test suite covers all 5 main modules of Watcher:</p>
+<p>The test suite covers all 6 main modules of Watcher:</p>
 <ul class="simple">
 <li><p><strong>Back-End Tests</strong>: Python’s standard unittest module</p>
 <ul>
@@ -1311,7 +1558,7 @@ systemctl status mysql.service
 </li>
 <li><p><strong>Front-End Tests</strong>: Cypress framework for JavaScript testing</p>
 <ul>
-<li><p>Cypress tests for all 5 modules</p></li>
+<li><p>Cypress tests for all 6 modules</p></li>
 <li><p>End-to-end testing scenarios</p></li>
 </ul>
 </li>
