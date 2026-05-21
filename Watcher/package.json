@@ -20,7 +20,7 @@
     "@babel/preset-react": "7.28.5",
     "babel-loader": "9.2.1",
     "babel-plugin-transform-class-properties": "6.24.1",
-    "cypress": "14.5.4",
+    "cypress": "15.15.0",
     "webpack": "5.105.4",
     "webpack-cli": "5.1.4"
   },
