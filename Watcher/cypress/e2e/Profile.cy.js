@@ -186,7 +186,7 @@ describe('Profile Page - E2E Test Suite', () => {
     });
   });
 
-  // ────────────────────────────────────────────────────────────────────────────
+
   describe('Themes Section', () => {
     beforeEach(() => {
       cy.get('.nav-link').contains('Themes').click();

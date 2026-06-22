@@ -58,7 +58,6 @@ export class Login extends Component {
                 <div className="card shadow border-0 overflow-hidden">
                     <div className="row g-0">
 
-                        {/* ── Left panel — brand + features ─────────────────────── */}
                         <div className="col-lg-5 d-none d-lg-flex flex-column justify-content-between p-4 bg-primary text-white">
                             {/* Brand */}
                             <div>
@@ -111,7 +110,6 @@ export class Login extends Component {
                             </p>
                         </div>
 
-                        {/* ── Right panel — login form ───────────────────────────── */}
                         <div className="col-lg-7 col-12 p-4 p-lg-5">
 
                             {/* Mobile logo */}

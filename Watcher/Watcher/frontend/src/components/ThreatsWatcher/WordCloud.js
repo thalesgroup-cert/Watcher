@@ -47,6 +47,7 @@ export class WordCloud extends Component {
         };
         this.containerRef = React.createRef();
         this.resizeTimeout = null;
+        this._selectedEl = null;
     }
 
     static propTypes = {
@@ -55,7 +56,8 @@ export class WordCloud extends Component {
         filteredData: PropTypes.array,
         fromSourceFilter: PropTypes.string,
         getLeads: PropTypes.func.isRequired,
-        getMonitoredKeywords: PropTypes.func.isRequired
+        getMonitoredKeywords: PropTypes.func.isRequired,
+        selectedWord: PropTypes.string,
     };
 
     componentDidMount() {
@@ -88,12 +90,53 @@ export class WordCloud extends Component {
             });
 
             this.resizeTimeout = setTimeout(() => {
-                this.setState(prevState => ({ 
-                    key: prevState.key + 1 
+                this.setState(prevState => ({
+                    key: prevState.key + 1
                 }));
             }, 150);
         }
+
+        if (prevProps.selectedWord !== this.props.selectedWord) {
+            const newWord = this.props.selectedWord;
+
+            // If the clicked element in the cloud already matches, the click handler already
+            // applied the halo — skip clearing to avoid flickering.
+            const currentText = this._selectedEl
+                ? this._selectedEl.textContent.replace(/\*$/, '').toLowerCase().trim()
+                : null;
+            if (newWord && currentText === newWord.toLowerCase().trim()) return;
+
+            // Clear old selection
+            if (this._selectedEl) {
+                select(this._selectedEl)
+                    .attr('stroke', null)
+                    .attr('stroke-width', null)
+                    .attr('paint-order', null)
+                    .attr('stroke-linejoin', null);
+                this._selectedEl = null;
+            }
+            // Apply from external selection (e.g. WordList click)
+            if (newWord) {
+                requestAnimationFrame(() => this._applyExternalSelection(newWord));
+            }
+        }
     }
+
+    _applyExternalSelection = (word) => {
+        if (!this.containerRef.current || !word) return;
+        const needle = word.toLowerCase().trim();
+        this.containerRef.current.querySelectorAll('text').forEach(el => {
+            const text = el.textContent.replace(/\*$/, '').toLowerCase().trim();
+            if (text === needle && !this._selectedEl) {
+                select(el)
+                    .attr('stroke', '#4e73df')
+                    .attr('stroke-width', '1.5')
+                    .attr('paint-order', 'stroke')
+                    .attr('stroke-linejoin', 'round');
+                this._selectedEl = el;
+            }
+        });
+    };
 
     componentWillUnmount() {
         if (this.resizeTimeout) {
@@ -103,7 +146,7 @@ export class WordCloud extends Component {
 
     getMonitoredInfo = (wordText) => {
         const { monitoredKeywords = [] } = this.props;
-        const cleanText = wordText.replace(' *', '');
+        const cleanText = wordText.replace(/\*$/, '');
         return monitoredKeywords.find(mk =>
             mk.name.toLowerCase() === cleanText.toLowerCase() && mk.last_seen
         ) || null;
@@ -119,16 +162,33 @@ export class WordCloud extends Component {
                     if (isActive) {
                         const dataToUse = this.props.filteredData || this.props.leads;
                         const { monitoredKeywords = [] } = this.props;
-                        const cleanName = word.text.replace(' *', '');
-                        // First try to find in leads
-                        const lead = dataToUse.find(l => l.name === cleanName);
-                        if (lead) {
-                            if (this.props.setPostUrls) this.props.setPostUrls(lead.posturls, cleanName);
-                        } else {
-                            // Monitored keyword not (yet) in leads - use mk.posturls
-                            const mk = monitoredKeywords.find(m => m.name.toLowerCase() === cleanName.toLowerCase() && m.last_seen);
-                            if (mk && this.props.setPostUrls) this.props.setPostUrls(mk.posturls || [], cleanName);
+                        const cleanName = word.text.replace(/\*$/, '');
+
+                        // Clear stroke on previously selected element
+                        if (this._selectedEl && this._selectedEl !== element) {
+                            select(this._selectedEl)
+                                .attr('stroke', null)
+                                .attr('stroke-width', null)
+                                .attr('paint-order', null)
+                                .attr('stroke-linejoin', null);
                         }
+
+                        // Apply stroke halo on newly selected element
+                        text
+                            .attr('stroke', '#4e73df')
+                            .attr('stroke-width', '1.5')
+                            .attr('paint-order', 'stroke')
+                            .attr('stroke-linejoin', 'round');
+                        this._selectedEl = element;
+
+                        // Trigger postUrls update — fall back to monitored keyword posturls if the lead has none
+                        const lead = dataToUse.find(l => l.name === cleanName);
+                        let posturls = lead ? (lead.posturls || []) : null;
+                        if (!posturls || posturls.length === 0) {
+                            const mk = monitoredKeywords.find(m => m.name.toLowerCase() === cleanName.toLowerCase() && m.last_seen);
+                            if (mk) posturls = mk.posturls || [];
+                        }
+                        if (this.props.setPostUrls) this.props.setPostUrls(posturls || [], cleanName);
                     }
                 })
                 .transition()

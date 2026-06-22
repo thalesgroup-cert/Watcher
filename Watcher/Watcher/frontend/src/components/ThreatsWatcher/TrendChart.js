@@ -1,109 +1,135 @@
-import React, {Component, Fragment} from 'react';
-import Chart from "chart.js";
+import React, { Component } from 'react';
+import { Line } from 'react-chartjs-2';
 import moment from 'moment';
+import PropTypes from 'prop-types';
 
-export class TrendChart extends Component {
+const C = {
+    primary: { solid: '#4e73df', faded: 'rgba(78,115,223,0.12)', hover: 'rgba(78,115,223,1)' },
+};
 
-    chartRef = React.createRef();
-    chartInstance = null;
+class TrendChart extends Component {
+    static propTypes = {
+        postUrls: PropTypes.array,
+        word:     PropTypes.string,
+    };
 
-    componentDidMount() {
-        if (this.props.word) {
-            this.buildChart();
-        }
-    }
+    buildChartData() {
+        const { postUrls = [], word } = this.props;
 
-    componentDidUpdate(prevProps) {
-        if (prevProps.word !== this.props.word || prevProps.postUrls !== this.props.postUrls) {
-            this.buildChart();
-        }
-    }
-
-    componentWillUnmount() {
-        this.destroyChart();
-    }
-
-    destroyChart() {
-        if (this.chartInstance) {
-            this.chartInstance.destroy();
-            this.chartInstance = null;
-        }
-    }
-
-    buildChart() {
-        if (!this.props.word) {
-            this.destroyChart();
-            return;
-        }
-
-        const canvas = this.chartRef.current;
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-
-        let postUrlsFormatted = [];
-        (this.props.postUrls || []).forEach(element => {
+        const dateMap = {};
+        postUrls.forEach(element => {
             try {
-                const date = moment(new Date(element.split(',', 2)[1].split(' ', 2)[0])).format("YYYY-MM-DD");
-                postUrlsFormatted.push({ date });
+                const raw = element.split(',', 2)[1].split(' ', 2)[0];
+                const date = moment(new Date(raw)).format('YYYY-MM-DD');
+                if (date !== 'Invalid date') dateMap[date] = (dateMap[date] || 0) + 1;
             } catch (_) {}
         });
 
-        const groupBy = key => array =>
-            array.reduce((acc, obj) => {
-                const value = obj[key];
-                acc[value] = (acc[value] || []).concat(obj);
-                return acc;
-            }, {});
+        const sorted = Object.entries(dateMap)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([x, y]) => ({ x, y }));
 
-        const grouped = groupBy('date')(postUrlsFormatted);
-        const postsByDate = Object.entries(grouped).map(([key, value]) => ({ x: key, y: value.length }));
-
-        this.destroyChart();
-        this.chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                datasets: [
-                    {
-                        label: `${this.props.word} trend`,
-                        data: postsByDate,
-                        fill: true,
-                        borderColor: 'rgba(2,136,209,1)',
-                        backgroundColor: 'rgba(2,136,209,0.4)',
-                        lineTension: 0.15,
-                        borderJoinStyle: 'round'
-                    }
-                ]
-            },
-            options: {
-                events: null,
-                scales: {
-                    xAxes: [{
-                        type: 'time',
-                        time: { unit: 'day' }
-                    }],
-                    yAxes: [{
-                        ticks: { stepSize: 1 }
-                    }]
-                }
-            }
-        });
+        return {
+            datasets: [{
+                label: word,
+                data: sorted,
+                fill: true,
+                borderColor: C.primary.solid,
+                backgroundColor: C.primary.faded,
+                borderWidth: 2,
+                lineTension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: C.primary.solid,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+            }],
+        };
     }
 
     render() {
+        const { word, postUrls = [] } = this.props;
+
+        if (!word) return null;
+
+        const data     = this.buildChartData();
+        const hasData  = data.datasets[0].data.length > 0;
+        const total    = postUrls.length;
+        const earliest = hasData ? moment(data.datasets[0].data[0].x).format('MMM D, YYYY') : null;
+        const latest   = hasData ? moment(data.datasets[0].data[data.datasets[0].data.length - 1].x).format('MMM D, YYYY') : null;
+        const span     = hasData ? data.datasets[0].data.length : 0;
+
+        const options = {
+            maintainAspectRatio: false,
+            legend: { display: false },
+            tooltips: {
+                mode: 'index',
+                intersect: false,
+                bodyFontColor: '#fff',
+                backgroundColor: 'rgba(0,0,0,0.82)',
+                titleFontSize: 13,
+                bodyFontSize: 12,
+                cornerRadius: 6,
+                callbacks: {
+                    title: (items) => items[0] ? moment(items[0].xLabel).format('dddd, MMM D YYYY') : '',
+                    label: (item) => ` ${item.yLabel} mention${item.yLabel !== 1 ? 's' : ''}`,
+                },
+            },
+            scales: {
+                xAxes: [{
+                    type: 'time',
+                    time: { unit: 'day', displayFormats: { day: 'MMM D' } },
+                    gridLines: { display: false },
+                    ticks: { fontColor: '#858796', maxTicksLimit: 10, fontSize: 11 },
+                }],
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true,
+                        stepSize: 1,
+                        precision: 0,
+                        fontColor: '#858796',
+                        maxTicksLimit: 5,
+                        fontSize: 11,
+                    },
+                    gridLines: {
+                        color: 'rgba(100,100,120,0.12)',
+                        borderDash: [2],
+                        drawBorder: false,
+                    },
+                }],
+            },
+        };
+
         return (
-            <Fragment>
-                <div className="row">
-                    <canvas ref={this.chartRef} height="50"
-                            style={{
-                                background: 'white',
-                                display: this.props.word ? 'block' : 'none',
-                                borderRadius: 5
-                            }}></canvas>
+            <div style={{ padding: '8px 12px', height: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="d-flex justify-content-end" style={{ flexShrink: 0 }}>
+                    <span className="badge badge-primary badge-pill">
+                        {total} mention{total !== 1 ? 's' : ''}
+                    </span>
                 </div>
-            </Fragment>
+
+                {hasData ? (
+                    <>
+                        <div style={{ flex: 1, minHeight: 0 }}>
+                            <Line data={data} options={options} />
+                        </div>
+                        {span > 1 && (
+                            <div className="d-flex justify-content-between" style={{ fontSize: '0.73rem', color: '#adb5bd', flexShrink: 0 }}>
+                                <span>First: <strong>{earliest}</strong></span>
+                                <span>{span} day{span !== 1 ? 's' : ''}</span>
+                                <span>Last: <strong>{latest}</strong></span>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <div className="d-flex flex-column align-items-center justify-content-center flex-fill text-muted">
+                        <i className="material-icons mb-2" style={{ fontSize: 40, opacity: 0.2 }}>show_chart</i>
+                        <small>No dated mentions found for &ldquo;{word}&rdquo;</small>
+                    </div>
+                )}
+            </div>
         );
     }
 }
 
-export default (TrendChart);
+export default TrendChart;

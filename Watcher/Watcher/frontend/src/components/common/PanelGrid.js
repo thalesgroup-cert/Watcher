@@ -63,15 +63,21 @@ class PanelGrid extends Component {
 
     // Re-hydrate from preferences once the service fires ready
     _onPrefsReady = () => {
-        const layout = preferencesService.get(this._lsKey('layout'), this.props.defaultLayout);
-        const active = preferencesService.get(this._lsKey('active'), this.props.defaultActive);
-        const resized = preferencesService.get(this._lsKey('resized'), []);
+        const layout         = preferencesService.get(this._lsKey('layout'), this.props.defaultLayout);
+        const active         = preferencesService.get(this._lsKey('active'), this.props.defaultActive);
+        const resized        = preferencesService.get(this._lsKey('resized'), []);
         const activePresetId = preferencesService.get(this._lsKey('preset'), 'default');
+        const minimized      = preferencesService.get(this._lsKey('minimized'), []);
+        const preMinH        = preferencesService.get(this._lsKey('preMinH'), {});
+        const activeSavedId  = preferencesService.get(this._lsKey('activeSavedId'), null);
         this.setState({
             layout,
-            activePanels: new Set(active),
+            activePanels:    new Set(active),
             manuallyResized: new Set(resized),
             activePresetId,
+            minimizedPanels: new Set(minimized),
+            preMinH,
+            activeSavedId,
         });
     };
 
@@ -82,8 +88,11 @@ class PanelGrid extends Component {
             activePanels:    new Set(this._lsRead('active', props.defaultActive)),
             layout:          this._lsRead('layout', props.defaultLayout),
             manuallyResized: new Set(this._lsRead('resized', [])),
+            minimizedPanels: new Set(this._lsRead('minimized', [])),
+            preMinH:         this._lsRead('preMinH', {}),
             showHelp:        false,
             activePresetId:  this._lsRead('preset', 'default'),
+            activeSavedId:   this._lsRead('activeSavedId', null),
         };
     }
 
@@ -95,7 +104,6 @@ class PanelGrid extends Component {
     };
 
     componentDidMount() {
-        // if service wasn't ready at construction time, re-hydrate when it fires
         if (!preferencesService.isReady()) {
             window.addEventListener('watcher:prefs:ready', this._onPrefsReady);
         }
@@ -108,7 +116,6 @@ class PanelGrid extends Component {
     }
 
     componentDidUpdate(prevProps) {
-        // forceActivate: open panels when reference changes
         const { forceActivate, layoutOverrides } = this.props;
         if (forceActivate) {
             const prevKeys = (prevProps.forceActivate || []).join(',');
@@ -131,13 +138,12 @@ class PanelGrid extends Component {
             }
         }
 
-        // layoutOverrides: auto-resize panels that haven't been manually resized
         if (layoutOverrides && layoutOverrides !== prevProps.layoutOverrides) {
-            const { manuallyResized, layout } = this.state;
+            const { manuallyResized, layout, minimizedPanels } = this.state;
             let changed = false;
             const newLayout = layout.map(item => {
                 const override = layoutOverrides[item.i];
-                if (override && !manuallyResized.has(item.i)) {
+                if (override && !manuallyResized.has(item.i) && !minimizedPanels.has(item.i)) {
                     if (override.h && override.h !== item.h) {
                         changed = true;
                         return { ...item, h: override.h };
@@ -169,20 +175,84 @@ class PanelGrid extends Component {
         this._lsWrite('active', [...next]);
     };
 
+    toggleMinimize = (key) => {
+        const { minimizedPanels, preMinH, layout } = this.state;
+        const nextMin   = new Set(minimizedPanels);
+        const nextPreMin = { ...preMinH };
+
+        if (nextMin.has(key)) {
+            // Restore
+            nextMin.delete(key);
+            const prev = nextPreMin[key] || {};
+            delete nextPreMin[key];
+            const newLayout = layout.map(l => {
+                if (l.i !== key) return l;
+                return { ...l, h: prev.h || l.h, minH: prev.minH !== undefined ? prev.minH : l.minH };
+            });
+            this.setState({ minimizedPanels: nextMin, preMinH: nextPreMin, layout: newLayout });
+            this._lsWrite('layout', newLayout);
+        } else {
+            // Minimize
+            nextMin.add(key);
+            const item = layout.find(l => l.i === key);
+            if (item) nextPreMin[key] = { h: item.h, minH: item.minH };
+            const newLayout = layout.map(l =>
+                l.i === key ? { ...l, h: 1, minH: 1 } : l
+            );
+            this.setState({ minimizedPanels: nextMin, preMinH: nextPreMin, layout: newLayout });
+            this._lsWrite('layout', newLayout);
+        }
+        this._lsWrite('minimized', [...nextMin]);
+        this._lsWrite('preMinH', nextPreMin);
+    };
+
     resetLayout = () => {
-        const { layoutPresets, storageKey } = this.props;
-        const activePresetId = this.state.activePresetId || 'default';
+        const { layoutPresets } = this.props;
+        const { activePresetId = 'default', activeSavedId } = this.state;
+
+        // If a saved layout is active, reset to it
+        if (activeSavedId) {
+            const savedLayouts = this._lsRead('savedLayouts', []);
+            const saved = savedLayouts.find(s => s.id === activeSavedId);
+            if (saved) {
+                const next        = new Set(saved.active);
+                const freshLayout = saved.layout.map(p => ({ ...p }));
+                this.setState({
+                    activePanels:    next,
+                    layout:          freshLayout,
+                    manuallyResized: new Set(),
+                    minimizedPanels: new Set(),
+                    preMinH:         {},
+                });
+                this._lsWrite('active',    [...next]);
+                this._lsWrite('layout',    freshLayout);
+                this._lsWrite('resized',   []);
+                this._lsWrite('minimized', []);
+                this._lsWrite('preMinH',   {});
+                return;
+            }
+        }
+
+        // Fall back to active preset
         const preset = layoutPresets
             ? (layoutPresets.find(p => p.id === activePresetId) || layoutPresets.find(p => p.id === 'default'))
             : null;
         const resetLayout = preset ? preset.layout : this.props.defaultLayout;
         const resetActive = preset ? preset.active : this.props.defaultActive;
-        const next = new Set(resetActive);
+        const next        = new Set(resetActive);
         const freshLayout = resetLayout.map(p => ({ ...p }));
-        this.setState({ activePanels: next, layout: freshLayout, manuallyResized: new Set() });
-        this._lsWrite('active', [...next]);
-        this._lsWrite('layout', freshLayout);
-        this._lsWrite('resized', []);
+        this.setState({
+            activePanels:    next,
+            layout:          freshLayout,
+            manuallyResized: new Set(),
+            minimizedPanels: new Set(),
+            preMinH:         {},
+        });
+        this._lsWrite('active',    [...next]);
+        this._lsWrite('layout',    freshLayout);
+        this._lsWrite('resized',   []);
+        this._lsWrite('minimized', []);
+        this._lsWrite('preMinH',   {});
     };
 
     onLayoutChange = (changed) => {
@@ -195,6 +265,19 @@ class PanelGrid extends Component {
     };
 
     onResizeStop = (layout, oldItem, newItem) => {
+        const { minimizedPanels, preMinH } = this.state;
+
+        // If user drags a minimized panel larger, auto-restore
+        if (minimizedPanels.has(newItem.i) && newItem.h > 1) {
+            const nextMin    = new Set(minimizedPanels);
+            const nextPreMin = { ...preMinH };
+            nextMin.delete(newItem.i);
+            delete nextPreMin[newItem.i];
+            this._lsWrite('minimized', [...nextMin]);
+            this._lsWrite('preMinH',   nextPreMin);
+            this.setState({ minimizedPanels: nextMin, preMinH: nextPreMin });
+        }
+
         const next = new Set(this.state.manuallyResized);
         next.add(newItem.i);
         this.setState({ manuallyResized: next });
@@ -215,7 +298,7 @@ class PanelGrid extends Component {
             >
                 <div
                     className="card shadow-lg"
-                    style={{ maxWidth: 520, width: '92%' }}
+                    style={{ maxWidth: 540, width: '92%' }}
                     onClick={e => e.stopPropagation()}
                 >
                     <div className="card-header d-flex align-items-center justify-content-between">
@@ -227,11 +310,12 @@ class PanelGrid extends Component {
                     </div>
                     <div className="card-body" style={{ fontSize: '0.93rem', lineHeight: 1.7 }}>
                         <ul className="mb-0 ps-3">
-                            <li><strong>Show / hide a panel</strong> - click its button in the toolbar (blue = visible, grey = hidden)</li>
-                            <li><strong>Move a panel</strong> - drag the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>drag_indicator</i> grip in the panel header</li>
-                            <li><strong>Resize a panel</strong> - drag the resize handle at the bottom-right corner of any panel</li>
-                            <li><strong>Auto-resize</strong> - panels automatically grow when you increase items-per-page in a table; manually resizing a panel locks its height to your choice</li>
-                            <li><strong>Reset Layout</strong> - restores all panels to their default positions, sizes and visibility</li>
+                            <li><strong>Show / hide a panel</strong> — click its button in the toolbar (blue = visible, grey = hidden)</li>
+                            <li><strong>Move a panel</strong> — drag the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>drag_indicator</i> grip in the panel header</li>
+                            <li><strong>Resize a panel</strong> — drag the resize handle at the bottom-right corner</li>
+                            <li><strong>Minimize a panel</strong> — click the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>remove</i> button to collapse it to its header</li>
+                            <li><strong>Save Layout</strong> — saves your current arrangement under a name; Reset will then restore this saved layout</li>
+                            <li><strong>Reset Layout</strong> — restores to your saved layout (or the default preset if no save exists)</li>
                             <li>Your layout is <strong>saved automatically</strong> to your account across all devices</li>
                         </ul>
                     </div>
@@ -242,13 +326,22 @@ class PanelGrid extends Component {
 
     renderToolbar() {
         const { panels, toolbarExtra, layoutPresets } = this.props;
-        const { activePanels, activePresetId } = this.state;
+        const { activePanels, activePresetId, activeSavedId } = this.state;
+
         const activePreset = layoutPresets
             ? (layoutPresets.find(p => p.id === activePresetId) || layoutPresets[0])
             : null;
-        const presetLabel = activePresetId === 'custom'
-            ? 'Custom'
-            : (activePreset?.name || null);
+
+        let resetLabel;
+        if (activeSavedId) {
+            const savedLayouts = this._lsRead('savedLayouts', []);
+            const saved = savedLayouts.find(s => s.id === activeSavedId);
+            resetLabel = saved ? `Reset to "${saved.name}"` : 'Reset to saved layout';
+        } else {
+            resetLabel = activePreset
+                ? `Reset to "${activePreset.name || activePresetId}" preset`
+                : 'Reset layout to defaults';
+        }
 
         return (
             <div className="d-flex justify-content-start mb-3 mt-3 flex-wrap" style={{ gap: '10px', padding: '0 8px' }}>
@@ -268,17 +361,19 @@ class PanelGrid extends Component {
                     );
                 })}
 
-                <div className="ms-auto d-flex align-items-center" style={{ gap: '10px' }}>
+                <div className="ms-auto d-flex align-items-center" style={{ gap: '8px' }}>
                     {toolbarExtra}
+
                     <button
                         type="button"
                         className="btn btn-secondary d-inline-flex align-items-center"
                         onClick={this.resetLayout}
-                        title={presetLabel ? `Reset to "${presetLabel}" preset` : 'Reset layout and visible panels to defaults'}
+                        title={resetLabel}
                     >
                         <i className="material-icons me-1 align-middle" style={{ fontSize: 20 }}>refresh</i>
                         <span className="align-middle">Reset Layout</span>
                     </button>
+
                     <button
                         type="button"
                         className="btn btn-secondary d-inline-flex align-items-center"
@@ -295,6 +390,7 @@ class PanelGrid extends Component {
 
     renderPanel(key, panelDef) {
         const { label, icon, tooltip, children } = panelDef;
+        const isMinimized = this.state.minimizedPanels.has(key);
         return (
             <div key={key} style={{ overflow: 'hidden', borderRadius: 6 }}>
                 <div className="card h-100 shadow-sm" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -316,19 +412,36 @@ class PanelGrid extends Component {
                                 </i>
                             )}
                         </span>
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-close"
-                            aria-label="Close"
-                            title={`Hide ${label}`}
-                            style={{ opacity: 0.5 }}
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={() => this.togglePanel(key)}
-                        />
+                        <div className="d-flex align-items-center gap-1">
+                            <button
+                                type="button"
+                                className="btn btn-sm p-0 d-flex align-items-center justify-content-center"
+                                style={{ width: 22, height: 22, opacity: 0.5 }}
+                                aria-label={isMinimized ? `Expand ${label}` : `Minimize ${label}`}
+                                title={isMinimized ? `Expand ${label}` : `Minimize ${label}`}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={() => this.toggleMinimize(key)}
+                            >
+                                <i className="material-icons" style={{ fontSize: '1rem', lineHeight: 1 }}>
+                                    {isMinimized ? 'expand_more' : 'remove'}
+                                </i>
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-close"
+                                aria-label="Close"
+                                title={`Hide ${label}`}
+                                style={{ opacity: 0.5 }}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={() => this.togglePanel(key)}
+                            />
+                        </div>
                     </div>
-                    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        {children}
-                    </div>
+                    {!isMinimized && (
+                        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            {children}
+                        </div>
+                    )}
                 </div>
             </div>
         );

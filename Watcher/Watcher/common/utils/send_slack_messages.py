@@ -2,6 +2,7 @@ import requests
 import logging
 from django.conf import settings
 from django.utils import timezone
+from datetime import datetime
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
@@ -25,9 +26,11 @@ def send_slack_message(content, channel, app_name):
         'Content-Type': 'application/json',
     }
     
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     payload = {
         'channel': channel,
-        'text': content,
+        'text': f"[{timestamp}] {content}",
     }
 
     response = requests.post(url, headers=headers, json=payload)

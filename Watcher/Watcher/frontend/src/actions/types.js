@@ -131,10 +131,6 @@ export const CYBERWATCH_ARCHIVE_HIT          = "CYBERWATCH_ARCHIVE_HIT";
 export const CYBERWATCH_UNARCHIVE_HIT        = "CYBERWATCH_UNARCHIVE_HIT";
 export const CYBERWATCH_GET_ARCHIVED_HITS    = "CYBERWATCH_GET_ARCHIVED_HITS";
 
-// ── Stats "load-all-at-once" action types ───────────────────────────────────
-// These are dispatched exclusively by the getAll* actions used in *Stats views.
-// They store data in separate reducer keys so they never clash with paginated
-// table state.
 export const GET_SITES_ALL               = "GET_SITES_ALL";
 export const GET_SITE_ALERTS_ALL         = "GET_SITE_ALERTS_ALL";
 export const DNS_GET_ALERTS_ALL          = "DNS_GET_ALERTS_ALL";

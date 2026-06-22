@@ -95,6 +95,8 @@ export class WordList extends Component {
         globalFilters: PropTypes.object,
         filterCountry: PropTypes.string,
         onCountrySelect: PropTypes.func,
+        setPostUrls: PropTypes.func,
+        selectedWord: PropTypes.string,
     };
 
     componentDidMount() {
@@ -297,8 +299,8 @@ export class WordList extends Component {
         const countryName = filterCountry ? (ISO2_TO_GEO[filterCountry] || filterCountry) : null;
 
         const authLinks = (id, name) => (
-            <button onClick={() => this.displayModal(id, name)} className="btn btn-outline-primary btn-sm">
-                Delete & BlockList
+            <button onClick={() => this.displayModal(id, name)} className="btn btn-outline-danger btn-sm">
+                Delete &amp; BlockList
             </button>
         );
 
@@ -421,11 +423,26 @@ export class WordList extends Component {
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(lead => (
-                                                        <tr 
+                                                        <tr
                                                             key={lead.id}
-                                                            onClick={() => this.props.setPostUrls(lead.posturls, lead.name)}
+                                                            onClick={() => {
+                                                                let posturls = lead.posturls || [];
+                                                                if (posturls.length === 0 && lead._from_source === 'trendy_words') {
+                                                                    const mk = (this.props.monitoredKeywords || []).find(
+                                                                        m => m.name.toLowerCase() === (lead.name || '').toLowerCase()
+                                                                    );
+                                                                    if (mk) posturls = mk.posturls || [];
+                                                                }
+                                                                if (this.props.setPostUrls) this.props.setPostUrls(posturls, lead.name);
+                                                            }}
                                                             role="button"
                                                             style={{ cursor: 'pointer' }}
+                                                            className={
+                                                                this.props.selectedWord &&
+                                                                lead.name.toLowerCase() === this.props.selectedWord.toLowerCase()
+                                                                    ? 'table-primary'
+                                                                    : ''
+                                                            }
                                                         >
                                                             <td className="align-middle">
                                                                 {(() => {

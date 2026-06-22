@@ -871,7 +871,6 @@ describe('Threats Watcher - E2E Test Suite', () => {
     cy.log('Threats Watcher cleanup completed');
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
   describe('Statistics Dashboard (Carousel)', () => {
     it('should display the Statistics panel', () => {
       cy.contains('.card-header', 'Statistics', { timeout: 15000 })
