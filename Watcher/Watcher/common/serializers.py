@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LegitimateDomain
+from .models import LegitimateDomain, PendingAction
 
 # Legitimate Domain Serializer
 class LegitimateDomainSerializer(serializers.ModelSerializer):
@@ -45,3 +45,32 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
         if data.get("ssl_expiry") == "":
             data["ssl_expiry"] = None
         return super().to_internal_value(data)
+
+
+# PendingAction Serializer
+class PendingActionSerializer(serializers.ModelSerializer):
+    resolved_by_username = serializers.SerializerMethodField()
+    action_type_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PendingAction
+        fields = [
+            'id',
+            'action_type',
+            'action_type_label',
+            'status',
+            'title',
+            'description',
+            'metadata',
+            'created_at',
+            'resolved_at',
+            'resolved_by',
+            'resolved_by_username',
+        ]
+        read_only_fields = ['id', 'created_at', 'resolved_at', 'resolved_by']
+
+    def get_resolved_by_username(self, obj):
+        return obj.resolved_by.username if obj.resolved_by else None
+
+    def get_action_type_label(self, obj):
+        return obj.get_action_type_display()

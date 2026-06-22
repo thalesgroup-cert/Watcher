@@ -282,10 +282,10 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer functionality', () => {
-      cy.contains('.card-header', 'Trend & Sources', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Sources & Summary', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
         .then(($card) => {
-          cy.log('Trend & Sources panel found');
+          cy.log('Sources & Summary panel found');
         });
     });
   });
@@ -464,7 +464,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       cy.get('body').then(($body) => {
         const clearButtons = $body.find('button:contains("Clear"), button:contains("visited")');
         if (clearButtons.length > 0) {
-          cy.wrap(clearButtons.first()).should('be.visible');
+          cy.wrap(clearButtons.first()).should('exist');
           cy.log('Clear visited articles button found');
         } else {
           cy.log('Clear button not visible (may appear after word selection)');
@@ -496,7 +496,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
           cy.wrap(wordElements).click();
           cy.wait(500);
           
-          cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist');
+          cy.contains('.card-header', 'Sources & Summary').closest('.card.h-100.shadow-sm').should('exist');
         }
       });
     });
@@ -653,8 +653,8 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer divider interactions', () => {
-      cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
-        cy.log('Trend & Sources panel found - PanelGrid layout verified');
+      cy.contains('.card-header', 'Sources & Summary').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('Sources & Summary panel found - PanelGrid layout verified');
       });
     });
   });

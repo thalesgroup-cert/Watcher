@@ -11,6 +11,7 @@ import DnsFinder from "./DnsFinder";
 import LegitimateDomain from "./LegitimateDomain";
 import CyberWatch from "./CyberWatch";
 import WorldMap from "./WorldMap";
+import pendingActions from "./PendingActions";
 
 export default combineReducers({
     config,
@@ -21,6 +22,7 @@ export default combineReducers({
     LegitimateDomain,
     CyberWatch,
     WorldMap,
+    pendingActions,
     errors,
     messages,
     auth,

@@ -1,11 +1,15 @@
+import logging
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, Count
+from django.utils import timezone
 from datetime import datetime, timedelta
-from .models import LegitimateDomain
-from .serializers import LegitimateDomainSerializer
+from .models import LegitimateDomain, PendingAction
+from .serializers import LegitimateDomainSerializer, PendingActionSerializer
+
+logger = logging.getLogger(__name__)
 
 
 # Pagination
@@ -187,3 +191,78 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
                 'status': 'error',
                 'message': f'MISP export failed: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _execute_pending_action(pa):
+    """
+    Carry out the side-effect associated with a PendingAction when approved.
+    """
+    if pa.action_type == 'udrp_transfer':
+        from site_monitoring.models import Site
+        from site_monitoring.udrp import transfer_to_legitimate_domains
+
+        site_id = pa.metadata.get('site_id')
+        if not site_id:
+            logger.warning("PendingAction %d (udrp_transfer) has no site_id in metadata.", pa.id)
+            return
+        try:
+            site = Site.objects.get(pk=site_id)
+        except Site.DoesNotExist:
+            logger.warning(
+                "PendingAction %d: Site %s no longer exists - skipping transfer.",
+                pa.id, site_id,
+            )
+            return
+        transfer_to_legitimate_domains(site)
+
+
+class PendingActionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing and managing pending actions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PendingActionSerializer
+
+    def get_queryset(self):
+        qs = PendingAction.objects.all()
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    @action(detail=False, methods=['get'], url_path='count')
+    def count(self, request):
+        """Return the count of pending (unresolved) actions."""
+        n = PendingAction.objects.filter(status='pending').count()
+        return Response({'count': n})
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        """Approve and execute the pending action."""
+        pa = self.get_object()
+        if pa.status != 'pending':
+            return Response(
+                {'error': 'This action is no longer pending.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        _execute_pending_action(pa)
+        pa.status = 'approved'
+        pa.resolved_at = timezone.now()
+        pa.resolved_by = request.user
+        pa.save()
+        return Response(PendingActionSerializer(pa).data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        """Reject the pending action without executing it."""
+        pa = self.get_object()
+        if pa.status != 'pending':
+            return Response(
+                {'error': 'This action is no longer pending.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        pa.status = 'rejected'
+        pa.resolved_at = timezone.now()
+        pa.resolved_by = request.user
+        pa.save()
+        return Response(PendingActionSerializer(pa).data)

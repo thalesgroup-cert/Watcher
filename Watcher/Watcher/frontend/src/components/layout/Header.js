@@ -3,6 +3,7 @@ import { Link, NavLink, withRouter } from "react-router-dom";
 import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { logout } from "../../actions/auth";
+import PendingActionsPanel from "./PendingActionsPanel";
 
 
 
@@ -249,6 +250,9 @@ export class Header extends Component {
             <Fragment>
                 <li className="nav-item">
                     <HelpButton swaggerUrl={helpButtonUrl} swaggerLabel={helpButtonLabel} />
+                </li>
+                <li className="nav-item">
+                    <PendingActionsPanel />
                 </li>
                 <li className="nav-item">
                     <UserDropdown user={user} logout={this.props.logout} />

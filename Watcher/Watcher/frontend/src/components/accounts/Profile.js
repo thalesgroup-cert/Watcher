@@ -439,7 +439,7 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                         </div>
 
                         {savedLayouts.length === 0 ? (
-                            <div className="text-center text-muted py-4 border rounded mb-3" style={{ fontSize: 13 }}>
+                            <div className="text-center text-muted py-4 border border-secondary rounded mb-3" style={{ fontSize: 13, opacity: 0.7 }}>
                                 <i className="material-icons d-block mb-1" style={{ fontSize: 32, opacity: 0.4 }}>bookmark_border</i>
                                 No saved layouts yet. Arrange panels below and click "Save current".
                             </div>

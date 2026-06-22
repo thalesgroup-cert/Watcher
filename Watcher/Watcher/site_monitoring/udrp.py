@@ -32,9 +32,7 @@ _WON_PATTERNS = re.compile(r'\b(transfer(red)?|cancel(l?ed)?)\b', re.I)
 _LOST_PATTERNS = re.compile(r'\bdenied\b', re.I)
 
 
-# ---------------------------------------------------------------------------
 # HTML table extractor
-# ---------------------------------------------------------------------------
 
 class _TableCellExtractor(HTMLParser):
     """
@@ -68,9 +66,7 @@ class _TableCellExtractor(HTMLParser):
                 self._buffer.append(token)
 
 
-# ---------------------------------------------------------------------------
 # UDRPDiscovery class
-# ---------------------------------------------------------------------------
 
 class UDRPDiscovery:
     """
@@ -155,25 +151,20 @@ class UDRPDiscovery:
         return 'pending'
 
 
-# ---------------------------------------------------------------------------
 # Transfer to Legitimate Domains
-# ---------------------------------------------------------------------------
 
 def transfer_to_legitimate_domains(site):
     """
-    Create a LegitimateDomain entry for *site* after a favourable UDRP decision.
+    Transfer *site* to Legitimate Domains and remove it from Website Monitoring.
 
-    The entry is skipped silently if the domain already exists in the table.
-
-    :param site: The Site instance whose domain has been won.
-    :return: True if a new entry was created, False if it already existed.
-    :rtype: bool
+    Creates a LegitimateDomain entry (skipped if already exists), then deletes
+    the Site record so it no longer appears in Website Monitoring.
     """
     from common.models import LegitimateDomain
 
     today = date.today().isoformat()
     comment = (
-        f"[Auto] Domain transferred from Site Monitoring following a favourable "
+        f"Domain transferred from Site Monitoring following a favourable "
         f"UDRP decision. (Date: {today}, Source: udrpsearch.com)"
     )
 
@@ -192,12 +183,68 @@ def transfer_to_legitimate_domains(site):
             "LegitimateDomain for %s already exists - skipping creation.", site.domain_name
         )
 
+    site.delete()
+    logger.info("Site %s deleted from Website Monitoring after UDRP transfer.", site.domain_name)
+
     return created
 
 
-# ---------------------------------------------------------------------------
+# Queue PendingAction instead of immediate transfer
+
+def _queue_udrp_transfer(site):
+    """
+    Create a PendingAction for a favourable UDRP decision instead of transferring
+    the domain immediately. A user must approve the action before the domain is
+    moved to Legitimate Domains.
+    """
+    from common.models import PendingAction
+
+    today = date.today().isoformat()
+
+    already_queued = any(
+        pa.metadata.get('site_id') == site.id
+        for pa in PendingAction.objects.filter(
+            action_type='udrp_transfer', status='pending'
+        )
+    )
+    if already_queued:
+        logger.info(
+            "PendingAction (udrp_transfer) already queued for %s - skipping.",
+            site.domain_name,
+        )
+        return
+
+    comment = (
+        f"Domain transferred from Website Monitoring following a favourable "
+        f"UDRP decision. (Date: {today}, Source: WIPO)"
+    )
+
+    PendingAction.objects.create(
+        action_type='udrp_transfer',
+        title=f"UDRP Transfer: {site.domain_name}",
+        description=(
+            f"A favourable UDRP decision (Transfer/Cancel) was detected for "
+            f"{site.domain_name}.\n\n"
+            f"Approving this action will add the domain to Legitimate Domains "
+            f"and remove it from Website Monitoring."
+        ),
+        metadata={
+            'site_id':       site.id,
+            'domain_name':   site.domain_name,
+            'ticket_id':     site.ticket_id,
+            'decision_date': today,
+            'source':        'wipo.int',
+            'comment':       comment,
+        },
+    )
+    logger.info(
+        "PendingAction (udrp_transfer) queued for %s - awaiting user approval.",
+        site.domain_name,
+    )
+
+
+
 # Notifications
-# ---------------------------------------------------------------------------
 
 def notify_udrp_decision(site, decision):
     """
@@ -350,9 +397,7 @@ def _notify_email(site, decision, label, today, domain_sanitized):
     send_email_notifications(subject, body, email_list, app_name='udrp_checker')
 
 
-# ---------------------------------------------------------------------------
 # Scheduled job entry-point
-# ---------------------------------------------------------------------------
 
 def check_udrp_statuses():
     """
@@ -408,4 +453,4 @@ def check_udrp_statuses():
             notify_udrp_decision(site, new_status)
 
         if new_status == 'won':
-            transfer_to_legitimate_domains(site)
+            _queue_udrp_transfer(site)
