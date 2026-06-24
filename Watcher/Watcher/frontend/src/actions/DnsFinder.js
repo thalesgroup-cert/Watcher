@@ -132,6 +132,7 @@ export const addDnsMonitored = (dns_monitored) => (dispatch, getState) => {
                 type: ADD_DNS_MONITORED,
                 payload: res.data
             });
+            dispatch(getDnsMonitored());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -147,6 +148,7 @@ export const patchDnsMonitored = (id, dns_monitored) => (dispatch, getState) => 
                 type: PATCH_DNS_MONITORED,
                 payload: res.data
             });
+            dispatch(getDnsMonitored());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -198,6 +200,7 @@ export const addKeywordMonitored = (keyword_monitored) => (dispatch, getState) =
                 type: ADD_KEYWORD_MONITORED,
                 payload: res.data
             });
+            dispatch(getKeywordMonitored());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -213,6 +216,7 @@ export const patchKeywordMonitored = (id, keyword_monitored) => (dispatch, getSt
                 type: PATCH_KEYWORD_MONITORED,
                 payload: res.data
             });
+            dispatch(getKeywordMonitored());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))

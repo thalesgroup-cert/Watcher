@@ -15,7 +15,15 @@ describe('Legitimate Domains - E2E Test Suite', () => {
             expiry: "2026-12-31T23:59:59Z",
             repurchased: true,
             comments: "Main corporate domain - critical asset",
-            created_at: "2025-06-19T10:00:00Z"
+            created_at: "2025-06-19T10:00:00Z",
+            last_event: {
+              username: "admin",
+              first_name: "Admin",
+              last_name: "User",
+              avatar_color: "#2196f3",
+              action: "updated",
+              timestamp: "2026-06-24T14:30:00Z"
+            }
           },
           {
             id: 2,
@@ -25,7 +33,8 @@ describe('Legitimate Domains - E2E Test Suite', () => {
             expiry: "2025-11-15T23:59:59Z",
             repurchased: false,
             comments: "Backup domain for disaster recovery",
-            created_at: "2025-06-18T15:30:00Z"
+            created_at: "2025-06-18T15:30:00Z",
+            last_event: null
           },
           {
             id: 3,
@@ -35,7 +44,8 @@ describe('Legitimate Domains - E2E Test Suite', () => {
             expiry: "2025-10-20T23:59:59Z",
             repurchased: false,
             comments: "Expiring soon - decision pending on renewal",
-            created_at: "2025-06-17T08:15:00Z"
+            created_at: "2025-06-17T08:15:00Z",
+            last_event: null
           },
           {
             id: 4,
@@ -45,7 +55,8 @@ describe('Legitimate Domains - E2E Test Suite', () => {
             expiry: "2025-05-01T23:59:59Z",
             repurchased: false,
             comments: "Expired - needs immediate attention",
-            created_at: "2025-06-16T12:00:00Z"
+            created_at: "2025-06-16T12:00:00Z",
+            last_event: null
           }
         ]
       }

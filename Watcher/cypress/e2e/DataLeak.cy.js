@@ -7,9 +7,19 @@ describe('Data Leak - E2E Test Suite', () => {
         next: null,
         previous: null,
         results: [
-          { id: 1, name: "test-confidential", created_at: "2025-06-19T10:00:00Z" },
-          { id: 2, name: "e2e-internal", created_at: "2025-06-18T15:30:00Z" },
-          { id: 3, name: "test-company-data", created_at: "2025-06-17T08:15:00Z" }
+          {
+            id: 1, name: "test-confidential", created_at: "2025-06-19T10:00:00Z",
+            last_event: {
+              username: "admin",
+              first_name: "Admin",
+              last_name: "User",
+              avatar_color: "#2196f3",
+              action: "updated",
+              timestamp: "2026-06-24T14:30:00Z"
+            }
+          },
+          { id: 2, name: "e2e-internal", created_at: "2025-06-18T15:30:00Z", last_event: null },
+          { id: 3, name: "test-company-data", created_at: "2025-06-17T08:15:00Z", last_event: null }
         ]
       }
     }).as('getKeywords');

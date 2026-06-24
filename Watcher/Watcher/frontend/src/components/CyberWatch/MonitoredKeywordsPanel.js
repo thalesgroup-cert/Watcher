@@ -10,6 +10,7 @@ import {
 import { Button, Modal, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 
 const LEVEL_VALUES = ['warm', 'hot', 'super_hot'];
@@ -48,20 +49,23 @@ class MonitoredKeywordsPanel extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showAddModal:    false,
-            addName:         '',
-            addLevel:        'warm',
-            showEditModal:   false,
-            editId:          null,
-            editName:        '',
-            editLevel:       'warm',
-            showDeleteModal: false,
-            selectedId:      null,
-            selectedName:    '',
-            showSourcesModal:   false,
-            sourcesKeyword:     '',
-            sourcesPosturls:    [],
-            showHelp: false,
+            showAddModal:      false,
+            addName:           '',
+            addLevel:          'warm',
+            showEditModal:     false,
+            editId:            null,
+            editName:          '',
+            editLevel:         'warm',
+            showDeleteModal:   false,
+            selectedId:        null,
+            selectedName:      '',
+            showSourcesModal:  false,
+            sourcesKeyword:    '',
+            sourcesPosturls:   [],
+            showHelp:          false,
+            showTimelineModal: false,
+            timelineId:        null,
+            timelineLabel:     '',
         };
     }
 
@@ -165,7 +169,8 @@ class MonitoredKeywordsPanel extends Component {
         const canAdd = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('threats_watcher.add_monitoredkeyword')));
         const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'threats_watcher.change_monitoredkeyword' || p === 'threats_watcher.delete_monitoredkeyword')));
         const { showHelp, showAddModal, addName, addLevel, showEditModal, editName, editLevel,
-                showDeleteModal, selectedName, showSourcesModal, sourcesKeyword, sourcesPosturls } = this.state;
+                showDeleteModal, selectedName, showSourcesModal, sourcesKeyword, sourcesPosturls,
+                showTimelineModal, timelineId, timelineLabel } = this.state;
 
         return (
             <Fragment>
@@ -223,12 +228,13 @@ class MonitoredKeywordsPanel extends Component {
                                             <th className="text-center" role="button" onClick={() => handleSort('level')}>Level {renderSortIcons('level')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('occurrences')}>Occurrences {renderSortIcons('occurrences')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('last_seen')}>Last Seen {renderSortIcons('last_seen')}</th>
+                                            <LastEventHeader />
                                             {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={canManage ? 5 : 4} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(mk => (
                                             <tr key={mk.id} style={{ cursor: 'pointer' }} onClick={() => this.openSourcesModal(mk)} title="Click to see detected sources">
                                                 <td className="align-middle fw-semibold">{mk.name}</td>
@@ -239,6 +245,7 @@ class MonitoredKeywordsPanel extends Component {
                                                         ? <DateWithTooltip date={mk.last_seen} includeTime={true} type="updated" />
                                                         : <span className="text-muted fst-italic">Never</span>}
                                                 </td>
+                                                <LastEventCell event={mk.last_event} />
                                                 {canManage && (
                                                     <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                                                         <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.openEditModal(mk)}>
@@ -246,6 +253,9 @@ class MonitoredKeywordsPanel extends Component {
                                                         </button>
                                                         <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.openDeleteModal(mk.id, mk.name)}>
                                                             <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
+                                                        </button>
+                                                        <button className="btn btn-outline-secondary btn-sm" title="History" onClick={() => this.setState({ showTimelineModal: true, timelineId: mk.id, timelineLabel: mk.name })}>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>history</i>
                                                         </button>
                                                     </td>
                                                 )}
@@ -391,6 +401,14 @@ class MonitoredKeywordsPanel extends Component {
                         <Button variant="secondary" onClick={() => this.setState({ showSourcesModal: false })}>Close</Button>
                     </Modal.Footer>
                 </Modal>
+
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false })}
+                    contentType="threats_watcher.monitoredkeyword"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }

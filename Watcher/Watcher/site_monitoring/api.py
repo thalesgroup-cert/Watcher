@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from datetime import datetime, timedelta
+from django.db.models import Prefetch
 from .serializers import SiteSerializer, AlertSerializer, MISPSerializer
 
 
@@ -23,8 +24,14 @@ class SiteViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        qs = Site.objects.all().order_by('-created_at', '-id')
-        return qs
+        from timeline.models import TimelineEvent
+        return Site.objects.all().order_by('-created_at', '-id').prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):

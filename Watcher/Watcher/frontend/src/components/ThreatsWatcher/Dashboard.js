@@ -158,45 +158,6 @@ class Dashboard extends Component {
                 ),
             },
 
-            map: {
-                label: 'World Map',
-                icon: 'public',
-                tooltip: 'Geographic distribution of threat sources - click a country to filter',
-                children: (
-                    <WorldMapPanel
-                        embedded
-                        onCountrySelect={this.handleCountrySelect}
-                        filterCountry={selectedMapCountry}
-                    />
-                ),
-            },
-
-            victims: {
-                label: 'Ransomware Victims',
-                icon: 'lock',
-                tooltip: 'Recent ransomware victim organizations tracked from public leak sites',
-                children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
-                        <RansomwareVictims
-                            filterCountry={selectedMapCountry}
-                            onCountrySelect={this.handleCountrySelect}
-                            onItemsPerPageChange={this.handleVictimItems}
-                        />
-                    </div>
-                ),
-            },
-
-            cve: {
-                label: 'CVE Vulnerabilities',
-                icon: 'bug_report',
-                tooltip: 'Recent CVE vulnerabilities with matches to watch rules and all tracked CVEs',
-                children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
-                        <CVEVulnerabilities />
-                    </div>
-                ),
-            },
-
             sources: {
                 label: 'Sources & Summary',
                 icon: 'link',
@@ -243,6 +204,46 @@ class Dashboard extends Component {
                     </div>
                 ),
             },
+
+            map: {
+                label: 'World Map',
+                icon: 'public',
+                tooltip: 'Geographic distribution of threat sources - click a country to filter',
+                children: (
+                    <WorldMapPanel
+                        embedded
+                        onCountrySelect={this.handleCountrySelect}
+                        filterCountry={selectedMapCountry}
+                    />
+                ),
+            },
+
+            victims: {
+                label: 'Ransomware Victims',
+                icon: 'lock',
+                tooltip: 'Recent ransomware victim organizations tracked from public leak sites',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <RansomwareVictims
+                            filterCountry={selectedMapCountry}
+                            onCountrySelect={this.handleCountrySelect}
+                            onItemsPerPageChange={this.handleVictimItems}
+                        />
+                    </div>
+                ),
+            },
+
+            cve: {
+                label: 'CVE Vulnerabilities',
+                icon: 'bug_report',
+                tooltip: 'Recent CVE vulnerabilities with matches to watch rules and all tracked CVEs',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                        <CVEVulnerabilities />
+                    </div>
+                ),
+            },
+
         };
     }
 

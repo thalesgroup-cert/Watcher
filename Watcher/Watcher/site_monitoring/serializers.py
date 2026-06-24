@@ -18,12 +18,41 @@ import threading
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+def _get_last_event(obj):
+    events = getattr(obj, '_timeline_events', None)
+    if events is not None:
+        event = events[0] if events else None
+    else:
+        event = obj.timeline_events.select_related('user__profile').first()
+    if not event:
+        return None
+    u = event.user
+    avatar_color = None
+    if u:
+        try:
+            avatar_color = u.profile.avatar_color or None
+        except Exception:
+            pass
+    return {
+        'username':    u.username if u else 'system',
+        'first_name':  u.first_name if u else '',
+        'last_name':   u.last_name if u else '',
+        'avatar_color': avatar_color,
+        'action':      event.action,
+        'timestamp':   event.timestamp,
+    }
+
+
 # Site Serializer
 class SiteSerializer(serializers.ModelSerializer):
     misp_event_uuid = serializers.SerializerMethodField()
-    
+    last_event      = serializers.SerializerMethodField()
+
     def get_misp_event_uuid(self, obj):
         return get_misp_uuid(obj.domain_name)
+
+    def get_last_event(self, obj):
+        return _get_last_event(obj)
         
     def validate_domain_name(self, value):
         from common.models import LegitimateDomain

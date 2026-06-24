@@ -100,7 +100,7 @@ export class WordCloud extends Component {
             const newWord = this.props.selectedWord;
 
             // If the clicked element in the cloud already matches, the click handler already
-            // applied the halo — skip clearing to avoid flickering.
+            // applied the halo - skip clearing to avoid flickering.
             const currentText = this._selectedEl
                 ? this._selectedEl.textContent.replace(/\*$/, '').toLowerCase().trim()
                 : null;
@@ -181,7 +181,7 @@ export class WordCloud extends Component {
                             .attr('stroke-linejoin', 'round');
                         this._selectedEl = element;
 
-                        // Trigger postUrls update — fall back to monitored keyword posturls if the lead has none
+                        // Trigger postUrls update - fall back to monitored keyword posturls if the lead has none
                         const lead = dataToUse.find(l => l.name === cleanName);
                         let posturls = lead ? (lead.posturls || []) : null;
                         if (!posturls || posturls.length === 0) {

@@ -2,10 +2,20 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
+from django.db.models import Prefetch
 from datetime import timedelta
 from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword
 from .serializers import SourceSerializer, TrendyWordSerializer, BannedWordSerializer, SummarySerializer, MonitoredKeywordSerializer
 from .core import generate_trendy_word_summary
+
+
+def _timeline_prefetch(to_attr='_timeline_events'):
+    from timeline.models import TimelineEvent
+    return Prefetch(
+        'timeline_events',
+        queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+        to_attr=to_attr,
+    )
 
 
 class SourceViewSet(viewsets.ModelViewSet):
@@ -18,7 +28,7 @@ class SourceViewSet(viewsets.ModelViewSet):
     serializer_class = SourceSerializer
 
     def get_queryset(self):
-        queryset = Source.objects.all()
+        queryset = Source.objects.all().prefetch_related(_timeline_prefetch())
         country_code = self.request.query_params.get('country_code')
         if country_code:
             queryset = queryset.filter(country_code__iexact=country_code)
@@ -90,17 +100,19 @@ class TrendyWordViewSet(viewsets.ModelViewSet):
 
 # BannedWord Viewset
 class BannedWordViewSet(viewsets.ModelViewSet):
-    queryset = BannedWord.objects.all()
-    permission_classes = [
-        permissions.DjangoModelPermissions
-    ]
+    permission_classes = [permissions.DjangoModelPermissions]
     serializer_class = BannedWordSerializer
+
+    def get_queryset(self):
+        return BannedWord.objects.all().prefetch_related(_timeline_prefetch())
 
 
 class MonitoredKeywordViewSet(viewsets.ModelViewSet):
-    queryset = MonitoredKeyword.objects.all()
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     serializer_class = MonitoredKeywordSerializer
+
+    def get_queryset(self):
+        return MonitoredKeyword.objects.all().prefetch_related(_timeline_prefetch())
 
 
 class SummaryViewSet(viewsets.ModelViewSet):

@@ -6,6 +6,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django.db.models import Prefetch
 from .models import LegitimateDomain, PendingAction
 from .serializers import LegitimateDomainSerializer, PendingActionSerializer
 
@@ -37,7 +38,15 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
+        from timeline.models import TimelineEvent
         qs = LegitimateDomain.objects.all().order_by('-created_at', '-id')
+        qs = qs.prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
         return qs
 
     def get_serializer_context(self):
@@ -193,6 +202,51 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _record_resolution_event(pa, user):
+    """
+    Record a 'transferred' or 'cancelled' TimelineEvent after a PendingAction is resolved.
+    - approved udrp_transfer → 'transferred' on the new LegitimateDomain
+    - rejected udrp_transfer → 'cancelled' on the original Site (may already be deleted)
+    """
+    if pa.action_type != 'udrp_transfer':
+        return
+
+    from timeline.models import TimelineEvent
+    from django.contrib.contenttypes.models import ContentType
+
+    domain_name = pa.metadata.get('domain_name', '')
+
+    if pa.status == 'approved':
+        from common.models import LegitimateDomain
+        try:
+            legit = LegitimateDomain.objects.get(domain_name=domain_name)
+        except LegitimateDomain.DoesNotExist:
+            return
+        ct = ContentType.objects.get_for_model(LegitimateDomain)
+        TimelineEvent.objects.create(
+            content_type=ct,
+            object_id=legit.pk,
+            action=TimelineEvent.ACTION_TRANSFERRED,
+            user=user,
+            diff={},
+            object_repr=domain_name,
+        )
+    elif pa.status == 'rejected':
+        from site_monitoring.models import Site
+        ct = ContentType.objects.get_for_model(Site)
+        site_id = pa.metadata.get('site_id')
+        if not site_id:
+            return
+        TimelineEvent.objects.create(
+            content_type=ct,
+            object_id=site_id,
+            action=TimelineEvent.ACTION_CANCELLED,
+            user=user,
+            diff={},
+            object_repr=domain_name,
+        )
+
+
 def _execute_pending_action(pa):
     """
     Carry out the side-effect associated with a PendingAction when approved.
@@ -202,18 +256,34 @@ def _execute_pending_action(pa):
         from site_monitoring.udrp import transfer_to_legitimate_domains
 
         site_id = pa.metadata.get('site_id')
-        if not site_id:
-            logger.warning("PendingAction %d (udrp_transfer) has no site_id in metadata.", pa.id)
-            return
-        try:
-            site = Site.objects.get(pk=site_id)
-        except Site.DoesNotExist:
+        domain_name = pa.metadata.get('domain_name', '')
+
+        site = None
+        if site_id:
+            try:
+                site = Site.objects.get(pk=site_id)
+            except Site.DoesNotExist:
+                if domain_name:
+                    try:
+                        site = Site.objects.get(domain_name=domain_name)
+                        logger.info(
+                            "PendingAction %d: site_id %s stale, found '%s' by domain_name (new pk=%d).",
+                            pa.id, site_id, domain_name, site.pk,
+                        )
+                    except Site.DoesNotExist:
+                        pass
+
+        if site is None:
             logger.warning(
-                "PendingAction %d: Site %s no longer exists - skipping transfer.",
-                pa.id, site_id,
+                "PendingAction %d: '%s' no longer exists in Website Monitoring - skipping transfer.",
+                pa.id, domain_name or site_id,
             )
             return
+
         transfer_to_legitimate_domains(site)
+        site_name = site.domain_name
+        site.delete()
+        logger.info("PendingAction %d: Site '%s' removed from Website Monitoring after UDRP transfer.", pa.id, site_name)
 
 
 class PendingActionViewSet(viewsets.ReadOnlyModelViewSet):
@@ -250,6 +320,7 @@ class PendingActionViewSet(viewsets.ReadOnlyModelViewSet):
         pa.resolved_at = timezone.now()
         pa.resolved_by = request.user
         pa.save()
+        _record_resolution_event(pa, request.user)
         return Response(PendingActionSerializer(pa).data)
 
     @action(detail=True, methods=['post'], url_path='reject')
@@ -265,4 +336,5 @@ class PendingActionViewSet(viewsets.ReadOnlyModelViewSet):
         pa.resolved_at = timezone.now()
         pa.resolved_by = request.user
         pa.save()
+        _record_resolution_event(pa, request.user)
         return Response(PendingActionSerializer(pa).data)

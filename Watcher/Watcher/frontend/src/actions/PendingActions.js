@@ -4,9 +4,12 @@ import {
     GET_PENDING_ACTIONS,
     APPROVE_PENDING_ACTION,
     REJECT_PENDING_ACTION,
+    DELETE_SITE,
 } from './types';
 import { createMessage, returnErrors } from './messages';
 import { tokenConfig } from './auth';
+import { getSites } from './SiteMonitoring';
+import { getLegitimateDomains } from './LegitimateDomain';
 
 
 export const getPendingActionsCount = () => (dispatch, getState) => {
@@ -37,9 +40,17 @@ export const getPendingActions = () => (dispatch, getState) => {
 export const approvePendingAction = id => (dispatch, getState) => {
     return axios
         .post(`/api/common/pending_actions/${id}/approve/`, {}, tokenConfig(getState))
-        .then(() => {
+        .then(res => {
             dispatch({ type: APPROVE_PENDING_ACTION, payload: id });
             dispatch(createMessage({ add: 'Action approved and executed' }));
+
+            const siteId = res.data?.metadata?.site_id;
+            if (siteId) {
+                dispatch({ type: DELETE_SITE, payload: siteId });
+            }
+
+            dispatch(getSites());
+            dispatch(getLegitimateDomains());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))

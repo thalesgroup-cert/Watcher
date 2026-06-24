@@ -2,6 +2,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericRelation
 
 
 class Keyword(models.Model):
@@ -11,6 +12,7 @@ class Keyword(models.Model):
     name = models.CharField(max_length=100, unique=True)
     is_regex = models.BooleanField(default=False, verbose_name="Use RegEx")
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='keyword')
 
     class Meta:
         ordering = ["name"]

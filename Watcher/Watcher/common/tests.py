@@ -4,7 +4,10 @@ from django.test import TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
-from common.models import MISPEventUuidLink
+from rest_framework.test import APITestCase
+from rest_framework import status
+from knox.models import AuthToken
+from common.models import MISPEventUuidLink, LegitimateDomain, PendingAction
 from common.core import generate_ref
 from common.misp import get_misp_uuid, update_misp_uuid
 
@@ -284,3 +287,93 @@ class ModelValidationTest(TestCase):
         # Empty string is allowed by Django CharField, so we test that it creates successfully
         empty_mapping = MISPEventUuidLink.objects.create(domain_name="")
         self.assertTrue(empty_mapping.id)
+
+
+class PendingActionResolutionTest(APITestCase):
+    """
+    Test that approving/rejecting a PendingAction of type 'udrp_transfer'
+    creates the expected TimelineEvent via _record_resolution_event.
+    """
+
+    def setUp(self):
+        from site_monitoring.models import Site
+        from timeline.models import TimelineEvent
+
+        self.TimelineEvent = TimelineEvent
+
+        # Authenticated user
+        self.user = User.objects.create_superuser(
+            username='pa_resolver', password='testpass123'
+        )
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+        # A monitored site
+        self.site = Site.objects.create(domain_name='pa-test.com')
+
+        # The corresponding legitimate domain (same domain_name, unique constraint OK
+        # because LegitimateDomain and Site are different tables)
+        self.legit = LegitimateDomain.objects.create(domain_name='pa-test.com')
+
+        # A pending UDRP transfer action
+        self.pa = PendingAction.objects.create(
+            action_type='udrp_transfer',
+            title='UDRP: pa-test.com',
+            description='Transfer pa-test.com to Legitimate Domains',
+            metadata={
+                'site_id': self.site.pk,
+                'domain_name': 'pa-test.com',
+            },
+        )
+
+    def _approve_url(self):
+        return f'/api/common/pending_actions/{self.pa.pk}/approve/'
+
+    def _reject_url(self):
+        return f'/api/common/pending_actions/{self.pa.pk}/reject/'
+
+    @patch('common.api._execute_pending_action')
+    def test_approve_creates_transferred_event(self, mock_execute):
+        """
+        POST /api/common/pending_actions/{id}/approve/ must create a TimelineEvent
+        with ACTION_TRANSFERRED linked to the LegitimateDomain.
+        """
+        from django.contrib.contenttypes.models import ContentType
+
+        mock_execute.return_value = None  # Skip actual site transfer/deletion
+
+        response = self.client.post(self._approve_url(), format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+        ct = ContentType.objects.get_for_model(LegitimateDomain)
+        event_exists = self.TimelineEvent.objects.filter(
+            content_type=ct,
+            object_id=self.legit.pk,
+            action=self.TimelineEvent.ACTION_TRANSFERRED,
+        ).exists()
+        self.assertTrue(
+            event_exists,
+            "Expected a ACTION_TRANSFERRED TimelineEvent on the LegitimateDomain after approval"
+        )
+
+    def test_reject_creates_cancelled_event(self):
+        """
+        POST /api/common/pending_actions/{id}/reject/ must create a TimelineEvent
+        with ACTION_CANCELLED and object_id == site.pk.
+        """
+        from django.contrib.contenttypes.models import ContentType
+        from site_monitoring.models import Site
+
+        response = self.client.post(self._reject_url(), format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+        ct = ContentType.objects.get_for_model(Site)
+        event_exists = self.TimelineEvent.objects.filter(
+            content_type=ct,
+            object_id=self.site.pk,
+            action=self.TimelineEvent.ACTION_CANCELLED,
+        ).exists()
+        self.assertTrue(
+            event_exists,
+            "Expected a ACTION_CANCELLED TimelineEvent with object_id=site.pk after rejection"
+        )

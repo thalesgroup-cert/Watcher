@@ -3,6 +3,8 @@ from .models import LegitimateDomain, PendingAction
 
 # Legitimate Domain Serializer
 class LegitimateDomainSerializer(serializers.ModelSerializer):
+    last_event = serializers.SerializerMethodField()
+
     class Meta:
         model = LegitimateDomain
         fields = [
@@ -16,8 +18,33 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
             'ssl_expiry',
             'repurchased',
             'comments',
-            'misp_event_uuid'
+            'misp_event_uuid',
+            'last_event',
         ]
+
+    def get_last_event(self, obj):
+        events = getattr(obj, '_timeline_events', None)
+        if events is not None:
+            event = events[0] if events else None
+        else:
+            event = obj.timeline_events.select_related('user__profile').first()
+        if not event:
+            return None
+        u = event.user
+        avatar_color = None
+        if u:
+            try:
+                avatar_color = u.profile.avatar_color or None
+            except Exception:
+                pass
+        return {
+            'username': u.username if u else 'system',
+            'first_name': u.first_name if u else '',
+            'last_name': u.last_name if u else '',
+            'avatar_color': avatar_color,
+            'action': event.action,
+            'timestamp': event.timestamp,
+        }
 
     def validate_domain_name(self, value):
         """

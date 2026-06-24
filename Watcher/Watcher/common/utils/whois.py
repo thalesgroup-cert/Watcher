@@ -30,51 +30,24 @@ class WhoisDiscovery:
     def fetch_whois_data(self):
         """
         Fetch WHOIS data from the external WHOIS service.
-        
-        Sends a request to the configured WHOIS service and stores the response
-        for further processing. Includes proper error handling and timeouts.
-        
+
         :return: True if WHOIS data was successfully fetched, False otherwise
         :rtype: bool
         """
-        if python_whois is None:
-            logger.error(
-                "python-whois is not installed. "
-                "Add 'python-whois' to requirements.txt"
-            )
-            return False
-
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(WHOIS_SOCKET_TIMEOUT)
         try:
-            data = python_whois.whois(self.domain)
-
-            if data is None:
-                logger.debug(f"Empty WHOIS response for {self.domain}")
-                return False
-
-            has_data = bool(
-                data.registrar or data.expiration_date or data.creation_date
+            self.response = requests.get(
+                self.service_url + self.domain,
+                timeout=30,
             )
-            if not has_data:
-                logger.debug(f"No usable fields in WHOIS response for {self.domain}")
-                return False
-
-            self.whois_data = data
-            return True
-
-        except (socket.timeout, TimeoutError):
-            # Expected for unregistered / privacy-screened domains or
-            # rate-limited ccTLD WHOIS servers - not an application error.
-            logger.warning(
-                f"WHOIS connection timed out for {self.domain}"
+            if self.response.status_code == 200 and len(self.response.text) > 50:
+                return True
+            logger.debug(
+                f"WHOIS service returned status {self.response.status_code} "
+                f"for {self.domain}"
             )
             return False
-
         except Exception as exc:
-            logger.warning(
-                f"WHOIS lookup failed for {self.domain}: {exc}"
-            )
+            logger.warning(f"WHOIS lookup failed for {self.domain}: {exc}")
             return False
     
     def get_registrar(self):

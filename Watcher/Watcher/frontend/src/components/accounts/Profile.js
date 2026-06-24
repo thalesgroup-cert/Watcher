@@ -9,6 +9,8 @@ import 'react-resizable/css/styles.css';
 import { useTheme } from "../../contexts/ThemeContext";
 import { logout } from "../../actions/auth";
 import { createMessage } from "../../actions/messages";
+import { loadProfile, updateProfile } from "../../actions/profile";
+import UserAvatar from "../common/UserAvatar";
 import preferencesService from "../../services/preferencesService";
 import { LAYOUT_PRESETS, applyPreset, getActivePresetId } from "../../config/layoutPresets";
 
@@ -409,7 +411,7 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                                 Saved Layouts
                             </span>
                             {!showSaveInput ? (
-                                <Button variant="outline-primary" size="sm" onClick={() => setShowSaveInput(true)}>
+                                <Button variant="primary" size="sm" onClick={() => setShowSaveInput(true)}>
                                     <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>save</i>
                                     Save current
                                 </Button>
@@ -473,7 +475,7 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                                                         {isActive ? 'Applied' : 'Apply'}
                                                     </Button>
                                                     <Button
-                                                        variant="outline-danger"
+                                                        variant="danger"
                                                         size="sm"
                                                         onClick={() => handleDeleteSaved(saved.id)}
                                                         title="Delete"
@@ -495,7 +497,7 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                                 <i className="material-icons" style={{ fontSize: 18, color: '#607d8b' }}>tune</i>
                                 Drag &amp; resize to arrange
                             </span>
-                            <Button variant="outline-secondary" size="sm" onClick={handleResetToPreset}>
+                            <Button variant="secondary" size="sm" onClick={handleResetToPreset}>
                                 <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>undo</i>
                                 Restore active preset
                             </Button>
@@ -599,7 +601,7 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
             </Modal.Body>
 
             <Modal.Footer>
-                <Button variant="outline-danger" onClick={handleFullReset} className="me-auto">
+                <Button variant="danger" onClick={handleFullReset} className="me-auto">
                     <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>restore</i>
                     Reset to Default
                 </Button>
@@ -732,10 +734,18 @@ function ThemeCard({ themeKey, config, isActive, onSelect }) {
     );
 }
 
-function Profile({ user, logout, createMessage }) {
+const AVATAR_PALETTE = [
+    '#f44336', '#e91e63', '#9c27b0', '#673ab7',
+    '#3f51b5', '#2196f3', '#03a9f4', '#009688',
+    '#4caf50', '#ff9800', '#ff5722', '#795548',
+];
+
+function Profile({ user, profile, logout, createMessage, loadProfile, updateProfile }) {
     const { currentTheme, availableThemes, changeTheme } = useTheme();
     const [activeSection, setActiveSection] = useState('settings');
     const [helpOpen, setHelpOpen] = useState(false);
+
+    useEffect(() => { loadProfile(); }, []);
 
     const handleThemeChange = (themeKey) => {
         changeTheme(themeKey);
@@ -808,16 +818,20 @@ function Profile({ user, logout, createMessage }) {
                             </Card.Header>
                             <Card.Body className="p-4">
                                 {user && (
-                                    <Row className="align-items-start">
+                                    <>
+                                    <Row className="align-items-start mb-4">
                                         <Col xs="auto" className="me-3">
-                                            <div style={{
-                                                width: 72, height: 72, borderRadius: '50%',
-                                                background: 'linear-gradient(160deg, #052f84, #3584b4)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: 26, color: '#fff', fontWeight: 700, flexShrink: 0,
-                                            }}>
-                                                {initials}
-                                            </div>
+                                            {(!('avatar_color' in profile) || profile.isLoading) ? (
+                                                <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bs-secondary-bg, #dee2e6)', opacity: 0.5 }} />
+                                            ) : (
+                                                <UserAvatar
+                                                    username={user.username}
+                                                    firstName={user.first_name}
+                                                    lastName={user.last_name}
+                                                    avatarColor={profile.avatar_color}
+                                                    size={72}
+                                                />
+                                            )}
                                         </Col>
                                         <Col>
                                             <Row className="g-3">
@@ -856,6 +870,47 @@ function Profile({ user, logout, createMessage }) {
                                             </Row>
                                         </Col>
                                     </Row>
+
+                                    {/* Avatar color picker */}
+                                    <div className="border-top pt-3">
+                                        <label className="text-muted fw-semibold d-block mb-2" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                                            Avatar Color
+                                        </label>
+                                        <div className="d-flex flex-wrap gap-2 align-items-center">
+                                            {AVATAR_PALETTE.map(color => {
+                                                const isActive = profile.avatar_color === color;
+                                                return (
+                                                    <button
+                                                        key={color}
+                                                        title={color}
+                                                        onClick={() => updateProfile({ avatar_color: color })}
+                                                        style={{
+                                                            width: 28, height: 28, borderRadius: '50%',
+                                                            backgroundColor: color, border: 'none',
+                                                            cursor: 'pointer', padding: 0,
+                                                            boxShadow: isActive
+                                                                ? `0 0 0 3px var(--bs-body-bg), 0 0 0 5px ${color}`
+                                                                : 'none',
+                                                            transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                                                            transition: 'transform 0.15s, box-shadow 0.15s',
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                            {profile.avatar_color && (
+                                                <button
+                                                    title="Reset to auto"
+                                                    onClick={() => updateProfile({ avatar_color: null })}
+                                                    className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                                                    style={{ fontSize: '0.72rem' }}
+                                                >
+                                                    <i className="material-icons" style={{ fontSize: 13 }}>refresh</i>
+                                                    Auto
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    </>
                                 )}
                             </Card.Body>
                             <Card.Footer className="bg-transparent">
@@ -957,7 +1012,8 @@ Profile.propTypes = {
 };
 
 const mapStateToProps = state => ({
-    user: state.auth.user
+    user: state.auth.user,
+    profile: state.profile,
 });
 
-export default connect(mapStateToProps, { logout, createMessage })(Profile);
+export default connect(mapStateToProps, { logout, createMessage, loadProfile, updateProfile })(Profile);

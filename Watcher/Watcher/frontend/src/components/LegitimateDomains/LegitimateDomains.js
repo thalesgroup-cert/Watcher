@@ -5,6 +5,8 @@ import { Modal, Button, Container, Row, Col, Form, OverlayTrigger, Tooltip } fro
 import ExportModal from '../common/ExportModal';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal } from '../Timeline/TimelineModal';
+import UserAvatar, { displayName } from '../common/UserAvatar';
 import DayPickerInput from "react-day-picker/DayPickerInput";
 
 const formatDate = (date) => {
@@ -59,6 +61,8 @@ class LegitimateDomains extends Component {
             editCommentsLength: 0,
             addCommentsLength: 0,
             isLoading: true,
+            showTimelineModal: false,
+            timelineDomain: null,
         };
 
         this.editRefs = {
@@ -153,13 +157,13 @@ class LegitimateDomains extends Component {
     };
 
     displayEditModal = (domain) => {
-        this.setState({ 
-            showEditModal: true, 
-            editDomain: { ...domain }, 
+        this.setState({
+            showEditModal: true,
+            editDomain: { ...domain },
             expiry: domain.expiry ? new Date(domain.expiry) : null,
             domain_created_at: domain?.domain_created_at ? new Date(domain.domain_created_at) : null,
             ssl_expiry: domain?.ssl_expiry ? new Date(domain.ssl_expiry) : null,
-            editCommentsLength: domain?.comments ? domain.comments.length : 0
+            editCommentsLength: domain?.comments ? domain.comments.length : 0,
         }, () => {
             Object.keys(this.editRefs).forEach(k => {
                 if (this.editRefs[k].current) {
@@ -173,6 +177,8 @@ class LegitimateDomains extends Component {
     };
 
     displayDeleteModal = (id, domain_name) => this.setState({ showDeleteModal: true, deleteDomainId: id, deleteDomainName: domain_name });
+
+    displayTimelineModal = (domain) => this.setState({ showTimelineModal: true, timelineDomain: domain });
 
     displayAddModal = () => {
         this.setState({ showAddModal: true, newDomain: { ...INIT_DOMAIN }, expiry: null, domain_created_at: null, ssl_expiry: null, addCommentsLength: 0 }, () => {
@@ -388,7 +394,7 @@ class LegitimateDomains extends Component {
         };
 
         const { editDomain } = this.state;
-        
+
         return (
             <Modal show={this.state.showEditModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
@@ -540,6 +546,7 @@ class LegitimateDomains extends Component {
             </Modal>
         );
     };
+
 
     addModal = () => {
         const handleClose = () => this.setState({ 
@@ -755,7 +762,7 @@ class LegitimateDomains extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="10" className="text-center py-5">
+            <td colSpan="11" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>
@@ -870,6 +877,9 @@ class LegitimateDomains extends Component {
                                                             Comments
                                                         </th>
                                                     )}
+                                                    <th style={{ textAlign: 'center', width: 48, verticalAlign: 'middle' }} title="Last action by">
+                                                        <i className="material-icons" style={{ fontSize: 17, verticalAlign: 'middle', color: 'inherit' }}>account_circle</i>
+                                                    </th>
                                                     {canManage && <th />}
                                                 </tr>
                                             </thead>
@@ -878,7 +888,7 @@ class LegitimateDomains extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={canManage ? "10" : isAuthenticated ? "9" : "6"} className="text-center text-muted py-4">
+                                                        <td colSpan={canManage ? "11" : isAuthenticated ? "10" : "7"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -990,6 +1000,33 @@ class LegitimateDomains extends Component {
                                                                     )}
                                                                 </td>
                                                             )}
+                                                            {/* Last Action avatar */}
+                                                            {(() => {
+                                                                const ev = domain.last_event;
+                                                                if (!ev) return <td style={{ width: 48 }} />;
+                                                                const isAuto = !ev.username || ev.username === 'system';
+                                                                const d = new Date(ev.timestamp);
+                                                                const name = isAuto ? 'Watcher Auto' : displayName(ev.first_name, ev.last_name, ev.username);
+                                                                const tooltipText = `${name} · ${ev.action}\n${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                                                                return (
+                                                                    <td style={{ width: 48, textAlign: 'center', verticalAlign: 'middle' }}>
+                                                                        <OverlayTrigger placement="left" overlay={
+                                                                            <Tooltip style={{ whiteSpace: 'pre-line' }}>{tooltipText}</Tooltip>
+                                                                        }>
+                                                                            <span style={{ cursor: 'default' }}>
+                                                                                <UserAvatar
+                                                                                    username={isAuto ? 'W' : ev.username}
+                                                                                    firstName={isAuto ? 'Watcher' : ev.first_name}
+                                                                                    lastName={isAuto ? 'Auto' : ev.last_name}
+                                                                                    avatarColor={isAuto ? '#546e7a' : ev.avatar_color}
+                                                                                    size={28}
+                                                                                    tooltip={false}
+                                                                                />
+                                                                            </span>
+                                                                        </OverlayTrigger>
+                                                                    </td>
+                                                                );
+                                                            })()}
                                                             {canManage && (
                                                                 <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                                     <button className="btn btn-outline-primary btn-sm me-2" title="Export" onClick={() => this.displayExportModal(domain)}>
@@ -1000,6 +1037,9 @@ class LegitimateDomains extends Component {
                                                                     </button>
                                                                     <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.displayDeleteModal(domain.id, domain.domain_name)}>
                                                                         <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
+                                                                    </button>
+                                                                    <button className="btn btn-outline-secondary btn-sm" title="Timeline" onClick={() => this.displayTimelineModal(domain)}>
+                                                                        <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>history</i>
                                                                     </button>
                                                                 </td>
                                                             )}
@@ -1022,6 +1062,13 @@ class LegitimateDomains extends Component {
                 {this.editModal()}
                 {this.addModal()}
                 {this.deleteModal()}
+                <TimelineModal
+                    show={this.state.showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false, timelineDomain: null })}
+                    contentType="common.legitimatedomain"
+                    objectId={this.state.timelineDomain?.id}
+                    label={this.state.timelineDomain?.domain_name}
+                />
                 <ExportModal
                     show={this.state.showExportModal}
                     domain={this.state.exportDomain}

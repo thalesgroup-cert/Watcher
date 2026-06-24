@@ -299,7 +299,7 @@ export class WordList extends Component {
         const countryName = filterCountry ? (ISO2_TO_GEO[filterCountry] || filterCountry) : null;
 
         const authLinks = (id, name) => (
-            <button onClick={() => this.displayModal(id, name)} className="btn btn-outline-danger btn-sm">
+            <button onClick={() => this.displayModal(id, name)} className="btn btn-danger btn-sm">
                 Delete &amp; BlockList
             </button>
         );

@@ -317,3 +317,26 @@ class PerformanceAndSecurityTest(TestCase):
         site.legitimacy = 5
         site.save()
         self.assertEqual(site.legitimacy, 5)
+
+
+class SiteLastEventFieldTest(APITestCase):
+    """Test that the Site API exposes last_event=null when no TimelineEvents exist."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='sitelastevent', password='pass')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        Site.objects.create(domain_name='lastevent-site.com')
+
+    def test_site_last_event_null(self):
+        """GET /api/site_monitoring/site/ must include last_event=null when no timeline events."""
+        response = self.client.get('/api/site_monitoring/site/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data.get('results', list(response.data))
+        self.assertTrue(len(results) >= 1)
+        first = results[0]
+        self.assertIn('last_event', first)
+        last_event = first['last_event']
+        if last_event is not None:
+            self.assertIn('action', last_event)
+            self.assertIn('username', last_event)

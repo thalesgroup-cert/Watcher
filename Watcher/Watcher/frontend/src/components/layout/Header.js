@@ -4,6 +4,7 @@ import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { logout } from "../../actions/auth";
 import PendingActionsPanel from "./PendingActionsPanel";
+import UserAvatar, { displayName } from "../common/UserAvatar";
 
 
 
@@ -121,17 +122,10 @@ const HelpButton = ({ swaggerUrl, swaggerLabel }) => {
     );
 };
 
-const UserDropdown = ({ user, logout }) => {
+const UserDropdown = ({ user, avatarColor, logout }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const buttonRef = useRef(null);
     const menuRef = useRef(null);
-
-    const initials = user
-        ? ((user.first_name && user.last_name
-            ? `${user.first_name[0]}${user.last_name[0]}`
-            : (user.first_name || user.username || '?')[0]
-          ).toUpperCase())
-        : '?';
 
     const handleToggle = (e) => {
         e.preventDefault();
@@ -167,19 +161,18 @@ const UserDropdown = ({ user, logout }) => {
                 aria-haspopup="true" 
                 aria-expanded={isOpen}
             >
-                <span
-                    className="me-2 align-middle d-inline-flex align-items-center justify-content-center"
-                    style={{
-                        width: 24, height: 24, borderRadius: '50%',
-                        background: 'linear-gradient(160deg, #052f84, #3584b4)',
-                        color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0,
-                        lineHeight: 1, verticalAlign: 'middle',
-                    }}
-                >
-                    {initials}
+                <span className="me-2 align-middle d-inline-flex" style={{ verticalAlign: 'middle' }}>
+                    <UserAvatar
+                        username={user?.username || ''}
+                        firstName={user?.first_name || ''}
+                        lastName={user?.last_name || ''}
+                        avatarColor={avatarColor}
+                        size={24}
+                        tooltip={false}
+                    />
                 </span>
                 <span className="align-middle">
-                    {user ? `${user.first_name || user.username}` : "User"}
+                    {user ? displayName(user.first_name, user.last_name, user.username).split(' ')[0] : "User"}
                 </span>
             </button>
             <div ref={menuRef} className={`dropdown-menu dropdown-menu-end ${isOpen ? 'show' : ''}`}>
@@ -255,7 +248,7 @@ export class Header extends Component {
                     <PendingActionsPanel />
                 </li>
                 <li className="nav-item">
-                    <UserDropdown user={user} logout={this.props.logout} />
+                    <UserDropdown user={user} avatarColor={this.props.profile?.avatar_color} logout={this.props.logout} />
                 </li>
             </Fragment>
         );
@@ -353,8 +346,9 @@ export class Header extends Component {
 }
 
 const mapStateToProps = state => ({
-    auth:   state.auth,
-    config: state.config,
+    auth:    state.auth,
+    config:  state.config,
+    profile: state.profile,
 });
 
 export default withRouter(connect(mapStateToProps, { logout })(Header));

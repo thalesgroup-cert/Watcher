@@ -310,12 +310,12 @@ class PanelGrid extends Component {
                     </div>
                     <div className="card-body" style={{ fontSize: '0.93rem', lineHeight: 1.7 }}>
                         <ul className="mb-0 ps-3">
-                            <li><strong>Show / hide a panel</strong> — click its button in the toolbar (blue = visible, grey = hidden)</li>
-                            <li><strong>Move a panel</strong> — drag the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>drag_indicator</i> grip in the panel header</li>
-                            <li><strong>Resize a panel</strong> — drag the resize handle at the bottom-right corner</li>
-                            <li><strong>Minimize a panel</strong> — click the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>remove</i> button to collapse it to its header</li>
-                            <li><strong>Save Layout</strong> — saves your current arrangement under a name; Reset will then restore this saved layout</li>
-                            <li><strong>Reset Layout</strong> — restores to your saved layout (or the default preset if no save exists)</li>
+                            <li><strong>Show / hide a panel</strong> - click its button in the toolbar (blue = visible, grey = hidden)</li>
+                            <li><strong>Move a panel</strong> - drag the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>drag_indicator</i> grip in the panel header</li>
+                            <li><strong>Resize a panel</strong> - drag the resize handle at the bottom-right corner</li>
+                            <li><strong>Minimize a panel</strong> - click the <i className="material-icons align-middle" style={{ fontSize: '0.9rem' }}>remove</i> button to collapse it to its header</li>
+                            <li><strong>Save Layout</strong> - saves your current arrangement under a name; Reset will then restore this saved layout</li>
+                            <li><strong>Reset Layout</strong> - restores to your saved layout (or the default preset if no save exists)</li>
                             <li>Your layout is <strong>saved automatically</strong> to your account across all devices</li>
                         </ul>
                     </div>

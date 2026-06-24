@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericRelation
 from django_mysql.models import ListCharField
 
 class MISPEventUuidLink(models.Model):
@@ -66,16 +67,15 @@ class LegitimateDomain(models.Model):
     repurchased = models.BooleanField(default=False)
     comments = models.TextField(blank=True, null=True, max_length=300)
     misp_event_uuid = models.JSONField(blank=True, null=True, default=list)
-    
-    class Meta:
-        verbose_name = 'Legitimate Domain'
-        verbose_name_plural = 'Legitimate Domains'
-    
-    def __str__(self):
-        return self.domain_name
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='legitimatedomain')
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Legitimate Domain'
+        verbose_name_plural = 'Legitimate Domains'
+
+    def __str__(self):
+        return self.domain_name
 
 
 class PendingAction(models.Model):

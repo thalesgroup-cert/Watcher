@@ -300,18 +300,55 @@ class IntegrationTest(TestCase):
         self.assertFalse(DnsTwisted.objects.filter(id=twisted.id).exists())
 
 
+class LastEventFieldTest(APITestCase):
+    """Test that the last_event field is present and null when no TimelineEvents exist."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='dnslastevent', password='pass')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        DnsMonitored.objects.create(domain_name='lastevent-dns.com')
+        KeywordMonitored.objects.create(name='lastevent-keyword')
+
+    def test_dns_monitored_last_event_null(self):
+        """GET /api/dns_finder/dns_monitored/ must include last_event=null when no events."""
+        response = self.client.get('/api/dns_finder/dns_monitored/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data.get('results', list(response.data))
+        self.assertTrue(len(results) >= 1)
+        first = results[0]
+        self.assertIn('last_event', first)
+        last_event = first['last_event']
+        if last_event is not None:
+            self.assertIn('action', last_event)
+            self.assertIn('username', last_event)
+
+    def test_keyword_monitored_last_event_null(self):
+        """GET /api/dns_finder/keyword_monitored/ must include last_event=null when no events."""
+        response = self.client.get('/api/dns_finder/keyword_monitored/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data.get('results', list(response.data))
+        self.assertTrue(len(results) >= 1)
+        first = results[0]
+        self.assertIn('last_event', first)
+        last_event = first['last_event']
+        if last_event is not None:
+            self.assertIn('action', last_event)
+            self.assertIn('username', last_event)
+
+
 class PerformanceTest(TestCase):
     """Test performance and security."""
-    
+
     def test_bulk_operations_and_validation(self):
         """Test bulk operations performance."""
         start_time = timezone.now()
-        
+
         dns_list = [DnsMonitored(domain_name=f"perf-{i}.com") for i in range(10)]
         DnsMonitored.objects.bulk_create(dns_list)
-        
+
         end_time = timezone.now()
         duration = (end_time - start_time).total_seconds()
-        
+
         self.assertLess(duration, 2.0)
         self.assertEqual(DnsMonitored.objects.filter(domain_name__startswith="perf-").count(), 10)

@@ -58,14 +58,16 @@ class WatchRuleSerializer(serializers.ModelSerializer):
     """
     Serializer for Watch Rule objects.
     Monitoring rules that detect keywords in CVE descriptions or ransomware victim names.
-    Includes computed hit count for monitoring visibility.
+    Includes computed hit count and last timeline event for monitoring visibility.
     """
 
     hits_count = serializers.SerializerMethodField()
+    last_event  = serializers.SerializerMethodField()
 
     class Meta:
         model = WatchRule
-        fields = '__all__'
+        fields = ['id', 'name', 'keywords', 'exceptions', 'scope', 'is_active',
+                  'created_at', 'hits_count', 'last_event']
 
     def get_hits_count(self, obj):
         """
@@ -76,6 +78,30 @@ class WatchRuleSerializer(serializers.ModelSerializer):
         :rtype: int
         """
         return obj.hits.count()
+
+    def get_last_event(self, obj):
+        events = getattr(obj, '_timeline_events', None)
+        if events is not None:
+            event = events[0] if events else None
+        else:
+            event = obj.timeline_events.select_related('user__profile').first()
+        if not event:
+            return None
+        u = event.user
+        avatar_color = None
+        if u:
+            try:
+                avatar_color = u.profile.avatar_color or None
+            except Exception:
+                pass
+        return {
+            'username':    u.username if u else 'system',
+            'first_name':  u.first_name if u else '',
+            'last_name':   u.last_name if u else '',
+            'avatar_color': avatar_color,
+            'action':      event.action,
+            'timestamp':   event.timestamp,
+        }
 
     def validate(self, attrs):
         instance = self.instance

@@ -12,6 +12,7 @@ import LegitimateDomain from "./LegitimateDomain";
 import CyberWatch from "./CyberWatch";
 import WorldMap from "./WorldMap";
 import pendingActions from "./PendingActions";
+import timeline from "./Timeline";
 
 export default combineReducers({
     config,
@@ -23,6 +24,7 @@ export default combineReducers({
     CyberWatch,
     WorldMap,
     pendingActions,
+    timeline,
     errors,
     messages,
     auth,

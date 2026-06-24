@@ -79,7 +79,7 @@ def monitoring_init(site):
         print(str(timezone.now()) + " - " + "Init Monitoring: ", site.domain_name)
         check_content(site, alert, shadow_useragent)
 
-        if Site.objects.get(pk=site.pk).web_status is not None:
+        if Site.objects.filter(pk=site.pk, web_status__isnull=False).exists():
             check_ip(site, alert)
             check_mail(site, alert)
 

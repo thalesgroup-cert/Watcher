@@ -35,24 +35,10 @@ export default function (state = initialState, action) {
     switch (action.type) {
         case GET_SITES: {
             const newResults = action.payload.results || action.payload;
-            
-            if (!action.payload.results) {
-                return {
-                    ...state,
-                    sites: newResults,
-                    sitesCount: newResults.length,
-                    sitesNext: null,
-                    sitesPrevious: null
-                };
-            }
-            
-            const existingIds = new Set(state.sites.map(s => s.id));
-            const uniqueNewSites = newResults.filter(site => !existingIds.has(site.id));
-            
             return {
                 ...state,
-                sites: [...state.sites, ...uniqueNewSites].sort((a, b) => b.rtir - a.rtir),
-                sitesCount: action.payload.count || state.sitesCount,
+                sites: newResults.slice().sort((a, b) => b.rtir - a.rtir),
+                sitesCount: action.payload.count || newResults.length,
                 sitesNext: action.payload.next || null,
                 sitesPrevious: action.payload.previous || null
             };

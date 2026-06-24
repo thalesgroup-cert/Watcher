@@ -58,7 +58,7 @@ const THREATS_PRESETS = [
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Stats overview, word cloud and world map only — minimal distraction.',
+        description: 'Stats overview, word cloud and world map only - minimal distraction.',
         icon: 'crop_free',
         layout: [
             { i: 'stats', x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
@@ -88,7 +88,7 @@ const DNS_PRESETS = [
     {
         id: 'triage',
         name: 'Alert Triage',
-        description: 'Rapid alert review: stats, live alerts and monitored DNS — no archives.',
+        description: 'Rapid alert review: stats, live alerts and monitored DNS - no archives.',
         icon: 'warning',
         layout: [
             { i: 'stats',  x: 0, y: 0,  w: 12, h: 6,  minW: 6, minH: 3 },
@@ -113,7 +113,7 @@ const DNS_PRESETS = [
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Stats and live alerts only — stripped down.',
+        description: 'Stats and live alerts only - stripped down.',
         icon: 'crop_free',
         layout: [
             { i: 'stats',  x: 0, y: 0, w: 12, h: 8,  minW: 6, minH: 3 },
@@ -139,7 +139,7 @@ const SITE_PRESETS = [
     {
         id: 'tv',
         name: 'Stats Overview',
-        description: 'KPI dashboard only — ideal for wall screens.',
+        description: 'KPI dashboard only - ideal for wall screens.',
         icon: 'tv',
         layout: [
             { i: 'stats', x: 0, y: 0, w: 12, h: 16, minW: 6, minH: 3 },
@@ -177,7 +177,7 @@ const DATALEAK_PRESETS = [
     {
         id: 'triage',
         name: 'Alert Triage',
-        description: 'Stats and active alerts maximised — cut through the noise fast.',
+        description: 'Stats and active alerts maximised - cut through the noise fast.',
         icon: 'warning',
         layout: [
             { i: 'stats',  x: 0, y: 0, w: 12, h: 7,  minW: 6, minH: 3 },
@@ -232,7 +232,7 @@ const CYBERWATCH_PRESETS = [
     {
         id: 'config',
         name: 'Configuration',
-        description: 'Manage keywords, watch rules, sources and banned words — no alert review.',
+        description: 'Manage keywords, watch rules, sources and banned words - no alert review.',
         icon: 'tune',
         layout: [
             { i: 'stats',      x: 0, y: 0,  w: 12, h: 4,  minW: 6, minH: 4 },
@@ -246,7 +246,7 @@ const CYBERWATCH_PRESETS = [
     {
         id: 'review',
         name: 'Alert Review',
-        description: 'Stats and archived alerts only — focused on investigation.',
+        description: 'Stats and archived alerts only - focused on investigation.',
         icon: 'check_circle',
         layout: [
             { i: 'stats',    x: 0, y: 0, w: 12, h: 5,  minW: 6, minH: 4 },
@@ -257,7 +257,7 @@ const CYBERWATCH_PRESETS = [
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Statistics panel only — KPI at a glance.',
+        description: 'Statistics panel only - KPI at a glance.',
         icon: 'crop_free',
         layout: [
             { i: 'stats', x: 0, y: 0, w: 12, h: 8, minW: 6, minH: 4 },
@@ -282,7 +282,7 @@ const LEGIT_PRESETS = [
     {
         id: 'tv',
         name: 'Stats Overview',
-        description: 'KPI panel only — perfect for monitors and dashboards.',
+        description: 'KPI panel only - perfect for monitors and dashboards.',
         icon: 'tv',
         layout: [
             { i: 'stats', x: 0, y: 0, w: 12, h: 14, minW: 6, minH: 3 },

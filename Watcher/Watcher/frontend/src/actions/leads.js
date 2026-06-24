@@ -49,10 +49,8 @@ export const addBannedWord = word => (dispatch, getState) => {
         .post("/api/threats_watcher/bannedword/", word, tokenConfig(getState))
         .then(res => {
             dispatch(createMessage({add: `${word.name} added to the Blocklist`}));
-            dispatch({
-                type: ADD_BANNED_WORD,
-                payload: res.data
-            });
+            dispatch({ type: ADD_BANNED_WORD, payload: res.data });
+            dispatch(getBannedWords());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -77,6 +75,7 @@ export const addMonitoredKeyword = keyword => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ add: `"${keyword.name}" added to Monitored Keywords` }));
             dispatch({ type: ADD_MONITORED_KEYWORD, payload: res.data });
+            dispatch(getMonitoredKeywords());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))
@@ -116,6 +115,7 @@ export const patchMonitoredKeyword = (id, data) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ add: 'Monitored Keyword updated' }));
             dispatch({ type: PATCH_MONITORED_KEYWORD, payload: res.data });
+            dispatch(getMonitoredKeywords());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))
@@ -138,6 +138,7 @@ export const addSource = source => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ add: `Source "${source.url}" added` }));
             dispatch({ type: ADD_SOURCE, payload: res.data });
+            dispatch(getSources());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))
@@ -160,6 +161,7 @@ export const patchSource = (id, data) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ add: 'Source updated' }));
             dispatch({ type: PATCH_SOURCE, payload: res.data });
+            dispatch(getSources());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))
@@ -194,6 +196,7 @@ export const patchBannedWord = (id, data) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ add: 'Banned word updated' }));
             dispatch({ type: PATCH_BANNED_WORD, payload: res.data });
+            dispatch(getBannedWords());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))

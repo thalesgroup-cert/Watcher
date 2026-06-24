@@ -26,7 +26,7 @@ export default function(state = initialState, action) {
     switch (action.type) {
         case GET_LEGITIMATE_DOMAINS: {
             const newResults = action.payload.results || action.payload;
-            
+
             if (!action.payload.results) {
                 return {
                     ...state,
@@ -36,15 +36,14 @@ export default function(state = initialState, action) {
                     domainsPrevious: null
                 };
             }
-            
-            const existingIds = new Set(state.domains.map(d => d.id));
-            const uniqueNewDomains = newResults.filter(domain => !existingIds.has(domain.id));
-            
+
+            const newMap = new Map(newResults.map(d => [d.id, d]));
+            const merged = state.domains.map(d => newMap.has(d.id) ? newMap.get(d.id) : d);
+            newResults.forEach(d => { if (!newMap.has(d.id) || !state.domains.find(s => s.id === d.id)) merged.push(d); });
+
             return {
                 ...state,
-                domains: [...state.domains, ...uniqueNewDomains].sort((a, b) => 
-                    a.domain_name.localeCompare(b.domain_name)
-                ),
+                domains: merged.sort((a, b) => a.domain_name.localeCompare(b.domain_name)),
                 domainsCount: action.payload.count || state.domainsCount,
                 domainsNext: action.payload.next || null,
                 domainsPrevious: action.payload.previous || null

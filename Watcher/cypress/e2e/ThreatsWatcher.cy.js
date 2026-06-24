@@ -48,8 +48,18 @@ describe('Threats Watcher - E2E Test Suite', () => {
         next: null,
         previous: null,
         results: [
-          { id: 1, name: "test-spam", created_at: "2025-06-19T10:00:00Z" },
-          { id: 2, name: "e2e-advertisement", created_at: "2025-06-18T15:30:00Z" }
+          {
+            id: 1, name: "test-spam", created_at: "2025-06-19T10:00:00Z",
+            last_event: {
+              username: "admin",
+              first_name: "Admin",
+              last_name: "User",
+              avatar_color: "#2196f3",
+              action: "updated",
+              timestamp: "2026-06-24T14:30:00Z"
+            }
+          },
+          { id: 2, name: "e2e-advertisement", created_at: "2025-06-18T15:30:00Z", last_event: null }
         ]
       }
     }).as('getBannedWords');
@@ -282,10 +292,10 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer functionality', () => {
-      cy.contains('.card-header', 'Sources & Summary', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Trend & Sources', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
         .then(($card) => {
-          cy.log('Sources & Summary panel found');
+          cy.log('Trend & Sources panel found');
         });
     });
   });
@@ -464,7 +474,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
       cy.get('body').then(($body) => {
         const clearButtons = $body.find('button:contains("Clear"), button:contains("visited")');
         if (clearButtons.length > 0) {
-          cy.wrap(clearButtons.first()).should('exist');
+          cy.wrap(clearButtons.first()).should('be.visible');
           cy.log('Clear visited articles button found');
         } else {
           cy.log('Clear button not visible (may appear after word selection)');
@@ -496,7 +506,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
           cy.wrap(wordElements).click();
           cy.wait(500);
           
-          cy.contains('.card-header', 'Sources & Summary').closest('.card.h-100.shadow-sm').should('exist');
+          cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist');
         }
       });
     });
@@ -653,8 +663,8 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer divider interactions', () => {
-      cy.contains('.card-header', 'Sources & Summary').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
-        cy.log('Sources & Summary panel found - PanelGrid layout verified');
+      cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('Trend & Sources panel found - PanelGrid layout verified');
       });
     });
   });
@@ -871,6 +881,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     cy.log('Threats Watcher cleanup completed');
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
   describe('Statistics Dashboard (Carousel)', () => {
     it('should display the Statistics panel', () => {
       cy.contains('.card-header', 'Statistics', { timeout: 15000 })

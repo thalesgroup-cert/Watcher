@@ -201,13 +201,6 @@ def perform_single_rdap_lookup(domain):
         rdap = RDAPDiscovery(domain.domain_name)
 
         if not rdap.fetch_rdap_data():
-            if rdap.domain_not_registered:
-                logger.debug(
-                    f"{domain.domain_name} is not registered "
-                    f"(confirmed by RDAP) - skipping WHOIS"
-                )
-                return False
-
             return perform_single_whois_lookup(domain)
 
         registrar = rdap.get_registrar()

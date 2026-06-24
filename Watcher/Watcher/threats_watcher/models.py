@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericRelation
 import logging
 
 class Source(models.Model):
@@ -24,7 +25,16 @@ class Source(models.Model):
         blank=True,
         help_text="ISO 3166-1 alpha-2 country code (e.g. 'FR', 'US')"
     )
+    last_status_code = models.IntegerField(
+        null=True, blank=True,
+        help_text="HTTP status code returned during the last fetch attempt (e.g. 200, 404, SSL error → 0)"
+    )
+    last_checked = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Timestamp of the last fetch attempt"
+    )
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='source')
 
     def __str__(self):
         return self.url
@@ -89,6 +99,7 @@ class BannedWord(models.Model):
     """
     name = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='bannedword')
 
     def __str__(self):
         return self.name
@@ -189,6 +200,7 @@ class MonitoredKeyword(models.Model):
     posturls    = models.ManyToManyField(PostUrl, blank=True,
                                          help_text="RSS article URLs where this keyword was detected")
     created_at  = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='monitoredkeyword')
 
     class Meta:
         ordering = ['-occurrences', 'name']

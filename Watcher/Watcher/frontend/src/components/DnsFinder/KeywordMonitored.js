@@ -5,6 +5,7 @@ import { getKeywordMonitored, deleteKeywordMonitored, addKeywordMonitored, patch
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 export class KeywordMonitored extends Component {
 
@@ -14,6 +15,9 @@ export class KeywordMonitored extends Component {
             showDeleteModal: false,
             showEditModal: false,
             showAddModal: false,
+            showTimelineModal: false,
+            timelineId: null,
+            timelineLabel: '',
             id: 0,
             word: "",
             isLoading: true,
@@ -233,9 +237,11 @@ export class KeywordMonitored extends Component {
         const { isAuthenticated, user } = auth;
         const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'dns_finder.change_keywordmonitored' || p === 'dns_finder.delete_keywordmonitored')));
 
+        const { showTimelineModal, timelineId, timelineLabel } = this.state;
+
         const renderLoadingState = () => (
             <tr>
-                <td colSpan="3" className="text-center py-5">
+                <td colSpan="4" className="text-center py-5">
                     <div className="d-flex flex-column align-items-center">
                         <div className="spinner-border text-primary mb-3" role="status">
                             <span className="visually-hidden">Loading...</span>
@@ -301,6 +307,7 @@ export class KeywordMonitored extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At{renderSortIcons('created_at')}
                                                     </th>
+                                                    <LastEventHeader />
                                                     <th />
                                                 </tr>
                                             </thead>
@@ -309,7 +316,7 @@ export class KeywordMonitored extends Component {
                                                     renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="3" className="text-center text-muted py-4">
+                                                        <td colSpan="4" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -324,6 +331,7 @@ export class KeywordMonitored extends Component {
                                                                     type="created"
                                                                 />
                                                             </td>
+                                                            <LastEventCell event={keyword.last_event} />
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
                                                                 {canManage && (
                                                                     <>
@@ -337,13 +345,22 @@ export class KeywordMonitored extends Component {
                                                                             <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>edit</i>
                                                                         </button>
                                                                         <button
-                                                                            className="btn btn-outline-danger btn-sm"
+                                                                            className="btn btn-outline-danger btn-sm me-2"
                                                                             data-toggle="tooltip"
                                                                             data-placement="top"
                                                                             title="Delete"
                                                                             onClick={() => this.displayDeleteModal(keyword.id, keyword.name)}
                                                                         >
                                                                             <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>delete</i>
+                                                                        </button>
+                                                                        <button
+                                                                            className="btn btn-outline-secondary btn-sm"
+                                                                            data-toggle="tooltip"
+                                                                            data-placement="top"
+                                                                            title="History"
+                                                                            onClick={() => this.setState({ showTimelineModal: true, timelineId: keyword.id, timelineLabel: keyword.name })}
+                                                                        >
+                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>history</i>
                                                                         </button>
                                                                     </>
                                                                 )}
@@ -365,6 +382,13 @@ export class KeywordMonitored extends Component {
                 {this.deleteModal()}
                 {this.editModal()}
                 {this.addModal()}
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
+                    contentType="dns_finder.keywordmonitored"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }
