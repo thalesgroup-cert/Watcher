@@ -1,4 +1,7 @@
+import logging
 from rest_framework import serializers
+
+logger = logging.getLogger('watcher.site_monitoring')
 from django.conf import settings
 from django.utils import timezone
 import requests
@@ -143,15 +146,19 @@ class MISPSerializer(serializers.Serializer):
                         raise serializers.ValidationError(
                             {"event_uuid": "MISP event not found"}
                         )
-                except Exception as e:
+                except Exception:
+                    logger.exception("Error fetching MISP event for UUID %s", event_uuid)
                     raise serializers.ValidationError(
-                        {"event_uuid": f"Invalid MISP event UUID: {str(e)}"}
+                        {"event_uuid": "Invalid or unreachable MISP event UUID."}
                     )
 
             return data
-            
-        except Exception as e:
-            raise serializers.ValidationError(f"Validation error: {str(e)}")
+
+        except serializers.ValidationError:
+            raise
+        except Exception:
+            logger.exception("Unexpected validation error in Site Monitoring MISP serializer")
+            raise serializers.ValidationError("An internal error occurred during validation.")
 
     def save(self):
         """
@@ -201,8 +208,11 @@ class MISPSerializer(serializers.Serializer):
                 "status": "success"
             }
 
-        except Exception as e:
-            raise serializers.ValidationError(f"Error with MISP: {str(e)}")
+        except serializers.ValidationError:
+            raise
+        except Exception:
+            logger.exception("Unexpected error in Site Monitoring MISP serializer")
+            raise serializers.ValidationError("An internal error occurred while processing the MISP event.")
 
     @property
     def data(self):

@@ -1,4 +1,7 @@
+import logging
 from .models import Keyword, Alert
+
+logger = logging.getLogger('watcher.data_leak')
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -47,8 +50,9 @@ class KeywordViewSet(viewsets.ModelViewSet):
                 'newThisWeek':   Alert.objects.filter(created_at__gte=week_ago).count(),
                 'totalKeywords': Keyword.objects.count(),
             }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            logger.exception("Error computing Data Leak statistics")
+            return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # Alert Viewset

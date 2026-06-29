@@ -1,4 +1,7 @@
+import logging
 from .models import Site, Alert
+
+logger = logging.getLogger('watcher.site_monitoring')
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -72,10 +75,11 @@ class SiteViewSet(viewsets.ModelViewSet):
                         
             return Response(stats, status=status.HTTP_200_OK)
             
-        except Exception as e:
+        except Exception:
+            logger.exception("Error computing Site Monitoring statistics")
             return Response({
                 'status': 'error',
-                'message': f'Failed to calculate statistics: {str(e)}'
+                'message': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

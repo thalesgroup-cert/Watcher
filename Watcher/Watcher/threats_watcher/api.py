@@ -1,4 +1,7 @@
+import logging
 from rest_framework import viewsets, permissions, status
+
+logger = logging.getLogger('watcher.threats_watcher')
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
@@ -72,8 +75,9 @@ class SourceViewSet(viewsets.ModelViewSet):
                 'topWords':          top_words,
                 'dailyNew':          daily_new,
             }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            logger.exception("Error computing Threats Watcher statistics")
+            return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class TrendyWordViewSet(viewsets.ModelViewSet):
@@ -229,12 +233,11 @@ class SummaryViewSet(viewsets.ModelViewSet):
                     summary = generate_trendy_word_summary(trendy_word.id)
                 else:
                     summary = generate_keyword_summary_from_posturls(resolved_keyword, posts_qs)
-            except Exception as e:
+            except Exception:
                 logger.exception("Exception while generating summary for '%s'", keyword)
                 return Response({
                     'error': 'generation_exception',
                     'message': 'An exception occurred during summary generation.',
-                    'details': str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             if summary:
@@ -246,10 +249,9 @@ class SummaryViewSet(viewsets.ModelViewSet):
                     'posts_count': posts_count,
                     'valid_sources': valid_sources
                 }, status=status.HTTP_502_BAD_GATEWAY)
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected error in by_keyword for '%s'", keyword)
             return Response({
                 'error': 'generation_error',
                 'message': 'Unexpected error while processing keyword summary request.',
-                'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

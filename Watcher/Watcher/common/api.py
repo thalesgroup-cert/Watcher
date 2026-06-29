@@ -106,10 +106,11 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
             
             return Response(stats, status=status.HTTP_200_OK)
             
-        except Exception as e:
+        except Exception:
+            logger.exception("Error computing Common statistics")
             return Response({
                 'status': 'error',
-                'message': f'Failed to calculate statistics: {str(e)}'
+                'message': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='misp')
@@ -193,12 +194,11 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
                     'errors': serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-        except Exception as e:
-            logger.error(f"MISP export error for {domain.domain_name}: {str(e)}", exc_info=True)
-            
+        except Exception:
+            logger.exception(f"MISP export error for {domain.domain_name}")
             return Response({
                 'status': 'error',
-                'message': f'MISP export failed: {str(e)}'
+                'message': 'An internal error occurred during MISP export.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

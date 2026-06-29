@@ -1,4 +1,7 @@
+import logging
 from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored
+
+logger = logging.getLogger('watcher.dns_finder')
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -48,8 +51,9 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
                 'totalDnsMonitored': DnsMonitored.objects.count(),
                 'totalKeywords':    KeywordMonitored.objects.count(),
             }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            logger.exception("Error computing DNS Finder statistics")
+            return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # KeywordMonitored Viewset

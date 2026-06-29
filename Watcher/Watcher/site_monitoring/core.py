@@ -76,7 +76,7 @@ def monitoring_init(site):
     """
     if site.expiry is None or (site.expiry - timezone.now()) > timedelta(days=0):
         alert = 0
-        print(str(timezone.now()) + " - " + "Init Monitoring: ", site.domain_name)
+        logger.info(f"Init Monitoring: {site.domain_name}")
         check_content(site, alert, shadow_useragent)
 
         if Site.objects.filter(pk=site.pk, web_status__isnull=False).exists():
@@ -273,7 +273,7 @@ def monitoring_check():
 
     """
     close_old_connections()
-    print(str(timezone.now()) + " - CRON TASK : Suspicious Website Monitoring")
+    logger.info("CRON TASK : Suspicious Website Monitoring")
 
     sites = Site.objects.all()
 
@@ -284,7 +284,7 @@ def monitoring_check():
 
         if site.expiry is None or (site.expiry - timezone.now()) > timedelta(days=0):
 
-            print(str(timezone.now()) + " - " + "Monitoring: ", site.domain_name)
+            logger.info(f"Monitoring: {site.domain_name}")
 
             result = check_content(site, alert, shadow_useragent)
             alert = result[0]
@@ -343,7 +343,7 @@ def check_content(site, alert, ua):
                     fuzzy_hash = tlsh.hash(bytes(response.text, 'utf-8'))
                     Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash, web_status=200)
         else:
-            print(str(timezone.now()) + " - " + "Status code: ", str(response.status_code))
+            logger.warning(f"Status code: {response.status_code}")
             Site.objects.filter(pk=site.pk).update(web_status=response.status_code)
     except requests.exceptions.RequestException:
         try:
@@ -359,11 +359,11 @@ def check_content(site, alert, ua):
                         fuzzy_hash = tlsh.hash(bytes(response.text, 'utf-8'))
                         Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash, web_status=200)
             else:
-                print(str(timezone.now()) + " - " + "Status code: ", str(response.status_code))
+                logger.warning(f"Status code: {response.status_code}")
                 Site.objects.filter(pk=site.pk).update(web_status=response.status_code)
         except requests.exceptions.RequestException:
             Site.objects.filter(pk=site.pk).update(web_status=None)
-            print(str(timezone.now()) + " - ", site.domain_name, " is unreachable.")
+            logger.warning(f"{site.domain_name} is unreachable.")
 
     return alert, score
 
@@ -420,8 +420,7 @@ def check_ip(site, alert):
                 Site.objects.filter(pk=site.pk).update(ip_second=new_ip_second)
 
             if len(addrs) == 3:
-                print(str(timezone.now()) + " - ", "Found third ip (", addrs[2][4][0], ") for => ",
-                      str(site.domain_name))
+                logger.info(f"Found third ip ({addrs[2][4][0]}) for => {site.domain_name}")
 
         # Even if the new first/second ip are in the same subnet we change it in database
         if len(addrs) >= 1:

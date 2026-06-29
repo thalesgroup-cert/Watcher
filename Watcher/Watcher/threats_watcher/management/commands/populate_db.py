@@ -1,11 +1,13 @@
 from abc import ABC
-from django.utils import timezone
+import logging
 from threats_watcher.models import BannedWord, Source
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
 
 import csv
+
+logger = logging.getLogger('watcher')
 
 
 class Command(BaseCommand, ABC):
@@ -23,7 +25,7 @@ class Command(BaseCommand, ABC):
             for row in reader:
                 if not BannedWord.objects.filter(name=row['name']):
                     BannedWord.objects.create(name=row['name'])
-            print(str(timezone.now()) + " - Updated Blocklist.")
+            logger.info("Updated Blocklist.")
 
         # Init Source DB with common sources from CSV File
         with open('threats_watcher/datas/sources.csv', newline='', encoding='utf-8') as csvfile:
@@ -44,7 +46,7 @@ class Command(BaseCommand, ABC):
                     url=url,
                     defaults=defaults
                 )
-            print(str(timezone.now()) + " - Updated RSS Sources.")
+            logger.info("Updated RSS Sources.")
 
         # Init User Groups
         permissions = Permission.objects.all()
@@ -72,7 +74,7 @@ class Command(BaseCommand, ABC):
             analyst_group = Group.objects.create(name='Analysts Group')
             analyst_group.permissions.set(full_monitoring_permissions)
 
-            print(str(timezone.now()) + " - User Groups Created")
+            logger.info("User Groups Created")
 
     def handle(self, *args, **options):
         self._init_db()
