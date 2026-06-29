@@ -168,7 +168,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     cy.get('button[type="submit"], button:contains("Login")')
       .should('not.be.disabled').click();
     cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
-    cy.get('.navbar').should('exist');
+    cy.get('.navbar', { timeout: 15000 }).should('exist');
     cy.window().then((win) => {
       const token = win.localStorage.getItem('token') || win.sessionStorage.getItem('token');
       Cypress.env('authData', {
