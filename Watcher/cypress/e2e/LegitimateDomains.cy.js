@@ -572,6 +572,8 @@ describe('Legitimate Domains - E2E Test Suite', () => {
     });
 
     it('should clear filters with Reset to Default', () => {
+      cy.contains('Items per page').parent().find('select').select('10');
+
       cy.get('button:contains("Show Filters")').first().click();
       cy.get('input[placeholder*="Search"]').clear().type('watcher');
       cy.wait(500);
