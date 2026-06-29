@@ -292,7 +292,7 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer functionality', () => {
-      cy.contains('.card-header', 'Trend & Sources', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Sources & Summary', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
         .should('exist')
         .then(($card) => {
           cy.log('Trend & Sources panel found');
@@ -663,8 +663,8 @@ describe('Threats Watcher - E2E Test Suite', () => {
     });
 
     it('should verify ResizableContainer divider interactions', () => {
-      cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
-        cy.log('Trend & Sources panel found - PanelGrid layout verified');
+      cy.contains('.card-header', 'Sources & Summary').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
+        cy.log('Sources & Summary panel found - PanelGrid layout verified');
       });
     });
   });

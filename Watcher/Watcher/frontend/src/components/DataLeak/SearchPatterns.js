@@ -644,7 +644,8 @@ export class KeyWords extends Component {
                         renderPagination,
                         handleSort,
                         renderSortIcons,
-                        getTableContainerStyle
+                        getTableContainerStyle,
+                        theadRef
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
@@ -653,7 +654,7 @@ export class KeyWords extends Component {
                                 <div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(),  overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover">
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                                                         Name{renderSortIcons('name')}

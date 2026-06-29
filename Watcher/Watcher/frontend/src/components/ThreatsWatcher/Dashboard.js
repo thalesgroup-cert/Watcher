@@ -144,7 +144,7 @@ class Dashboard extends Component {
                 icon: 'list',
                 tooltip: 'Sortable list of trending words - filter by country, reliability, or monitored status',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <WordList
                             setPostUrls={this.setPostUrls}
                             selectedWord={this.state.selectedWord}
@@ -163,7 +163,7 @@ class Dashboard extends Component {
                 icon: 'link',
                 tooltip: 'Source articles and word summary for the selected keyword',
                 children: word ? (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <ResizableContainer
                             leftComponent={<WordSummary word={word} />}
                             rightComponent={<PostUrls postUrls={postUrls} word={word} />}
@@ -223,7 +223,7 @@ class Dashboard extends Component {
                 icon: 'lock',
                 tooltip: 'Recent ransomware victim organizations tracked from public leak sites',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <RansomwareVictims
                             filterCountry={selectedMapCountry}
                             onCountrySelect={this.handleCountrySelect}
@@ -238,7 +238,7 @@ class Dashboard extends Component {
                 icon: 'bug_report',
                 tooltip: 'Recent CVE vulnerabilities with matches to watch rules and all tracked CVEs',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <CVEVulnerabilities />
                     </div>
                 ),

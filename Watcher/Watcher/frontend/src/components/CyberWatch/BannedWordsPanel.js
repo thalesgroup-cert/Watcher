@@ -131,14 +131,14 @@ class BannedWordsPanel extends Component {
                     moduleKey="cyberWatch_bannedWords"
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('name')}>Word {renderSortIcons('name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('created_at')}>Added {renderSortIcons('created_at')}</th>

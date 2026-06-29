@@ -262,14 +262,14 @@ class SourcesPanel extends Component {
                     moduleKey="cyberWatch_sources"
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('url')}>URL {renderSortIcons('url')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('country_code')}>Country {renderSortIcons('country_code')}</th>

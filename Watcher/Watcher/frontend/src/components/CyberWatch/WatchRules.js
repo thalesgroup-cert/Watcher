@@ -304,7 +304,7 @@ class WatchRules extends Component {
                         moduleKey="cyberWatch_watchRules"
                     >
                         {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                            renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                            renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                             <Fragment>
                                 {renderFilterControls()}
                                 {renderFilters()}
@@ -312,7 +312,7 @@ class WatchRules extends Component {
                                 <div className="row"><div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th role="button" onClick={() => handleSort('name')}>Name {renderSortIcons('name')}</th>
                                                     <th>Keywords</th>

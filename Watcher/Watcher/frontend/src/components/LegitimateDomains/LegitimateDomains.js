@@ -813,28 +813,29 @@ class LegitimateDomains extends Component {
                     moduleKey="legitimateDomains_list"
                     itemsPerPage={5}
                 >
-                    {({ 
-                        paginatedData, 
-                        handleSort, 
-                        renderSortIcons, 
-                        renderFilters, 
-                        renderPagination, 
+                    {({
+                        paginatedData,
+                        handleSort,
+                        renderSortIcons,
+                        renderFilters,
+                        renderPagination,
                         renderItemsInfo,
                         renderFilterControls,
                         renderSaveModal,
-                        getTableContainerStyle
+                        getTableContainerStyle,
+                        theadRef
                     }) => {
                         return (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
-                            
+
                             <div className="row">
                                 <div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(),  overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover">
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name

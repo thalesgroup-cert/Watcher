@@ -297,7 +297,8 @@ class CVEVulnerabilities extends Component {
                             renderItemsInfo,
                             renderFilterControls,
                             renderSaveModal,
-                            getTableContainerStyle
+                            getTableContainerStyle,
+                            theadRef
                         }) => (
                             <Fragment>
                                 {renderFilterControls()}
@@ -307,7 +308,7 @@ class CVEVulnerabilities extends Component {
                                     <div className="col-lg-12">
                                         <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                             <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                                <thead>
+                                                <thead ref={theadRef}>
                                                     <tr>
                                                         <th role="button" onClick={() => handleSort('rule_name')}>
                                                             Rule {renderSortIcons('rule_name')}
@@ -412,7 +413,8 @@ class CVEVulnerabilities extends Component {
                             renderItemsInfo,
                             renderFilterControls,
                             renderSaveModal,
-                            getTableContainerStyle
+                            getTableContainerStyle,
+                            theadRef
                         }) => (
                             <Fragment>
                                 {renderFilterControls()}
@@ -422,7 +424,7 @@ class CVEVulnerabilities extends Component {
                                     <div className="col-lg-12">
                                         <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                             <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                                <thead>
+                                                <thead ref={theadRef}>
                                                     <tr>
                                                         <th role="button" onClick={() => handleSort('cve_id')}>
                                                             CVE ID {renderSortIcons('cve_id')}

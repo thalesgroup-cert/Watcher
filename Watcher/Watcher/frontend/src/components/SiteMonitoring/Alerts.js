@@ -355,14 +355,15 @@ export class Alerts extends Component {
                     renderItemsInfo,
                     renderPagination,
                     handleSort,
-                    renderSortIcons
+                    renderSortIcons,
+                    theadRef
                 }) => (
                     <Fragment>
                         {renderItemsInfo()}
 
                         <div style={{ maxHeight: '400px', overflowX: 'auto' }}>
                             <table className="table table-striped table-hover">
-                                <thead>
+                                <thead ref={theadRef}>
                                     <tr style={{ fontSize: "16px" }}>
                                         <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
                                             ID{renderSortIcons('id')}

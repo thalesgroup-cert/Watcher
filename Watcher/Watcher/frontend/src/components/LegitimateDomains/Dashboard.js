@@ -81,7 +81,7 @@ class Dashboard extends Component {
                 label: 'Legitimate Domains',
                 icon: 'domain',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <LegitimateDomains onDataFiltered={this.onDataFiltered} />
                     </div>
                 ),

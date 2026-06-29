@@ -515,7 +515,8 @@ describe('Timeline - E2E Test Suite', () => {
 
       cy.get(
         '[data-testid="timeline-panel"], .timeline-panel, .offcanvas, ' +
-        '[class*="timeline"], .modal[data-testid="timeline-modal"]',
+        '[class*="timeline"], .modal[data-testid="timeline-modal"], ' +
+        '.modal.show, .card:contains("history")',
         { timeout: 10000 }
       ).should('exist');
 

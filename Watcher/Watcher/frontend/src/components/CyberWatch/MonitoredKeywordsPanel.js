@@ -215,14 +215,14 @@ class MonitoredKeywordsPanel extends Component {
                     moduleKey="cyberWatch_monitoredKeywords"
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('name')}>Keyword {renderSortIcons('name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('level')}>Level {renderSortIcons('level')}</th>
@@ -358,14 +358,14 @@ class MonitoredKeywordsPanel extends Component {
                                     moduleKey="cyberWatch_mkSources"
                                 >
                                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                                         <Fragment>
                                             {renderFilterControls()}
                                             {renderFilters()}
                                             {renderItemsInfo()}
                                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                                 <table className="table table-striped table-hover mb-0">
-                                                    <thead>
+                                                    <thead ref={theadRef}>
                                                         <tr>
                                                             <th role="button" onClick={() => handleSort('domainName')}>Domain {renderSortIcons('domainName')}</th>
                                                             <th>URL</th>

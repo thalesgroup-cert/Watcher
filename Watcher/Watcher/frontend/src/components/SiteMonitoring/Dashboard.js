@@ -205,7 +205,7 @@ class Dashboard extends Component {
                 label: 'Suspicious Websites Monitored',
                 icon: 'link',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <TableManager
                             data={sites}
                             filterConfig={filterConfig}

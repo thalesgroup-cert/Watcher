@@ -355,7 +355,8 @@ export class MonitoredKeywords extends Component {
                                 renderItemsInfo,
                                 renderFilterControls,
                                 renderSaveModal,
-                                getTableContainerStyle
+                                getTableContainerStyle,
+                                theadRef
                             }) => (
                                 <Fragment>
                                     {renderFilterControls()}
@@ -363,7 +364,7 @@ export class MonitoredKeywords extends Component {
                                     {renderItemsInfo()}
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover mb-0">
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th role="button" onClick={() => handleSort('domainName')}>
                                                         Domain {renderSortIcons('domainName')}
@@ -501,7 +502,8 @@ export class MonitoredKeywords extends Component {
                                     renderItemsInfo,
                                     renderFilterControls,
                                     renderSaveModal,
-                                    getTableContainerStyle
+                                    getTableContainerStyle,
+                                    theadRef
                                 }) => (
                                     <Fragment>
                                         {renderFilterControls()}
@@ -511,7 +513,7 @@ export class MonitoredKeywords extends Component {
                                             <div className="col-lg-12">
                                                 <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                                     <table className="table table-striped table-hover mb-0">
-                                                        <thead>
+                                                        <thead ref={theadRef}>
                                                             <tr>
                                                                 <th role="button" onClick={() => handleSort('name')}>
                                                                     Keyword {renderSortIcons('name')}

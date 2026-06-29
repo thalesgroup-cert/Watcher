@@ -368,7 +368,8 @@ export class WordList extends Component {
                         renderItemsInfo,
                         renderFilterControls,
                         renderSaveModal,
-                        getTableContainerStyle
+                        getTableContainerStyle,
+                        theadRef
                     }) => (
                         <Fragment>
                             {renderFilterControls()}
@@ -379,7 +380,7 @@ export class WordList extends Component {
                                 <div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(),  overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th className="user-select-none" role="button" onClick={() => handleSort('name')}>
                                                         Name

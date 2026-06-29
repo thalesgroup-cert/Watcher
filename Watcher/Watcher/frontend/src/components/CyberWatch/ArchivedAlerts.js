@@ -88,7 +88,7 @@ class ArchivedAlerts extends Component {
                 moduleKey="cyberWatch_archivedCVEs"
             >
                 {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                     <Fragment>
                         {renderFilterControls()}
                         {renderFilters()}
@@ -96,7 +96,7 @@ class ArchivedAlerts extends Component {
                         <div className="row"><div className="col-lg-12">
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('cve_id')}>CVE ID {renderSortIcons('cve_id')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('severity')}>Severity {renderSortIcons('severity')}</th>
@@ -203,7 +203,7 @@ class ArchivedAlerts extends Component {
                 moduleKey="cyberWatch_archivedHits"
             >
                 {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                     <Fragment>
                         {renderFilterControls()}
                         {renderFilters()}
@@ -211,7 +211,7 @@ class ArchivedAlerts extends Component {
                         <div className="row"><div className="col-lg-12">
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('rule_name')}>Rule {renderSortIcons('rule_name')}</th>
                                             <th role="button" onClick={() => handleSort('hit_type')}>Type {renderSortIcons('hit_type')}</th>
@@ -289,7 +289,7 @@ class ArchivedAlerts extends Component {
                 moduleKey="cyberWatch_archivedVictims"
             >
                 {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                     <Fragment>
                         {renderFilterControls()}
                         {renderFilters()}
@@ -297,7 +297,7 @@ class ArchivedAlerts extends Component {
                         <div className="row"><div className="col-lg-12">
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('victim_name')}>Victim {renderSortIcons('victim_name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('group_name')}>Group {renderSortIcons('group_name')}</th>
