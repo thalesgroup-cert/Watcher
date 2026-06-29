@@ -27,6 +27,15 @@
     </a>
 </p>
 
+<p align="center">
+    <a href="https://trendshift.io/repositories/15680?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-15680" target="_blank" rel="noopener noreferrer">
+        <img src="https://trendshift.io/api/badge/repositories/15680" alt="thalesgroup-cert/Watcher | Trendshift" width="250" height="55"/>
+    </a>
+    <a href="https://trendshift.io/repositories/15680?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-15680" target="_blank" rel="noopener noreferrer">
+        <img src="https://trendshift.io/api/badge/trendshift/repositories/15680/daily?language=JavaScript" alt="thalesgroup-cert/Watcher | Trendshift" width="250" height="55"/>
+    </a>
+</p>
+
 Watcher is a Django & React JS platform designed to discover and monitor emerging cybersecurity threats with **AI-powered threat intelligence analysis**. It can be deployed on webservers or quickly run via Docker.
 
 ## Watcher Capabilities
