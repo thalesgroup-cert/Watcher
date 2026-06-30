@@ -31,6 +31,7 @@ class WatcherOIDCBackend(OIDCAuthenticationBackend):
         return user
 
     def _update_user_fields(self, user, claims):
+        logger.info('OIDC claims received for %s: %s', user.username, claims)
         user.first_name = claims.get('given_name', claims.get('name', '')).split()[0] if claims.get('given_name') or claims.get('name') else ''
         user.last_name = claims.get('family_name', '')
         email = claims.get('email', '')
