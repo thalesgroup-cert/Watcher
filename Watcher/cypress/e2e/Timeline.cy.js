@@ -1082,22 +1082,6 @@ describe('Timeline - E2E Test Suite', () => {
       cy.url().should('include', '/cyber_watch');
     });
 
-    it('should open timeline panel from monitored keyword history button', () => {
-      cy.get('body', { timeout: 15000 }).invoke('text').should('include', 'log4j');
-
-      cy.get('body').contains('log4j').parents('tr').within(() => {
-        cy.get('button[title="History"]').click({ force: true });
-      });
-
-      cy.get(
-        '[data-testid="timeline-panel"], .timeline-panel, .offcanvas, ' +
-        '[class*="timeline"], .modal',
-        { timeout: 10000 }
-      ).should('exist');
-
-      cy.log('Timeline panel opened from CyberWatch Monitored Keywords');
-    });
-
     it('should display timeline events for a monitored keyword', () => {
       cy.get('body').contains('log4j').parents('tr').within(() => {
         cy.get('button[title="History"]').click({ force: true });
