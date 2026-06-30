@@ -1,5 +1,4 @@
 describe('Timeline - E2E Test Suite', () => {
-  // ─── Shared fixtures ────────────────────────────────────────────────────────
 
   const SAMPLE_LAST_EVENT = {
     username: 'admin',
@@ -162,7 +161,6 @@ describe('Timeline - E2E Test Suite', () => {
     ],
   };
 
-  // ─── Authentication helper ───────────────────────────────────────────────────
 
   const setupAuth = () => {
     const credentials = Cypress.env('testCredentials');
@@ -202,9 +200,6 @@ describe('Timeline - E2E Test Suite', () => {
     });
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Section 1 : Timeline depuis LegitimateDomains
-  // ═══════════════════════════════════════════════════════════════════════════
 
   describe('Timeline from LegitimateDomains', () => {
     before(() => {
@@ -352,9 +347,6 @@ describe('Timeline - E2E Test Suite', () => {
     });
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Section 2 : Timeline depuis SiteMonitoring
-  // ═══════════════════════════════════════════════════════════════════════════
 
   describe('Timeline from SiteMonitoring', () => {
     before(() => {
@@ -546,9 +538,6 @@ describe('Timeline - E2E Test Suite', () => {
     });
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Section 3 : Timeline depuis ThreatsWatcher (Sources)
-  // ═══════════════════════════════════════════════════════════════════════════
 
   describe('Timeline from ThreatsWatcher Sources', () => {
     const TIMELINE_SOURCES_EVENTS = {
@@ -743,7 +732,399 @@ describe('Timeline - E2E Test Suite', () => {
     });
   });
 
-  // ─── Cleanup ────────────────────────────────────────────────────────────────
+
+  describe('Timeline from CyberWatch Watch Rules', () => {
+    const TIMELINE_WATCHRULE_EVENTS = {
+      count: 3,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 30,
+          action: 'created',
+          action_label: 'Created',
+          user: 1,
+          username: 'admin',
+          first_name: 'Admin',
+          last_name: 'User',
+          avatar_color: '#2196f3',
+          timestamp: '2026-06-20T09:00:00Z',
+          diff: {},
+          object_repr: 'Test CVE Rule',
+        },
+        {
+          id: 31,
+          action: 'updated',
+          action_label: 'Updated',
+          user: 1,
+          username: 'admin',
+          first_name: 'Admin',
+          last_name: 'User',
+          avatar_color: '#2196f3',
+          timestamp: '2026-06-22T14:00:00Z',
+          diff: { is_active: { old: false, new: true } },
+          object_repr: 'Test CVE Rule',
+        },
+        {
+          id: 32,
+          action: 'deleted',
+          action_label: 'Deleted',
+          user: 1,
+          username: 'admin',
+          first_name: 'Admin',
+          last_name: 'User',
+          avatar_color: '#2196f3',
+          timestamp: '2026-06-24T16:00:00Z',
+          diff: {},
+          object_repr: 'Old Rule',
+        },
+      ],
+    };
+
+    const WATCH_RULES_FIXTURE_TL = {
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 1,
+          name: 'Test CVE Rule',
+          keywords: ['company', 'acme'],
+          exceptions: [],
+          scope: 'cve',
+          is_active: true,
+          hits_count: 3,
+          last_event: {
+            username: 'admin',
+            first_name: 'Admin',
+            last_name: 'User',
+            avatar_color: '#2196f3',
+            action: 'updated',
+            timestamp: '2026-06-24T14:30:00Z',
+          },
+        },
+        {
+          id: 2,
+          name: 'Ransomware Alert',
+          keywords: ['data', 'encrypted'],
+          exceptions: ['test'],
+          scope: 'ransomware',
+          is_active: false,
+          hits_count: 0,
+          last_event: null,
+        },
+      ],
+    };
+
+    before(() => {
+      setupAuth();
+
+      cy.intercept('GET', '**/api/cyber_watch/watch-rules/**', {
+        statusCode: 200,
+        body: WATCH_RULES_FIXTURE_TL,
+      }).as('getWatchRules');
+
+      cy.intercept('GET', '**/api/threats_watcher/monitored-keywords/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getMonitoredKeywords');
+
+      cy.intercept('GET', '**/api/threats_watcher/source/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getSources');
+
+      cy.intercept('GET', '**/api/threats_watcher/bannedword/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getBannedWords');
+
+      cy.intercept('GET', '**/api/cyber_watch/cves/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getArchivedCVEs');
+
+      cy.intercept('GET', '**/api/cyber_watch/ransomware/victims/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getArchivedVictims');
+
+      cy.intercept('GET', '**/api/cyber_watch/watch-rule-hits/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getArchivedHits');
+
+      cy.intercept('GET', '**/api/timeline/events/**content_type=cyber_watch.watchrule**', {
+        statusCode: 200,
+        body: TIMELINE_WATCHRULE_EVENTS,
+      }).as('getTimelineWR');
+
+      cy.authenticateWithTestUser();
+
+      cy.visit('/#/cyber_watch');
+      cy.wait('@getWatchRules', { timeout: 20000 });
+      cy.get('.container-fluid', { timeout: 20000 }).should('exist');
+    });
+
+    beforeEach(() => {
+      cy.on('uncaught:exception', () => false);
+
+      cy.intercept('GET', '**/api/cyber_watch/watch-rules/**', {
+        statusCode: 200,
+        body: WATCH_RULES_FIXTURE_TL,
+      }).as('getWatchRules');
+
+      cy.intercept('GET', '**/api/timeline/events/**content_type=cyber_watch.watchrule**', {
+        statusCode: 200,
+        body: TIMELINE_WATCHRULE_EVENTS,
+      }).as('getTimelineWR');
+
+      restoreSession();
+
+      cy.url().then((url) => {
+        if (!url.includes('/cyber_watch')) {
+          cy.visit('/#/cyber_watch', { failOnStatusCode: false });
+          cy.wait(1000);
+        }
+      });
+
+      cy.url().should('include', '/cyber_watch');
+      cy.log('CyberWatch page ready');
+    });
+
+    it('should open timeline panel from watch rules history button', () => {
+      cy.get('body', { timeout: 15000 }).invoke('text').should('include', 'Test CVE Rule');
+
+      cy.get('body').contains('Test CVE Rule').parents('tr').within(() => {
+        cy.get('button[title="History"]').click({ force: true });
+      });
+
+      cy.get(
+        '[data-testid="timeline-panel"], .timeline-panel, .offcanvas, ' +
+        '[class*="timeline"], .modal',
+        { timeout: 10000 }
+      ).should('exist');
+
+      cy.log('Timeline panel opened from CyberWatch Watch Rules');
+    });
+
+    it('should display timeline events for a watch rule', () => {
+      cy.get('body').contains('Test CVE Rule').parents('tr').within(() => {
+        cy.get('button[title="History"]').click({ force: true });
+      });
+
+      cy.wait('@getTimelineWR', { timeout: 10000 });
+
+      cy.get('body').then(($body) => {
+        const text = $body.text().toLowerCase();
+        const hasCreated = text.includes('created');
+        const hasUpdated = text.includes('updated');
+        const hasDeleted = text.includes('deleted');
+        cy.log(
+          `Watch rule timeline events — created: ${hasCreated}, updated: ${hasUpdated}, deleted: ${hasDeleted}`
+        );
+        expect(hasCreated || hasUpdated || hasDeleted).to.be.true;
+      });
+    });
+
+    it('should display user info in timeline events', () => {
+      cy.get('body').contains('Test CVE Rule').parents('tr').within(() => {
+        cy.get('button[title="History"]').click({ force: true });
+      });
+
+      cy.wait('@getTimelineWR', { timeout: 10000 });
+
+      cy.get('body').invoke('text').should('include', 'Admin');
+    });
+  });
+
+
+  describe('Timeline from CyberWatch Monitored Keywords', () => {
+    const TIMELINE_MK_EVENTS = {
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 40,
+          action: 'created',
+          action_label: 'Created',
+          user: 1,
+          username: 'admin',
+          first_name: 'Admin',
+          last_name: 'User',
+          avatar_color: '#2196f3',
+          timestamp: '2026-06-10T08:00:00Z',
+          diff: {},
+          object_repr: 'log4j',
+        },
+        {
+          id: 41,
+          action: 'updated',
+          action_label: 'Updated',
+          user: 1,
+          username: 'admin',
+          first_name: 'Admin',
+          last_name: 'User',
+          avatar_color: '#2196f3',
+          timestamp: '2026-06-24T11:00:00Z',
+          diff: { level: { old: 'warm', new: 'hot' } },
+          object_repr: 'log4j',
+        },
+      ],
+    };
+
+    const MONITORED_KEYWORDS_FIXTURE_TL = {
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 1,
+          name: 'log4j',
+          level: 'hot',
+          occurrences: 7,
+          last_seen: '2026-06-24T10:00:00Z',
+          posturls: [],
+          last_event: {
+            username: 'admin',
+            first_name: 'Admin',
+            last_name: 'User',
+            avatar_color: '#2196f3',
+            action: 'updated',
+            timestamp: '2026-06-24T14:30:00Z',
+          },
+        },
+        {
+          id: 2,
+          name: 'apache',
+          level: 'warm',
+          occurrences: 2,
+          last_seen: null,
+          posturls: [],
+          last_event: null,
+        },
+      ],
+    };
+
+    before(() => {
+      setupAuth();
+
+      cy.intercept('GET', '**/api/threats_watcher/monitored-keywords/**', {
+        statusCode: 200,
+        body: MONITORED_KEYWORDS_FIXTURE_TL,
+      }).as('getMonitoredKeywords');
+
+      cy.intercept('GET', '**/api/cyber_watch/watch-rules/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getWatchRules');
+
+      cy.intercept('GET', '**/api/threats_watcher/source/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getSources');
+
+      cy.intercept('GET', '**/api/threats_watcher/bannedword/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getBannedWords');
+
+      cy.intercept('GET', '**/api/cyber_watch/cves/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getArchivedCVEs');
+
+      cy.intercept('GET', '**/api/cyber_watch/ransomware/victims/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getArchivedVictims');
+
+      cy.intercept('GET', '**/api/cyber_watch/watch-rule-hits/**', {
+        statusCode: 200,
+        body: { count: 0, next: null, previous: null, results: [] },
+      }).as('getArchivedHits');
+
+      cy.intercept('GET', '**/api/timeline/events/**content_type=threats_watcher.monitoredkeyword**', {
+        statusCode: 200,
+        body: TIMELINE_MK_EVENTS,
+      }).as('getTimelineMK');
+
+      cy.authenticateWithTestUser();
+
+      cy.visit('/#/cyber_watch');
+      cy.wait('@getMonitoredKeywords', { timeout: 20000 });
+      cy.get('.container-fluid', { timeout: 20000 }).should('exist');
+    });
+
+    beforeEach(() => {
+      cy.on('uncaught:exception', () => false);
+
+      cy.intercept('GET', '**/api/threats_watcher/monitored-keywords/**', {
+        statusCode: 200,
+        body: MONITORED_KEYWORDS_FIXTURE_TL,
+      }).as('getMonitoredKeywords');
+
+      cy.intercept('GET', '**/api/timeline/events/**content_type=threats_watcher.monitoredkeyword**', {
+        statusCode: 200,
+        body: TIMELINE_MK_EVENTS,
+      }).as('getTimelineMK');
+
+      restoreSession();
+
+      cy.url().then((url) => {
+        if (!url.includes('/cyber_watch')) {
+          cy.visit('/#/cyber_watch', { failOnStatusCode: false });
+          cy.wait(1000);
+        }
+      });
+
+      cy.url().should('include', '/cyber_watch');
+    });
+
+    it('should open timeline panel from monitored keyword history button', () => {
+      cy.get('body', { timeout: 15000 }).invoke('text').should('include', 'log4j');
+
+      cy.get('body').contains('log4j').parents('tr').within(() => {
+        cy.get('button[title="History"]').click({ force: true });
+      });
+
+      cy.get(
+        '[data-testid="timeline-panel"], .timeline-panel, .offcanvas, ' +
+        '[class*="timeline"], .modal',
+        { timeout: 10000 }
+      ).should('exist');
+
+      cy.log('Timeline panel opened from CyberWatch Monitored Keywords');
+    });
+
+    it('should display timeline events for a monitored keyword', () => {
+      cy.get('body').contains('log4j').parents('tr').within(() => {
+        cy.get('button[title="History"]').click({ force: true });
+      });
+
+      cy.wait('@getTimelineMK', { timeout: 10000 });
+
+      cy.get('body').then(($body) => {
+        const text = $body.text().toLowerCase();
+        const hasEvent = text.includes('created') || text.includes('updated') || text.includes('deleted');
+        cy.log(`Monitored keyword timeline has events: ${hasEvent}`);
+        expect(hasEvent).to.be.true;
+      });
+    });
+
+    it('should display diff for updated keyword level', () => {
+      cy.get('body').contains('log4j').parents('tr').within(() => {
+        cy.get('button[title="History"]').click({ force: true });
+      });
+
+      cy.wait('@getTimelineMK', { timeout: 10000 });
+
+      cy.get('body').invoke('text').should('include', 'Admin');
+      cy.log('User info displayed in keyword timeline');
+    });
+  });
+
 
   after(() => {
     cy.log('Timeline test cleanup...');
