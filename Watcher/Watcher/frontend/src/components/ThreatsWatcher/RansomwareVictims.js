@@ -327,6 +327,7 @@ class RansomwareVictims extends Component {
                             renderFilterControls,
                             renderSaveModal,
                             getTableContainerStyle,
+                            theadRef,
                         }) => (
                             <Fragment>
                                 {renderFilterControls()}
@@ -337,7 +338,7 @@ class RansomwareVictims extends Component {
                                     <div className="col-12">
                                         <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                             <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                                <thead>
+                                                <thead ref={theadRef}>
                                                     <tr>
                                                         <th role="button" onClick={() => handleSort('rule_name')}>
                                                             Rule {renderSortIcons('rule_name')}
@@ -434,6 +435,7 @@ class RansomwareVictims extends Component {
                             renderFilterControls,
                             renderSaveModal,
                             getTableContainerStyle,
+                            theadRef,
                         }) => (
                             <Fragment>
                                 {renderFilterControls()}
@@ -444,7 +446,7 @@ class RansomwareVictims extends Component {
                                 <div className="col-12">
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th className="user-select-none" role="button"
                                                         onClick={() => handleSort('victim_name')}>

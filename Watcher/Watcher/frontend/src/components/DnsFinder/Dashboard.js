@@ -252,7 +252,7 @@ class Dashboard extends Component {
                 icon: 'notifications',
                 tooltip: 'Suspicious domain registrations detected via certificate transparency logs',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <TableManager
                             data={alerts}
                             filterConfig={filterConfig}
@@ -282,7 +282,7 @@ class Dashboard extends Component {
                 icon: 'dns',
                 tooltip: 'List of domains being watched for typosquatting and phishing variants',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <DnsMonitored globalFilters={globalFilters} filteredData={dataToPass} />
                     </div>
                 ),
@@ -292,7 +292,7 @@ class Dashboard extends Component {
                 icon: 'archive',
                 tooltip: 'Resolved or dismissed DNS alerts kept for audit and reference',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <ArchivedAlerts globalFilters={globalFilters} filteredData={dataToPass} />
                     </div>
                 ),
@@ -302,7 +302,7 @@ class Dashboard extends Component {
                 icon: 'search',
                 tooltip: 'Keywords used to detect suspicious domain registrations in CertStream',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <KeywordMonitored globalFilters={globalFilters} />
                     </div>
                 ),

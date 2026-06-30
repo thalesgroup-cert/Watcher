@@ -10,6 +10,7 @@ import {
 import { Button, Modal, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 
 const LEVEL_VALUES = ['warm', 'hot', 'super_hot'];
@@ -81,13 +82,18 @@ export class MonitoredKeywords extends Component {
             selectedId:      null,
             selectedName:    '',
 
-            // Sources modal (clicked row)
+            // Sources modal
             showSourcesModal:   false,
             sourcesKeyword:     '',
             sourcesPosturls:    [],
 
             showHelp: false,
             isLoading: true,
+
+            // Timeline modal
+            showTimelineModal: false,
+            timelineId:        null,
+            timelineLabel:     '',
         };
     }
 
@@ -349,7 +355,8 @@ export class MonitoredKeywords extends Component {
                                 renderItemsInfo,
                                 renderFilterControls,
                                 renderSaveModal,
-                                getTableContainerStyle
+                                getTableContainerStyle,
+                                theadRef
                             }) => (
                                 <Fragment>
                                     {renderFilterControls()}
@@ -357,7 +364,7 @@ export class MonitoredKeywords extends Component {
                                     {renderItemsInfo()}
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover mb-0">
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th role="button" onClick={() => handleSort('domainName')}>
                                                         Domain {renderSortIcons('domainName')}
@@ -422,7 +429,7 @@ export class MonitoredKeywords extends Component {
         const { isAuthenticated, user } = auth;
         const canAdd = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('threats_watcher.add_monitoredkeyword')));
         const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'threats_watcher.change_monitoredkeyword' || p === 'threats_watcher.delete_monitoredkeyword')));
-        const { isLoading, showHelp } = this.state;
+        const { isLoading, showHelp, showTimelineModal, timelineId, timelineLabel } = this.state;
 
         return (
             <Fragment>
@@ -495,7 +502,8 @@ export class MonitoredKeywords extends Component {
                                     renderItemsInfo,
                                     renderFilterControls,
                                     renderSaveModal,
-                                    getTableContainerStyle
+                                    getTableContainerStyle,
+                                    theadRef
                                 }) => (
                                     <Fragment>
                                         {renderFilterControls()}
@@ -505,7 +513,7 @@ export class MonitoredKeywords extends Component {
                                             <div className="col-lg-12">
                                                 <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                                     <table className="table table-striped table-hover mb-0">
-                                                        <thead>
+                                                        <thead ref={theadRef}>
                                                             <tr>
                                                                 <th role="button" onClick={() => handleSort('name')}>
                                                                     Keyword {renderSortIcons('name')}
@@ -519,13 +527,14 @@ export class MonitoredKeywords extends Component {
                                                                 <th className="text-center" role="button" onClick={() => handleSort('last_seen')}>
                                                                     Last Seen {renderSortIcons('last_seen')}
                                                                 </th>
+                                                                <LastEventHeader />
                                                                 {canManage && <th className="text-end">Actions</th>}
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {paginatedData.length === 0 ? (
                                                                 <tr>
-                                                                    <td colSpan={canManage ? 5 : 4} className="text-center text-muted py-4">
+                                                                    <td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">
                                                                         No monitored keywords found.
                                                                     </td>
                                                                 </tr>
@@ -553,6 +562,7 @@ export class MonitoredKeywords extends Component {
                                                                                 <span className="text-muted fst-italic">Never</span>
                                                                             )}
                                                                         </td>
+                                                                        <LastEventCell event={mk.last_event} />
                                                                         {canManage && (
                                                                             <td
                                                                                 className="text-end align-middle"
@@ -567,11 +577,18 @@ export class MonitoredKeywords extends Component {
                                                                                     <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
                                                                                 </button>
                                                                                 <button
-                                                                                    className="btn btn-outline-danger btn-sm"
+                                                                                    className="btn btn-outline-danger btn-sm me-2"
                                                                                     title="Delete"
                                                                                     onClick={() => this.openDeleteModal(mk.id, mk.name)}
                                                                                 >
                                                                                     <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                                                </button>
+                                                                                <button
+                                                                                    className="btn btn-outline-secondary btn-sm"
+                                                                                    title="History"
+                                                                                    onClick={() => this.setState({ showTimelineModal: true, timelineId: mk.id, timelineLabel: mk.name })}
+                                                                                >
+                                                                                    <i className="material-icons" style={{ fontSize: 17 }}>history</i>
                                                                                 </button>
                                                                             </td>
                                                                         )}
@@ -599,6 +616,14 @@ export class MonitoredKeywords extends Component {
                 {this.renderEditModal()}
                 {this.renderDeleteModal()}
                 {this.renderSourcesModal()}
+
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false })}
+                    contentType="threats_watcher.monitoredkeyword"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }

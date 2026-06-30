@@ -1,9 +1,13 @@
+import logging
 from .models import Keyword, Alert
+
+logger = logging.getLogger('watcher.data_leak')
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
+from django.db.models import Prefetch
 from datetime import timedelta
 from .serializers import KeywordSerializer, AlertSerializer
 
@@ -24,7 +28,14 @@ class KeywordViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        return Keyword.objects.all().order_by('-created_at')
+        from timeline.models import TimelineEvent
+        return Keyword.objects.all().order_by('-created_at').prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):
@@ -39,8 +50,9 @@ class KeywordViewSet(viewsets.ModelViewSet):
                 'newThisWeek':   Alert.objects.filter(created_at__gte=week_ago).count(),
                 'totalKeywords': Keyword.objects.count(),
             }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            logger.exception("Error computing Data Leak statistics")
+            return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # Alert Viewset

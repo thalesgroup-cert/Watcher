@@ -40,8 +40,8 @@ shadow-useragent==0.0.17
 pymisp==2.5.34.1
 
 # NER-BERT model
-transformers==4.36.0
-tokenizers>=0.15.2
+transformers==5.12.1
+tokenizers>=0.22.0
 
 # OIDC / SSO
 mozilla-django-oidc==5.0.2

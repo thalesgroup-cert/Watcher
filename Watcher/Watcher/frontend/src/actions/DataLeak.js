@@ -60,10 +60,8 @@ export const addKeyWord = word => (dispatch, getState) => {
         .post("/api/data_leak/keyword/", word, tokenConfig(getState))
         .then(res => {
             dispatch(createMessage({add: `${word.name} Monitoring`}));
-            dispatch({
-                type: DATALEAK_ADD_KEYWORD,
-                payload: res.data
-            });
+            dispatch({ type: DATALEAK_ADD_KEYWORD, payload: res.data });
+            dispatch(getKeyWords());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -76,10 +74,8 @@ export const patchKeyWord = (id, patchedWord) => (dispatch, getState) => {
         .patch(`/api/data_leak/keyword/${id}/`, patchedWord, tokenConfig(getState))
         .then(res => {
             dispatch(createMessage({add: `${patchedWord.name} Updated`}));
-            dispatch({
-                type: DATALEAK_PATCH_KEYWORD,
-                payload: res.data
-            });
+            dispatch({ type: DATALEAK_PATCH_KEYWORD, payload: res.data });
+            dispatch(getKeyWords());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))

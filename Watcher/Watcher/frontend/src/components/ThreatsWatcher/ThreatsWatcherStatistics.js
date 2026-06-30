@@ -138,7 +138,7 @@ class ThreatsWatcherStatistics extends Component {
                             <i className="material-icons mb-2" style={{ fontSize: 40, opacity: 0.18 }}>visibility_off</i>
                             <small>All panels hidden - click an eye below to show one</small>
                         </div>
-                    ) : ActiveComponent ? <ActiveComponent /> : null}
+                    ) : ActiveComponent ? <ActiveComponent setPostUrls={this.props.setPostUrls} /> : null}
 
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',

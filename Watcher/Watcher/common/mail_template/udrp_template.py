@@ -140,7 +140,7 @@ def get_udrp_template(site, decision, label, today):
                             </p>
                             <p><strong>Date:</strong> """ + today + """</p>
                             <p><strong>Ticket:</strong> """ + ticket + """</p>
-                            <p><strong>Source:</strong> udrpsearch.com</p>
+                            <p><strong>Source:</strong> <a href="https://www.wipo.int/amc/en/domains/search/">WIPO UDRP Database</a></p>
                         </div>
                         """ + transfer_note + """
                         <p>

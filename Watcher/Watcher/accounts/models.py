@@ -1,3 +1,4 @@
+import random
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -33,6 +34,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     theme = models.CharField(max_length=50, default='bootstrap')
     preferences = models.JSONField(default=dict, blank=True)
+    avatar_color = models.CharField(max_length=20, blank=True, null=True)
     # preferences structure:
     # {
     #   "items_per_page": {"threats_watcher": 10, "data_leak": 10, ...},
@@ -48,10 +50,19 @@ class UserProfile(models.Model):
         app_label = 'accounts'
 
 
+_AVATAR_COLORS = [
+    '#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5',
+    '#2196f3','#03a9f4','#009688','#4caf50','#ff9800','#ff5722','#795548',
+]
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
-        UserProfile.objects.get_or_create(user=instance)
+        profile, new = UserProfile.objects.get_or_create(user=instance)
+        if new or not profile.avatar_color:
+            profile.avatar_color = random.choice(_AVATAR_COLORS)
+            profile.save(update_fields=['avatar_color'])
 
 
 @receiver(post_save, sender=User)

@@ -95,24 +95,10 @@ export default function(state = initialState, action) {
 
         case GET_DNS_MONITORED: {
             const newResults = action.payload.results || action.payload;
-            
-            if (!action.payload.results) {
-                return {
-                    ...state,
-                    dnsMonitored: newResults,
-                    dnsMonitoredCount: newResults.length,
-                    dnsMonitoredNext: null,
-                    dnsMonitoredPrevious: null
-                };
-            }
-            
-            const existingIds = new Set(state.dnsMonitored.map(d => d.id));
-            const uniqueNewDomains = newResults.filter(domain => !existingIds.has(domain.id));
-            
             return {
                 ...state,
-                dnsMonitored: [...state.dnsMonitored, ...uniqueNewDomains],
-                dnsMonitoredCount: action.payload.count || state.dnsMonitoredCount,
+                dnsMonitored: newResults.slice(),
+                dnsMonitoredCount: action.payload.count || newResults.length,
                 dnsMonitoredNext: action.payload.next || null,
                 dnsMonitoredPrevious: action.payload.previous || null
             };
@@ -142,24 +128,10 @@ export default function(state = initialState, action) {
 
         case GET_KEYWORD_MONITORED: {
             const newResults = action.payload.results || action.payload;
-            
-            if (!action.payload.results) {
-                return {
-                    ...state,
-                    keywordMonitored: newResults,
-                    keywordMonitoredCount: newResults.length,
-                    keywordMonitoredNext: null,
-                    keywordMonitoredPrevious: null
-                };
-            }
-            
-            const existingIds = new Set(state.keywordMonitored.map(k => k.id));
-            const uniqueNewKeywords = newResults.filter(keyword => !existingIds.has(keyword.id));
-            
             return {
                 ...state,
-                keywordMonitored: [...state.keywordMonitored, ...uniqueNewKeywords],
-                keywordMonitoredCount: action.payload.count || state.keywordMonitoredCount,
+                keywordMonitored: newResults.slice(),
+                keywordMonitoredCount: action.payload.count || newResults.length,
                 keywordMonitoredNext: action.payload.next || null,
                 keywordMonitoredPrevious: action.payload.previous || null
             };

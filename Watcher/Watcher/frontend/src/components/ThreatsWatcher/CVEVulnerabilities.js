@@ -7,6 +7,14 @@ import { OverlayTrigger, Tooltip, Modal, Badge } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 
+const getCveUrl = (id) => {
+    if (!id) return '#';
+    if (id.startsWith('CVE-'))  return `https://www.cve.org/CVERecord?id=${id}`;
+    if (id.startsWith('GHSA-')) return `https://github.com/advisories/${id}`;
+    if (id.startsWith('MAL-'))  return `https://vulnerability.circl.lu/vuln/${id}`;
+    return `https://vulnerability.circl.lu/vuln/${id}`;
+};
+
 const SEVERITY_BADGE = {
     CRITICAL: 'bg-danger',
     HIGH:     'bg-warning text-dark',
@@ -148,7 +156,7 @@ class CVEVulnerabilities extends Component {
                 <Modal.Header closeButton>
                     <Modal.Title>
                         <a
-                            href={`https://www.cve.org/CVERecord?id=${selectedHit.object_id}`}
+                            href={getCveUrl(selectedHit.object_id)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-decoration-none fw-semibold"
@@ -289,7 +297,8 @@ class CVEVulnerabilities extends Component {
                             renderItemsInfo,
                             renderFilterControls,
                             renderSaveModal,
-                            getTableContainerStyle
+                            getTableContainerStyle,
+                            theadRef
                         }) => (
                             <Fragment>
                                 {renderFilterControls()}
@@ -299,7 +308,7 @@ class CVEVulnerabilities extends Component {
                                     <div className="col-lg-12">
                                         <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                             <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                                <thead>
+                                                <thead ref={theadRef}>
                                                     <tr>
                                                         <th role="button" onClick={() => handleSort('rule_name')}>
                                                             Rule {renderSortIcons('rule_name')}
@@ -331,7 +340,7 @@ class CVEVulnerabilities extends Component {
                                                                     </td>
                                                                     <td className="align-middle">
                                                                         <a
-                                                                            href={`https://www.cve.org/CVERecord?id=${hit.object_id}`}
+                                                                            href={getCveUrl(hit.object_id)}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="fw-semibold text-decoration-none"
@@ -404,7 +413,8 @@ class CVEVulnerabilities extends Component {
                             renderItemsInfo,
                             renderFilterControls,
                             renderSaveModal,
-                            getTableContainerStyle
+                            getTableContainerStyle,
+                            theadRef
                         }) => (
                             <Fragment>
                                 {renderFilterControls()}
@@ -414,7 +424,7 @@ class CVEVulnerabilities extends Component {
                                     <div className="col-lg-12">
                                         <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                             <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                                <thead>
+                                                <thead ref={theadRef}>
                                                     <tr>
                                                         <th role="button" onClick={() => handleSort('cve_id')}>
                                                             CVE ID {renderSortIcons('cve_id')}
@@ -444,7 +454,7 @@ class CVEVulnerabilities extends Component {
                                                             <tr key={cve.id}>
                                                                 <td className="align-middle">
                                                                     <a
-                                                                        href={`https://www.cve.org/CVERecord?id=${cve.cve_id}`}
+                                                                        href={getCveUrl(cve.cve_id)}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="fw-semibold text-decoration-none"

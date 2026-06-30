@@ -1,8 +1,12 @@
+import logging
 from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored
+
+logger = logging.getLogger('watcher.dns_finder')
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Prefetch
 from django.utils import timezone
 from datetime import timedelta
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, \
@@ -18,12 +22,21 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 # DnsMonitored Viewset
 class DnsMonitoredViewSet(viewsets.ModelViewSet):
-    queryset = DnsMonitored.objects.all().order_by('-created_at')
     permission_classes = [
         permissions.DjangoModelPermissions
     ]
     serializer_class = DnsMonitoredSerializer
     pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        from timeline.models import TimelineEvent
+        return DnsMonitored.objects.all().order_by('-created_at').prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):
@@ -38,18 +51,28 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
                 'totalDnsMonitored': DnsMonitored.objects.count(),
                 'totalKeywords':    KeywordMonitored.objects.count(),
             }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            logger.exception("Error computing DNS Finder statistics")
+            return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # KeywordMonitored Viewset
 class KeywordMonitoredViewSet(viewsets.ModelViewSet):
-    queryset = KeywordMonitored.objects.all().order_by('-created_at')
     permission_classes = [
         permissions.DjangoModelPermissions
     ]
     serializer_class = KeywordMonitoredSerializer
     pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        from timeline.models import TimelineEvent
+        return KeywordMonitored.objects.all().order_by('-created_at').prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
 
 
 # DnsTwisted Viewset

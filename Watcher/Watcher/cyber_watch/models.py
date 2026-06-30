@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericRelation
 
 
 class CVEAlert(models.Model):
@@ -86,6 +87,7 @@ class WatchRule(models.Model):
     scope      = models.CharField(max_length=20, choices=SCOPE_CHOICES, default='both')
     is_active  = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='watchrule')
 
     class Meta:
         ordering = ['name']

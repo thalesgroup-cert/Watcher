@@ -5,6 +5,7 @@ import { getSources, addSource, deleteSource, patchSource } from '../../actions/
 import { Button, Modal, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 const FILTER_CONFIG = [
     { key: 'search',  type: 'search', label: 'Search',  placeholder: 'Search by URL or country...', width: 4 },
@@ -23,14 +24,17 @@ class SourcesPanel extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showHelp:        false,
-            showAddModal:    false,
-            showEditModal:   false,
-            showDeleteModal: false,
-            editId:          null,
-            deleteId:        null,
-            deleteUrl:       '',
-            form:            { ...EMPTY_FORM },
+            showHelp:           false,
+            showAddModal:       false,
+            showEditModal:      false,
+            showDeleteModal:    false,
+            editId:             null,
+            deleteId:           null,
+            deleteUrl:          '',
+            form:               { ...EMPTY_FORM },
+            showTimelineModal:  false,
+            timelineId:         null,
+            timelineLabel:      '',
         };
     }
 
@@ -67,6 +71,9 @@ class SourcesPanel extends Component {
 
     openDeleteModal = (id, url) =>
         this.setState({ showDeleteModal: true, deleteId: id, deleteUrl: url });
+
+    openTimelineModal = (id, label) =>
+        this.setState({ showTimelineModal: true, timelineId: id, timelineLabel: label });
 
     submitAdd = e => {
         e.preventDefault();
@@ -107,6 +114,18 @@ class SourcesPanel extends Component {
             );
         }
         return filtered;
+    };
+
+    renderStatusBadge = (code, lastChecked) => {
+        if (code === null || code === undefined) return <span className="text-muted">-</span>;
+        let cls;
+        if (code === 0)              cls = 'bg-danger';
+        else if (code < 300)         cls = 'bg-success';
+        else if (code < 400)         cls = 'bg-info';
+        else if (code < 500)         cls = 'bg-warning text-dark';
+        else                         cls = 'bg-danger';
+        const title = lastChecked ? `Last checked: ${new Date(lastChecked).toLocaleString()}` : '';
+        return <span className={`badge ${cls}`} title={title}>{code === 0 ? 'Err' : code}</span>;
     };
 
     renderConfidenceBar = (value) => {
@@ -154,10 +173,14 @@ class SourcesPanel extends Component {
                             <Form.Control
                                 type="text"
                                 placeholder="e.g. FR"
-                                maxLength={3}
+                                maxLength={2}
                                 value={form.country_code}
                                 onChange={e => this.handleFormChange('country_code', e.target.value)}
+                                isInvalid={form.country_code.length > 2}
                             />
+                            <Form.Control.Feedback type="invalid">
+                                Max 2 characters (ISO 3166-1 alpha-2, e.g. FR, US)
+                            </Form.Control.Feedback>
                         </Form.Group>
                     </div>
                 </div>
@@ -182,7 +205,8 @@ class SourcesPanel extends Component {
     render() {
         const { sources, auth } = this.props;
         const { isAuthenticated, user } = auth;
-        const { showHelp, showAddModal, showEditModal, showDeleteModal, deleteUrl, form, editId } = this.state;
+        const { showHelp, showAddModal, showEditModal, showDeleteModal, deleteUrl, form, editId,
+                showTimelineModal, timelineId, timelineLabel } = this.state;
 
         const canManage = isAuthenticated && !!user && (
             user.is_superuser ||
@@ -238,25 +262,27 @@ class SourcesPanel extends Component {
                     moduleKey="cyberWatch_sources"
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('url')}>URL {renderSortIcons('url')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('country_code')}>Country {renderSortIcons('country_code')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('confident')}>Confidence {renderSortIcons('confident')}</th>
+                                            <th className="text-center" role="button" onClick={() => handleSort('last_status_code')}>Status {renderSortIcons('last_status_code')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('created_at')}>Added {renderSortIcons('created_at')}</th>
+                                            <LastEventHeader />
                                             {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={canManage ? 5 : 4} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 7 : 6} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(source => (
                                             <tr key={source.id}>
                                                 <td className="align-middle" style={{ maxWidth: 280, wordBreak: 'break-all' }}>
@@ -276,10 +302,14 @@ class SourcesPanel extends Component {
                                                     {this.renderConfidenceBar(source.confident || 1)}
                                                 </td>
                                                 <td className="text-center align-middle">
+                                                    {this.renderStatusBadge(source.last_status_code, source.last_checked)}
+                                                </td>
+                                                <td className="text-center align-middle">
                                                     {source.created_at
                                                         ? <DateWithTooltip date={source.created_at} type="created" />
                                                         : <span className="text-muted">-</span>}
                                                 </td>
+                                                <LastEventCell event={source.last_event} />
                                                 {canManage && (
                                                     <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                         <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.openEditModal(source)}>
@@ -287,6 +317,9 @@ class SourcesPanel extends Component {
                                                         </button>
                                                         <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.openDeleteModal(source.id, source.url)}>
                                                             <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
+                                                        </button>
+                                                        <button className="btn btn-outline-secondary btn-sm" title="History" onClick={() => this.openTimelineModal(source.id, source.url)}>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>history</i>
                                                         </button>
                                                     </td>
                                                 )}
@@ -345,6 +378,14 @@ class SourcesPanel extends Component {
                     </Modal.Footer>
                 </Modal>
                 </>)}
+
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false })}
+                    contentType="threats_watcher.source"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }

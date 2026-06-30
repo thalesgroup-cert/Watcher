@@ -5,6 +5,7 @@ from django_mysql.models import ListCharField
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
+from django.contrib.contenttypes.fields import GenericRelation
 
 class Site(models.Model):
     """
@@ -67,6 +68,7 @@ class Site(models.Model):
         null=True,
         help_text="Timestamp of the last automatic UDRP status check.",
     )
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='site')
 
     def auto_update_legitimacy_on_registration(self):
         """

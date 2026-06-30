@@ -309,6 +309,55 @@ class TrendingAlgorithmTest(TestCase):
         word = TrendyWord.objects.get(name="malware")
         assert word.posturls.count() > 0
 
+class SourceNewFieldsTest(TestCase):
+    """Test new fields added to the Source model: last_status_code and last_checked."""
+
+    def test_source_new_fields_persisted(self):
+        """Source can be created with last_status_code and last_checked."""
+        now = timezone.now()
+        source = Source.objects.create(
+            url="https://new-fields-test.com/feed.xml",
+            last_status_code=200,
+            last_checked=now,
+        )
+        source.refresh_from_db()
+        self.assertEqual(source.last_status_code, 200)
+        self.assertIsNotNone(source.last_checked)
+
+    def test_source_new_fields_nullable(self):
+        """Source created without last_status_code and last_checked defaults to None."""
+        source = Source.objects.create(url="https://nullable-test.com/feed.xml")
+        source.refresh_from_db()
+        self.assertIsNone(source.last_status_code)
+        self.assertIsNone(source.last_checked)
+
+
+class SourceSerializerLastEventTest(APITestCase):
+    """Test that the SourceSerializer exposes last_status_code, last_checked and last_event."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='sourceapi', password='pass')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.source = Source.objects.create(url="https://serializer-lastev.com/feed.xml")
+
+    def test_source_serializer_includes_new_fields(self):
+        """GET /api/threats_watcher/source/ must expose last_status_code, last_checked, last_event."""
+        response = self.client.get('/api/threats_watcher/source/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = list(response.data)
+        self.assertTrue(len(results) >= 1, "Expected at least one Source in the response")
+        first = results[0]
+        self.assertIn('last_status_code', first)
+        self.assertIn('last_checked', first)
+        self.assertIn('last_event', first)
+        # No timeline events → last_event is null
+        last_event = first['last_event']
+        if last_event is not None:
+            self.assertIn('action', last_event)
+            self.assertIn('username', last_event)
+
+
 class PerformanceTest(TestCase):
     """Test performance and cleanup."""
     

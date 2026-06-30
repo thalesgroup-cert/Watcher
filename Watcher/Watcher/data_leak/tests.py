@@ -262,3 +262,28 @@ class SerializerTest(TestCase):
         self.assertEqual(serializer.data['url'], "https://test.com")
         self.assertIn('keyword', serializer.data)
         self.assertEqual(serializer.data['keyword']['name'], "alert-serializer")
+
+
+class KeywordLastEventFieldTest(APITestCase):
+    """Test that the Keyword API exposes last_event=null when no TimelineEvents exist."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='dleaklastev', password='pass')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        Keyword.objects.create(name='lastevent-kw')
+
+    def test_keyword_last_event_null(self):
+        """GET /api/data_leak/keyword/ must include last_event=null when no timeline events."""
+        response = self.client.get('/api/data_leak/keyword/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Response may be paginated (results key) or a plain list
+        data = response.data.get('results', response.data)
+        results = list(data)
+        self.assertTrue(len(results) >= 1)
+        first = results[0]
+        self.assertIn('last_event', first)
+        last_event = first['last_event']
+        if last_event is not None:
+            self.assertIn('action', last_event)
+            self.assertIn('username', last_event)

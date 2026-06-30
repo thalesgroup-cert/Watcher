@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
+from django.db.models import Prefetch
 from datetime import timedelta
 
 from .models import CVEAlert, RansomwareGroup, RansomwareVictim, WatchRule, WatchRuleHit
@@ -95,9 +96,18 @@ class RansomwareVictimViewSet(viewsets.ModelViewSet):
 
 # Watch Rule ViewSet
 class WatchRuleViewSet(viewsets.ModelViewSet):
-    queryset = WatchRule.objects.all().order_by('name')
     serializer_class = WatchRuleSerializer
     permission_classes = [permissions.DjangoModelPermissions]
+
+    def get_queryset(self):
+        from timeline.models import TimelineEvent
+        return WatchRule.objects.all().order_by('name').prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
 
 
 # Watch Rule Hit ViewSet

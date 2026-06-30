@@ -4,7 +4,7 @@ UDRP automatic tracking for the Site Monitoring module.
 
 Scheduled every 6 hours by the APScheduler job registered in common/core.py.
 For each Site with legal_team=True and udrp_status in (None, 'pending'), the job
-queries udrpsearch.com, parses the HTML response and:
+queries the official WIPO UDRP case database, parses the HTML response and:
   - Updates udrp_status / udrp_last_checked on the Site record.
   - If the decision is favourable ('won'), creates a LegitimateDomain entry.
   - Sends notifications via TheHive (comment on existing case/alert), Slack, Citadel and Email.
@@ -17,30 +17,20 @@ from html.parser import HTMLParser
 
 import requests
 from django.conf import settings
+from django.db import models
 from django.utils import timezone
 
-# Mirror the logger name used across the rest of the application
 logger = logging.getLogger('watcher.common')
 
-UDRPSEARCH_URL = "https://www.udrpsearch.com/search"
+WIPO_SEARCH_URL = 'https://www.wipo.int/amc/en/domains/search/domain.jsp'
 
-# Outcome keywords found in the result tables of udrpsearch.com
-# "Transfer" / "Transferred" -> complainant won.
-# "Cancel" / "Cancelled"     -> complainant won (domain cancelled).
-# "Denied"                   -> complainant lost.
 _WON_PATTERNS = re.compile(r'\b(transfer(red)?|cancel(l?ed)?)\b', re.I)
 _LOST_PATTERNS = re.compile(r'\bdenied\b', re.I)
 
 
-# ---------------------------------------------------------------------------
 # HTML table extractor
-# ---------------------------------------------------------------------------
-
 class _TableCellExtractor(HTMLParser):
-    """
-    Minimalist HTMLParser subclass that collects the visible text of every
-    <td> and <th> table cell in the parsed document.
-    """
+    """Collects the visible text of every <td> and <th> cell in a document."""
 
     def __init__(self):
         super().__init__()
@@ -68,16 +58,20 @@ class _TableCellExtractor(HTMLParser):
                 self._buffer.append(token)
 
 
-# ---------------------------------------------------------------------------
-# UDRPDiscovery class
-# ---------------------------------------------------------------------------
+def _strip_tld(domain):
+    """
+    Return the domain name without its TLD, as expected by WIPO's search form.
+    """
+    return domain.rsplit('.', 1)[0]
 
+
+# UDRPDiscovery class
 class UDRPDiscovery:
     """
     UDRP (Uniform Domain-Name Dispute-Resolution Policy) discovery client.
 
-    Queries udrpsearch.com for a given domain name and parses the HTML response
-    to determine the current UDRP decision status.
+    Queries the official WIPO UDRP case database for a given domain name
+    and parses the HTML response to determine the current case status.
 
     Usage::
 
@@ -87,53 +81,53 @@ class UDRPDiscovery:
     """
 
     def __init__(self, domain):
-        """
-        Initialise the discovery client.
-
-        :param domain: Raw domain name to query (e.g. 'be-thalesaleniaspaces.com').
-        :type domain: str
-        """
         self.domain = domain
-        self.response = None
         self.html = None
+        self._session = None
 
-    # ------------------------------------------------------------------
     # Network layer
-    # ------------------------------------------------------------------
-
     def fetch(self):
         """
-        Fetch the HTML search result page from udrpsearch.com.
+        Fetch WIPO case search results for the domain.
 
-        :return: True if the page was fetched successfully, False otherwise.
+        A session GET is performed first to obtain the JSESSIONID cookie
+        required by the WIPO server, then a POST submits the domain name.
+
+        :return: True if results were fetched successfully, False otherwise.
         :rtype: bool
         """
         try:
-            self.response = requests.get(
-                UDRPSEARCH_URL,
-                params={"query": self.domain, "search": "domain"},
+            self._session = requests.Session()
+            self._session.headers.update({
+                'User-Agent': 'Watcher-UDRP-Client/2.0',
+            })
+
+            self._session.get(WIPO_SEARCH_URL, timeout=15)
+
+            # Submit the domain search
+            search_term = _strip_tld(self.domain)
+            resp = self._session.post(
+                WIPO_SEARCH_URL,
+                data={'domain': search_term},
+                headers={'Referer': WIPO_SEARCH_URL},
                 timeout=15,
-                headers={"User-Agent": "Watcher-UDRP-Client/1.0"},
             )
-            self.response.raise_for_status()
-            self.html = self.response.text
+            resp.raise_for_status()
+            self.html = resp.text
             return True
         except requests.exceptions.RequestException as exc:
             logger.error("UDRP fetch error for %s: %s", self.domain, exc)
             return False
 
-    # ------------------------------------------------------------------
     # Parsing
-    # ------------------------------------------------------------------
-
     def get_decision(self):
         """
         Parse the fetched HTML and return the UDRP decision status.
 
-        Scans all table cells for known outcome keywords:
-        - 'won'     - at least one Transfer or Cancel outcome found.
-        - 'lost'    - only Denied outcomes found.
-        - 'pending' - no conclusive outcome found (case ongoing or not yet indexed).
+        Scans the case result table for outcome keywords in the Decision column:
+        - 'won' - at least one Transfer or Cancel outcome found.
+        - 'lost' - only Denied outcomes found.
+        - 'pending' - no conclusive outcome found (case ongoing or not indexed).
 
         :return: 'won', 'lost', or 'pending'.
         :rtype: str
@@ -141,6 +135,9 @@ class UDRPDiscovery:
         """
         if self.html is None:
             raise RuntimeError("No HTML available - call fetch() first.")
+
+        if re.search(r'\b0 case\(s\)', self.html):
+            return 'pending'
 
         parser = _TableCellExtractor()
         parser.feed(self.html)
@@ -154,18 +151,27 @@ class UDRPDiscovery:
             return 'lost'
         return 'pending'
 
+    def get_case_url(self):
+        """
+        Return the direct WIPO case URL if a case number is found in the results.
 
-# ---------------------------------------------------------------------------
+        :return: URL string or None.
+        :rtype: str or None
+        """
+        if not self.html:
+            return None
+        match = re.search(r'([Dd]\d{4}-\d{4})', self.html)
+        if match:
+            case_id = match.group(1).upper()
+            return f"https://www.wipo.int/amc/en/domains/search/text.jsp?case={case_id}"
+        return None
+
+
 # Transfer to Legitimate Domains
-# ---------------------------------------------------------------------------
-
 def transfer_to_legitimate_domains(site):
     """
     Create a LegitimateDomain entry for *site* after a favourable UDRP decision.
 
-    The entry is skipped silently if the domain already exists in the table.
-
-    :param site: The Site instance whose domain has been won.
     :return: True if a new entry was created, False if it already existed.
     :rtype: bool
     """
@@ -173,8 +179,8 @@ def transfer_to_legitimate_domains(site):
 
     today = date.today().isoformat()
     comment = (
-        f"[Auto] Domain transferred from Site Monitoring following a favourable "
-        f"UDRP decision. (Date: {today}, Source: udrpsearch.com)"
+        f"Domain transferred from Website Monitoring following a favourable "
+        f"UDRP decision. (Date: {today}, Source: WIPO)"
     )
 
     _, created = LegitimateDomain.objects.get_or_create(
@@ -195,24 +201,62 @@ def transfer_to_legitimate_domains(site):
     return created
 
 
-# ---------------------------------------------------------------------------
-# Notifications
-# ---------------------------------------------------------------------------
+def _queue_udrp_transfer(site):
+    """
+    Create a PendingAction for a favourable UDRP decision instead of transferring
+    the domain immediately. A user must approve the action before the domain is
+    moved to Legitimate Domains.
+    """
+    from common.models import PendingAction
 
+    today = date.today().isoformat()
+
+    already_queued = any(
+        pa.metadata.get('site_id') == site.id
+        for pa in PendingAction.objects.filter(
+            action_type='udrp_transfer', status='pending'
+        )
+    )
+    if already_queued:
+        logger.info(
+            "PendingAction (udrp_transfer) already queued for %s - skipping.",
+            site.domain_name,
+        )
+        return
+
+    comment = (
+        f"Domain transferred from Website Monitoring following a favourable "
+        f"UDRP decision. (Date: {today}, Source: WIPO)"
+    )
+
+    PendingAction.objects.create(
+        action_type='udrp_transfer',
+        title=f"UDRP Transfer: {site.domain_name}",
+        description=(
+            f"A favourable UDRP decision (Transfer/Cancel) was detected for "
+            f"{site.domain_name}.\n\n"
+            f"Approving this action will add the domain to Legitimate Domains "
+            f"with the following comment:\n{comment}"
+        ),
+        metadata={
+            'site_id':       site.id,
+            'domain_name':   site.domain_name,
+            'ticket_id':     site.ticket_id,
+            'decision_date': today,
+            'source':        'wipo.int',
+            'comment':       comment,
+        },
+    )
+    logger.info(
+        "PendingAction (udrp_transfer) queued for %s - awaiting user approval.",
+        site.domain_name,
+    )
+
+
+# Notifications
 def notify_udrp_decision(site, decision):
     """
     Send UDRP decision notifications via TheHive, Slack, Citadel and Email.
-
-    - TheHive: adds a comment to the existing case/alert (no new case created).
-    - Slack / Citadel: uses the 'udrp_decision' entries in APP_CONFIG_SLACK /
-      APP_CONFIG_CITADEL defined in common/core.py.
-    - Email: sent to every site_monitoring Subscriber with email=True, using
-      the 'udrp_decision' entry in APP_CONFIG_EMAIL and the dedicated HTML
-      template in common/mail_template/udrp_template.py.
-
-    :param site: The Site instance linked to the UDRP case.
-    :param decision: 'won' or 'lost'.
-    :type decision: str
     """
     today = date.today().isoformat()
     ticket = site.ticket_id or 'N/A'
@@ -241,9 +285,7 @@ def _notify_thehive(site, domain_sanitized, today, ticket, label):
         return
 
     if not site.ticket_id:
-        logger.info(
-            "No ticket_id on site %s - TheHive comment skipped.", site.domain_name
-        )
+        logger.info("No ticket_id on site %s - TheHive comment skipped.", site.domain_name)
         return
 
     comment = (
@@ -251,7 +293,7 @@ def _notify_thehive(site, domain_sanitized, today, ticket, label):
         f"*Domain:* {domain_sanitized}\n"
         f"*Decision:* {label}\n"
         f"*Date:* {today}\n"
-        "*Source:* udrpsearch.com\n"
+        "*Source:* WIPO (wipo.int)\n"
         f"*Ticket:* {ticket}"
     )
 
@@ -322,10 +364,6 @@ def _notify_citadel(domain_sanitized, today, ticket, label):
 
 
 def _notify_email(site, decision, label, today, domain_sanitized):
-    """
-    Send an email notification for a UDRP decision to all site_monitoring
-    subscribers who have email=True.
-    """
     from common.core import APP_CONFIG_EMAIL
     from common.utils.send_email_notifications import send_email_notifications
     from site_monitoring.models import Subscriber
@@ -350,20 +388,17 @@ def _notify_email(site, decision, label, today, domain_sanitized):
     send_email_notifications(subject, body, email_list, app_name='udrp_checker')
 
 
-# ---------------------------------------------------------------------------
 # Scheduled job entry-point
-# ---------------------------------------------------------------------------
-
 def check_udrp_statuses():
     """
     Main scheduled job - runs every 6 hours (registered in common/core.py).
 
     Processes every Site where legal_team=True and udrp_status is None or 'pending'.
     For each candidate:
-      1. Queries udrpsearch.com via UDRPDiscovery.
+      1. Queries WIPO via UDRPDiscovery.
       2. Updates udrp_status and udrp_last_checked.
       3. On a status change to 'won' or 'lost', fires notifications.
-      4. On 'won', transfers the domain to Legitimate Domains.
+      4. On 'won', queues a PendingAction for user approval before transfer.
     """
     from django.db import close_old_connections
     from site_monitoring.models import Site
@@ -372,7 +407,8 @@ def check_udrp_statuses():
 
     candidates = Site.objects.filter(
         legal_team=True,
-        udrp_status__in=[None, 'pending'],
+    ).filter(
+        models.Q(udrp_status__isnull=True) | models.Q(udrp_status='pending')
     )
 
     if not candidates.exists():
@@ -386,7 +422,6 @@ def check_udrp_statuses():
 
         udrp = UDRPDiscovery(site.domain_name)
         if not udrp.fetch():
-            # Network error - skip this run, will retry next time.
             continue
 
         new_status = udrp.get_decision()
@@ -401,11 +436,10 @@ def check_udrp_statuses():
         )
 
         if new_status == old_status:
-            # No change - nothing more to do.
             continue
 
         if new_status in ('won', 'lost'):
             notify_udrp_decision(site, new_status)
 
         if new_status == 'won':
-            transfer_to_legitimate_domains(site)
+            _queue_udrp_transfer(site)

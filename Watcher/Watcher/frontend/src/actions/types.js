@@ -131,10 +131,6 @@ export const CYBERWATCH_ARCHIVE_HIT          = "CYBERWATCH_ARCHIVE_HIT";
 export const CYBERWATCH_UNARCHIVE_HIT        = "CYBERWATCH_UNARCHIVE_HIT";
 export const CYBERWATCH_GET_ARCHIVED_HITS    = "CYBERWATCH_GET_ARCHIVED_HITS";
 
-// ── Stats "load-all-at-once" action types ───────────────────────────────────
-// These are dispatched exclusively by the getAll* actions used in *Stats views.
-// They store data in separate reducer keys so they never clash with paginated
-// table state.
 export const GET_SITES_ALL               = "GET_SITES_ALL";
 export const GET_SITE_ALERTS_ALL         = "GET_SITE_ALERTS_ALL";
 export const DNS_GET_ALERTS_ALL          = "DNS_GET_ALERTS_ALL";
@@ -143,3 +139,13 @@ export const GET_KEYWORD_MONITORED_ALL   = "GET_KEYWORD_MONITORED_ALL";
 export const DATALEAK_GET_ALERTS_ALL     = "DATALEAK_GET_ALERTS_ALL";
 export const DATALEAK_GET_KEYWORDS_ALL   = "DATALEAK_GET_KEYWORDS_ALL";
 export const GET_LEGITIMATE_DOMAINS_ALL  = "GET_LEGITIMATE_DOMAINS_ALL";
+
+// TIMELINE
+export const GET_TIMELINE_EVENTS       = "GET_TIMELINE_EVENTS";
+export const CLEAR_TIMELINE_EVENTS     = "CLEAR_TIMELINE_EVENTS";
+
+// PENDING ACTIONS
+export const GET_PENDING_ACTIONS_COUNT = "GET_PENDING_ACTIONS_COUNT";
+export const GET_PENDING_ACTIONS       = "GET_PENDING_ACTIONS";
+export const APPROVE_PENDING_ACTION    = "APPROVE_PENDING_ACTION";
+export const REJECT_PENDING_ACTION     = "REJECT_PENDING_ACTION";

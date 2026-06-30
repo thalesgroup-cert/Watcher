@@ -7,9 +7,19 @@ describe('DNS Finder - E2E Test Suite', () => {
         next: null,
         previous: null,
         results: [
-          { id: 1, domain_name: "watcher.com", created_at: "2025-06-19T10:00:00Z" },
-          { id: 2, domain_name: "watcher.fr", created_at: "2025-06-18T15:30:00Z" },
-          { id: 3, domain_name: "watcher.org", created_at: "2025-06-17T08:15:00Z" }
+          {
+            id: 1, domain_name: "watcher.com", created_at: "2025-06-19T10:00:00Z",
+            last_event: {
+              username: "admin",
+              first_name: "Admin",
+              last_name: "User",
+              avatar_color: "#2196f3",
+              action: "updated",
+              timestamp: "2026-06-24T14:30:00Z"
+            }
+          },
+          { id: 2, domain_name: "watcher.fr", created_at: "2025-06-18T15:30:00Z", last_event: null },
+          { id: 3, domain_name: "watcher.org", created_at: "2025-06-17T08:15:00Z", last_event: null }
         ]
       }
     }).as('getDnsMonitored');
@@ -21,9 +31,19 @@ describe('DNS Finder - E2E Test Suite', () => {
         next: null,
         previous: null,
         results: [
-          { id: 1, name: "watcher", created_at: "2025-06-19T10:00:00Z" },
-          { id: 2, name: "threat-intel", created_at: "2025-06-18T15:30:00Z" },
-          { id: 3, name: "security-corp", created_at: "2025-06-17T08:15:00Z" }
+          {
+            id: 1, name: "watcher", created_at: "2025-06-19T10:00:00Z",
+            last_event: {
+              username: "admin",
+              first_name: "Admin",
+              last_name: "User",
+              avatar_color: "#2196f3",
+              action: "created",
+              timestamp: "2026-06-24T10:00:00Z"
+            }
+          },
+          { id: 2, name: "threat-intel", created_at: "2025-06-18T15:30:00Z", last_event: null },
+          { id: 3, name: "security-corp", created_at: "2025-06-17T08:15:00Z", last_event: null }
         ]
       }
     }).as('getKeywordMonitored');

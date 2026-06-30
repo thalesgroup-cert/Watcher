@@ -201,7 +201,7 @@ class Dashboard extends Component {
                 icon: 'notifications',
                 tooltip: 'Active data leak alerts matching your monitored search patterns',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <Alerts
                             globalFilters={globalFilters}
                             filteredData={dataToPass}
@@ -214,7 +214,7 @@ class Dashboard extends Component {
                 icon: 'search',
                 tooltip: 'Keywords and patterns used to detect data leaks on the web',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <SearchPatterns
                             globalFilters={globalFilters}
                             filteredData={dataToPass}
@@ -227,7 +227,7 @@ class Dashboard extends Component {
                 icon: 'archive',
                 tooltip: 'Resolved or dismissed data leak alerts kept for audit purposes',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <ArchivedAlerts
                             globalFilters={globalFilters}
                             filteredData={dataToPass}

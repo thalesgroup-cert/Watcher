@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { Bar, HorizontalBar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import { getThreatsWatcherStatistics } from '../../actions/leads';
 
 const C = {
@@ -86,6 +86,7 @@ class ThreatsWatcherStats extends Component {
         bannedWords:                 PropTypes.array.isRequired,
         sources:                     PropTypes.array.isRequired,
         getThreatsWatcherStatistics: PropTypes.func.isRequired,
+        setPostUrls:                 PropTypes.func,
     };
 
     shouldComponentUpdate(nextProps) {
@@ -168,16 +169,6 @@ class ThreatsWatcherStats extends Component {
             },
         };
 
-        const hbarOptions = {
-            maintainAspectRatio: false,
-            legend: { display: false },
-            tooltips: { mode: 'index', intersect: false, bodyFontColor: '#fff', backgroundColor: 'rgba(0,0,0,0.8)' },
-            scales: {
-                xAxes: [{ ticks: { beginAtZero: true, precision: 0, fontColor: '#858796' },
-                          gridLines: { color: 'rgba(100,100,120,0.15)', drawBorder: false } }],
-                yAxes: [{ gridLines: { display: false }, ticks: { fontColor: '#858796', fontSize: 12 } }],
-            },
-        };
 
         const doughnutOptions = {
             maintainAspectRatio: false,
@@ -251,10 +242,38 @@ class ThreatsWatcherStats extends Component {
                                 </h6>
                                 <span className="badge badge-secondary badge-pill">by occurrences</span>
                             </div>
-                            <div className="card-body">
+                            <div className="card-body py-2">
                                 {hasTopData ? (
-                                    <div style={{ height: 200 }}>
-                                        <HorizontalBar data={barTopData} options={hbarOptions} />
+                                    <div style={{ height: 200, overflowY: 'auto' }}>
+                                        {top5.map((lead, idx) => {
+                                            const maxVal = top5[0]?.occurrences || 1;
+                                            const pct = Math.round((lead.occurrences / maxVal) * 100);
+                                            const color = TOP_COLORS[idx];
+                                            const isClickable = !!this.props.setPostUrls;
+                                            return (
+                                                <div
+                                                    key={lead.id || lead.name}
+                                                    onClick={() => isClickable && this.props.setPostUrls(lead.posturls, lead.name)}
+                                                    style={{
+                                                        cursor: isClickable ? 'pointer' : 'default',
+                                                        padding: '5px 6px',
+                                                        borderRadius: 5,
+                                                        marginBottom: 4,
+                                                        transition: 'background 0.1s',
+                                                    }}
+                                                    onMouseEnter={e => { if (isClickable) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = ''; }}
+                                                >
+                                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#444' }}>{lead.name}</span>
+                                                        <span style={{ fontSize: '0.75rem', color: '#858796', flexShrink: 0, marginLeft: 6 }}>{lead.occurrences}</span>
+                                                    </div>
+                                                    <div style={{ height: 5, background: '#e3e6f0', borderRadius: 3 }}>
+                                                        <div style={{ width: `${pct}%`, height: '100%', background: color.faded, borderRadius: 3, transition: 'width 0.3s' }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="d-flex flex-column align-items-center justify-content-center py-5 text-muted">

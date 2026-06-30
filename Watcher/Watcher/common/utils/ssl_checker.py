@@ -62,17 +62,9 @@ class SSLCertificateChecker:
         :rtype: bool
         """
         try:
-            # Create SSL context
+            # Create SSL context and enforce TLS 1.2 minimum
             context = ssl.create_default_context()
-            # Enforce modern TLS versions (TLSv1.2 and above)
-            if hasattr(context, "minimum_version") and hasattr(ssl, "TLSVersion"):
-                context.minimum_version = ssl.TLSVersion.TLSv1_2
-            else:
-                # Fallback for older Python versions: disable TLSv1 and TLSv1_1 explicitly
-                if hasattr(ssl, "OP_NO_TLSv1"):
-                    context.options |= ssl.OP_NO_TLSv1
-                if hasattr(ssl, "OP_NO_TLSv1_1"):
-                    context.options |= ssl.OP_NO_TLSv1_1
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             
             # Connect to the server and get certificate
             with socket.create_connection((self.domain, self.port), timeout=self.timeout) as sock:

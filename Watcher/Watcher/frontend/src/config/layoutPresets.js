@@ -8,23 +8,24 @@
  */
 import preferencesService from '../services/preferencesService';
 
-// ─── ThreatsWatcher ───────────────────────────────────────────────────────────
+// ThreatsWatcher
 const THREATS_PRESETS = [
     {
         id: 'default',
         name: 'Standard',
-        description: 'Balanced view: stats, cloud, word list, map, victims, CVE and trends.',
+        description: 'Balanced view: stats, cloud, word list, sources, trend chart, map, victims, CVE.',
         icon: 'dashboard',
         layout: [
             { i: 'stats',   x: 0, y: 0,  w: 12, h: 10, minW: 6, minH: 3 },
             { i: 'cloud',   x: 0, y: 10, w: 6,  h: 10, minW: 3, minH: 5 },
             { i: 'words',   x: 6, y: 10, w: 6,  h: 10, minW: 3, minH: 5 },
-            { i: 'victims', x: 6, y: 20, w: 6,  h: 10, minW: 3, minH: 5 },
-            { i: 'map',     x: 0, y: 20, w: 6,  h: 10, minW: 3, minH: 6 },
-            { i: 'cve',     x: 0, y: 30, w: 12, h: 12, minW: 4, minH: 5 },
-            { i: 'trend',   x: 0, y: 42, w: 12, h: 11, minW: 6, minH: 5 },
+            { i: 'sources', x: 0, y: 20, w: 12, h: 11, minW: 6, minH: 5 },
+            { i: 'chart',   x: 0, y: 31, w: 12, h: 8,  minW: 6, minH: 4 },
+            { i: 'victims', x: 6, y: 39, w: 6,  h: 10, minW: 3, minH: 5 },
+            { i: 'map',     x: 0, y: 39, w: 6,  h: 10, minW: 3, minH: 6 },
+            { i: 'cve',     x: 0, y: 49, w: 12, h: 12, minW: 4, minH: 5 },
         ],
-        active: ['stats', 'cloud', 'words', 'map', 'victims', 'cve', 'trend'],
+        active: ['stats', 'cloud', 'words', 'map', 'victims', 'cve', 'sources', 'chart'],
     },
     {
         id: 'tv',
@@ -46,17 +47,18 @@ const THREATS_PRESETS = [
         description: 'Focus on word lists, CVE details and trend data. No visual widgets.',
         icon: 'trending_up',
         layout: [
-            { i: 'stats', x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
-            { i: 'words', x: 0, y: 8,  w: 12, h: 14, minW: 3, minH: 5 },
-            { i: 'cve',   x: 0, y: 22, w: 12, h: 14, minW: 4, minH: 5 },
-            { i: 'trend', x: 0, y: 36, w: 12, h: 12, minW: 6, minH: 5 },
+            { i: 'stats',   x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
+            { i: 'words',   x: 0, y: 8,  w: 12, h: 14, minW: 3, minH: 5 },
+            { i: 'cve',     x: 0, y: 22, w: 12, h: 14, minW: 4, minH: 5 },
+            { i: 'sources', x: 0, y: 36, w: 12, h: 11, minW: 6, minH: 5 },
+            { i: 'chart',   x: 0, y: 47, w: 12, h: 8,  minW: 6, minH: 4 },
         ],
-        active: ['stats', 'words', 'cve', 'trend'],
+        active: ['stats', 'words', 'cve', 'sources', 'chart'],
     },
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Stats overview, word cloud and world map only — minimal distraction.',
+        description: 'Stats overview, word cloud and world map only - minimal distraction.',
         icon: 'crop_free',
         layout: [
             { i: 'stats', x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
@@ -67,7 +69,7 @@ const THREATS_PRESETS = [
     },
 ];
 
-// ─── DNS Finder ───────────────────────────────────────────────────────────────
+//DNS Finder
 const DNS_PRESETS = [
     {
         id: 'default',
@@ -86,7 +88,7 @@ const DNS_PRESETS = [
     {
         id: 'triage',
         name: 'Alert Triage',
-        description: 'Rapid alert review: stats, live alerts and monitored DNS — no archives.',
+        description: 'Rapid alert review: stats, live alerts and monitored DNS - no archives.',
         icon: 'warning',
         layout: [
             { i: 'stats',  x: 0, y: 0,  w: 12, h: 6,  minW: 6, minH: 3 },
@@ -111,7 +113,7 @@ const DNS_PRESETS = [
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Stats and live alerts only — stripped down.',
+        description: 'Stats and live alerts only - stripped down.',
         icon: 'crop_free',
         layout: [
             { i: 'stats',  x: 0, y: 0, w: 12, h: 8,  minW: 6, minH: 3 },
@@ -121,7 +123,7 @@ const DNS_PRESETS = [
     },
 ];
 
-// ─── Site Monitoring ──────────────────────────────────────────────────────────
+// Site Monitoring
 const SITE_PRESETS = [
     {
         id: 'default',
@@ -137,7 +139,7 @@ const SITE_PRESETS = [
     {
         id: 'tv',
         name: 'Stats Overview',
-        description: 'KPI dashboard only — ideal for wall screens.',
+        description: 'KPI dashboard only - ideal for wall screens.',
         icon: 'tv',
         layout: [
             { i: 'stats', x: 0, y: 0, w: 12, h: 16, minW: 6, minH: 3 },
@@ -157,7 +159,7 @@ const SITE_PRESETS = [
     },
 ];
 
-// ─── Data Leak ────────────────────────────────────────────────────────────────
+// Data Leak
 const DATALEAK_PRESETS = [
     {
         id: 'default',
@@ -175,7 +177,7 @@ const DATALEAK_PRESETS = [
     {
         id: 'triage',
         name: 'Alert Triage',
-        description: 'Stats and active alerts maximised — cut through the noise fast.',
+        description: 'Stats and active alerts maximised - cut through the noise fast.',
         icon: 'warning',
         layout: [
             { i: 'stats',  x: 0, y: 0, w: 12, h: 7,  minW: 6, minH: 3 },
@@ -210,7 +212,7 @@ const DATALEAK_PRESETS = [
     },
 ];
 
-// ─── Cyber Watch ──────────────────────────────────────────────────────────────
+// Cyber Watch
 const CYBERWATCH_PRESETS = [
     {
         id: 'default',
@@ -230,7 +232,7 @@ const CYBERWATCH_PRESETS = [
     {
         id: 'config',
         name: 'Configuration',
-        description: 'Manage keywords, watch rules, sources and banned words — no alert review.',
+        description: 'Manage keywords, watch rules, sources and banned words - no alert review.',
         icon: 'tune',
         layout: [
             { i: 'stats',      x: 0, y: 0,  w: 12, h: 4,  minW: 6, minH: 4 },
@@ -244,7 +246,7 @@ const CYBERWATCH_PRESETS = [
     {
         id: 'review',
         name: 'Alert Review',
-        description: 'Stats and archived alerts only — focused on investigation.',
+        description: 'Stats and archived alerts only - focused on investigation.',
         icon: 'check_circle',
         layout: [
             { i: 'stats',    x: 0, y: 0, w: 12, h: 5,  minW: 6, minH: 4 },
@@ -255,7 +257,7 @@ const CYBERWATCH_PRESETS = [
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Statistics panel only — KPI at a glance.',
+        description: 'Statistics panel only - KPI at a glance.',
         icon: 'crop_free',
         layout: [
             { i: 'stats', x: 0, y: 0, w: 12, h: 8, minW: 6, minH: 4 },
@@ -264,7 +266,7 @@ const CYBERWATCH_PRESETS = [
     },
 ];
 
-// ─── Legitimate Domains ───────────────────────────────────────────────────────
+// Legitimate Domains
 const LEGIT_PRESETS = [
     {
         id: 'default',
@@ -280,7 +282,7 @@ const LEGIT_PRESETS = [
     {
         id: 'tv',
         name: 'Stats Overview',
-        description: 'KPI panel only — perfect for monitors and dashboards.',
+        description: 'KPI panel only - perfect for monitors and dashboards.',
         icon: 'tv',
         layout: [
             { i: 'stats', x: 0, y: 0, w: 12, h: 14, minW: 6, minH: 3 },
@@ -300,7 +302,6 @@ const LEGIT_PRESETS = [
     },
 ];
 
-// ─── Master export ────────────────────────────────────────────────────────────
 export const LAYOUT_PRESETS = {
     'watcher_threats_grid':          THREATS_PRESETS,
     'watcher_dns_finder_grid':       DNS_PRESETS,
@@ -310,12 +311,7 @@ export const LAYOUT_PRESETS = {
     'watcher_legitimate_domains_grid': LEGIT_PRESETS,
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Read which preset is currently active for a given storageKey.
- * Returns 'default' if nothing has been saved yet.
- */
 export const getActivePresetId = (storageKey) =>
     preferencesService.get(`${storageKey}_preset`, 'default');
 

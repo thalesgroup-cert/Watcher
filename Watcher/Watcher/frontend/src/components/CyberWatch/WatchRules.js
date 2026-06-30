@@ -10,6 +10,7 @@ import {
 import { Button, Modal, Form, Badge } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 
 const SCOPE_LABELS = { cve: 'CVE', ransomware: 'Ransomware', both: 'Both' };
@@ -30,14 +31,17 @@ class WatchRules extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showHelp:        false,
-            showAddModal:    false,
-            showEditModal:   false,
-            showDeleteModal: false,
-            editId:          null,
-            deleteId:        null,
-            deleteName:      '',
-            form:            { ...EMPTY_FORM },
+            showHelp:          false,
+            showAddModal:      false,
+            showEditModal:     false,
+            showDeleteModal:   false,
+            editId:            null,
+            deleteId:          null,
+            deleteName:        '',
+            form:              { ...EMPTY_FORM },
+            showTimelineModal: false,
+            timelineId:        null,
+            timelineLabel:     '',
         };
     }
 
@@ -237,7 +241,7 @@ class WatchRules extends Component {
 
     render() {
         const { watchRules } = this.props;
-        const { showHelp } = this.state;
+        const { showHelp, showTimelineModal, timelineId, timelineLabel } = this.state;
         const { isAuthenticated, user } = this.props.auth;
         const canAdd = isAuthenticated && !!user && (
             user.is_superuser || user.is_staff ||
@@ -300,7 +304,7 @@ class WatchRules extends Component {
                         moduleKey="cyberWatch_watchRules"
                     >
                         {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                            renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                            renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                             <Fragment>
                                 {renderFilterControls()}
                                 {renderFilters()}
@@ -308,20 +312,21 @@ class WatchRules extends Component {
                                 <div className="row"><div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th role="button" onClick={() => handleSort('name')}>Name {renderSortIcons('name')}</th>
                                                     <th>Keywords</th>
                                                     <th className="text-center" role="button" onClick={() => handleSort('scope')}>Scope {renderSortIcons('scope')}</th>
                                                     <th className="text-center" role="button" onClick={() => handleSort('hits_count')}>Hits {renderSortIcons('hits_count')}</th>
                                                     <th className="text-end" role="button" onClick={() => handleSort('is_active')}>Active {renderSortIcons('is_active')}</th>
+                                                    <LastEventHeader />
                                                     {canManage && <th className="text-end">Actions</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">
+                                                        <td colSpan={canManage ? 7 : 6} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -347,6 +352,7 @@ class WatchRules extends Component {
                                                                     ? <span className="badge bg-success">Yes</span>
                                                                     : <span className="badge bg-secondary">No</span>}
                                                             </td>
+                                                            <LastEventCell event={rule.last_event} />
                                                             {canManage && (
                                                                 <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                                     <button className="btn btn-outline-warning btn-sm me-2"
@@ -354,10 +360,15 @@ class WatchRules extends Component {
                                                                         onClick={() => this.openEditModal(rule)}>
                                                                         <i className="material-icons" style={{ fontSize: 17 }}>edit</i>
                                                                     </button>
-                                                                    <button className="btn btn-outline-danger btn-sm"
+                                                                    <button className="btn btn-outline-danger btn-sm me-2"
                                                                         title="Delete"
                                                                         onClick={() => this.openDeleteModal(rule.id, rule.name)}>
                                                                         <i className="material-icons" style={{ fontSize: 17 }}>delete</i>
+                                                                    </button>
+                                                                    <button className="btn btn-outline-secondary btn-sm"
+                                                                        title="History"
+                                                                        onClick={() => this.setState({ showTimelineModal: true, timelineId: rule.id, timelineLabel: rule.name })}>
+                                                                        <i className="material-icons" style={{ fontSize: 17 }}>history</i>
                                                                     </button>
                                                                 </td>
                                                             )}
@@ -375,6 +386,13 @@ class WatchRules extends Component {
                     </TableManager>
 
                 {this.renderSubModals()}
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
+                    contentType="cyber_watch.watchrule"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }

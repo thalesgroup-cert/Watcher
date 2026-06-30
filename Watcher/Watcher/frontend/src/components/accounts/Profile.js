@@ -9,6 +9,8 @@ import 'react-resizable/css/styles.css';
 import { useTheme } from "../../contexts/ThemeContext";
 import { logout } from "../../actions/auth";
 import { createMessage } from "../../actions/messages";
+import { loadProfile, updateProfile } from "../../actions/profile";
+import UserAvatar from "../common/UserAvatar";
 import preferencesService from "../../services/preferencesService";
 import { LAYOUT_PRESETS, applyPreset, getActivePresetId } from "../../config/layoutPresets";
 
@@ -21,19 +23,21 @@ const MODULES = [
             stats:   { label: 'Statistics',           icon: 'bar_chart'    },
             cloud:   { label: 'Word Cloud',            icon: 'cloud'        },
             words:   { label: 'Word List',             icon: 'list'         },
+            sources: { label: 'Sources & Summary',     icon: 'feed'         },
+            chart:   { label: 'Trend',                 icon: 'trending_up'  },
             map:     { label: 'World Map',             icon: 'public'       },
             victims: { label: 'Ransomware Victims',    icon: 'lock'         },
             cve:     { label: 'CVE Vulnerabilities',   icon: 'bug_report'   },
-            trend:   { label: 'Trend & Sources',       icon: 'trending_up'  },
         },
         defaultLayout: [
             { i: 'stats',   x: 0, y: 0,  w: 12, h: 10 },
             { i: 'cloud',   x: 0, y: 10, w: 6,  h: 10 },
             { i: 'words',   x: 6, y: 10, w: 6,  h: 10 },
-            { i: 'victims', x: 6, y: 20, w: 6,  h: 10 },
-            { i: 'map',     x: 0, y: 20, w: 6,  h: 10 },
-            { i: 'cve',     x: 0, y: 30, w: 12, h: 12 },
-            { i: 'trend',   x: 0, y: 42, w: 12, h: 11 },
+            { i: 'sources', x: 0, y: 20, w: 12, h: 11 },
+            { i: 'chart',   x: 0, y: 31, w: 12, h: 8  },
+            { i: 'map',     x: 0, y: 39, w: 6,  h: 10 },
+            { i: 'victims', x: 6, y: 39, w: 6,  h: 10 },
+            { i: 'cve',     x: 0, y: 49, w: 12, h: 12 },
         ],
         presets: LAYOUT_PRESETS['watcher_threats_grid'],
     },
@@ -220,6 +224,14 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
     const [tab, setTab] = useState('presets');
     const [layout, setLayout] = useState([]);
     const [activePresetId, setActivePresetId] = useState('default');
+    // editor minimize state
+    const [editorMinimized, setEditorMinimized] = useState(new Set());
+    const [editorPreH, setEditorPreH] = useState({});
+    // saved layouts
+    const [savedLayouts, setSavedLayouts] = useState([]);
+    const [activeSavedId, setActiveSavedId] = useState(null);
+    const [showSaveInput, setShowSaveInput] = useState(false);
+    const [savingName, setSavingName] = useState('');
 
     // Load state when modal opens
     useEffect(() => {
@@ -232,23 +244,41 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                 : module.defaultLayout.map(p => ({ ...p }))
         );
         setActivePresetId(getActivePresetId(module.key));
+        setEditorMinimized(new Set());
+        setEditorPreH({});
+        const saved = preferencesService.get(`${module.key}_savedLayouts`, []);
+        setSavedLayouts(Array.isArray(saved) ? saved : []);
+        setActiveSavedId(preferencesService.get(`${module.key}_activeSavedId`, null));
+        setShowSaveInput(false);
+        setSavingName('');
     }, [show, module.key]);
 
     const handleApplyPreset = (preset) => {
         applyPreset(module.key, preset);
         setActivePresetId(preset.id);
+        preferencesService.remove(`${module.key}_activeSavedId`);
+        setActiveSavedId(null);
         onSaved({ layout: preset.layout, active: preset.active, presetId: preset.id });
         if (onMessage) onMessage(`"${preset.name}" layout applied to ${module.label}.`);
         onClose();
     };
 
-    const handleSaveCustom = () => {
-        preferencesService.set(`${module.key}_layout`, layout);
-        preferencesService.set(`${module.key}_preset`, 'custom');
-        setActivePresetId('custom');
-        onSaved({ layout, active: null, presetId: 'custom' });
-        if (onMessage) onMessage(`Custom layout saved for ${module.label}.`);
-        onClose();
+    const toggleEditorMinimize = (key) => {
+        if (editorMinimized.has(key)) {
+            const h = editorPreH[key] || 3;
+            setLayout(l => l.map(p => p.i === key ? { ...p, h, minH: 2 } : p));
+            setEditorMinimized(prev => { const n = new Set(prev); n.delete(key); return n; });
+        } else {
+            const cur = layout.find(p => p.i === key);
+            setEditorPreH(prev => ({ ...prev, [key]: cur?.h || 3 }));
+            setLayout(l => l.map(p => p.i === key ? { ...p, h: 1, minH: 1 } : p));
+            setEditorMinimized(prev => new Set([...prev, key]));
+        }
+    };
+
+    const removeFromEditor = (key) => {
+        setLayout(l => l.filter(p => p.i !== key));
+        setEditorMinimized(prev => { const n = new Set(prev); n.delete(key); return n; });
     };
 
     const handleResetToPreset = () => {
@@ -256,6 +286,8 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
             || (module.presets || [])[0];
         if (preset) {
             setLayout(preset.layout.map(p => ({ ...p })));
+            setEditorMinimized(new Set());
+            setEditorPreH({});
         }
     };
 
@@ -265,10 +297,55 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
         preferencesService.remove(`${module.key}_active`);
         preferencesService.remove(`${module.key}_resized`);
         preferencesService.remove(`${module.key}_preset`);
+        preferencesService.remove(`${module.key}_activeSavedId`);
         setActivePresetId('default');
+        setActiveSavedId(null);
         onSaved({ layout: null, active: null, presetId: 'default' });
         if (onMessage && defaultPreset) onMessage(`"${defaultPreset.name}" layout restored for ${module.label}.`);
         onClose();
+    };
+
+    const applyFromSaved = (saved) => {
+        preferencesService.set(`${module.key}_layout`, saved.layout);
+        preferencesService.set(`${module.key}_active`, saved.active);
+        preferencesService.set(`${module.key}_preset`, 'custom');
+        preferencesService.set(`${module.key}_activeSavedId`, saved.id);
+        setActiveSavedId(saved.id);
+        setActivePresetId('custom');
+        setLayout(saved.layout.map(p => ({ ...p })));
+        setEditorMinimized(new Set());
+        setEditorPreH({});
+        window.dispatchEvent(new CustomEvent('watcher:layout:updated', { detail: { storageKey: module.key } }));
+        onSaved({ layout: saved.layout, active: saved.active, presetId: 'custom' });
+        if (onMessage) onMessage(`"${saved.name}" layout applied to ${module.label}.`);
+    };
+
+    const handleSave = () => {
+        if (!savingName.trim()) return;
+        const id = Date.now();
+        const newSave = {
+            id,
+            name: savingName.trim(),
+            layout,
+            active: layout.map(p => p.i),
+            createdAt: new Date().toISOString(),
+        };
+        const updated = [...savedLayouts, newSave];
+        setSavedLayouts(updated);
+        preferencesService.set(`${module.key}_savedLayouts`, updated);
+        setSavingName('');
+        setShowSaveInput(false);
+        applyFromSaved(newSave);
+    };
+
+    const handleDeleteSaved = (id) => {
+        const updated = savedLayouts.filter(s => s.id !== id);
+        setSavedLayouts(updated);
+        preferencesService.set(`${module.key}_savedLayouts`, updated);
+        if (activeSavedId === id) {
+            setActiveSavedId(null);
+            preferencesService.remove(`${module.key}_activeSavedId`);
+        }
     };
 
     const presets = module.presets || [];
@@ -329,10 +406,98 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                 {tab === 'custom' && (
                     <>
                         <div className="d-flex align-items-center justify-content-between mb-3">
-                            <p className="text-muted mb-0" style={{ fontSize: 13 }}>
-                                Drag and resize panels freely, then click <strong>Save Custom Layout</strong>.
-                            </p>
-                            <Button variant="outline-secondary" size="sm" onClick={handleResetToPreset}>
+                            <span className="fw-semibold d-flex align-items-center gap-2" style={{ fontSize: 14 }}>
+                                <i className="material-icons" style={{ fontSize: 18, color: '#607d8b' }}>bookmark</i>
+                                Saved Layouts
+                            </span>
+                            {!showSaveInput ? (
+                                <Button variant="primary" size="sm" onClick={() => setShowSaveInput(true)}>
+                                    <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>save</i>
+                                    Save current
+                                </Button>
+                            ) : (
+                                <div className="d-flex align-items-center gap-2">
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-sm"
+                                        placeholder="Layout name…"
+                                        value={savingName}
+                                        onChange={e => setSavingName(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') handleSave();
+                                            if (e.key === 'Escape') { setShowSaveInput(false); setSavingName(''); }
+                                        }}
+                                        autoFocus
+                                        style={{ width: 180 }}
+                                    />
+                                    <Button variant="primary" size="sm" onClick={handleSave} disabled={!savingName.trim()}>
+                                        Confirm
+                                    </Button>
+                                    <Button variant="outline-secondary" size="sm" onClick={() => { setShowSaveInput(false); setSavingName(''); }}>
+                                        Cancel
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {savedLayouts.length === 0 ? (
+                            <div className="text-center text-muted py-4 border border-secondary rounded mb-3" style={{ fontSize: 13, opacity: 0.7 }}>
+                                <i className="material-icons d-block mb-1" style={{ fontSize: 32, opacity: 0.4 }}>bookmark_border</i>
+                                No saved layouts yet. Arrange panels below and click "Save current".
+                            </div>
+                        ) : (
+                            <Row className="g-3 mb-3">
+                                {savedLayouts.map(saved => {
+                                    const isActive = activeSavedId === saved.id;
+                                    const date = new Date(saved.createdAt).toLocaleDateString();
+                                    return (
+                                        <Col xs={12} sm={6} md={4} key={saved.id}>
+                                            <div className={`card h-100${isActive ? ' border-primary border-2' : ''}`}>
+                                                <div className="card-body p-2">
+                                                    <div className="d-flex align-items-start justify-content-between mb-2">
+                                                        <span className="fw-bold" style={{ fontSize: 13 }}>{saved.name}</span>
+                                                        {isActive && <Badge bg="primary" style={{ fontSize: 9 }}>ACTIVE</Badge>}
+                                                    </div>
+                                                    <MiniGrid layout={saved.layout} panels={module.panels} height={80} />
+                                                    <div className="mt-2">
+                                                        <span className="text-muted" style={{ fontSize: 10 }}>
+                                                            {saved.active.length} panels · {date}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="card-footer p-2 d-flex gap-2">
+                                                    <Button
+                                                        variant={isActive ? 'primary' : 'outline-primary'}
+                                                        size="sm"
+                                                        className="flex-grow-1"
+                                                        onClick={() => applyFromSaved(saved)}
+                                                    >
+                                                        {isActive ? 'Applied' : 'Apply'}
+                                                    </Button>
+                                                    <Button
+                                                        variant="danger"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteSaved(saved.id)}
+                                                        title="Delete"
+                                                    >
+                                                        <i className="material-icons" style={{ fontSize: 14 }}>delete</i>
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </Col>
+                                    );
+                                })}
+                            </Row>
+                        )}
+
+                        <hr className="my-3" />
+
+                        <div className="d-flex align-items-center justify-content-between mb-3">
+                            <span className="fw-semibold d-flex align-items-center gap-2" style={{ fontSize: 14 }}>
+                                <i className="material-icons" style={{ fontSize: 18, color: '#607d8b' }}>tune</i>
+                                Drag &amp; resize to arrange
+                            </span>
+                            <Button variant="secondary" size="sm" onClick={handleResetToPreset}>
                                 <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>undo</i>
                                 Restore active preset
                             </Button>
@@ -343,11 +508,13 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                             rowHeight={EDITOR_ROW_HEIGHT}
                             onLayoutChange={setLayout}
                             draggableHandle=".drag-handle"
+                            compactType="vertical"
                             margin={[8, 8]}
                             containerPadding={[4, 4]}
                         >
                             {layout.map((panel, idx) => {
                                 const meta = module.panels[panel.i];
+                                const isMin = editorMinimized.has(panel.i);
                                 return (
                                     <div
                                         key={panel.i}
@@ -362,54 +529,83 @@ function LayoutEditorModal({ module, show, onClose, onSaved, onMessage }) {
                                         }}
                                     >
                                         <div
-                                            className="drag-handle d-flex align-items-center gap-2 px-2 py-1"
+                                            className="drag-handle d-flex align-items-center gap-1 px-2 py-1"
                                             style={{
                                                 background: 'rgba(0,0,0,0.06)',
                                                 cursor: 'grab',
                                                 userSelect: 'none',
-                                                borderBottom: '1px solid #b0bec5',
+                                                borderBottom: isMin ? 'none' : '1px solid #b0bec5',
                                                 flexShrink: 0,
                                             }}
                                         >
-                                            <i className="material-icons" style={{ fontSize: 14, color: '#607d8b' }}>drag_indicator</i>
-                                            {meta && <i className="material-icons" style={{ fontSize: 14, color: '#455a64' }}>{meta.icon}</i>}
-                                            <span style={{ fontSize: 12, fontWeight: 600, color: '#37474f' }}>
+                                            <i className="material-icons" style={{ fontSize: 14, color: '#607d8b', flexShrink: 0 }}>drag_indicator</i>
+                                            {meta && <i className="material-icons" style={{ fontSize: 14, color: '#455a64', flexShrink: 0 }}>{meta.icon}</i>}
+                                            <span style={{ fontSize: 12, fontWeight: 600, color: '#37474f', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {meta ? meta.label : panel.i}
                                             </span>
+                                            <button
+                                                className="btn btn-sm p-0 d-flex align-items-center justify-content-center"
+                                                style={{ width: 18, height: 18, minWidth: 18, flexShrink: 0 }}
+                                                title={isMin ? 'Expand' : 'Minimize'}
+                                                onMouseDown={e => e.stopPropagation()}
+                                                onClick={e => { e.stopPropagation(); toggleEditorMinimize(panel.i); }}
+                                            >
+                                                <i className="material-icons" style={{ fontSize: 13, color: '#607d8b' }}>{isMin ? 'expand_more' : 'remove'}</i>
+                                            </button>
+                                            <button
+                                                className="btn btn-sm p-0 d-flex align-items-center justify-content-center"
+                                                style={{ width: 18, height: 18, minWidth: 18, flexShrink: 0 }}
+                                                title="Remove panel"
+                                                onMouseDown={e => e.stopPropagation()}
+                                                onClick={e => { e.stopPropagation(); removeFromEditor(panel.i); }}
+                                            >
+                                                <i className="material-icons" style={{ fontSize: 13, color: '#90a4ae' }}>close</i>
+                                            </button>
                                         </div>
-                                        <div className="flex-grow-1" style={{ minHeight: 0 }} />
+                                        {!isMin && <div className="flex-grow-1" style={{ minHeight: 0 }} />}
                                     </div>
                                 );
                             })}
                         </ReactGridLayout>
+
+                        {/* Removed panels - show them so user can see what's hidden */}
+                        {Object.keys(module.panels).filter(k => !layout.some(p => p.i === k)).length > 0 && (
+                            <div className="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                                <small className="text-muted">Hidden:</small>
+                                {Object.keys(module.panels)
+                                    .filter(k => !layout.some(p => p.i === k))
+                                    .map(k => {
+                                        const meta = module.panels[k];
+                                        return (
+                                            <button
+                                                key={k}
+                                                className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 py-0"
+                                                style={{ fontSize: 11 }}
+                                                onClick={() => {
+                                                    const base = module.defaultLayout.find(d => d.i === k) || { i: k, x: 0, y: 999, w: 6, h: 4 };
+                                                    setLayout(l => [...l, { ...base }]);
+                                                }}
+                                                title={`Re-add ${meta.label}`}
+                                            >
+                                                <i className="material-icons" style={{ fontSize: 12 }}>add</i>
+                                                {meta.label}
+                                            </button>
+                                        );
+                                    })}
+                            </div>
+                        )}
+
                     </>
                 )}
 
             </Modal.Body>
 
             <Modal.Footer>
-                {tab === 'custom' && (
-                    <>
-                        <Button variant="outline-danger" onClick={handleFullReset} className="me-auto">
-                            <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>restore</i>
-                            Reset to Default
-                        </Button>
-                        <Button variant="outline-secondary" onClick={onClose}>Cancel</Button>
-                        <Button variant="primary" onClick={handleSaveCustom}>
-                            <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>save</i>
-                            Save Custom Layout
-                        </Button>
-                    </>
-                )}
-                {tab === 'presets' && (
-                    <>
-                        <Button variant="outline-danger" onClick={handleFullReset} className="me-auto">
-                            <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>restore</i>
-                            Reset to Default
-                        </Button>
-                        <Button variant="outline-secondary" onClick={onClose}>Close</Button>
-                    </>
-                )}
+                <Button variant="danger" onClick={handleFullReset} className="me-auto">
+                    <i className="material-icons me-1 align-middle" style={{ fontSize: 15 }}>restore</i>
+                    Reset to Default
+                </Button>
+                <Button variant="outline-secondary" onClick={onClose}>Close</Button>
             </Modal.Footer>
         </Modal>
     );
@@ -538,10 +734,18 @@ function ThemeCard({ themeKey, config, isActive, onSelect }) {
     );
 }
 
-function Profile({ user, logout, createMessage }) {
+const AVATAR_PALETTE = [
+    '#f44336', '#e91e63', '#9c27b0', '#673ab7',
+    '#3f51b5', '#2196f3', '#03a9f4', '#009688',
+    '#4caf50', '#ff9800', '#ff5722', '#795548',
+];
+
+function Profile({ user, profile, logout, createMessage, loadProfile, updateProfile }) {
     const { currentTheme, availableThemes, changeTheme } = useTheme();
     const [activeSection, setActiveSection] = useState('settings');
     const [helpOpen, setHelpOpen] = useState(false);
+
+    useEffect(() => { loadProfile(); }, []);
 
     const handleThemeChange = (themeKey) => {
         changeTheme(themeKey);
@@ -614,16 +818,20 @@ function Profile({ user, logout, createMessage }) {
                             </Card.Header>
                             <Card.Body className="p-4">
                                 {user && (
-                                    <Row className="align-items-start">
+                                    <>
+                                    <Row className="align-items-start mb-4">
                                         <Col xs="auto" className="me-3">
-                                            <div style={{
-                                                width: 72, height: 72, borderRadius: '50%',
-                                                background: 'linear-gradient(160deg, #052f84, #3584b4)',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: 26, color: '#fff', fontWeight: 700, flexShrink: 0,
-                                            }}>
-                                                {initials}
-                                            </div>
+                                            {(!('avatar_color' in profile) || profile.isLoading) ? (
+                                                <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bs-secondary-bg, #dee2e6)', opacity: 0.5 }} />
+                                            ) : (
+                                                <UserAvatar
+                                                    username={user.username}
+                                                    firstName={user.first_name}
+                                                    lastName={user.last_name}
+                                                    avatarColor={profile.avatar_color}
+                                                    size={72}
+                                                />
+                                            )}
                                         </Col>
                                         <Col>
                                             <Row className="g-3">
@@ -662,6 +870,47 @@ function Profile({ user, logout, createMessage }) {
                                             </Row>
                                         </Col>
                                     </Row>
+
+                                    {/* Avatar color picker */}
+                                    <div className="border-top pt-3">
+                                        <label className="text-muted fw-semibold d-block mb-2" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                                            Avatar Color
+                                        </label>
+                                        <div className="d-flex flex-wrap gap-2 align-items-center">
+                                            {AVATAR_PALETTE.map(color => {
+                                                const isActive = profile.avatar_color === color;
+                                                return (
+                                                    <button
+                                                        key={color}
+                                                        title={color}
+                                                        onClick={() => updateProfile({ avatar_color: color })}
+                                                        style={{
+                                                            width: 28, height: 28, borderRadius: '50%',
+                                                            backgroundColor: color, border: 'none',
+                                                            cursor: 'pointer', padding: 0,
+                                                            boxShadow: isActive
+                                                                ? `0 0 0 3px var(--bs-body-bg), 0 0 0 5px ${color}`
+                                                                : 'none',
+                                                            transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                                                            transition: 'transform 0.15s, box-shadow 0.15s',
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                            {profile.avatar_color && (
+                                                <button
+                                                    title="Reset to auto"
+                                                    onClick={() => updateProfile({ avatar_color: null })}
+                                                    className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                                                    style={{ fontSize: '0.72rem' }}
+                                                >
+                                                    <i className="material-icons" style={{ fontSize: 13 }}>refresh</i>
+                                                    Auto
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    </>
                                 )}
                             </Card.Body>
                             <Card.Footer className="bg-transparent">
@@ -763,7 +1012,8 @@ Profile.propTypes = {
 };
 
 const mapStateToProps = state => ({
-    user: state.auth.user
+    user: state.auth.user,
+    profile: state.profile,
 });
 
-export default connect(mapStateToProps, { logout, createMessage })(Profile);
+export default connect(mapStateToProps, { logout, createMessage, loadProfile, updateProfile })(Profile);

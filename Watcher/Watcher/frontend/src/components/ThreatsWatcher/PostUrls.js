@@ -117,7 +117,8 @@ export class PostUrls extends Component {
                             renderSortIcons,
                             renderPagination,
                             renderItemsInfo,
-                            getTableContainerStyle
+                            getTableContainerStyle,
+                            theadRef
                         }) => (
                             <Fragment>
                                 {renderItemsInfo()}
@@ -126,7 +127,7 @@ export class PostUrls extends Component {
                                     <div className="col-lg-12">
                                         <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                             <table className="table table-striped table-hover">
-                                                <thead>
+                                                <thead ref={theadRef}>
                                                     <tr>
                                                         <th 
                                                             className="user-select-none" 

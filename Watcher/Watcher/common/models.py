@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericRelation
 from django_mysql.models import ListCharField
 
 class MISPEventUuidLink(models.Model):
@@ -65,13 +67,51 @@ class LegitimateDomain(models.Model):
     repurchased = models.BooleanField(default=False)
     comments = models.TextField(blank=True, null=True, max_length=300)
     misp_event_uuid = models.JSONField(blank=True, null=True, default=list)
-    
-    class Meta:
-        verbose_name = 'Legitimate Domain'
-        verbose_name_plural = 'Legitimate Domains'
-    
-    def __str__(self):
-        return self.domain_name
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='legitimatedomain')
 
     class Meta:
         ordering = ['-created_at']
+        verbose_name = 'Legitimate Domain'
+        verbose_name_plural = 'Legitimate Domains'
+
+    def __str__(self):
+        return self.domain_name
+
+
+class PendingAction(models.Model):
+    """
+    Stores actions that require manual validation before being executed.
+    """
+
+    ACTION_TYPES = [
+        ('udrp_transfer', 'UDRP - Transfer domain to Legitimate Domains'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    action_type = models.CharField(max_length=50, choices=ACTION_TYPES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='resolved_pending_actions',
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Pending Action'
+        verbose_name_plural = 'Pending Actions'
+
+    def __str__(self):
+        return f"[{self.get_action_type_display()}] {self.title} ({self.status})"

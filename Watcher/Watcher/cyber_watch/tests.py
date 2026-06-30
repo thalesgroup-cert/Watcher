@@ -380,3 +380,31 @@ class WatchRuleHitTest(TestCase):
         data = list(response.data)
         self.assertTrue(len(data) >= 1)
         self.assertIn('rule_name', data[0])
+
+
+class WatchRuleLastEventFieldTest(APITestCase):
+    """Test that WatchRule API exposes last_event=null when no TimelineEvents exist."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='cwlastevent', password='pass', email='cwle@t.com')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        WatchRule.objects.create(
+            name='LastEventRule',
+            keywords=['test'],
+            exceptions=[],
+            scope='both',
+        )
+
+    def test_watch_rule_last_event_null(self):
+        """GET /api/cyber_watch/watch-rules/ must include last_event=null when no timeline events."""
+        response = self.client.get('/api/cyber_watch/watch-rules/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = list(response.data)
+        self.assertTrue(len(results) >= 1)
+        first = next(r for r in results if r['name'] == 'LastEventRule')
+        self.assertIn('last_event', first)
+        last_event = first['last_event']
+        if last_event is not None:
+            self.assertIn('action', last_event)
+            self.assertIn('username', last_event)

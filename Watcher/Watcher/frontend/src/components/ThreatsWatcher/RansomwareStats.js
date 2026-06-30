@@ -84,6 +84,7 @@ class RansomwareStats extends Component {
         watchRuleHits:       PropTypes.array.isRequired,
         getRansomwareVictims: PropTypes.func.isRequired,
         getWatchRuleHits:    PropTypes.func.isRequired,
+        setPostUrls:         PropTypes.func,
     };
 
     shouldComponentUpdate(nextProps) {

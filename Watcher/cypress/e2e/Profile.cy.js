@@ -186,7 +186,7 @@ describe('Profile Page - E2E Test Suite', () => {
     });
   });
 
-  // ────────────────────────────────────────────────────────────────────────────
+
   describe('Themes Section', () => {
     beforeEach(() => {
       cy.get('.nav-link').contains('Themes').click();
@@ -313,7 +313,7 @@ describe('Profile Page - E2E Test Suite', () => {
         cy.get('.react-grid-layout, [class*="grid-layout"]').should('exist');
       });
 
-      cy.get('.modal button:contains("Cancel")').first().click();
+      cy.get('.modal button:contains("Close")').first().click();
     });
 
     it('should display Reset to Default button in layout modal', () => {

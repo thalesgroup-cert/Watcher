@@ -9,6 +9,7 @@ import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import Alerts from './Alerts';
 import ExportModal from '../common/ExportModal';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 const formatDate = (date) => {
     return date.toLocaleDateString('fr-FR', {
@@ -63,7 +64,10 @@ export class SuspiciousSites extends Component {
             showAlerts: false,
             selectedSiteForAlerts: null,
             filteredSites: [],
-            isLoading: true
+            isLoading: true,
+            showTimelineModal: false,
+            timelineId:        null,
+            timelineLabel:     '',
         };
 
         this.inputDomainRef = createRef();
@@ -1151,7 +1155,7 @@ export class SuspiciousSites extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="13" className="text-center py-5">
+            <td colSpan="14" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>
@@ -1176,6 +1180,7 @@ export class SuspiciousSites extends Component {
             ))
         );
         const dataToUse = filteredData || this.state.filteredSites || sites;
+        const { showTimelineModal, timelineId, timelineLabel } = this.state;
 
         const filterConfig = [
             {
@@ -1250,7 +1255,8 @@ export class SuspiciousSites extends Component {
                         renderPagination,
                         handleSort,
                         renderSortIcons,
-                        getTableContainerStyle
+                        getTableContainerStyle,
+                        theadRef
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
@@ -1259,7 +1265,7 @@ export class SuspiciousSites extends Component {
                                 <div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover">
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name{renderSortIcons('domain_name')}
@@ -1291,6 +1297,7 @@ export class SuspiciousSites extends Component {
                                                     <th>Takedown</th>
                                                     <th>Legal</th>
                                                     <th>Blocking</th>
+                                                    <LastEventHeader />
                                                     <th></th>
                                                 </tr>
                                             </thead>
@@ -1299,7 +1306,7 @@ export class SuspiciousSites extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="13" className="text-center text-muted py-4">
+                                                        <td colSpan="14" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -1397,8 +1404,9 @@ export class SuspiciousSites extends Component {
                                                                     : <i className="material-icons text-danger" style={{ fontSize: 22 }}>cancel</i>
                                                                 }
                                                             </td>
-                                                            <td 
-                                                                className="text-end" 
+                                                            <LastEventCell event={site.last_event} />
+                                                            <td
+                                                                className="text-end"
                                                                 style={{ whiteSpace: 'nowrap' }}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
@@ -1430,6 +1438,13 @@ export class SuspiciousSites extends Component {
                                                                     <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
                                                                 </button>
                                                                 )}
+                                                                <button
+                                                                    onClick={() => this.setState({ showTimelineModal: true, timelineId: site.id, timelineLabel: site.domain_name })}
+                                                                    className="btn btn-outline-secondary btn-sm"
+                                                                    title="History"
+                                                                >
+                                                                    <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>history</i>
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     ))
@@ -1465,6 +1480,14 @@ export class SuspiciousSites extends Component {
                     site={this.state.selectedSiteForAlerts}
                 />
 
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
+                    contentType="site_monitoring.site"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
+
             </Fragment>
         );
     }
@@ -1485,5 +1508,5 @@ export default connect(mapStateToProps, {
     patchSite,
     exportToMISP,
     exportToLegitimateDomains,
-    getSiteStatistics
+    getSiteStatistics,
 })(SuspiciousSites);

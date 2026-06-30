@@ -207,12 +207,28 @@ def load_feeds():
     """
     global rss_urls
     global feeds
+    global sources_by_url
     sources = Source.objects.all().order_by('id')
     rss_urls = list()
     feeds = []
+    sources_by_url = {}
     for source in sources:
         rss_urls.append(source.url)
-    # print("RSS : ", rss_urls)
+        sources_by_url[source.url] = source.id
+
+
+def _update_source_status(url, status_code):
+    """Write last_status_code and last_checked for a Source row (fire-and-forget)."""
+    source_id = sources_by_url.get(url)
+    if source_id is None:
+        return
+    try:
+        Source.objects.filter(pk=source_id).update(
+            last_status_code=status_code,
+            last_checked=timezone.now(),
+        )
+    except Exception as exc:
+        logger.debug(f"Could not update status for source {url}: {exc}")
 
 
 def fetch_last_posts(nb_max_post):
@@ -230,14 +246,28 @@ def fetch_last_posts(nb_max_post):
     for url in rss_urls:
         try:
             feed_content = requests.get(url, headers=HEADERS, timeout=10, verify=True)
-            if feed_content.status_code == 200:
+            _update_source_status(url, feed_content.status_code)
+            if feed_content.status_code // 100 == 2:
                 feeds.append(feedparser.parse(feed_content.text))
             else:
                 logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
-        except requests.exceptions.SSLError as ssl_err:
-            logger.error(f"SSL error for {url}: {ssl_err}")
+        except requests.exceptions.SSLError:
+            logger.warning("SSL certificate error for %s (skipping)", url)
+            _update_source_status(url, 0)
+        except requests.exceptions.ProxyError as e:
+            detail = re.search(r'(\d{3}\s+\w[\w ]*)', str(e))
+            code_str = f" [{detail.group(1).strip()}]" if detail else ""
+            logger.error("Feed unreachable through proxy%s: %s", code_str, url)
+            _update_source_status(url, 0)
+        except requests.exceptions.ConnectionError:
+            logger.error("Connection failed for %s", url)
+            _update_source_status(url, 0)
+        except requests.exceptions.Timeout:
+            logger.warning("Timeout fetching %s", url)
+            _update_source_status(url, 0)
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching {url}: {e}")
+            logger.error("Error fetching %s: %s", url, type(e).__name__)
+            _update_source_status(url, 0)
 
     # Fetch monitored keywords once for efficiency
     monitored_keywords = list(MonitoredKeyword.objects.all())

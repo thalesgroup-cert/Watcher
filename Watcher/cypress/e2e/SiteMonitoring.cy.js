@@ -29,7 +29,15 @@ describe('Site Monitoring - E2E Test Suite', () => {
             blocking_request: false,
             misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440000']",
             web_status: 200,
-            created_at: "2025-06-19T10:00:00Z"
+            created_at: "2025-06-19T10:00:00Z",
+            last_event: {
+              username: "admin",
+              first_name: "Admin",
+              last_name: "User",
+              avatar_color: "#2196f3",
+              action: "updated",
+              timestamp: "2026-06-24T14:30:00Z"
+            }
           },
           {
             id: 2,
@@ -53,7 +61,8 @@ describe('Site Monitoring - E2E Test Suite', () => {
             blocking_request: true,
             misp_event_uuid: null,
             web_status: null,
-            created_at: "2025-06-18T15:30:00Z"
+            created_at: "2025-06-18T15:30:00Z",
+            last_event: null
           },
           {
             id: 3,
@@ -77,7 +86,8 @@ describe('Site Monitoring - E2E Test Suite', () => {
             blocking_request: true,
             misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002']",
             web_status: 403,
-            created_at: "2025-06-17T08:15:00Z"
+            created_at: "2025-06-17T08:15:00Z",
+            last_event: null
           }
         ]
       }

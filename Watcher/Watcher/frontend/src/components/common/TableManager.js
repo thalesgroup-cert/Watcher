@@ -100,9 +100,13 @@ class TableManager extends Component {
             showSaveModal: false,
             filterName: '',
             savedFilters: {},
-            containerHeight: 'auto'
+            containerHeight: 'auto',
+            autofitEnabled: true,
+            manualItemsPerPage: null
         };
         this.containerRef = React.createRef();
+        this.theadRef = React.createRef();
+        this.paginationRef = React.createRef();
         this.resizeObserver = null;
     }
 
@@ -124,7 +128,7 @@ class TableManager extends Component {
             if (!this.mounted) return;
             const saved = preferencesService.get(`watcher_table_items_${this.moduleKey}`, null);
             if (saved !== null && saved !== this.state.itemsPerPage) {
-                this.setState({ itemsPerPage: saved, currentPage: 1 });
+                this.setState({ itemsPerPage: saved, currentPage: 1, autofitEnabled: false, manualItemsPerPage: saved });
             }
             const savedFilters = preferencesService.get(`watcher_filters_${this.moduleKey}`, null);
             if (savedFilters) {
@@ -133,11 +137,11 @@ class TableManager extends Component {
         };
         window.addEventListener('watcher:prefs:ready', this._onPrefsReady);
 
-        setTimeout(() => {
-            if (this.mounted) {
-                this.setupResizeObserver();
-            }
-        }, 100);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (this.mounted) { this.setupResizeObserver(); }
+            });
+        });
     }
 
     componentWillUnmount() {
@@ -157,9 +161,13 @@ class TableManager extends Component {
     }
 
     componentDidUpdate(prevProps, prevState) {
-        if (prevProps.data !== this.props.data || 
+        if (prevProps.data !== this.props.data ||
             JSON.stringify(prevProps.globalFilters) !== JSON.stringify(this.props.globalFilters)) {
             this.applyFilters();
+            requestAnimationFrame(() => {
+                const best = this._computeAdaptiveItemsPerPage();
+                this.applyAutofit(best);
+            });
         }
 
         if (prevState.itemsPerPage !== this.state.itemsPerPage ||
@@ -210,13 +218,39 @@ class TableManager extends Component {
     static TABLE_OVERHEAD_PX = 150;
 
     _computeAdaptiveItemsPerPage = () => {
-        const el = this._adaptivePanelEl;
-        if (!el) return null;
-        const available = el.getBoundingClientRect().height - TableManager.TABLE_OVERHEAD_PX;
-        if (available <= 0) return null;
-        const fittable = Math.floor(available / TableManager.TABLE_ROW_HEIGHT_PX);
-        const best = [...TableManager.PAGE_SIZES].reverse().find(s => s <= fittable) || TableManager.PAGE_SIZES[0];
-        return best;
+        const panelEl = this._adaptivePanelEl;
+        const infoEl  = this.containerRef.current;
+        if (!panelEl || !infoEl) return null;
+
+        const panelRect = panelEl.getBoundingClientRect();
+        const infoRect  = infoEl.getBoundingClientRect();
+
+        // Total space from bottom of info bar to bottom of card
+        let available = panelRect.bottom - infoRect.bottom;
+
+        // Subtract the mb-2 gap between info bar and table
+        available -= 8;
+
+        // Subtract thead height
+        const theadEl = this.theadRef?.current;
+        available -= theadEl ? theadEl.getBoundingClientRect().height : 44;
+
+        // Subtract bottom padding of the panel wrapper div
+        available -= 12;
+
+        // Subtract pagination only when it is actually rendered.
+        const paginationEl = this.paginationRef?.current;
+        if (paginationEl) {
+            available -= 16;
+            available -= paginationEl.getBoundingClientRect().height;
+        }
+
+        if (available <= 0) return 1;
+
+        const firstRow = panelEl.querySelector('tbody tr');
+        const rowHeight = firstRow ? firstRow.getBoundingClientRect().height : 50;
+
+        return Math.max(1, Math.floor(available / rowHeight));
     };
 
     setupResizeObserver = () => {
@@ -228,23 +262,20 @@ class TableManager extends Component {
         window.addEventListener('resize', this.updateContainerHeight);
 
         if (window.ResizeObserver && this.containerRef.current) {
+            const panelEl = this.containerRef.current.closest('.card');
+            if (!panelEl) return;
+            this._adaptivePanelEl = panelEl;
+
             this.resizeObserver = new ResizeObserver(() => {
                 this.updateContainerHeight();
                 if (!this._resizeObserverInitialized) {
                     this._resizeObserverInitialized = true;
                 } else {
                     const best = this._computeAdaptiveItemsPerPage();
-                    if (best !== null && best !== this.state.itemsPerPage) {
-                        this.handleItemsPerPageChange(best);
-                    }
+                    this.applyAutofit(best);
                 }
             });
-            
-            const parentElement = this.containerRef.current.closest('.h-100, .container-fluid, .row');
-            if (parentElement) {
-                this._adaptivePanelEl = parentElement;
-                this.resizeObserver.observe(parentElement);
-            }
+            this.resizeObserver.observe(panelEl);
         }
 
         this.updateHeightTimer = setTimeout(() => {
@@ -409,17 +440,47 @@ class TableManager extends Component {
         this.setState({ currentPage: pageNumber });
     };
 
-    handleItemsPerPageChange = (itemsPerPage) => {
+    handleItemsPerPageChange = (itemsPerPage, isManual = false) => {
         const newItemsPerPage = Number(itemsPerPage);
-        this.saveItemsPerPageToStorage(newItemsPerPage);
-        this.setState({ 
-            itemsPerPage: newItemsPerPage, 
-            currentPage: 1 
-        }, () => {
-            if (this.props.onItemsPerPageChange) {
-                this.props.onItemsPerPageChange(newItemsPerPage);
+        if (isManual) {
+            this.saveItemsPerPageToStorage(newItemsPerPage);
+            this.setState({
+                itemsPerPage: newItemsPerPage,
+                currentPage: 1,
+                autofitEnabled: false,
+                manualItemsPerPage: newItemsPerPage
+            }, () => {
+                if (this.props.onItemsPerPageChange) {
+                    this.props.onItemsPerPageChange(newItemsPerPage);
+                }
+            });
+        } else {
+            this.setState({
+                itemsPerPage: newItemsPerPage,
+                currentPage: 1
+            }, () => {
+                if (this.props.onItemsPerPageChange) {
+                    this.props.onItemsPerPageChange(newItemsPerPage);
+                }
+            });
+        }
+    };
+
+    applyAutofit = (best) => {
+        if (!this.state.autofitEnabled) {
+            const { manualItemsPerPage, itemsPerPage } = this.state;
+            const target = manualItemsPerPage || itemsPerPage;
+            if (best !== null && target > best && best !== itemsPerPage) {
+                this.setState({ itemsPerPage: best });
             }
-        });
+            if (best !== null && target <= best && target !== itemsPerPage) {
+                this.setState({ itemsPerPage: target });
+            }
+            return;
+        }
+        if (best !== null && best !== this.state.itemsPerPage) {
+            this.setState({ itemsPerPage: best });
+        }
     };
 
     getPaginatedData = () => {
@@ -838,7 +899,7 @@ class TableManager extends Component {
         };
     
         return (
-            <nav className="mt-3">
+            <nav ref={this.paginationRef} className="mt-3">
                 <ul className="pagination justify-content-center">
                     <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
                         <button 
@@ -892,10 +953,21 @@ class TableManager extends Component {
                     <small className="text-muted me-2">Items per page:</small>
                     <select
                         className="form-select form-select-sm"
-                        value={itemsPerPage}
-                        onChange={e => this.handleItemsPerPageChange(Number(e.target.value))}
+                        value={this.state.autofitEnabled ? 'auto' : itemsPerPage}
+                        onChange={e => {
+                            const val = e.target.value;
+                            if (val === 'auto') {
+                                this.setState({ autofitEnabled: true, manualItemsPerPage: null }, () => {
+                                    const best = this._computeAdaptiveItemsPerPage();
+                                    this.applyAutofit(best);
+                                });
+                            } else {
+                                this.handleItemsPerPageChange(Number(val), true);
+                            }
+                        }}
                         style={{ width: 'auto' }}
                     >
+                        <option value="auto">Auto-fit</option>
                         <option value="5">5</option>
                         <option value="10">10</option>
                         <option value="25">25</option>
@@ -935,7 +1007,8 @@ class TableManager extends Component {
             renderFilters: this.renderFilters,
             renderFilterControls: this.renderFilterControls,
             renderSaveModal: this.renderSaveModal,
-            getTableContainerStyle: this.getTableContainerStyle
+            getTableContainerStyle: this.getTableContainerStyle,
+            theadRef: this.theadRef
         };
 
         return children(renderProps);

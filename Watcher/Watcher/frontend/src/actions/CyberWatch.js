@@ -63,6 +63,7 @@ export const addWatchRule = (rule) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ addWatchRule: 'Watch rule added' }));
             dispatch({ type: CYBERWATCH_ADD_WATCH_RULE, payload: res.data });
+            dispatch(getWatchRules());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))
@@ -87,6 +88,7 @@ export const patchWatchRule = (id, data) => (dispatch, getState) => {
         .then(res => {
             dispatch(createMessage({ patchWatchRule: 'Watch rule updated' }));
             dispatch({ type: CYBERWATCH_PATCH_WATCH_RULE, payload: res.data });
+            dispatch(getWatchRules());
         })
         .catch(err =>
             dispatch(returnErrors(err.response?.data, err.response?.status))

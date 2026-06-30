@@ -1,9 +1,13 @@
+import logging
 from .models import Site, Alert
+
+logger = logging.getLogger('watcher.site_monitoring')
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from datetime import datetime, timedelta
+from django.db.models import Prefetch
 from .serializers import SiteSerializer, AlertSerializer, MISPSerializer
 
 
@@ -23,8 +27,14 @@ class SiteViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        qs = Site.objects.all().order_by('-created_at', '-id')
-        return qs
+        from timeline.models import TimelineEvent
+        return Site.objects.all().order_by('-created_at', '-id').prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):
@@ -65,10 +75,11 @@ class SiteViewSet(viewsets.ModelViewSet):
                         
             return Response(stats, status=status.HTTP_200_OK)
             
-        except Exception as e:
+        except Exception:
+            logger.exception("Error computing Site Monitoring statistics")
             return Response({
                 'status': 'error',
-                'message': f'Failed to calculate statistics: {str(e)}'
+                'message': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -5,6 +5,7 @@ import {getKeyWords, deleteKeyWord, addKeyWord, patchKeyWord} from "../../action
 import {Button, Modal, Container, Row, Col, Form, Badge, Alert, Accordion, Card} from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 // Regex patterns organized by theme
 const REGEX_PATTERNS = {
@@ -56,9 +57,9 @@ export class KeyWords extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showDeleteModal: false,
-            showEditModal: false,
-            showAddModal: false,
+            showDeleteModal:   false,
+            showEditModal:     false,
+            showAddModal:      false,
             id: 0,
             word: "",
             is_regex: false,
@@ -68,6 +69,9 @@ export class KeyWords extends Component {
             testString: "",
             testMatches: [],
             showExamples: false,
+            showTimelineModal: false,
+            timelineId:        null,
+            timelineLabel:     '',
         };
         this.inputRef = React.createRef();
         this.isRegexRef = React.createRef();
@@ -591,7 +595,7 @@ export class KeyWords extends Component {
 
     renderLoadingState = () => (
         <tr>
-            <td colSpan="4" className="text-center py-5">
+            <td colSpan="5" className="text-center py-5">
                 <div className="d-flex flex-column align-items-center">
                     <div className="spinner-border text-primary mb-3" role="status">
                         <span className="visually-hidden">Loading...</span>
@@ -606,6 +610,7 @@ export class KeyWords extends Component {
         const { keywords, auth, globalFilters } = this.props;
         const { isAuthenticated, user } = auth;
         const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.some(p => p === 'data_leak.change_keyword' || p === 'data_leak.delete_keyword')));
+        const { showTimelineModal, timelineId, timelineLabel } = this.state;
 
         return (
             <Fragment>
@@ -639,7 +644,8 @@ export class KeyWords extends Component {
                         renderPagination,
                         handleSort,
                         renderSortIcons,
-                        getTableContainerStyle
+                        getTableContainerStyle,
+                        theadRef
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
@@ -648,7 +654,7 @@ export class KeyWords extends Component {
                                 <div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(),  overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover">
-                                            <thead>
+                                            <thead ref={theadRef}>
                                                 <tr>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                                                         Name{renderSortIcons('name')}
@@ -659,6 +665,7 @@ export class KeyWords extends Component {
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At{renderSortIcons('created_at')}
                                                     </th>
+                                                    <LastEventHeader />
                                                     <th/>
                                                 </tr>
                                             </thead>
@@ -667,7 +674,7 @@ export class KeyWords extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="4" className="text-center text-muted py-4">
+                                                        <td colSpan="5" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
@@ -683,32 +690,36 @@ export class KeyWords extends Component {
                                                                 )}
                                                             </td>
                                                             <td>
-                                                                <DateWithTooltip 
-                                                                    date={keyword.created_at} 
+                                                                <DateWithTooltip
+                                                                    date={keyword.created_at}
                                                                     includeTime={false}
                                                                     type="created"
                                                                 />
                                                             </td>
+                                                            <LastEventCell event={keyword.last_event} />
                                                             <td className="text-end" style={{whiteSpace: 'nowrap'}}>
                                                                 {canManage && (
                                                                     <>
-                                                                        <button 
+                                                                        <button
                                                                             className="btn btn-outline-warning btn-sm me-2"
-                                                                            data-toggle="tooltip"
-                                                                            data-placement="top" 
-                                                                            title="Edit" 
+                                                                            title="Edit"
                                                                             onClick={() => this.displayEditModal(keyword.id, keyword.name, keyword.is_regex)}
                                                                         >
                                                                             <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>edit</i>
                                                                         </button>
-                                                                        <button 
-                                                                            className="btn btn-outline-danger btn-sm" 
-                                                                            data-toggle="tooltip"
-                                                                            data-placement="top" 
-                                                                            title="Delete" 
+                                                                        <button
+                                                                            className="btn btn-outline-danger btn-sm me-2"
+                                                                            title="Delete"
                                                                             onClick={() => this.displayDeleteModal(keyword.id, keyword.name)}
                                                                         >
                                                                             <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
+                                                                        </button>
+                                                                        <button
+                                                                            className="btn btn-outline-secondary btn-sm"
+                                                                            title="History"
+                                                                            onClick={() => this.setState({ showTimelineModal: true, timelineId: keyword.id, timelineLabel: keyword.name })}
+                                                                        >
+                                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>history</i>
                                                                         </button>
                                                                     </>
                                                                 )}
@@ -730,6 +741,13 @@ export class KeyWords extends Component {
                 {this.deleteModal()}
                 {this.editModal()}
                 {this.addModal()}
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
+                    contentType="data_leak.keyword"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }

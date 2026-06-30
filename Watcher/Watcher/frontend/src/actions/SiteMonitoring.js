@@ -60,10 +60,8 @@ export const addSite = site => (dispatch, getState) => {
         .post("/api/site_monitoring/site/", site, tokenConfig(getState))
         .then(res => {
             dispatch(createMessage({add: `${site.domain_name} Monitoring`}));
-            dispatch({
-                type: ADD_SITE,
-                payload: res.data
-            });
+            dispatch({ type: ADD_SITE, payload: res.data });
+            dispatch(getSites());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
@@ -76,10 +74,8 @@ export const patchSite = (id, patchedSite) => (dispatch, getState) => {
         .patch(`/api/site_monitoring/site/${id}/`, patchedSite, tokenConfig(getState))
         .then(res => {
             dispatch(createMessage({add: `${patchedSite.domain_name} Updated`}));
-            dispatch({
-                type: PATCH_SITE,
-                payload: res.data
-            });
+            dispatch({ type: PATCH_SITE, payload: res.data });
+            dispatch(getSites());
         })
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))

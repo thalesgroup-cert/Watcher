@@ -5,6 +5,7 @@ import { getBannedWords, addBannedWord, deleteBannedWord, patchBannedWord } from
 import { Button, Modal, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
 
 const FILTER_CONFIG = [
     { key: 'search', type: 'search', label: 'Search', placeholder: 'Search by word...', width: 5 },
@@ -14,15 +15,18 @@ class BannedWordsPanel extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showHelp:        false,
-            showAddModal:    false,
-            addName:         '',
-            showEditModal:   false,
-            editId:          null,
-            editName:        '',
-            showDeleteModal: false,
-            deleteId:        null,
-            deleteName:      '',
+            showHelp:          false,
+            showAddModal:      false,
+            addName:           '',
+            showEditModal:     false,
+            editId:            null,
+            editName:          '',
+            showDeleteModal:   false,
+            deleteId:          null,
+            deleteName:        '',
+            showTimelineModal: false,
+            timelineId:        null,
+            timelineLabel:     '',
         };
     }
 
@@ -72,7 +76,8 @@ class BannedWordsPanel extends Component {
     render() {
         const { bannedWords, auth } = this.props;
         const { isAuthenticated, user } = auth;
-        const { showHelp, showAddModal, addName, showEditModal, editName, showDeleteModal, deleteName } = this.state;
+        const { showHelp, showAddModal, addName, showEditModal, editName, showDeleteModal, deleteName,
+                showTimelineModal, timelineId, timelineLabel } = this.state;
 
         const canManage = isAuthenticated && !!user && (
             user.is_superuser ||
@@ -126,23 +131,24 @@ class BannedWordsPanel extends Component {
                     moduleKey="cyberWatch_bannedWords"
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('name')}>Word {renderSortIcons('name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('created_at')}>Added {renderSortIcons('created_at')}</th>
+                                            <LastEventHeader />
                                             {canManage && <th className="text-end">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={canManage ? 3 : 2} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 4 : 3} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(bw => (
                                             <tr key={bw.id}>
                                                 <td className="align-middle fw-semibold">{bw.name}</td>
@@ -151,6 +157,7 @@ class BannedWordsPanel extends Component {
                                                         ? <DateWithTooltip date={bw.created_at} type="created" />
                                                         : <span className="text-muted">-</span>}
                                                 </td>
+                                                <LastEventCell event={bw.last_event} />
                                                 {canManage && (
                                                     <td className="text-end align-middle" style={{ whiteSpace: 'nowrap' }}>
                                                         <button className="btn btn-outline-warning btn-sm me-2" title="Edit" onClick={() => this.openEditModal(bw)}>
@@ -158,6 +165,9 @@ class BannedWordsPanel extends Component {
                                                         </button>
                                                         <button className="btn btn-outline-danger btn-sm me-2" title="Delete" onClick={() => this.openDeleteModal(bw.id, bw.name)}>
                                                             <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>delete</i>
+                                                        </button>
+                                                        <button className="btn btn-outline-secondary btn-sm" title="History" onClick={() => this.setState({ showTimelineModal: true, timelineId: bw.id, timelineLabel: bw.name })}>
+                                                            <i className="material-icons" style={{fontSize: 17, lineHeight: 1.8, margin: -2.5}}>history</i>
                                                         </button>
                                                     </td>
                                                 )}
@@ -231,6 +241,14 @@ class BannedWordsPanel extends Component {
                     </Modal.Footer>
                 </Modal>
                 </>)}
+
+                <TimelineModal
+                    show={showTimelineModal}
+                    onHide={() => this.setState({ showTimelineModal: false })}
+                    contentType="threats_watcher.bannedword"
+                    objectId={timelineId}
+                    label={timelineLabel}
+                />
             </Fragment>
         );
     }

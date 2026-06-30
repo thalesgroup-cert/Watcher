@@ -95,6 +95,7 @@ class CVEStats extends Component {
         watchRuleHits:    PropTypes.array.isRequired,
         getCVEs:          PropTypes.func.isRequired,
         getWatchRuleHits: PropTypes.func.isRequired,
+        setPostUrls:      PropTypes.func,
     };
 
     shouldComponentUpdate(nextProps) {

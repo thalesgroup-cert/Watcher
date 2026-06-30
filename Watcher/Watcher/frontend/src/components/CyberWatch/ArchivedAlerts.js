@@ -6,6 +6,14 @@ import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 
+const getCveUrl = (id) => {
+    if (!id) return '#';
+    if (id.startsWith('CVE-'))  return `https://www.cve.org/CVERecord?id=${id}`;
+    if (id.startsWith('GHSA-')) return `https://github.com/advisories/${id}`;
+    if (id.startsWith('MAL-'))  return `https://vulnerability.circl.lu/vuln/${id}`;
+    return `https://vulnerability.circl.lu/vuln/${id}`;
+};
+
 const SEVERITY_BADGE = {
     CRITICAL: 'bg-danger',
     HIGH: 'bg-warning text-dark',
@@ -80,7 +88,7 @@ class ArchivedAlerts extends Component {
                 moduleKey="cyberWatch_archivedCVEs"
             >
                 {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                     <Fragment>
                         {renderFilterControls()}
                         {renderFilters()}
@@ -88,7 +96,7 @@ class ArchivedAlerts extends Component {
                         <div className="row"><div className="col-lg-12">
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('cve_id')}>CVE ID {renderSortIcons('cve_id')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('severity')}>Severity {renderSortIcons('severity')}</th>
@@ -108,7 +116,7 @@ class ArchivedAlerts extends Component {
                                             <tr key={cve.id}>
                                                 <td className="align-middle">
                                                     <a
-                                                        href={`https://www.cve.org/CVERecord?id=${cve.cve_id}`}
+                                                        href={getCveUrl(cve.cve_id)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="fw-semibold text-decoration-none text-muted"
@@ -195,7 +203,7 @@ class ArchivedAlerts extends Component {
                 moduleKey="cyberWatch_archivedHits"
             >
                 {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                     <Fragment>
                         {renderFilterControls()}
                         {renderFilters()}
@@ -203,7 +211,7 @@ class ArchivedAlerts extends Component {
                         <div className="row"><div className="col-lg-12">
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('rule_name')}>Rule {renderSortIcons('rule_name')}</th>
                                             <th role="button" onClick={() => handleSort('hit_type')}>Type {renderSortIcons('hit_type')}</th>
@@ -231,7 +239,11 @@ class ArchivedAlerts extends Component {
                                                 </td>
                                                 <td className="align-middle text-muted"
                                                     style={{ maxWidth: 300, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {hit.object_id}
+                                                    {hit.hit_type === 'cve' ? (
+                                                        <a href={getCveUrl(hit.object_id)} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-muted">
+                                                            {hit.object_id}
+                                                        </a>
+                                                    ) : hit.object_id}
                                                 </td>
                                                 <td className="align-middle">
                                                     <Badge bg="secondary">{hit.matched_keyword}</Badge>
@@ -277,7 +289,7 @@ class ArchivedAlerts extends Component {
                 moduleKey="cyberWatch_archivedVictims"
             >
                 {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle }) => (
+                    renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
                     <Fragment>
                         {renderFilterControls()}
                         {renderFilters()}
@@ -285,7 +297,7 @@ class ArchivedAlerts extends Component {
                         <div className="row"><div className="col-lg-12">
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0" style={{ fontSize: '0.95rem' }}>
-                                    <thead>
+                                    <thead ref={theadRef}>
                                         <tr>
                                             <th role="button" onClick={() => handleSort('victim_name')}>Victim {renderSortIcons('victim_name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('group_name')}>Group {renderSortIcons('group_name')}</th>

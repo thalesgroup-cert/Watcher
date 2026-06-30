@@ -37,7 +37,7 @@ class CyberWatchDashboard extends Component {
                 icon: 'track_changes',
                 tooltip: 'Manage keywords tracked across all RSS feed articles',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <MonitoredKeywordsPanel />
                     </div>
                 ),
@@ -47,7 +47,7 @@ class CyberWatchDashboard extends Component {
                 icon: 'visibility',
                 tooltip: 'Configure rules to match CVEs and ransomware events',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <WatchRules />
                     </div>
                 ),
@@ -57,7 +57,7 @@ class CyberWatchDashboard extends Component {
                 icon: 'rss_feed',
                 tooltip: 'Manage RSS feed sources monitored for threats',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <SourcesPanel />
                     </div>
                 ),
@@ -67,7 +67,7 @@ class CyberWatchDashboard extends Component {
                 icon: 'block',
                 tooltip: 'Words excluded from trending detection',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <BannedWordsPanel />
                     </div>
                 ),
@@ -77,7 +77,7 @@ class CyberWatchDashboard extends Component {
                 icon: 'inventory',
                 tooltip: 'CVE alerts and ransomware victims that have been archived',
                 children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <ArchivedAlerts />
                     </div>
                 ),

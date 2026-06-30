@@ -187,6 +187,7 @@ INSTALLED_APPS = [
     'accounts',
     'import_export',
     'cyber_watch',
+    'timeline',
     'drf_spectacular',
     'mozilla_django_oidc',
 ]
@@ -229,6 +230,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'timeline.middleware.CurrentUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -354,7 +356,8 @@ LOGGING = {
             'style': '{',
         },
         'console': {
-            'format': '{levelname} {asctime} | {message}',
+            'format': '[{asctime}] {levelname} | {message}',
+            'datefmt': '%d/%b/%Y %H:%M:%S',
             'style': '{',
         },
     },

@@ -118,7 +118,7 @@ def check_searx(keyword):
         if not any(char in search_term for char in ['%', '@', '&', '+', '=']):
             search_term = '"' + search_term + '"'
     
-    params = {'q': search_term, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow,hoogle',
+    params = {'q': search_term, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow',
               'format': 'json'}
 
     logger.info(f"Querying Searx for: {search_term}")
@@ -126,8 +126,19 @@ def check_searx(keyword):
     # send the request off to searx
     try:
         response = requests.get(settings.DATA_LEAK_SEARX_URL, params=params)
+    except requests.exceptions.ProxyError as e:
+        detail = re.search(r'(\d{3}\s+\w[\w ]*)', str(e))
+        code_str = f" [{detail.group(1).strip()}]" if detail else ""
+        logger.error("SearxNG unreachable through proxy%s (keyword: %s)", code_str, search_term)
+        return hits
+    except requests.exceptions.ConnectionError:
+        logger.error("SearxNG connection failed (keyword: %s)", search_term)
+        return hits
+    except requests.exceptions.Timeout:
+        logger.error("SearxNG request timed out (keyword: %s)", search_term)
+        return hits
     except requests.exceptions.RequestException as e:
-        logger.error(str(e))
+        logger.error("SearxNG request error for '%s': %s", search_term, type(e).__name__)
         return hits
 
     try:

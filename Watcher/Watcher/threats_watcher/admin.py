@@ -16,7 +16,7 @@ class SourceResource(resources.ModelResource):
 
 @admin.register(Source)
 class SourceAdmin(ImportExportModelAdmin):
-    list_display = ['url', 'country_code', 'country', 'confident', 'created_at']
+    list_display = ['url', 'country_code', 'country', 'confident', 'last_status_code', 'last_checked', 'created_at']
     list_filter  = ['country_code', 'created_at']
     search_fields = ['url', 'country', 'country_code']
     resource_class = SourceResource

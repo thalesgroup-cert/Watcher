@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericRelation
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -10,6 +11,7 @@ class DnsMonitored(models.Model):
     """
     domain_name = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='dnsmonitored')
 
     class Meta:
         ordering = ["domain_name"]
@@ -26,6 +28,7 @@ class KeywordMonitored(models.Model):
     """
     name = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='keywordmonitored')
 
     class Meta:
         ordering = ["name"]
