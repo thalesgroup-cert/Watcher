@@ -12,10 +12,9 @@ class WatcherOIDCBackend(OIDCAuthenticationBackend):
     """
 
     def get_username(self, claims):
-        # Prefer 'preferred_username', fall back to the local part of 'email'
-        preferred = claims.get('preferred_username', '').strip()
-        if preferred:
-            return preferred
+        sub = claims.get('sub', '').strip()
+        if sub:
+            return sub
         email = claims.get('email', '')
         if email:
             return email.split('@')[0]
@@ -31,7 +30,6 @@ class WatcherOIDCBackend(OIDCAuthenticationBackend):
         return user
 
     def _update_user_fields(self, user, claims):
-        logger.info('OIDC claims received for %s: %s', user.username, claims)
         given = (claims.get('given_name') or '').strip()
         family = (claims.get('family_name') or '').strip()
         full = (claims.get('name') or '').strip()
