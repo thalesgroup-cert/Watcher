@@ -1,5 +1,5 @@
 # --- Makefile ---
-include .env
+-include .env
 
 .PHONY: help netcheck up down build pull deploy migrate backup populate-db superuser create-certs init
 
