@@ -30,7 +30,9 @@ class Site(models.Model):
     content_monitoring = models.BooleanField(default=True)
     monitored = models.BooleanField(default=False, blank=True, null=True)
     web_status = models.IntegerField(blank=True, null=True)
-    
+    server_banner = models.CharField(max_length=255, blank=True, null=True)
+    x_powered_by = models.CharField(max_length=255, blank=True, null=True)
+
     registrar = models.CharField(max_length=255, blank=True, null=True)
     legitimacy = models.IntegerField(choices=[
         (1, "Unknown"),
@@ -134,7 +136,11 @@ class Alert(models.Model):
     old_expiry_date = models.DateField(blank=True, null=True)
     new_ssl_expiry = models.DateField(blank=True, null=True)
     old_ssl_expiry = models.DateField(blank=True, null=True)
-    
+    old_server_banner = models.CharField(max_length=255, blank=True, null=True)
+    new_server_banner = models.CharField(max_length=255, blank=True, null=True)
+    old_x_powered_by = models.CharField(max_length=255, blank=True, null=True)
+    new_x_powered_by = models.CharField(max_length=255, blank=True, null=True)
+
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -154,6 +160,13 @@ class Alert(models.Model):
     def is_ssl_alert(self):
         """Check if this is an SSL certificate alert"""
         return (self.new_ssl_expiry is not None or self.old_ssl_expiry is not None)
+
+    @property
+    def is_banner_alert(self):
+        return (
+            self.new_server_banner is not None or self.old_server_banner is not None
+            or self.new_x_powered_by is not None or self.old_x_powered_by is not None
+        )
 
 
 class Subscriber(models.Model):

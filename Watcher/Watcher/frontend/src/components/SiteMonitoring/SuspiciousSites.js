@@ -440,6 +440,14 @@ export class SuspiciousSites extends Component {
                                 <Col sm="8" className="mt-2">
                                     {site.mail_A_record_ip || "-"}
                                 </Col>
+                                <Form.Label column sm="4">Server Banner</Form.Label>
+                                <Col sm="8" className="mt-2">
+                                    {site.server_banner || "-"}
+                                </Col>
+                                <Form.Label column sm="4">X-Powered-By</Form.Label>
+                                <Col sm="8" className="mt-2">
+                                    {site.x_powered_by || "-"}
+                                </Col>
                             </Form.Group>
                                 <Col md={{span: 3, offset: 10}}>
                                     <Button variant="secondary" onClick={handleClose}>

@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
 from site_monitoring.models import Site, Alert, Subscriber
-from site_monitoring.core import monitoring_init, create_rdap_alert, send_website_monitoring_notifications
+from site_monitoring.core import monitoring_init, create_rdap_alert, create_banner_alert, send_website_monitoring_notifications
 from site_monitoring.serializers import SiteSerializer, AlertSerializer
 import uuid
 
@@ -100,6 +100,159 @@ class ModelTest(TestCase):
         self.assertIn(user.username, str(subscriber))
 
 
+class BannerModelTest(TestCase):
+    """Test banner fields on Site and Alert models."""
+
+    def test_site_banner_fields_default_to_none(self):
+        site = Site.objects.create(domain_name="banner-default.com")
+        self.assertIsNone(site.server_banner)
+        self.assertIsNone(site.x_powered_by)
+
+    def test_site_banner_fields_store_values(self):
+        site = Site.objects.create(
+            domain_name="banner-store.com",
+            server_banner="Apache/2.4.51",
+            x_powered_by="PHP/7.4.3",
+        )
+        site.refresh_from_db()
+        self.assertEqual(site.server_banner, "Apache/2.4.51")
+        self.assertEqual(site.x_powered_by, "PHP/7.4.3")
+
+    def test_alert_banner_fields_default_to_none(self):
+        site = Site.objects.create(domain_name="alert-banner-default.com")
+        alert = Alert.objects.create(site=site, type="Server banner change detected")
+        self.assertIsNone(alert.old_server_banner)
+        self.assertIsNone(alert.new_server_banner)
+        self.assertIsNone(alert.old_x_powered_by)
+        self.assertIsNone(alert.new_x_powered_by)
+
+    def test_is_banner_alert_true_when_banner_fields_set(self):
+        site = Site.objects.create(domain_name="is-banner-alert.com")
+        alert = Alert.objects.create(
+            site=site,
+            type="Server banner change detected",
+            old_server_banner="Apache/2.4.51",
+            new_server_banner="nginx/1.18.0",
+        )
+        self.assertTrue(alert.is_banner_alert)
+
+    def test_is_banner_alert_false_when_no_banner_fields(self):
+        site = Site.objects.create(domain_name="not-banner-alert.com")
+        alert = Alert.objects.create(site=site, type="IP address change detected")
+        self.assertFalse(alert.is_banner_alert)
+
+
+class BannerAlertTest(TestCase):
+    """Test create_banner_alert and check_content banner detection."""
+
+    def setUp(self):
+        self.site = Site.objects.create(
+            domain_name="banner-alert-test.com",
+            server_banner="Apache/2.4.51",
+            x_powered_by="PHP/7.4.3",
+            monitored=True,
+        )
+
+    @patch('site_monitoring.core.send_website_monitoring_notifications')
+    def test_create_banner_alert_creates_alert_record(self, mock_notif):
+        alert = create_banner_alert(
+            self.site,
+            old_server="Apache/2.4.51",
+            new_server="nginx/1.18.0",
+            old_xpb="PHP/7.4.3",
+            new_xpb="",
+        )
+        self.assertIsNotNone(alert)
+        self.assertEqual(alert.type, "Server banner change detected")
+        self.assertEqual(alert.old_server_banner, "Apache/2.4.51")
+        self.assertEqual(alert.new_server_banner, "nginx/1.18.0")
+        self.assertEqual(alert.old_x_powered_by, "PHP/7.4.3")
+        self.assertEqual(alert.new_x_powered_by, "")
+
+    @patch('site_monitoring.core.send_website_monitoring_notifications')
+    def test_create_banner_alert_sends_notification(self, mock_notif):
+        create_banner_alert(
+            self.site,
+            old_server="Apache/2.4.51",
+            new_server="nginx/1.18.0",
+            old_xpb="",
+            new_xpb="",
+        )
+        mock_notif.assert_called_once()
+
+    @patch('site_monitoring.core.send_website_monitoring_notifications')
+    def test_create_banner_alert_deduplicates_within_one_hour(self, mock_notif):
+        create_banner_alert(self.site, "Apache/2.4.51", "nginx/1.18.0", "", "")
+        second = create_banner_alert(self.site, "Apache/2.4.51", "nginx/1.18.0", "", "")
+        self.assertIsNone(second)
+        self.assertEqual(Alert.objects.filter(site=self.site, type="Server banner change detected").count(), 1)
+
+    @patch('site_monitoring.core.create_banner_alert')
+    @patch('site_monitoring.core.requests.get')
+    def test_check_content_triggers_banner_alert_on_change(self, mock_get, mock_banner_alert):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "content"
+        mock_response.headers = {
+            'Server': 'nginx/1.18.0',
+            'X-Powered-By': '',
+        }
+        mock_get.return_value = mock_response
+
+        from site_monitoring.core import check_content
+        check_content(self.site, 0, None)
+
+        mock_banner_alert.assert_called_once_with(
+            self.site,
+            old_server="Apache/2.4.51",
+            new_server="nginx/1.18.0",
+            old_xpb="PHP/7.4.3",
+            new_xpb="",
+        )
+
+    @patch('site_monitoring.core.create_banner_alert')
+    @patch('site_monitoring.core.requests.get')
+    def test_check_content_stores_banner_silently_on_first_run(self, mock_get, mock_banner_alert):
+        site = Site.objects.create(
+            domain_name="first-run-banner.com",
+            server_banner=None,
+            x_powered_by=None,
+        )
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "content"
+        mock_response.headers = {
+            'Server': 'Apache/2.4.51',
+            'X-Powered-By': 'PHP/7.4.3',
+        }
+        mock_get.return_value = mock_response
+
+        from site_monitoring.core import check_content
+        check_content(site, 0, None)
+
+        mock_banner_alert.assert_not_called()
+        site.refresh_from_db()
+        self.assertEqual(site.server_banner, "Apache/2.4.51")
+        self.assertEqual(site.x_powered_by, "PHP/7.4.3")
+
+    @patch('site_monitoring.core.create_banner_alert')
+    @patch('site_monitoring.core.requests.get')
+    def test_check_content_no_alert_when_banner_unchanged(self, mock_get, mock_banner_alert):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "content"
+        mock_response.headers = {
+            'Server': 'Apache/2.4.51',
+            'X-Powered-By': 'PHP/7.4.3',
+        }
+        mock_get.return_value = mock_response
+
+        from site_monitoring.core import check_content
+        check_content(self.site, 0, None)
+
+        mock_banner_alert.assert_not_called()
+
+
 class CoreFunctionsTest(TestCase):
     """Test core monitoring functions."""
 
@@ -114,6 +267,7 @@ class CoreFunctionsTest(TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.text = "Test page content"
+        mock_response.headers = {}
         mock_requests_get.return_value = mock_response
 
         site = Site.objects.create(
@@ -152,6 +306,7 @@ class CoreFunctionsTest(TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.text = "Test content " * 100
+        mock_response.headers = {}
         mock_get.return_value = mock_response
         from site_monitoring.core import check_content
         site = Site.objects.create(

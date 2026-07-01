@@ -110,9 +110,12 @@ export class Alerts extends Component {
     
         if (!alert) return null;
     
-        const isRdapAlert = alert.new_registrar !== null || alert.old_registrar !== null || 
+        const isRdapAlert = alert.new_registrar !== null || alert.old_registrar !== null ||
                            alert.new_expiry_date !== null || alert.old_expiry_date !== null;
-    
+
+        const isBannerAlert = alert.new_server_banner !== null || alert.old_server_banner !== null ||
+                           alert.new_x_powered_by !== null || alert.old_x_powered_by !== null;
+
         return (
             <Modal 
                 show={this.state.showInfoModal} 
@@ -151,7 +154,11 @@ export class Alerts extends Component {
                                         {alert.status ? "Active" : "Archived"}
                                     </Col>
     
-                                    {isRdapAlert ? this.renderRdapAlertDetails(alert) : this.renderMonitoringAlertDetails(alert)}
+                                    {isRdapAlert
+                                        ? this.renderRdapAlertDetails(alert)
+                                        : isBannerAlert
+                                            ? this.renderBannerAlertDetails(alert)
+                                            : this.renderMonitoringAlertDetails(alert)}
                                 </Form.Group>
     
                                 <div className="text-end mt-4">
@@ -239,6 +246,60 @@ export class Alerts extends Component {
                     </div>
                     <div className="text-muted small">
                         Automated domain registration data monitoring
+                    </div>
+                </Col>
+            </Fragment>
+        );
+    };
+
+    renderBannerAlertDetails = (alert) => {
+        return (
+            <Fragment>
+                <Col sm="12" className="mt-4">
+                    <hr />
+                </Col>
+
+                {(alert.new_server_banner || alert.old_server_banner) && (
+                    <Fragment>
+                        <Form.Label column sm="4" className="fw-bold">
+                            Server Banner
+                        </Form.Label>
+                        <Col sm="8" className="mt-1">
+                            <div>
+                                <strong>Current:</strong> {alert.new_server_banner || "-"}
+                            </div>
+                            <div className="text-muted small">
+                                Previous: {alert.old_server_banner || "-"}
+                            </div>
+                        </Col>
+                    </Fragment>
+                )}
+
+                {(alert.new_x_powered_by || alert.old_x_powered_by) && (
+                    <Fragment>
+                        <Form.Label column sm="4" className="fw-bold">
+                            X-Powered-By
+                        </Form.Label>
+                        <Col sm="8" className="mt-1">
+                            <div>
+                                <strong>Current:</strong> {alert.new_x_powered_by || "-"}
+                            </div>
+                            <div className="text-muted small">
+                                Previous: {alert.old_x_powered_by || "-"}
+                            </div>
+                        </Col>
+                    </Fragment>
+                )}
+
+                <Form.Label column sm="4" className="fw-bold">
+                    Detection Method
+                </Form.Label>
+                <Col sm="8" className="mt-1">
+                    <div>
+                        <strong>HTTP Response Headers</strong>
+                    </div>
+                    <div className="text-muted small">
+                        Automated Server / X-Powered-By header monitoring
                     </div>
                 </Col>
             </Fragment>
