@@ -131,7 +131,7 @@ export class Login extends Component {
                             {hasSso && (
                                 <a
                                     href="/api/auth/oidc/login/"
-                                    className="btn btn-outline-primary w-100 mb-3 d-flex align-items-center justify-content-center gap-2"
+                                    className="btn btn-primary w-100 mb-3 d-flex align-items-center justify-content-center gap-2"
                                 >
                                     <i className="material-icons" style={{ fontSize: 18 }}>vpn_key</i>
                                     Continue with {ssoLabel}
