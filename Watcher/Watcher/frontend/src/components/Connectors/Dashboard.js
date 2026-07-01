@@ -26,7 +26,12 @@ function KpiCard({ title, value, icon, variant }) {
                     className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
                     style={{ width: 48, height: 48, minWidth: 48 }}
                 >
-                    <i className={`material-icons text-${variant}`} style={{ fontSize: 26 }}>{icon}</i>
+                    <i
+                        className={variant === 'secondary' ? 'material-icons' : `material-icons text-${variant}`}
+                        style={variant === 'secondary' ? { fontSize: 26, color: '#6c757d' } : { fontSize: 26 }}
+                    >
+                        {icon}
+                    </i>
                 </div>
                 <div className="flex-fill" style={{ minWidth: 0 }}>
                     <div className="text-white-50 text-uppercase fw-bold"

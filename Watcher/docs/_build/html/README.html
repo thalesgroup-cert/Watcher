@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install Watcher &mdash; Watcher 3.3.0 documentation</title>
+  <title>Install Watcher &mdash; Watcher 3.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=3eb8911e"></script>
+      <script src="_static/documentation_options.js?v=c1362a89"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -123,6 +123,11 @@
 <li class="toctree-l3"><a class="reference internal" href="#dashboard-layout-manager">Dashboard Layout Manager</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#connectors">Connectors</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#how-it-works">How it works</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dashboard">Dashboard</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#ai-powered-threat-intelligence">AI-Powered Threat Intelligence</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#breaking-news-detection">Breaking News Detection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#weekly-threat-intelligence-reports">Weekly Threat Intelligence Reports</a></li>
@@ -162,7 +167,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#modify-the-frontend">Modify the frontend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#migrations-change-the-database-schema">Migrations: Change the database schema</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id3">The commands</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#change-a-model-adding-a-field-deleting-a-model-etc">Change a model (adding a field, deleting a model, etc.)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#change-a-model-adding-a-field-deleting-a-model">Change a model (adding a field, deleting a model…)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#build-the-documentation">Build the documentation</a></li>
@@ -300,6 +305,7 @@ python manage.py populate_db
 <h2>Static configuration<a class="headerlink" href="#static-configuration" title="Link to this heading"></a></h2>
 <p>Most of the settings can be modified from the <code class="docutils literal notranslate"><span class="pre">/admin</span></code> page.</p>
 <p>There are other settings located in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file that you can configure.</p>
+<p>Many of the external-integration settings below (SMTP, Slack, MISP, TheHive, Citadel, LDAP, SSO, CyberWatch feeds) can also be viewed, overridden, and tested live from the <a class="reference internal" href="#connectors">Connectors</a> page, without editing the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file.</p>
 <section id="production-settings-important">
 <h3>Production Settings [Important]<a class="headerlink" href="#production-settings-important" title="Link to this heading"></a></h3>
 <p>In production please put DJANGO_DEBUG environment variable to <strong>False</strong> in the <code class="docutils literal notranslate"><span class="pre">.env</span></code> file:</p>
@@ -372,7 +378,7 @@ docker compose up
 </section>
 <section id="sso-openid-connect-settings">
 <h3>SSO / OpenID Connect Settings<a class="headerlink" href="#sso-openid-connect-settings" title="Link to this heading"></a></h3>
-<p>Watcher supports federated login via any <strong>OpenID Connect (OIDC)</strong> provider (Keycloak, Azure AD, etc.).</p>
+<p>Watcher supports federated login via any <strong>OpenID Connect (OIDC)</strong> provider (Keycloak, Azure AD…)</p>
 <p>The login page behaviour is controlled by a single variable <code class="docutils literal notranslate"><span class="pre">LOGIN_MODE</span></code>:</p>
 <table class="docutils align-default">
 <thead>
@@ -529,7 +535,7 @@ EMAIL_FROM=
 </div>
 <p>Follow these steps to get the required information:</p>
 <ol class="arabic simple">
-<li><p>Choose your email provider (example: Gmail, Outlook…).</p></li>
+<li><p>Choose your email provider (example: Gmail, Outlook…)</p></li>
 <li><p>Go to the email provider’s settings and generate the <strong>SMTP configuration</strong>:</p>
 <ul class="simple">
 <li><p>For <strong>Gmail</strong>, detailed instructions can be found in <a class="reference external" href="https://support.google.com/a/answer/176600?hl=en">Google’s SMTP documentation</a>.</p></li>
@@ -639,7 +645,7 @@ docker compose up
 </section>
 <section id="add-your-rss-source-to-threats-detection">
 <h2>Add your RSS source to Threats Detection<a class="headerlink" href="#add-your-rss-source-to-threats-detection" title="Link to this heading"></a></h2>
-<p>As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…).</p>
+<p>As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks &amp; other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au…)</p>
 <p>Watcher currently provides hundreds of RSS cybersecurity sources (<a class="reference internal" href="#populate-your-database">Populate default RSS sources</a>).</p>
 <p>However, you can add your RSS Cybersecurity source to your Watcher instance:</p>
 <ul class="simple">
@@ -666,7 +672,7 @@ docker compose up
 <li><p>Fill in the following fields:</p>
 <ul class="simple">
 <li><p><strong>Domain</strong>: Company-owned domain (e.g., <code class="docutils literal notranslate"><span class="pre">company.com</span></code>)</p></li>
-<li><p><strong>Legitimacy</strong>: Classification status (Unknown, Legitimate, etc.)</p></li>
+<li><p><strong>Legitimacy</strong>: Classification status (Unknown, Legitimate…)</p></li>
 <li><p><strong>Domain Expiry</strong>: Expiration date (YYYY-MM-DD)</p></li>
 <li><p><strong>Registrar</strong>: Current registrar name</p></li>
 <li><p><strong>Repurchase</strong>: Mark if domain needs renewal</p></li>
@@ -735,7 +741,7 @@ GET<span class="w"> </span>/api/data_leak/keyword/?page<span class="o">=</span><
 <li><p>Pagination is implemented across all major API endpoints</p></li>
 <li><p>Default page size is 100 items</p></li>
 <li><p>Maximum page size is 1000 items</p></li>
-<li><p>Most frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.</p></li>
+<li><p>Most frontend actions (DataLeak.js, DnsFinder.js…) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.</p></li>
 </ul>
 </section>
 <section id="interactive-api-documentation">
@@ -1270,6 +1276,28 @@ the version of your MISP instance.</p>
 </ul>
 </section>
 </section>
+<section id="connectors">
+<h2>Connectors<a class="headerlink" href="#connectors" title="Link to this heading"></a></h2>
+<p>A dedicated <code class="docutils literal notranslate"><span class="pre">/connectors</span></code> page (<strong>superuser only</strong>) centralises configuration and health-check testing for every external integration Watcher can talk to: SMTP, Slack, Citadel, TheHive, MISP, LDAP, SSO/OIDC, CertStream, SearxNG, the CyberWatch feeds (CVE, Ransomware.live, RansomLook), WIPO UDRP, and the primary MySQL database.</p>
+<section id="how-it-works">
+<h3>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>At startup</strong>, each connector’s fields are seeded from the corresponding <code class="docutils literal notranslate"><span class="pre">.env</span></code> / <code class="docutils literal notranslate"><span class="pre">settings.py</span></code> variables described in <a class="reference internal" href="#static-configuration">Static configuration</a> - nothing changes for existing deployments, and a connector that’s already configured via environment variables needs no action here.</p></li>
+<li><p><strong>Editing a value</strong> from the dashboard (click <strong>Edit</strong> on a connector’s card) stores an override in the database. It takes effect immediately, the next time that connector’s configuration is read - in particular by its own <strong>Test</strong> button. Leaving a field untouched keeps whatever value it already had.</p></li>
+<li><p><strong>Sensitive fields</strong> (passwords, tokens, API keys) are encrypted at rest with Django’s signing framework and shown masked by default. Click the eye icon to decrypt and reveal the stored value, or the crossed-out eye to hide it again.</p></li>
+<li><p><strong>Test</strong> runs a real connectivity check (an SMTP handshake, an authenticated API call…) using the values currently saved for that connector, and reports success or failure directly on its card.</p></li>
+<li><p>The <strong>MySQL</strong> connector is read-only/informational: its configuration always comes from <code class="docutils literal notranslate"><span class="pre">settings.py</span></code> and can’t be changed from this page.</p></li>
+</ul>
+</section>
+<section id="dashboard">
+<h3>Dashboard<a class="headerlink" href="#dashboard" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>KPI cards summarise how many connectors are <strong>Connected</strong>, <strong>Incomplete</strong>, or <strong>Disabled</strong>, based on which of their required fields are currently filled.</p></li>
+<li><p>Search and filter connectors by name, category, or status.</p></li>
+<li><p>Toggle <strong>Group by category</strong> to organise the grid by theme (Notifications, Threat Intelligence, Authentication, Database…) instead of a flat list.</p></li>
+</ul>
+</section>
+</section>
 <section id="ai-powered-threat-intelligence">
 <h2>AI-Powered Threat Intelligence<a class="headerlink" href="#ai-powered-threat-intelligence" title="Link to this heading"></a></h2>
 <p>Watcher v3.4.0 uses <strong>AI-driven threat analysis</strong> powered by Hugging Face transformers for automated threat detection and summarization.</p>
@@ -1462,7 +1490,7 @@ python manage.py populate_db
 <li><p><strong>Move to the following directory:</strong> <code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">Watcher/Watcher</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">python-ldap</span></code> <strong>dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">-y</span> <span class="pre">libsasl2-dev</span> <span class="pre">python-dev-is-python3</span> <span class="pre">libldap2-dev</span> <span class="pre">libssl-dev</span></code></p></li>
 <li><p><strong>Install</strong> <code class="docutils literal notranslate"><span class="pre">mysqlclient</span></code> <strong>dependency:</strong> <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">default-libmysqlclient-dev</span></code></p></li>
-<li><p><strong>Install Rust (for tokenizers, etc)</strong> <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">https://sh.rustup.rs</span> <span class="pre">-sSf</span> <span class="pre">|</span> <span class="pre">sh</span> <span class="pre">-s</span> <span class="pre">--</span> <span class="pre">-y</span> <span class="pre">|source</span> <span class="pre">$HOME/.cargo/env</span></code></p></li>
+<li><p><strong>Install Rust (for tokenizers…)</strong> <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">https://sh.rustup.rs</span> <span class="pre">-sSf</span> <span class="pre">|</span> <span class="pre">sh</span> <span class="pre">-s</span> <span class="pre">--</span> <span class="pre">-y</span> <span class="pre">|source</span> <span class="pre">$HOME/.cargo/env</span></code></p></li>
 <li><p><strong>Install Python dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">requirements.txt</span></code></p></li>
 <li><p><strong>Install Torch and Torchvision dependencies:</strong> <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--extra-index-url</span> <span class="pre">https://download.pytorch.org/whl/cpu</span> <span class="pre">torch==2.2.0</span> <span class="pre">torchvision==0.17.0</span> <span class="pre">torchaudio==2.2.0</span></code></p></li>
 <li><p><strong>Install NLTK/punkt dependency:</strong> <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./nltk_dependencies.py</span></code></p>
@@ -1688,8 +1716,8 @@ but you’ll need to know when to make migrations, when to run them, and the com
 <li><p><code class="docutils literal notranslate"><span class="pre">showmigrations</span></code>, which lists a project’s migrations and their status.</p></li>
 </ul>
 </section>
-<section id="change-a-model-adding-a-field-deleting-a-model-etc">
-<h3>Change a model (adding a field, deleting a model, etc.)<a class="headerlink" href="#change-a-model-adding-a-field-deleting-a-model-etc" title="Link to this heading"></a></h3>
+<section id="change-a-model-adding-a-field-deleting-a-model">
+<h3>Change a model (adding a field, deleting a model…)<a class="headerlink" href="#change-a-model-adding-a-field-deleting-a-model" title="Link to this heading"></a></h3>
 <p>When you are <strong>making a change to a model</strong>, for instance, adding a new field to: <strong>/Watcher/Watcher/data_leak/models.py</strong>
 Then, you need to create a new migration based on the changes you have made:</p>
 <ul class="simple">
