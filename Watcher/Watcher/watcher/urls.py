@@ -16,6 +16,7 @@ urlpatterns = [
     path('', include('common.urls')),
     path('', include('cyber_watch.urls')),
     path('', include('timeline.urls')),
+    path('', include('connectors.urls')),
     path('admin/doc/', include('django.contrib.admindocs.urls')),
     path('admin/', admin.site.urls),
 ]

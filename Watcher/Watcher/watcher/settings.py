@@ -188,6 +188,7 @@ INSTALLED_APPS = [
     'import_export',
     'cyber_watch',
     'timeline',
+    'connectors',
     'drf_spectacular',
     'mozilla_django_oidc',
 ]
@@ -416,6 +417,14 @@ LOGGING = {
             'maxBytes': 5 * 1024 * 1024,
             'backupCount': 3,
         },
+        'file_connectors': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'connectors.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
     },
     "loggers": {
         'watcher.common': {
@@ -445,6 +454,11 @@ LOGGING = {
         },
         'watcher.cyber_watch': {
             'handlers': ['file_cyber_watch', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.connectors': {
+            'handlers': ['file_connectors', 'console'],
             'level': TRACE_LEVEL,
             'propagate': False,
         },
