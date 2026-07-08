@@ -102,7 +102,8 @@ class TableManager extends Component {
             savedFilters: {},
             containerHeight: 'auto',
             autofitEnabled: true,
-            manualItemsPerPage: null
+            manualItemsPerPage: null,
+            adaptiveMaxHeight: null
         };
         this.containerRef = React.createRef();
         this.theadRef = React.createRef();
@@ -216,6 +217,7 @@ class TableManager extends Component {
     static PAGE_SIZES = [5, 10, 25, 50, 100];
     static TABLE_ROW_HEIGHT_PX = 60;
     static TABLE_OVERHEAD_PX = 150;
+    static PAGINATION_RESERVE_PX = 54;
 
     _computeAdaptiveItemsPerPage = () => {
         const panelEl = this._adaptivePanelEl;
@@ -238,11 +240,14 @@ class TableManager extends Component {
         // Subtract bottom padding of the panel wrapper div
         available -= 12;
 
-        // Subtract pagination only when it is actually rendered.
+        // Fallback constant
         const paginationEl = this.paginationRef?.current;
-        if (paginationEl) {
-            available -= 16;
-            available -= paginationEl.getBoundingClientRect().height;
+        available -= 16;
+        available -= paginationEl ? paginationEl.getBoundingClientRect().height : TableManager.PAGINATION_RESERVE_PX;
+
+        const cappedAvailable = Math.max(0, Math.round(available));
+        if (this.state.adaptiveMaxHeight !== cappedAvailable) {
+            this.setState({ adaptiveMaxHeight: cappedAvailable });
         }
 
         if (available <= 0) return 1;
@@ -276,6 +281,12 @@ class TableManager extends Component {
                 }
             });
             this.resizeObserver.observe(panelEl);
+
+            requestAnimationFrame(() => {
+                if (!this.mounted) return;
+                const best = this._computeAdaptiveItemsPerPage();
+                this.applyAutofit(best);
+            });
         }
 
         this.updateHeightTimer = setTimeout(() => {
@@ -453,6 +464,12 @@ class TableManager extends Component {
                 if (this.props.onItemsPerPageChange) {
                     this.props.onItemsPerPageChange(newItemsPerPage);
                 }
+                // Clamp immediately against available space instead of waiting
+                // for an unrelated data/resize event to trigger the recompute.
+                requestAnimationFrame(() => {
+                    const best = this._computeAdaptiveItemsPerPage();
+                    this.applyAutofit(best);
+                });
             });
         } else {
             this.setState({
@@ -988,9 +1005,12 @@ class TableManager extends Component {
                 overflow: 'hidden'
             };
         }
+        const { adaptiveMaxHeight } = this.state;
+
         return {
             height: 'auto',
-            overflow: 'hidden',
+            maxHeight: adaptiveMaxHeight != null ? `${adaptiveMaxHeight}px` : undefined,
+            overflowY: adaptiveMaxHeight != null ? 'auto' : 'hidden',
             transition: 'height 0.3s ease'
         };
     };
