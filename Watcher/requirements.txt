@@ -1,7 +1,7 @@
 # Web Framework and Application Enhancements
 drf-spectacular==0.29.0
 mysqlclient==2.2.8
-django==6.0.5
+django==6.0.6
 django-mysql==4.19.0
 djangorestframework==3.17.1
 django-rest-knox==5.0.4
