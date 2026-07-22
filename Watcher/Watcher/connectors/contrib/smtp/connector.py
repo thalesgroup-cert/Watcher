@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Notifications',
     'description': 'Email notifications via SMTP.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'EMAIL_HOST',     'label': 'SMTP Server',  'type': 'text',     'settings_key': 'EMAIL_HOST',     'required': True},
         {'name': 'EMAIL_PORT',     'label': 'Port',         'type': 'number',   'settings_key': 'EMAIL_PORT',     'required': True, 'default': '25'},

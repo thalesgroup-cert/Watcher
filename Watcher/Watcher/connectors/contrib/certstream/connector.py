@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Certificate Monitoring',
     'description': 'Real-time certificate transparency log stream.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'CERT_STREAM_URL', 'label': 'WebSocket URL', 'type': 'text', 'settings_key': 'CERT_STREAM_URL', 'required': True, 'default': 'wss://certstream.calidog.io'},
     ],

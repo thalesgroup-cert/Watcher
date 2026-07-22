@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Search',
     'description': 'SearxNG metasearch engine for data leak detection.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'DATA_LEAK_SEARX_URL', 'label': 'SearxNG URL', 'type': 'text', 'settings_key': 'DATA_LEAK_SEARX_URL', 'required': True, 'default': 'http://searxng:8080/'},
     ],

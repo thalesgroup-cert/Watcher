@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Notifications',
     'description': 'Slack notifications via Bot Token.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'SLACK_API_TOKEN', 'label': 'Bot Token',   'type': 'password', 'settings_key': 'SLACK_API_TOKEN', 'required': True},
         {'name': 'SLACK_CHANNEL',   'label': 'Channel ID',  'type': 'text',     'settings_key': 'SLACK_CHANNEL',   'required': True},

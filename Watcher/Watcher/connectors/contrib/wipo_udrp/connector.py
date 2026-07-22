@@ -9,6 +9,8 @@ DEFINITION = {
     'category': 'Domain Monitoring',
     'description': 'WIPO UDRP case database for domain dispute tracking. URL is fixed.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'WIPO_SEARCH_URL', 'label': 'WIPO URL', 'type': 'text', 'settings_key': '', 'default': WIPO_URL, 'required': False},
     ],

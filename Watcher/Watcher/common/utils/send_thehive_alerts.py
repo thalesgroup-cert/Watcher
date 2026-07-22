@@ -1,9 +1,9 @@
 import requests
 import logging
-from django.conf import settings
 from django.utils import timezone
 from common.utils.update_thehive import handle_alert_or_case, create_new_alert
 from site_monitoring.models import Site
+from connectors.core import get_thehive_config
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
@@ -68,12 +68,13 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
     :rtype: None
     """
 
-    if not settings.THE_HIVE_KEY or not settings.THE_HIVE_URL:
-        logger.warning("No configuration for TheHive, notifications disabled. Configure it in the '.env' file.")
+    thehive_cfg = get_thehive_config()
+    if not thehive_cfg['key'] or not thehive_cfg['url']:
+        logger.warning("No configuration for TheHive, notifications disabled. Configure it in the '.env' file or the Connectors page.")
         return
 
-    thehive_url = thehive_url or settings.THE_HIVE_URL
-    api_key = api_key or settings.THE_HIVE_KEY
+    thehive_url = thehive_url or thehive_cfg['url']
+    api_key = api_key or thehive_cfg['key']
 
     ticket_id = None
 

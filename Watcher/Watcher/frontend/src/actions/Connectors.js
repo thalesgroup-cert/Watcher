@@ -40,10 +40,30 @@ export const updateConnector = (id, fields) => (dispatch, getState) => {
 };
 
 
+export const resetConnectorField = (id, fieldName) => (dispatch, getState) => {
+    return axios
+        .post(`/api/connectors/${id}/reset-field/`, { field: fieldName }, tokenConfig(getState))
+        .then(res => {
+            dispatch({ type: UPDATE_CONNECTOR, payload: res.data });
+            return res.data;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            return null;
+        });
+};
+
+
 export const testConnector = (id) => (dispatch, getState) => {
     return axios
         .post(`/api/connectors/${id}/test/`, {}, tokenConfig(getState))
-        .then(res => res.data)
+        .then(res => {
+            const { connector, ...result } = res.data;
+            if (connector) {
+                dispatch({ type: UPDATE_CONNECTOR, payload: connector });
+            }
+            return result;
+        })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
             return { success: false, message: 'Request failed' };

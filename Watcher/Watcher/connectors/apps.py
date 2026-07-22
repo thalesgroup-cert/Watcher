@@ -11,7 +11,6 @@ class ConnectorsConfig(AppConfig):
     def ready(self):
         from .core import _get_registry
         try:
-            count = len(_get_registry())
-            logger.info("Connectors module loaded: %d plugin(s) available.", count)
+            _get_registry()
         except Exception as exc:
             logger.warning("Connectors ready() could not count plugins: %s", exc)

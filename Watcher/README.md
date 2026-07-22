@@ -91,7 +91,7 @@ Most of the settings can be modified from the `/admin` page.
 
 There are other settings located in the `.env` file that you can configure.
 
-Many of the external-integration settings below (SMTP, Slack, MISP, TheHive, Citadel, LDAP, SSO, CyberWatch feeds) can also be viewed, overridden, and tested live from the [Connectors](#connectors) page, without editing the `.env` file.
+Many of the external-integration settings below (SMTP, Slack, MISP, TheHive, Citadel, CyberWatch feeds) can also be viewed, overridden, and tested live from the [Connectors](#connectors) page, without editing the `.env` file.
 
 ### Production Settings [Important]
 
@@ -928,16 +928,20 @@ A dedicated `/connectors` page (**superuser only**) centralises configuration an
 
 ### How it works
 
-- **At startup**, each connector's fields are seeded from the corresponding `.env` / `settings.py` variables described in [Static configuration](#static-configuration) - nothing changes for existing deployments, and a connector that's already configured via environment variables needs no action here.
-- **Editing a value** from the dashboard (click **Edit** on a connector's card) stores an override in the database. It takes effect immediately, the next time that connector's configuration is read - in particular by its own **Test** button. Leaving a field untouched keeps whatever value it already had.
+- **At startup**, a connector's fields are seeded from the corresponding `.env` / `settings.py` variables described in [Static configuration](#static-configuration) the first time they're read - nothing changes for existing deployments, and a connector that's already configured via environment variables needs no action here.
+- **Editing a value** from the dashboard (click **Edit** on a connector's card) stores an override in the database, which takes effect immediately across the whole app - not just this page's own **Test** button. SMTP, Slack, Citadel, TheHive, MISP, CertStream, SearxNG, and the CyberWatch feeds all read their live configuration through this same override system, so changing a value here changes real app behaviour immediately, with no restart required.
+- **Once a field has been saved here - even cleared to empty - it stops following `.env`/`settings.py`, for good.** Clearing a field is a deliberate "leave this blank" action, not a way to fall back to the environment default. Each field shows a **"From .env"** or **"Manually set"** badge so you always know which state it's in, and a **reset button** appears on manually-set fields to drop the override and resume following `.env`/`settings.py` live.
 - **Sensitive fields** (passwords, tokens, API keys) are encrypted at rest with Django's signing framework and shown masked by default. Click the eye icon to decrypt and reveal the stored value, or the crossed-out eye to hide it again.
 - **Test** runs a real connectivity check (an SMTP handshake, an authenticated API call...) using the values currently saved for that connector, and reports success or failure directly on its card.
-- The **MySQL** connector is read-only/informational: its configuration always comes from `settings.py` and can't be changed from this page.
+- **Two independent statuses** are shown per connector: **Configured** / **Incomplete** / **Disabled** reflects whether the required fields are filled in, while **Healthy** / **Unhealthy** / **Not tested yet** reflects the outcome of the last connectivity test. A connector can be fully configured and still unhealthy if the external service itself is unreachable.
+- **A scheduled job tests every connector automatically every Monday at 06:00.** A Pending Action alert is only queued for connectors marked **Configured** that fail - a connector nobody has set up yet is still tested (to keep its health badge current) but doesn't raise noise. Repeated failures for the same connector don't create duplicate alerts - the existing pending one has to be resolved first. Manually clicking **Test** never creates an alert; only the scheduled run does.
+- Each connector shows its **plugin version** (e.g. `v1.0.0`) - a static, manually-maintained value for the connector definition itself, unrelated to the version of the external service it talks to.
+- **MySQL, LDAP, and OIDC/SSO are read-only/informational**: their configuration always comes from `settings.py` and can't be changed from this page. For LDAP and OIDC this isn't a UI limitation - Django builds its authentication backends from `settings.py` once, at process startup, so an override wouldn't take effect without a restart anyway.
 
 ### Dashboard
 
-- KPI cards summarise how many connectors are **Connected**, **Incomplete**, or **Disabled**, based on which of their required fields are currently filled.
-- Search and filter connectors by name, category, or status.
+- KPI cards summarise how many connectors are **Configured**, **Incomplete**, or **Disabled**, based on which of their required fields are currently filled.
+- Search and filter connectors by name, category, configuration status, or health status.
 - Toggle **Group by category** to organise the grid by theme (Notifications, Threat Intelligence, Authentication, Database...) instead of a flat list.
 
 

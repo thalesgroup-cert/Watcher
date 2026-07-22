@@ -5,7 +5,7 @@ import subprocess
 import json
 import logging
 from django.utils import timezone
-from django.conf import settings
+from connectors.core import get_certstream_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
@@ -113,9 +113,10 @@ def main_certificate_transparency():
     """
     Launch CertStream scan using internal certstream-server-go.
     """
-    logger.info(f"Starting CertStream monitoring on {settings.CERT_STREAM_URL}")
+    certstream_url = get_certstream_config()['url']
+    logger.info(f"Starting CertStream monitoring on {certstream_url}")
     try:
-        certstream_client.listen_for_events(print_callback, url=settings.CERT_STREAM_URL)
+        certstream_client.listen_for_events(print_callback, url=certstream_url)
     except Exception as e:
         logger.error(f"CertStream connection failed: {e}")
         raise

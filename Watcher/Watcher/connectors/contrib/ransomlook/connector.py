@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Threat Intelligence',
     'description': 'RansomLook ransomware group and victim tracking API.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'CYBER_WATCH_RANSOMLOOK_GROUPS_URL', 'label': 'Groups URL',  'type': 'text', 'settings_key': 'CYBER_WATCH_RANSOMLOOK_GROUPS_URL', 'required': True, 'default': 'https://www.ransomlook.io/api/groups'},
         {'name': 'CYBER_WATCH_RANSOMLOOK_RECENT_URL', 'label': 'Recent URL',  'type': 'text', 'settings_key': 'CYBER_WATCH_RANSOMLOOK_RECENT_URL', 'required': False, 'default': 'https://www.ransomlook.io/api/recent'},

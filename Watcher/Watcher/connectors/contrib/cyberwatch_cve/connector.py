@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Threat Intelligence',
     'description': 'CVE data feed from CIRCL CVE API.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'CYBER_WATCH_CVE_API_URL', 'label': 'CVE API URL', 'type': 'text', 'settings_key': 'CYBER_WATCH_CVE_API_URL', 'required': True, 'default': 'https://cve.circl.lu/api/last'},
     ],

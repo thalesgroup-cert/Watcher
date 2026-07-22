@@ -3,8 +3,10 @@ DEFINITION = {
     'name': 'MySQL Database',
     'logo': '🗄️',
     'category': 'Database',
-    'description': 'Primary MySQL database — informational only. Settings are managed in settings.py.',
+    'description': 'Primary MySQL database, informational only. Settings are managed in settings.py.',
     'readonly': True,   # Fields are display-only; overrides have no effect on the Django DB connection.
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'DB_HOST', 'label': 'Host', 'type': 'text', 'settings_key': 'DATABASES_HOST', 'required': False},
         {'name': 'DB_PORT', 'label': 'Port', 'type': 'text', 'settings_key': 'DATABASES_PORT', 'required': False},

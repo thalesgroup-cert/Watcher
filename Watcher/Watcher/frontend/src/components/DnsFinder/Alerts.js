@@ -13,6 +13,7 @@ import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import DayPickerInput from 'react-day-picker/DayPickerInput';
 import {formatDate, parseDate} from 'react-day-picker/moment';
+import DateShortcuts from '../common/DateShortcuts';
 import TableManager from '../common/TableManager';
 import ExportModal from '../common/ExportModal';
 
@@ -190,6 +191,7 @@ export class Alerts extends Component {
                                                     showWeekNumbers: true
                                                 }}
                                                 onDayChange={day => this.setState({day})}/>
+                                            <DateShortcuts onSelect={day => this.setState({day})} />
                                         </Col>
                                         <Form.Label column sm="6">Ip Monitoring</Form.Label>
                                         <Col sm="6">

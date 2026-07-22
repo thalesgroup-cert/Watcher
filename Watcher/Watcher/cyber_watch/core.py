@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db import close_old_connections
 from django.utils.dateparse import parse_datetime
-from django.conf import settings
+from connectors.core import get_cyberwatch_cve_config, get_ransomware_live_config, get_ransomlook_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 
@@ -170,7 +170,7 @@ def fetch_latest_cves():
         close_old_connections()
         logger.info("CRON TASK : Fetch latest CVEs from cve.circl.lu")
 
-        resp = requests.get(settings.CYBER_WATCH_CVE_API_URL, timeout=15)
+        resp = requests.get(get_cyberwatch_cve_config()['cve_api_url'], timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
@@ -326,7 +326,7 @@ def fetch_ransomware_data():
     logger.info("CRON TASK : Fetch ransomware groups and victims from ransomware.live")
     
     try:
-        resp = requests.get(settings.CYBER_WATCH_RANSOMWARE_GROUPS_URL, timeout=20)
+        resp = requests.get(get_ransomware_live_config()['groups_url'], timeout=20)
         resp.raise_for_status()
         
         group_count = 0
@@ -355,7 +355,7 @@ def fetch_ransomware_data():
         logger.error(f"Ransomware groups fetch error: {e}")
 
     try:
-        resp = requests.get(settings.CYBER_WATCH_RANSOMWARE_VICTIMS_URL, timeout=20)
+        resp = requests.get(get_ransomware_live_config()['victims_url'], timeout=20)
         resp.raise_for_status()
 
         new_count = 0
@@ -431,7 +431,7 @@ def fetch_ransomlook_data():
     logger.info("CRON TASK : Fetch ransomware data from ransomlook.io")
 
     try:
-        resp = requests.get(settings.CYBER_WATCH_RANSOMLOOK_GROUPS_URL, timeout=20)
+        resp = requests.get(get_ransomlook_config()['groups_url'], timeout=20)
         resp.raise_for_status()
 
         group_count = 0
@@ -472,7 +472,7 @@ def fetch_ransomlook_data():
         logger.error(f"RansomLook groups fetch error: {e}")
 
     try:
-        resp = requests.get(settings.CYBER_WATCH_RANSOMLOOK_RECENT_URL, timeout=20)
+        resp = requests.get(get_ransomlook_config()['recent_url'], timeout=20)
         resp.raise_for_status()
 
         victim_count = 0
@@ -536,7 +536,7 @@ def fetch_ransomlook_data():
         logger.error(f"RansomLook victims fetch error: {e}")
 
     try:
-        resp = requests.get(settings.CYBER_WATCH_RANSOMLOOK_ACTORS_URL, timeout=20)
+        resp = requests.get(get_ransomlook_config()['actors_url'], timeout=20)
         resp.raise_for_status()
 
         actor_count = 0

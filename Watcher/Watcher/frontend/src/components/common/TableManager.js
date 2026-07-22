@@ -84,8 +84,9 @@ class TableManager extends Component {
         super(props);
         this.moduleKey = props.moduleKey || 'default';
         const savedItemsPerPage = this.loadItemsPerPageFromStorage();
+        const savedAutofitEnabled = this.loadAutofitEnabledFromStorage();
         const globalFilterVisibility = this.loadGlobalFilterVisibility();
-        
+
         this.state = {
             currentPage: 1,
             itemsPerPage: savedItemsPerPage,
@@ -101,8 +102,12 @@ class TableManager extends Component {
             filterName: '',
             savedFilters: {},
             containerHeight: 'auto',
-            autofitEnabled: true,
-            manualItemsPerPage: null
+            autofitEnabled: savedAutofitEnabled,
+            // The user's chosen page size when not on auto-fit. `itemsPerPage` is the
+            // count actually rendered right now, clamped down to whatever currently
+            // fits the panel; `manualItemsPerPage` is the target we grow back toward
+            // as the panel gets more room.
+            manualItemsPerPage: savedAutofitEnabled ? null : savedItemsPerPage
         };
         this.containerRef = React.createRef();
         this.theadRef = React.createRef();
@@ -126,9 +131,16 @@ class TableManager extends Component {
 
         this._onPrefsReady = () => {
             if (!this.mounted) return;
-            const saved = preferencesService.get(`watcher_table_items_${this.moduleKey}`, null);
-            if (saved !== null && saved !== this.state.itemsPerPage) {
-                this.setState({ itemsPerPage: saved, currentPage: 1, autofitEnabled: false, manualItemsPerPage: saved });
+            const savedItems = preferencesService.get(`watcher_table_items_${this.moduleKey}`, null);
+            const savedAutofit = preferencesService.get(`watcher_table_autofit_${this.moduleKey}`, null);
+            const autofitEnabled = savedAutofit !== null ? savedAutofit : true;
+            if (savedItems !== null && (savedItems !== this.state.itemsPerPage || autofitEnabled !== this.state.autofitEnabled)) {
+                this.setState({
+                    itemsPerPage: savedItems,
+                    currentPage: 1,
+                    autofitEnabled,
+                    manualItemsPerPage: autofitEnabled ? null : savedItems
+                });
             }
             const savedFilters = preferencesService.get(`watcher_filters_${this.moduleKey}`, null);
             if (savedFilters) {
@@ -153,7 +165,7 @@ class TableManager extends Component {
         if (this.updateHeightTimer) {
             clearTimeout(this.updateHeightTimer);
         }
-        window.removeEventListener('resize', this.updateContainerHeight);
+        window.removeEventListener('resize', this.handlePanelResize);
         if (this._onPrefsReady) {
             window.removeEventListener('watcher:prefs:ready', this._onPrefsReady);
         }
@@ -213,11 +225,24 @@ class TableManager extends Component {
         preferencesService.set(`watcher_table_items_${this.moduleKey}`, itemsPerPage);
     };
 
+    loadAutofitEnabledFromStorage = () => {
+        const key = `watcher_table_autofit_${this.moduleKey}`;
+        if (preferencesService.isReady()) {
+            const saved = preferencesService.get(key, null);
+            return saved !== null ? saved : true;
+        }
+        return true;
+    };
+
+    saveAutofitEnabledToStorage = (enabled) => {
+        preferencesService.set(`watcher_table_autofit_${this.moduleKey}`, enabled);
+    };
+
     static PAGE_SIZES = [5, 10, 25, 50, 100];
     static TABLE_ROW_HEIGHT_PX = 60;
     static TABLE_OVERHEAD_PX = 150;
 
-    _computeAdaptiveItemsPerPage = () => {
+    _computeAvailableTableSpace = () => {
         const panelEl = this._adaptivePanelEl;
         const infoEl  = this.containerRef.current;
         if (!panelEl || !infoEl) return null;
@@ -245,36 +270,42 @@ class TableManager extends Component {
             available -= paginationEl.getBoundingClientRect().height;
         }
 
+        return available;
+    };
+
+    _computeAdaptiveItemsPerPage = () => {
+        const available = this._computeAvailableTableSpace();
+        if (available === null) return null;
         if (available <= 0) return 1;
 
+        const panelEl = this._adaptivePanelEl;
         const firstRow = panelEl.querySelector('tbody tr');
         const rowHeight = firstRow ? firstRow.getBoundingClientRect().height : 50;
 
         return Math.max(1, Math.floor(available / rowHeight));
     };
 
+    handlePanelResize = () => {
+        this.updateContainerHeight();
+        const best = this._computeAdaptiveItemsPerPage();
+        this.applyAutofit(best);
+        // The table area's max-height tracks the panel's live size (see
+        // getTableContainerStyle). In manual mode applyAutofit is a no-op, so force
+        // a re-render here to re-measure and pick up the new panel size either way.
+        this.forceUpdate();
+    };
+
     setupResizeObserver = () => {
         if (!this.mounted) return;
-        
-        this._resizeObserverInitialized = false;
 
-        this.updateContainerHeight = this.updateContainerHeight.bind(this);
-        window.addEventListener('resize', this.updateContainerHeight);
+        window.addEventListener('resize', this.handlePanelResize);
 
         if (window.ResizeObserver && this.containerRef.current) {
             const panelEl = this.containerRef.current.closest('.card');
             if (!panelEl) return;
             this._adaptivePanelEl = panelEl;
 
-            this.resizeObserver = new ResizeObserver(() => {
-                this.updateContainerHeight();
-                if (!this._resizeObserverInitialized) {
-                    this._resizeObserverInitialized = true;
-                } else {
-                    const best = this._computeAdaptiveItemsPerPage();
-                    this.applyAutofit(best);
-                }
-            });
+            this.resizeObserver = new ResizeObserver(this.handlePanelResize);
             this.resizeObserver.observe(panelEl);
         }
 
@@ -444,12 +475,17 @@ class TableManager extends Component {
         const newItemsPerPage = Number(itemsPerPage);
         if (isManual) {
             this.saveItemsPerPageToStorage(newItemsPerPage);
+            this.saveAutofitEnabledToStorage(false);
             this.setState({
                 itemsPerPage: newItemsPerPage,
                 currentPage: 1,
                 autofitEnabled: false,
                 manualItemsPerPage: newItemsPerPage
             }, () => {
+                // Clamp immediately in case the panel is already too small for the
+                // newly chosen target, instead of waiting for the next resize event.
+                const best = this._computeAdaptiveItemsPerPage();
+                this.applyAutofit(best);
                 if (this.props.onItemsPerPageChange) {
                     this.props.onItemsPerPageChange(newItemsPerPage);
                 }
@@ -467,18 +503,18 @@ class TableManager extends Component {
     };
 
     applyAutofit = (best) => {
+        if (best === null) return;
         if (!this.state.autofitEnabled) {
-            const { manualItemsPerPage, itemsPerPage } = this.state;
-            const target = manualItemsPerPage || itemsPerPage;
-            if (best !== null && target > best && best !== itemsPerPage) {
-                this.setState({ itemsPerPage: best });
-            }
-            if (best !== null && target <= best && target !== itemsPerPage) {
-                this.setState({ itemsPerPage: target });
+            // Manual mode: never show more rows than the user picked, but grow back
+            // up toward that target (and shrink below it) as panel space changes.
+            const target = this.state.manualItemsPerPage ?? this.state.itemsPerPage;
+            const next = Math.min(target, best);
+            if (next !== this.state.itemsPerPage) {
+                this.setState({ itemsPerPage: next });
             }
             return;
         }
-        if (best !== null && best !== this.state.itemsPerPage) {
+        if (best !== this.state.itemsPerPage) {
             this.setState({ itemsPerPage: best });
         }
     };
@@ -953,10 +989,11 @@ class TableManager extends Component {
                     <small className="text-muted me-2">Items per page:</small>
                     <select
                         className="form-select form-select-sm"
-                        value={this.state.autofitEnabled ? 'auto' : itemsPerPage}
+                        value={this.state.autofitEnabled ? 'auto' : (this.state.manualItemsPerPage ?? itemsPerPage)}
                         onChange={e => {
                             const val = e.target.value;
                             if (val === 'auto') {
+                                this.saveAutofitEnabledToStorage(true);
                                 this.setState({ autofitEnabled: true, manualItemsPerPage: null }, () => {
                                     const best = this._computeAdaptiveItemsPerPage();
                                     this.applyAutofit(best);
@@ -981,16 +1018,27 @@ class TableManager extends Component {
 
     getTableContainerStyle = () => {
         const paginatedData = this.getPaginatedData();
+        const available = this._computeAvailableTableSpace();
+        // Bound the table area to whatever space the panel actually has and let it
+        // scroll internally, instead of clipping extra rows with no way to reach them.
+        // Floor it to one row so a heavily shrunk panel stays scrollable rather than
+        // letting the table overflow past the panel's own clipped boundary.
+        const maxHeight = available !== null
+            ? `${Math.max(available, TableManager.TABLE_ROW_HEIGHT_PX)}px`
+            : undefined;
+
         if (paginatedData.length === 0) {
             return {
                 height: 'auto',
                 minHeight: '100px',
-                overflow: 'hidden'
+                maxHeight,
+                overflowY: 'auto'
             };
         }
         return {
             height: 'auto',
-            overflow: 'hidden',
+            maxHeight,
+            overflowY: 'auto',
             transition: 'height 0.3s ease'
         };
     };

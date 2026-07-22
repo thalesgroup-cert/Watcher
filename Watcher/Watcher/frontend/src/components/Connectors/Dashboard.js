@@ -4,15 +4,20 @@ import PropTypes from 'prop-types';
 import { Modal, Form, Button, Badge, Spinner, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import TableManager from '../common/TableManager';
-import { getConnectors, updateConnector, revealConnector, testConnector } from '../../actions/Connectors';
+import { getConnectors, updateConnector, revealConnector, testConnector, resetConnectorField } from '../../actions/Connectors';
 
 const LOGO_BASE = '/static/frontend/images/connectors/';
 
 const STATUS_CFG = {
-    connected:    { bg: 'success',   label: 'Connected'    },
-    partial:      { bg: 'warning',   label: 'Incomplete',  text: 'dark' },
-    disabled:     { bg: 'secondary', label: 'Disabled'     },
-    disconnected: { bg: 'danger',    label: 'Disconnected' },
+    configured: { bg: 'success',   label: 'Configured'  },
+    partial:    { bg: 'warning',   label: 'Incomplete', text: 'dark' },
+    disabled:   { bg: 'secondary', label: 'Disabled'    },
+};
+
+const HEALTH_CFG = {
+    healthy:   { bg: 'success',   label: 'Healthy'   },
+    unhealthy: { bg: 'danger',    label: 'Unhealthy' },
+    unknown:   { bg: 'secondary', label: 'Not tested yet' },
 };
 
 const CATEGORY_ORDER = ['Notifications', 'Incident Response', 'Threat Intelligence', 'Certificate Monitoring', 'Domain Monitoring', 'Search', 'Authentication', 'Database', 'Other'];
@@ -54,6 +59,16 @@ function StatusBadge({ status }) {
     return <Badge bg={c.bg} text={c.text}>{c.label}</Badge>;
 }
 
+// HealthBadge
+function HealthBadge({ health }) {
+    const status = health?.status || 'unknown';
+    const c = HEALTH_CFG[status] || HEALTH_CFG.unknown;
+    const title = health?.checked_at
+        ? `Last checked ${new Date(health.checked_at).toLocaleString()}${health.message ? ' - ' + health.message : ''}`
+        : 'Never tested yet';
+    return <Badge bg={c.bg} text={c.text} title={title}>{c.label}</Badge>;
+}
+
 // ConnectorLogo - brand image if available, emoji fallback otherwise
 function ConnectorLogo({ connector, size = 72 }) {
     const [failed, setFailed] = useState(false);
@@ -75,23 +90,27 @@ function ConnectorLogo({ connector, size = 72 }) {
 }
 
 // ConnectorEditModal
-function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
+function ConnectorEditModal({ connector, show, onClose, onReveal, onSave, onResetField }) {
     const [fields, setFields]       = useState([]);
     const [revealed, setRevealed]   = useState(new Set());
     const [revealing, setRevealing] = useState({});
+    const [resetting, setResetting] = useState({});
     const [saving, setSaving]       = useState(false);
     const [saveError, setSaveError] = useState(null);
+    const [dirty, setDirty]         = useState(false);
 
     useEffect(() => {
         if (connector) {
             setFields((connector.fields || []).map(f => ({ ...f })));
             setRevealed(new Set());
             setSaveError(null);
+            setDirty(false);
         }
     }, [connector]);
 
     const handleChange = (name, value) => {
         setFields(prev => prev.map(f => f.name === name ? { ...f, value } : f));
+        setDirty(true);
     };
 
     const handleReveal = async (fieldName) => {
@@ -114,6 +133,23 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
     const handleHide = (fieldName) =>
         setRevealed(prev => { const n = new Set(prev); n.delete(fieldName); return n; });
 
+    const handleReset = async (fieldName) => {
+        if (!connector) return;
+        setResetting(prev => ({ ...prev, [fieldName]: true }));
+        try {
+            const data = await onResetField(connector.id, fieldName);
+            const field = data && (data.fields || []).find(f => f.name === fieldName);
+            if (field) {
+                setFields(prev => prev.map(f => f.name === fieldName ? { ...field } : f));
+                setRevealed(prev => { const n = new Set(prev); n.delete(fieldName); return n; });
+            }
+        } catch (err) {
+            console.error('Reset failed', err);
+        } finally {
+            setResetting(prev => ({ ...prev, [fieldName]: false }));
+        }
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         if (!connector) return;
@@ -123,6 +159,7 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
             const fieldsToSave = {};
             fields.forEach(f => { fieldsToSave[f.name] = f.value; });
             await onSave(connector.id, fieldsToSave);
+            setDirty(false);
             onClose();
         } catch (err) {
             setSaveError(err.message);
@@ -146,6 +183,11 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
             </Modal.Header>
             <form onSubmit={handleSave}>
                 <Modal.Body>
+                    {connector.description && (
+                        <p className="text-muted mb-3" style={{ fontSize: 13 }}>
+                            {connector.description}
+                        </p>
+                    )}
                     {fields.map(f => (
                         <Form.Group className="mb-3" key={f.name}>
                             <Form.Label className="fw-semibold mb-1" style={{ fontSize: 13 }}>
@@ -156,6 +198,12 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
                                         sensitive
                                     </Badge>
                                 )}
+                                <Badge bg={f.overridden ? 'info' : 'light'}
+                                       text={f.overridden ? undefined : 'dark'}
+                                       className="ms-2"
+                                       style={{ fontSize: 9, fontWeight: 400 }}>
+                                    {f.overridden ? 'Manually set' : 'From .env'}
+                                </Badge>
                             </Form.Label>
                             <div className="input-group input-group-sm">
                                 <Form.Control
@@ -186,6 +234,18 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
                                            style={{ fontSize: 16, verticalAlign: 'middle' }}>visibility_off</i>
                                     </Button>
                                 )}
+                                {!connector.readonly && f.overridden && (
+                                    <Button type="button" variant="outline-secondary"
+                                            disabled={!!resetting[f.name]}
+                                            onClick={() => handleReset(f.name)}
+                                            title="Reset to .env default">
+                                        {resetting[f.name]
+                                            ? <Spinner animation="border" size="sm" />
+                                            : <i className="material-icons"
+                                                 style={{ fontSize: 16, verticalAlign: 'middle' }}>refresh</i>
+                                        }
+                                    </Button>
+                                )}
                             </div>
                             <div className="text-muted mt-1" style={{ fontSize: 11, fontFamily: 'monospace' }}>
                                 {f.name}
@@ -212,7 +272,7 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave }) {
                         Close
                     </Button>
                     {!connector.readonly && (
-                        <Button type="submit" variant="primary" disabled={saving}>
+                        <Button type="submit" variant="primary" disabled={saving || !dirty}>
                             {saving
                                 ? <><Spinner animation="border" size="sm" className="me-1" />Saving&hellip;</>
                                 : 'Save changes'
@@ -264,9 +324,13 @@ class ConnectorCard extends Component {
                          style={{ height: 72, minWidth: 72, maxWidth: 144 }}>
                         <ConnectorLogo connector={connector} size={72} />
                     </div>
-                    <div className="fw-bold mb-2" style={{ fontSize: 15 }}>{connector.name}</div>
+                    <div className="fw-bold mb-1" style={{ fontSize: 15 }}>{connector.name}</div>
+                    <div className="text-muted mb-2" style={{ fontSize: 11 }}>
+                        v{connector.version}
+                    </div>
                     <div className="d-flex align-items-center gap-2 flex-wrap justify-content-center">
                         <StatusBadge status={connector.status} />
+                        <HealthBadge health={connector.health} />
                         {connector.readonly && <Badge bg="warning" text="dark">Read-only</Badge>}
                     </div>
 
@@ -348,6 +412,9 @@ class ConnectorsDashboard extends Component {
         if (filters.status) {
             filtered = filtered.filter(c => c.status === filters.status);
         }
+        if (filters.health) {
+            filtered = filtered.filter(c => (c.health?.status || 'unknown') === filters.health);
+        }
         if (filters.category) {
             filtered = filtered.filter(c => c.category === filters.category);
         }
@@ -370,9 +437,20 @@ class ConnectorsDashboard extends Component {
                 label:   'Status',
                 width:   3,
                 options: [
-                    { value: 'connected', label: 'Connected'  },
-                    { value: 'partial',   label: 'Incomplete' },
-                    { value: 'disabled',  label: 'Disabled'   },
+                    { value: 'configured', label: 'Configured' },
+                    { value: 'partial',    label: 'Incomplete' },
+                    { value: 'disabled',   label: 'Disabled'   },
+                ],
+            },
+            {
+                key:     'health',
+                type:    'select',
+                label:   'Health',
+                width:   3,
+                options: [
+                    { value: 'healthy',   label: 'Healthy'        },
+                    { value: 'unhealthy', label: 'Unhealthy'      },
+                    { value: 'unknown',   label: 'Not tested yet' },
                 ],
             },
             {
@@ -388,9 +466,10 @@ class ConnectorsDashboard extends Component {
     openEdit  = (c) => this.setState({ editConnector: c, showEdit: true });
     closeEdit = ()  => this.setState({ showEdit: false, editConnector: null });
 
-    handleSave   = (connectorId, fields) => this.props.updateConnector(connectorId, fields);
-    handleReveal = (connectorId) => this.props.revealConnector(connectorId);
-    handleTest   = (connectorId) => this.props.testConnector(connectorId);
+    handleSave       = (connectorId, fields) => this.props.updateConnector(connectorId, fields);
+    handleReveal     = (connectorId) => this.props.revealConnector(connectorId);
+    handleTest       = (connectorId) => this.props.testConnector(connectorId);
+    handleResetField = (connectorId, fieldName) => this.props.resetConnectorField(connectorId, fieldName);
 
     toggleGroupByCategory = () => this.setState(prev => ({ groupByCategory: !prev.groupByCategory }));
     toggleHelp = () => this.setState(prev => ({ showHelp: !prev.showHelp }));
@@ -460,10 +539,10 @@ class ConnectorsDashboard extends Component {
         }
 
         const stats = {
-            total:     connectors.length,
-            connected: connectors.filter(c => c.status === 'connected').length,
-            partial:   connectors.filter(c => c.status === 'partial').length,
-            disabled:  connectors.filter(c => c.status === 'disabled').length,
+            total:      connectors.length,
+            configured: connectors.filter(c => c.status === 'configured').length,
+            partial:    connectors.filter(c => c.status === 'partial').length,
+            disabled:   connectors.filter(c => c.status === 'disabled').length,
         };
 
         return (
@@ -489,7 +568,7 @@ class ConnectorsDashboard extends Component {
                         <KpiCard title="Total" value={stats.total} icon="power" variant="primary" />
                     </div>
                     <div className="col-6 col-sm-3">
-                        <KpiCard title="Connected" value={stats.connected} icon="check_circle" variant="success" />
+                        <KpiCard title="Configured" value={stats.configured} icon="check_circle" variant="success" />
                     </div>
                     <div className="col-6 col-sm-3">
                         <KpiCard title="Incomplete" value={stats.partial} icon="warning" variant="warning" />
@@ -516,31 +595,28 @@ class ConnectorsDashboard extends Component {
                         <div className="mt-3 ps-4 border-start border-primary">
                             <ul className="mb-0 ps-3 text-muted">
                                 <li>
-                                    At startup, each connector's fields are seeded from your{' '}
-                                    <code>settings.py</code> / environment variables (e.g. <code>SMTP_SERVER</code>,{' '}
-                                    <code>SLACK_API_TOKEN</code>) - nothing needs to be configured here for a
-                                    connector that's already set up via environment variables
+                                    The first time a connector's fields are read, they're seeded from your <strong>settings.py</strong> / <strong>.env</strong> values
                                 </li>
                                 <li>
-                                    Click <strong>Edit</strong> on a card to override a value; saving stores it
-                                    in the database and it takes effect immediately, the next time this page
-                                    (or its <strong>Test</strong> button) reads that connector's configuration
-                                </li>
-                                <li>Leaving a field untouched keeps whatever value it already had</li>
-                                <li>
-                                    Passwords, tokens and API keys are encrypted before being stored, and shown
-                                    masked (<code>••••••••</code>) by default - click the eye icon to reveal
-                                    the stored value, or the crossed-out eye to hide it again
+                                    Click <strong>Edit</strong> on a card to override a value, saving stores it in the database and takes effect
+                                    immediately across the whole app (SMTP, Slack, Citadel, TheHive, MISP, CertStream, SearxNG, CyberWatch...), not just this page's own <strong>Test</strong> button
                                 </li>
                                 <li>
-                                    <strong>Test</strong> runs a real connectivity check (e.g. an SMTP
-                                    handshake, an authenticated API call) using the values currently saved for
-                                    that connector, and reports success or failure right on the card
+                                    Once a field has been saved here, even cleared to empty, it stops following <strong>settings.py</strong>/<strong>.env</strong> for good.
+                                    Each field shows a <strong>From .env</strong> or <strong>Manually set</strong> badge, and manually-set fields get a reset
+                                    button to drop the override and resume following <strong>settings.py</strong>/<strong>.env</strong> live
                                 </li>
                                 <li>
-                                    Connectors marked <Badge bg="warning" text="dark" style={{ fontSize: 9 }}>Read-only</Badge>{' '}
-                                    (like MySQL) are informational only - their configuration lives exclusively
-                                    in <code>settings.py</code> and can't be changed from this page
+                                    Passwords, tokens and API keys are encrypted before being stored, and shown masked by default, click the eye icon to reveal
+                                </li>
+                                <li>
+                                    <strong>Test</strong> runs a real connectivity check using the values currently saved for that connector, and reports
+                                    success or failure right on the card
+                                </li>
+                                <li>
+                                    Connectors marked <Badge bg="warning" text="dark" style={{ fontSize: 9 }}>Read-only</Badge>{' '} are informational only.
+                                    Their configuration lives exclusively in <strong>settings.py</strong> and can't be changed from this page, for LDAP and
+                                    OIDC/SSO this is because Django builds its authentication backends from <strong>settings.py</strong> at process startup, not per-request
                                 </li>
                             </ul>
                         </div>
@@ -605,6 +681,7 @@ class ConnectorsDashboard extends Component {
                     onClose={this.closeEdit}
                     onReveal={this.handleReveal}
                     onSave={this.handleSave}
+                    onResetField={this.handleResetField}
                 />
             </div>
         );
@@ -621,4 +698,5 @@ export default connect(mapStateToProps, {
     updateConnector,
     revealConnector,
     testConnector,
+    resetConnectorField,
 })(ConnectorsDashboard);

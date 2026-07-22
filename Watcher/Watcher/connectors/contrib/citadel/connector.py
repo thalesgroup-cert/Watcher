@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Notifications',
     'description': 'Citadel messaging platform notifications.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'CITADEL_URL',       'label': 'URL',       'type': 'text',     'settings_key': 'CITADEL_URL',       'required': True},
         {'name': 'CITADEL_API_TOKEN', 'label': 'API Token', 'type': 'password', 'settings_key': 'CITADEL_API_TOKEN', 'required': True},

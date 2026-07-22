@@ -3,8 +3,10 @@ DEFINITION = {
     'name': 'OIDC / SSO',
     'logo': '🔑',
     'category': 'Authentication',
-    'description': 'OpenID Connect Single Sign-On integration.',
-    'readonly': False,
+    'description': 'OpenID Connect Single Sign-On integration, informational only. mozilla-django-oidc and the LOGIN_MODE-based URL routing are configured from settings.py at startup, so values here cannot be live-overridden; edit settings.py/.env and restart to change them.',
+    'readonly': True,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'OIDC_RP_CLIENT_ID',             'label': 'Client ID',             'type': 'text',     'settings_key': 'OIDC_RP_CLIENT_ID',             'required': True},
         {'name': 'OIDC_RP_CLIENT_SECRET',         'label': 'Client Secret',         'type': 'password', 'settings_key': 'OIDC_RP_CLIENT_SECRET',         'required': True},

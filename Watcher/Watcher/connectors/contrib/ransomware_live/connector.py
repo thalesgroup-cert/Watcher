@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Threat Intelligence',
     'description': 'Ransomware.live victim and group tracking API.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'CYBER_WATCH_RANSOMWARE_GROUPS_URL',  'label': 'Groups URL',  'type': 'text', 'settings_key': 'CYBER_WATCH_RANSOMWARE_GROUPS_URL',  'required': True, 'default': 'https://api.ransomware.live/v2/groups'},
         {'name': 'CYBER_WATCH_RANSOMWARE_VICTIMS_URL', 'label': 'Victims URL', 'type': 'text', 'settings_key': 'CYBER_WATCH_RANSOMWARE_VICTIMS_URL', 'required': False, 'default': 'https://api.ransomware.live/v2/recentvictims'},

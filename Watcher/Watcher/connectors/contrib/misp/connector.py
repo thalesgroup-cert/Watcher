@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Threat Intelligence',
     'description': 'MISP Threat Intelligence Sharing Platform.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'MISP_URL',          'label': 'MISP URL',         'type': 'text',     'settings_key': 'MISP_URL',          'required': True, 'default': 'https://127.0.0.1'},
         {'name': 'MISP_KEY',          'label': 'API Key',          'type': 'password', 'settings_key': 'MISP_KEY',          'required': True},

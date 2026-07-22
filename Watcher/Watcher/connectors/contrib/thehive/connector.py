@@ -7,6 +7,8 @@ DEFINITION = {
     'category': 'Incident Response',
     'description': 'TheHive security incident management platform.',
     'readonly': False,
+    'version': '1.0.0',
+    'author': 'Thales CERT',
     'fields': [
         {'name': 'THE_HIVE_URL',          'label': 'URL',              'type': 'text',     'settings_key': 'THE_HIVE_URL',          'required': True},
         {'name': 'THE_HIVE_KEY',          'label': 'API Key',          'type': 'password', 'settings_key': 'THE_HIVE_KEY',          'required': True},

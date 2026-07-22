@@ -66,7 +66,7 @@ Extend Watcher's capabilities with powerful integrations and management tools:
 - **MISP Integration** - Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
 - **SSO / OpenID Connect** - Federated login via any OIDC provider (Keycloak, Azure AD, etc.) with PKCE and Knox token issuance. Configurable per-instance via `.env`
 - **Flexible Authentication** - Support for LDAP, local, and SSO/OIDC authentication systems
-- **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, LDAP, SSO, CyberWatch feeds, and more) from one place, with encrypted credential storage and per-connector health checks.
+- **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, and more) from one place, with encrypted credential storage and per-connector health checks.
 - **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions
 - **Interactive API Documentation** - Auto-generated Swagger UI at `/api/docs/` and OpenAPI 3 schema at `/api/schema/` powered by drf-spectacular
 - **Ticketing System Integration** - Automatically feed your ticketing system with security findings
