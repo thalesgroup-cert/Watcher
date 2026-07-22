@@ -8,7 +8,7 @@ from django.utils import timezone
 from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
-from django.conf import settings
+from connectors.core import get_searxng_config
 from django.db.models.functions import Length
 from json.decoder import JSONDecodeError
 from common.core import send_app_specific_notifications
@@ -125,7 +125,7 @@ def check_searx(keyword):
 
     # send the request off to searx
     try:
-        response = requests.get(settings.DATA_LEAK_SEARX_URL, params=params)
+        response = requests.get(get_searxng_config()['url'], params=params)
     except requests.exceptions.ProxyError as e:
         detail = re.search(r'(\d{3}\s+\w[\w ]*)', str(e))
         code_str = f" [{detail.group(1).strip()}]" if detail else ""

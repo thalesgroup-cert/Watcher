@@ -1,9 +1,9 @@
 import logging
 from django.utils import timezone
-from django.conf import settings
 from rest_framework.exceptions import NotFound
 from pymisp import MISPTag, MISPAttribute, MISPObject
 from .models import MISPEventUuidLink
+from connectors.core import get_misp_config, get_thehive_config
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
@@ -19,7 +19,7 @@ def create_misp_tags(misp_api):
     Returns:
         list: Created/verified tags
     """
-    required_tags = settings.MISP_TAGS
+    required_tags = get_misp_config()['tags']
     tag_list = []
     
     try:
@@ -110,7 +110,7 @@ def create_objects(obj, existing_values=None):
                 'category': 'Internal reference',
                 'distribution': 0,
                 'to_ids': False,
-                'comment': f"{settings.THE_HIVE_CUSTOM_FIELD} reference",
+                'comment': f"{get_thehive_config()['custom_field']} reference",
                 'object_relation': 'text'
             }
     

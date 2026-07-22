@@ -8,11 +8,12 @@ import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal } from '../Timeline/TimelineModal';
 import UserAvatar, { displayName } from '../common/UserAvatar';
 import DayPickerInput from "react-day-picker/DayPickerInput";
+import DateShortcuts from '../common/DateShortcuts';
 
 const formatDate = (date) => {
     return date.toLocaleDateString('fr-FR', {
         day: '2-digit',
-        month: '2-digit', 
+        month: '2-digit',
         year: 'numeric'
     });
 };
@@ -452,10 +453,11 @@ class LegitimateDomains extends Component {
                                                 placeholder="Select creation date"
                                                 value={this.state.domain_created_at}
                                                 onDayChange={date => this.setState({ domain_created_at: date })}
+                                                dayPickerProps={{ disabledDays: { after: new Date() } }}
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
-                                            </Form.Text>                                            
+                                            </Form.Text>
                                         </Col>
                                     </Form.Group>
 
@@ -472,7 +474,8 @@ class LegitimateDomains extends Component {
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
-                                            </Form.Text>                                            
+                                            </Form.Text>
+                                            <DateShortcuts onSelect={date => this.setState({ expiry: date })} />
                                         </Col>
                                     </Form.Group>
 
@@ -489,7 +492,8 @@ class LegitimateDomains extends Component {
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via SSL certificate
-                                            </Form.Text>                                            
+                                            </Form.Text>
+                                            <DateShortcuts onSelect={date => this.setState({ ssl_expiry: date })} />
                                         </Col>
                                     </Form.Group>
                                     
@@ -638,13 +642,14 @@ class LegitimateDomains extends Component {
                                                 placeholder={`${formatDate(new Date())}`}
                                                 value={this.state.domain_created_at}
                                                 onDayChange={date => this.setState({ domain_created_at: date })}
+                                                dayPickerProps={{ disabledDays: { after: new Date() } }}
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
-                                            </Form.Text>                                            
+                                            </Form.Text>
                                         </Col>
                                     </Form.Group>
-                                    
+
                                     <Form.Group as={Row} className="mb-3">
                                         <Form.Label column sm="4">Expiry Date</Form.Label>
                                         <Col sm="8">
@@ -658,7 +663,8 @@ class LegitimateDomains extends Component {
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via RDAP/WHOIS
-                                            </Form.Text>  
+                                            </Form.Text>
+                                            <DateShortcuts onSelect={date => this.setState({ expiry: date })} />
                                         </Col>
                                     </Form.Group>
 
@@ -675,10 +681,11 @@ class LegitimateDomains extends Component {
                                             />
                                             <Form.Text className="text-muted d-block mt-1">
                                                 Will be auto-detected via SSL certificate
-                                            </Form.Text>  
+                                            </Form.Text>
+                                            <DateShortcuts onSelect={date => this.setState({ ssl_expiry: date })} />
                                         </Col>
                                     </Form.Group>
-                                    
+
                                     <Form.Group as={Row} className="mb-3">
                                         <Form.Label column sm="4">Repurchased</Form.Label>
                                         <Col sm="8" className="mt-2">
@@ -800,7 +807,7 @@ class LegitimateDomains extends Component {
                 </div>
 
                 <TableManager
-                    key={`${isAuthenticated}-${domains.length}`}
+                    key={isAuthenticated}
                     data={domains}
                     filterConfig={this.getFilterConfig()}
                     searchFields={isAuthenticated ? ['domain_name', 'ticket_id', 'contact'] : ['domain_name', 'contact']}

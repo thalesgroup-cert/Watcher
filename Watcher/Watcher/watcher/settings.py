@@ -55,6 +55,12 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_
 if SECRET_KEY == '':
     SECRET_KEY = '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_9-qu(onjic((jfca$z(!'
 
+# SECURITY WARNING: keep this key secret in production! You can set CONNECTORS_ENCRYPTION_KEY
+# environment variable to change it within the .env file. It encrypts sensitive connector credentials.
+CONNECTORS_ENCRYPTION_KEY = os.environ.get('CONNECTORS_ENCRYPTION_KEY', 'mGcn94AWsOHh8i4s0yHshr4wcoPnmAnsqZXZPcrRbtY=')
+if CONNECTORS_ENCRYPTION_KEY == '':
+    CONNECTORS_ENCRYPTION_KEY = 'mGcn94AWsOHh8i4s0yHshr4wcoPnmAnsqZXZPcrRbtY='
+
 # SECURITY WARNING: In production please put DJANGO_DEBUG environment variable to False in the .env file!
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
@@ -188,6 +194,7 @@ INSTALLED_APPS = [
     'import_export',
     'cyber_watch',
     'timeline',
+    'connectors',
     'drf_spectacular',
     'mozilla_django_oidc',
 ]
@@ -274,6 +281,14 @@ OIDC_OP_ISSUER = os.environ.get('OIDC_OP_ISSUER', '')
 OIDC_RP_SIGN_ALGO = 'RS256'
 OIDC_USE_PKCE = True
 OIDC_RP_SCOPES = 'openid email profile'
+
+# When False, SSO login only works for users that already exist (created by an admin);
+# no new account is auto-created on first OIDC login. Defaults to True for backward compatibility.
+OIDC_CREATE_USER = os.environ.get('OIDC_CREATE_USER', 'True')
+if OIDC_CREATE_USER == "True":
+    OIDC_CREATE_USER = True
+if OIDC_CREATE_USER == "False":
+    OIDC_CREATE_USER = False
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
@@ -416,6 +431,14 @@ LOGGING = {
             'maxBytes': 5 * 1024 * 1024,
             'backupCount': 3,
         },
+        'file_connectors': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'connectors.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+        },
     },
     "loggers": {
         'watcher.common': {
@@ -445,6 +468,11 @@ LOGGING = {
         },
         'watcher.cyber_watch': {
             'handlers': ['file_cyber_watch', 'console'],
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
+        'watcher.connectors': {
+            'handlers': ['file_connectors', 'console'],
             'level': TRACE_LEVEL,
             'propagate': False,
         },

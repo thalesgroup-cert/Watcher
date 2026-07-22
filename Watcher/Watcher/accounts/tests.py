@@ -1,7 +1,10 @@
-from django.test import TestCase
+from unittest.mock import patch
+
+from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 from accounts.models import UserProfile, _AVATAR_COLORS
 from accounts.serializers import UserProfileSerializer
+from accounts.oidc import WatcherOIDCBackend
 
 
 class UserProfileTest(TestCase):
@@ -36,3 +39,40 @@ class UserProfileTest(TestCase):
             serializer.data,
             "UserProfileSerializer must include avatar_color in its fields"
         )
+
+
+class WatcherOIDCBackendTest(TestCase):
+    """Test the OIDC_CREATE_USER toggle on SSO login (see GitHub issue #309)."""
+
+    @override_settings(OIDC_CREATE_USER=False)
+    def test_unknown_user_not_created_when_create_user_disabled(self):
+        backend = WatcherOIDCBackend()
+        claims = {'email': 'unknown@example.com', 'sub': 'unknown-sub'}
+        with patch.object(backend, 'get_userinfo', return_value=claims):
+            user = backend.get_or_create_user('token', 'id_token', {})
+        self.assertIsNone(user)
+        self.assertFalse(User.objects.filter(email='unknown@example.com').exists())
+
+    @override_settings(OIDC_CREATE_USER=True)
+    def test_unknown_user_created_when_create_user_enabled(self):
+        backend = WatcherOIDCBackend()
+        claims = {
+            'email': 'newuser@example.com',
+            'sub': 'new-sub',
+            'given_name': 'New',
+            'family_name': 'User',
+        }
+        with patch.object(backend, 'get_userinfo', return_value=claims):
+            user = backend.get_or_create_user('token', 'id_token', {})
+        self.assertIsNotNone(user)
+        self.assertEqual(user.email, 'newuser@example.com')
+
+    @override_settings(OIDC_CREATE_USER=False)
+    def test_existing_user_can_still_login_when_create_user_disabled(self):
+        User.objects.create_user(username='existing-sub', email='existing@example.com', password='x')
+        backend = WatcherOIDCBackend()
+        claims = {'email': 'existing@example.com', 'sub': 'existing-sub'}
+        with patch.object(backend, 'get_userinfo', return_value=claims):
+            user = backend.get_or_create_user('token', 'id_token', {})
+        self.assertIsNotNone(user)
+        self.assertEqual(user.email, 'existing@example.com')

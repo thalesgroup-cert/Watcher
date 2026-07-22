@@ -5,6 +5,7 @@ import { getSites, deleteSite, addSite, patchSite, exportToMISP, getSiteStatisti
 import { exportToLegitimateDomains } from '../../actions/Common';
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import DayPickerInput from 'react-day-picker/DayPickerInput';
+import DateShortcuts from '../common/DateShortcuts';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import Alerts from './Alerts';
@@ -436,6 +437,14 @@ export class SuspiciousSites extends Component {
                                 <Col sm="8" className="mt-2">
                                     {site.mail_A_record_ip || "-"}
                                 </Col>
+                                <Form.Label column sm="4">Server Banner</Form.Label>
+                                <Col sm="8" className="mt-2">
+                                    {site.server_banner || "-"}
+                                </Col>
+                                <Form.Label column sm="4">X-Powered-By</Form.Label>
+                                <Col sm="8" className="mt-2">
+                                    {site.x_powered_by || "-"}
+                                </Col>
                             </Form.Group>
                                 <Col md={{span: 3, offset: 10}}>
                                     <Button variant="secondary" onClick={handleClose}>
@@ -644,14 +653,15 @@ export class SuspiciousSites extends Component {
                                             placeholder={`${formatDate(new Date())}`}
                                             value={this.state.expiry}
                                             onDayChange={date => {
-                                                this.setState({ 
-                                                    expiry: date ? date.toISOString().split('T')[0] : '' 
+                                                this.setState({
+                                                    expiry: date ? date.toISOString().split('T')[0] : ''
                                                 });
                                             }}
                                         />
                                         <Form.Text className="text-muted">
                                             When to stop monitoring this domain
                                         </Form.Text>
+                                        <DateShortcuts onSelect={date => this.setState({ expiry: date.toISOString().split('T')[0] })} />
                                     </Form.Group>
                                 </Col>
                                 <Col md={6}>
@@ -668,6 +678,7 @@ export class SuspiciousSites extends Component {
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via RDAP/WHOIS
                                         </Form.Text>
+                                        <DateShortcuts onSelect={date => this.setState({ domainExpiry: date })} />
                                     </Form.Group>
                                 </Col>
                             </Row>
@@ -683,6 +694,7 @@ export class SuspiciousSites extends Component {
                                             placeholder="Select creation date"
                                             value={this.state.domainCreatedAt}
                                             onDayChange={date => this.setState({ domainCreatedAt: date })}
+                                            dayPickerProps={{ disabledDays: { after: new Date() } }}
                                         />
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via RDAP/WHOIS
@@ -703,10 +715,11 @@ export class SuspiciousSites extends Component {
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via SSL certificate
                                         </Form.Text>
+                                        <DateShortcuts onSelect={date => this.setState({ sslExpiry: date })} />
                                     </Form.Group>
                                 </Col>
                             </Row>
-    
+
                             <Row>
                                 <Col md={6}>
                                     <Form.Group className="mb-3">
@@ -964,6 +977,7 @@ export class SuspiciousSites extends Component {
                                         <Form.Text className="text-muted">
                                             When to stop monitoring this domain
                                         </Form.Text>
+                                        <DateShortcuts onSelect={date => this.setState({ expiry: date })} />
                                     </Form.Group>
                                 </Col>
                                 <Col md={6}>
@@ -980,6 +994,7 @@ export class SuspiciousSites extends Component {
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via RDAP/WHOIS
                                         </Form.Text>
+                                        <DateShortcuts onSelect={date => this.setState({ domainExpiry: date })} />
                                     </Form.Group>
                                 </Col>
 
@@ -996,6 +1011,7 @@ export class SuspiciousSites extends Component {
                                             placeholder="Select creation date"
                                             value={this.state.domainCreatedAt}
                                             onDayChange={date => this.setState({ domainCreatedAt: date })}
+                                            dayPickerProps={{ disabledDays: { after: new Date() } }}
                                         />
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via RDAP/WHOIS
@@ -1016,6 +1032,7 @@ export class SuspiciousSites extends Component {
                                         <Form.Text className="text-muted">
                                             Will be auto-detected via SSL certificate
                                         </Form.Text>
+                                        <DateShortcuts onSelect={date => this.setState({ sslExpiry: date })} />
                                     </Form.Group>
                                 </Col>
 

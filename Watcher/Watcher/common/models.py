@@ -85,6 +85,7 @@ class PendingAction(models.Model):
 
     ACTION_TYPES = [
         ('udrp_transfer', 'UDRP - Transfer domain to Legitimate Domains'),
+        ('connector_health_check', 'Connector - Health check failed'),
     ]
 
     STATUS_CHOICES = [

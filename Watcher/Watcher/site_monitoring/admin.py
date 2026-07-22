@@ -24,10 +24,12 @@ class AlertResource(resources.ModelResource):
 class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'type', 'site', 'new_ip', 'new_ip_second', 'new_MX_records', 'new_mail_A_record_ip', 'old_ip',
                     'old_ip_second', 'old_MX_records', 'old_mail_A_record_ip', 'difference_score',
+                    'new_server_banner', 'old_server_banner', 'new_x_powered_by', 'old_x_powered_by',
                     'status', 'created_at']
     list_filter = ('site', ('status', custom_titled_filter('Active Status')))
     search_fields = ['id', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records',
-                     'new_mail_A_record_ip', 'old_MX_records', 'old_mail_A_record_ip']
+                     'new_mail_A_record_ip', 'old_MX_records', 'old_mail_A_record_ip',
+                     'new_server_banner', 'old_server_banner', 'new_x_powered_by', 'old_x_powered_by']
     resource_class = AlertResource
 
     def has_add_permission(self, request):
@@ -68,8 +70,9 @@ class SiteResource(resources.ModelResource):
 
 @admin.register(Site)
 class Site(ExportMixin, admin.ModelAdmin):
-    list_display = ['rtir', 'domain_name', 'ticket_id', 'registrar', 'legitimacy', 'ip', 'ip_second', 
-                    'monitored', 'web_status', 'takedown_request', 'legal_team', 'blocking_request',
+    list_display = ['rtir', 'domain_name', 'ticket_id', 'registrar', 'legitimacy', 'ip', 'ip_second',
+                    'monitored', 'web_status', 'server_banner', 'x_powered_by',
+                    'takedown_request', 'legal_team', 'blocking_request',
                     'display_misp_uuid', 'created_at', 'expiry', 'domain_created_at', 'domain_expiry', 'ssl_expiry']
     list_filter = ['created_at', 'expiry', 'domain_created_at', 'domain_expiry', 'ssl_expiry', 'monitored', 'web_status', 'legitimacy', 
                    'takedown_request', 'legal_team', 'blocking_request']

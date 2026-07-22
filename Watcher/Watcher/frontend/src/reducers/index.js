@@ -13,6 +13,7 @@ import CyberWatch from "./CyberWatch";
 import WorldMap from "./WorldMap";
 import pendingActions from "./PendingActions";
 import timeline from "./Timeline";
+import connectors from "./Connectors";
 
 export default combineReducers({
     config,
@@ -25,6 +26,7 @@ export default combineReducers({
     WorldMap,
     pendingActions,
     timeline,
+    connectors,
     errors,
     messages,
     auth,

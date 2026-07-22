@@ -18,6 +18,7 @@ import SiteMonitoringDashboard from './SiteMonitoring/Dashboard'
 import DnsFinderDashboard from './DnsFinder/Dashboard'
 import LegitimateDomainsDashboard from './LegitimateDomains/Dashboard';
 import CyberWatchDashboard from './CyberWatch/Dashboard';
+import ConnectorsDashboard from './Connectors/Dashboard';
 import NotFound from './common/NotFound';
 import AlertTemplate from "./common/AlertTemplate";
 
@@ -126,6 +127,7 @@ class App extends Component {
                                         <PrivateRoute exact path="/website_monitoring" component={SiteMonitoringDashboard}/>
                                         <PrivateRoute exact path="/dns_finder" component={DnsFinderDashboard}/>
                                         <PrivateRoute exact path="/cyber_watch" component={CyberWatchDashboard}/>
+                                        <PrivateRoute exact path="/connectors" component={ConnectorsDashboard}/>
                                         <Route component={NotFound}/>
                                     </Switch>
                                 </div>

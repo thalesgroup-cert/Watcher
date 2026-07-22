@@ -142,6 +142,48 @@ def create_rdap_alert(site, alert_code, registrar_data=None, expiry_data=None):
         return None
 
 
+def create_banner_alert(site, old_server, new_server, old_xpb, new_xpb):
+    """
+    Create a banner-change alert and notify subscribers.
+    Returns the Alert instance, or None if a duplicate was found within the last hour.
+    """
+    try:
+        recent = Alert.objects.filter(
+            site=site,
+            type="Server banner change detected",
+            created_at__gte=timezone.now() - timedelta(hours=1),
+        )
+        if recent.exists():
+            logger.debug(f"Duplicate banner alert suppressed for {site.domain_name}")
+            return None
+
+        with transaction.atomic():
+            alert = Alert.objects.create(
+                site=site,
+                type="Server banner change detected",
+                old_server_banner=old_server,
+                new_server_banner=new_server,
+                old_x_powered_by=old_xpb,
+                new_x_powered_by=new_xpb,
+            )
+
+        logger.info(f"Banner alert #{alert.id}: server banner change for {site.domain_name}")
+
+        alert_data = {
+            'type': "Server banner change detected",
+            'old_server_banner': old_server,
+            'new_server_banner': new_server,
+            'old_x_powered_by': old_xpb,
+            'new_x_powered_by': new_xpb,
+        }
+        send_website_monitoring_notifications(site, alert_data)
+        return alert
+
+    except Exception as e:
+        logger.error(f"Error creating banner alert for {site.domain_name}: {e}")
+        return None
+
+
 def perform_site_rdap_lookup(site):
     """
     Perform RDAP lookup for a single site with WHOIS fallback.
@@ -305,6 +347,33 @@ def monitoring_check():
             Site.objects.filter(pk=site.pk).update(monitored=False)
 
 
+def _handle_banner_change(site, response):
+    """Extract Server/X-Powered-By from response and act on changes."""
+    new_server = response.headers.get('Server', '')
+    new_xpb = response.headers.get('X-Powered-By', '')
+
+    if site.server_banner is None:
+        Site.objects.filter(pk=site.pk).update(
+            server_banner=new_server,
+            x_powered_by=new_xpb,
+        )
+        logger.info(f"Initial banner stored for {site.domain_name}: Server={new_server!r}")
+        return
+
+    if new_server != site.server_banner or new_xpb != site.x_powered_by:
+        Site.objects.filter(pk=site.pk).update(
+            server_banner=new_server,
+            x_powered_by=new_xpb,
+        )
+        create_banner_alert(
+            site,
+            old_server=site.server_banner,
+            new_server=new_server,
+            old_xpb=site.x_powered_by,
+            new_xpb=new_xpb,
+        )
+
+
 def check_content(site, alert, ua):
     """
     Monitor Website Content.
@@ -334,6 +403,7 @@ def check_content(site, alert, ua):
         response = requests.get("https://" + site.domain_name, headers=headers, timeout=10)
         if response.status_code == 200:
             Site.objects.filter(pk=site.pk).update(web_status=200)
+            _handle_banner_change(site, response)
             if site.content_monitoring:
                 if site.content_fuzzy_hash:
                     result = tlsh_score(response, site, alert)
@@ -350,6 +420,7 @@ def check_content(site, alert, ua):
             response = requests.get("http://" + site.domain_name, headers=headers, timeout=10)
             if response.status_code == 200:
                 Site.objects.filter(pk=site.pk).update(web_status=200)
+                _handle_banner_change(site, response)
                 if site.content_monitoring:
                     if site.content_fuzzy_hash:
                         result = tlsh_score(response, site, alert)

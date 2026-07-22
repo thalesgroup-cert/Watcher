@@ -791,6 +791,18 @@ function Profile({ user, profile, logout, createMessage, loadProfile, updateProf
                                         </Nav.Link>
                                     </Nav.Item>
                                 ))}
+                                {user && user.is_superuser && (
+                                    <Nav.Item>
+                                        <Nav.Link
+                                            as={Link}
+                                            to="/connectors"
+                                            className="d-flex align-items-center gap-2 rounded-0 py-3 px-3"
+                                        >
+                                            <i className="material-icons" style={{ fontSize: 18 }}>power</i>
+                                            Connectors
+                                        </Nav.Link>
+                                    </Nav.Item>
+                                )}
                                 <hr className="my-0" />
                                 <Nav.Item>
                                     <button

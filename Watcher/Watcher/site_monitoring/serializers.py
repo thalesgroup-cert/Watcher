@@ -2,10 +2,10 @@ import logging
 from rest_framework import serializers
 
 logger = logging.getLogger('watcher.site_monitoring')
-from django.conf import settings
 from django.utils import timezone
 import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
+from connectors.core import get_misp_config
 
 from dns_finder.models import DnsTwisted
 from .core import monitoring_init
@@ -119,10 +119,11 @@ class MISPSerializer(serializers.Serializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
+        misp = get_misp_config()
         self.misp_api = PyMISP(
-            settings.MISP_URL,
-            settings.MISP_KEY,
-            settings.MISP_VERIFY_SSL,
+            misp['url'],
+            misp['key'],
+            misp['verify_ssl'],
         )
         self._message = ""
 

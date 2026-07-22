@@ -15,7 +15,7 @@ import logging
 import threading
 from urllib.parse import urlparse
 import websocket
-from django.conf import settings
+from connectors.core import get_certstream_config
 
 logger = logging.getLogger('watcher.dns_finder')
 
@@ -40,7 +40,7 @@ class CertStreamClient:
         :param ping_interval: Seconds between ping messages (0 to disable)
         :param reconnect_delay: Seconds to wait before reconnection attempt
         """
-        self.url = url or getattr(settings, 'CERT_STREAM_URL', 'ws://certstream:8080')
+        self.url = url or get_certstream_config()['url']
         self.callback = callback
         self.ping_interval = ping_interval
         self.reconnect_delay = reconnect_delay

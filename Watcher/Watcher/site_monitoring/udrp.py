@@ -274,9 +274,11 @@ def _notify_thehive(site, domain_sanitized, today, ticket, label):
         search_thehive_for_ticket_id,
         add_comment_to_item,
     )
+    from connectors.core import get_thehive_config
 
-    thehive_url = getattr(settings, 'THE_HIVE_URL', '')
-    api_key = getattr(settings, 'THE_HIVE_KEY', '')
+    thehive_cfg = get_thehive_config()
+    thehive_url = thehive_cfg['url']
+    api_key = thehive_cfg['key']
 
     if not thehive_url or not api_key:
         logger.warning(

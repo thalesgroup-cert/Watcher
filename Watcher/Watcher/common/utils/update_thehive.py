@@ -1,7 +1,7 @@
 import requests
 import logging
 from django.utils import timezone
-from django.conf import settings
+from connectors.core import get_thehive_config
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
@@ -19,12 +19,13 @@ def search_thehive_for_ticket_id(watcher_id, thehive_url, api_key, item_type=Non
     """
     headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
     proxies = {"http": None, "https": None}
+    custom_field = get_thehive_config()['custom_field']
 
     query = {
         "query": [
             {"_name": f"list{item_type.capitalize()}"},
             {"_name": "filter", "_and": [
-                {"_field": f"customFields.{settings.THE_HIVE_CUSTOM_FIELD}.string", "_value": watcher_id}
+                {"_field": f"customFields.{custom_field}.string", "_value": watcher_id}
             ]}
         ]
     } if item_type else None
@@ -41,7 +42,7 @@ def search_thehive_for_ticket_id(watcher_id, thehive_url, api_key, item_type=Non
         if results:
             return item_type, results[0]
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error searching for {item_type} with {settings.THE_HIVE_CUSTOM_FIELD} {watcher_id}: {e}")
+        logger.error(f"Error searching for {item_type} with {custom_field} {watcher_id}: {e}")
     
     return None, None
 
@@ -299,8 +300,8 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
         "source": "watcher",
         "sourceRef": ticket_id,
         "customFields": customFields or {
-            settings.THE_HIVE_CUSTOM_FIELD: {"string": ticket_id}, 
-            "email-sender": {"string": settings.THE_HIVE_EMAIL_SENDER}
+            get_thehive_config()['custom_field']: {"string": ticket_id},
+            "email-sender": {"string": get_thehive_config()['email_sender']}
         }
     }
 
@@ -357,10 +358,10 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
     case_type, case_item = search_thehive_for_ticket_id(ticket_id, thehive_url, api_key, item_type="case")
 
     if case_item:
-        logger.info(f"Case found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
+        logger.info(f"Case found for {get_thehive_config()['custom_field']} {ticket_id}. Proceeding with update.")
         update_existing_alert_case("case", case_item, observables, comment, thehive_url, api_key)
     elif alert_item:
-        logger.info(f"Alert found for {settings.THE_HIVE_CUSTOM_FIELD} {ticket_id}. Proceeding with update.")
+        logger.info(f"Alert found for {get_thehive_config()['custom_field']} {ticket_id}. Proceeding with update.")
         update_existing_alert_case("alert", alert_item, observables, comment, thehive_url, api_key)
     else:
         create_new_alert(

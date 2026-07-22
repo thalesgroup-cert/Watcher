@@ -24,6 +24,7 @@ from .mail_template.cyber_watch_template import get_cyber_watch_template
 from .mail_template.udrp_template import get_udrp_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
+from connectors.core import get_thehive_config, get_slack_config, get_citadel_config
 import tldextract
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
@@ -41,6 +42,7 @@ def start_scheduler():
         - Fire Legitimate Domains RDAP/WHOIS every 30 minutes
         - Fire Monitored Sites RDAP/WHOIS every hour
         - Fire SSL certificate check every 6 hours
+        - Fire Connectors health check every Monday at 06:00
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
 
@@ -65,6 +67,11 @@ def start_scheduler():
                       max_instances=1,
                       replace_existing=True)
 
+    from connectors.core import run_weekly_health_checks
+    scheduler.add_job(run_weekly_health_checks, 'cron', day_of_week='mon', hour=6, minute=0, id='connectors_health_check_job',
+                      max_instances=1,
+                      replace_existing=True)
+
     scheduler.start()
 
 
@@ -75,8 +82,6 @@ def generate_ref():
     ref = datetime.now().strftime("%y%m%d") + "-" + str(token_hex(3))[:5]
     return ref
 
-SLACK_CHANNEL = getattr(settings, 'SLACK_CHANNEL', '')
-CITADEL_ROOM_ID = getattr(settings, 'CITADEL_ROOM_ID', '')
 SUBJECT_TAG_SITE_MONITORING = getattr(settings, 'SUBJECT_TAG_SITE_MONITORING', '')
 
 # Configuration for Slack
@@ -89,7 +94,6 @@ APP_CONFIG_SLACK = {
             "{words_list}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/',
     },
     'threats_watcher_weeklysummary': {
@@ -99,7 +103,6 @@ APP_CONFIG_SLACK = {
             "{summary_text}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/',
     },
 
@@ -110,7 +113,6 @@ APP_CONFIG_SLACK = {
             "{summary_text}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/',
     },
     'data_leak': {
@@ -122,7 +124,6 @@ APP_CONFIG_SLACK = {
             "*• Source:* {url}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#data_leak',
     },
     'data_leak_group': {
@@ -132,7 +133,6 @@ APP_CONFIG_SLACK = {
             "*{alerts_number}* new data leakage alerts have been detected for the keyword *{keyword}*\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#data_leak',
     },
     'website_monitoring': {
@@ -151,7 +151,6 @@ APP_CONFIG_SLACK = {
             "*• Old Mail Server:* {old_mail_A_record_ip}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/website_monitoring/',
     },
     'dns_finder': {
@@ -165,7 +164,6 @@ APP_CONFIG_SLACK = {
             "*• Fuzzer:* {alert.dns_twisted.fuzzer}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/dns_finder/',
     },
     'dns_finder_group': {
@@ -175,7 +173,6 @@ APP_CONFIG_SLACK = {
             "*{alerts_number}* New DNS Twisted Alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/dns_finder/',
     },
     'cyber_watch_new_cve': {
@@ -189,7 +186,6 @@ APP_CONFIG_SLACK = {
             "*• Description:* {description}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/cyber_watch',
     },
     'cyber_watch_cve_hit': {
@@ -203,7 +199,6 @@ APP_CONFIG_SLACK = {
             "*• Severity:* {severity}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/cyber_watch',
     },
     'cyber_watch_new_victim': {
@@ -217,7 +212,6 @@ APP_CONFIG_SLACK = {
             "*• Sector:* {sector}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/cyber_watch',
     },
     'cyber_watch_victim_hit': {
@@ -233,7 +227,6 @@ APP_CONFIG_SLACK = {
             "*• Matched Keyword:* {keyword}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/cyber_watch',
     },
     'udrp_decision': {
@@ -248,7 +241,6 @@ APP_CONFIG_SLACK = {
             "*• Source:* udrpsearch.com\n\n"
             "Please, find more details <{details_url}|here>."
         ),
-        'channel': SLACK_CHANNEL,
         'url_suffix': '#/website_monitoring/',
     },
 }
@@ -263,7 +255,6 @@ APP_CONFIG_CITADEL = {
             "<ul><strong>{words_list}</strong></ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/',
     },
     'threats_watcher_weeklysummary': {
@@ -273,7 +264,6 @@ APP_CONFIG_CITADEL = {
             "<p>{summary_text}</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/',
     },
     'threats_watcher_breakingnews': {
@@ -283,7 +273,6 @@ APP_CONFIG_CITADEL = {
             "<p>{summary_text}</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/',
     },
     'data_leak': {
@@ -297,7 +286,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#data_leak',
     },
     'data_leak_group': {
@@ -307,7 +295,6 @@ APP_CONFIG_CITADEL = {
             "<p><strong>{alerts_number}</strong> new data leakage alerts have been detected for the keyword <strong>{keyword}</strong>.</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#data_leak',
     },
     'website_monitoring': {
@@ -328,7 +315,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/website_monitoring/',
     },
     'dns_finder': {
@@ -344,7 +330,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/dns_finder/',
     },
     'dns_finder_group': {
@@ -354,7 +339,6 @@ APP_CONFIG_CITADEL = {
             "<p><strong>{alerts_number}</strong> New DNS Twisted Alerts for <strong>{dns_domain_name_sanitized_group}</strong> asset.</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/dns_finder/',
     },
     'cyber_watch_new_cve': {
@@ -370,7 +354,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/cyber_watch',
     },
     'cyber_watch_cve_hit': {
@@ -386,7 +369,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/cyber_watch',
     },
     'cyber_watch_new_victim': {
@@ -402,7 +384,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/cyber_watch',
     },
     'cyber_watch_victim_hit': {
@@ -420,7 +401,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/cyber_watch',
     },
     'udrp_decision': {
@@ -437,7 +417,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/website_monitoring/',
     },
     'udrp_decision': {
@@ -454,7 +433,6 @@ APP_CONFIG_CITADEL = {
             "</ul>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
         ),
-        'citadel_room_id': CITADEL_ROOM_ID,
         'url_suffix': '#/website_monitoring/',
     },
 }
@@ -472,7 +450,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 1,
         'tlp': 1,
         'pap': 1,
-        'tags': settings.THE_HIVE_TAGS
     },
     'data_leak': {
         'title': "New Data Leakage - Alert #{alert_pk} for {keyword_name} keyword",
@@ -485,7 +462,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 1,
         'tlp': 1,
         'pap': 1,
-        'tags': settings.THE_HIVE_TAGS
     },
     'website_monitoring': {
         'title': "Website Monitoring Detected - {alert_type} on {domain_name_sanitized}",
@@ -507,7 +483,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 1,
         'tlp': 1,
         'pap': 1,
-        'tags': settings.THE_HIVE_TAGS
     },
     'dns_finder': {
         'title': "New Twisted DNS found - {dns_domain_name_sanitized}",
@@ -522,7 +497,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 1,
         'tlp': 1,
         'pap': 1,
-        'tags': settings.THE_HIVE_TAGS
     },
     'cyber_watch_new_cve': {
         'title': "New CVE - {cve_id} | Severity: {severity} | CVSS: {cvss_score}",
@@ -539,7 +513,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 1,
         'tlp': 1,
         'pap': 1,
-        'tags': settings.THE_HIVE_TAGS
     },
     'cyber_watch_cve_hit': {
         'title': "CVE Rule Hit - {rule_name} matched {cve_id} [{severity}]",
@@ -555,7 +528,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 2,
         'tlp': 2,
         'pap': 2,
-        'tags': settings.THE_HIVE_TAGS
     },
     'cyber_watch_new_victim': {
         'title': "New Ransomware Victim - {victim_name} | {group_name} | {sector}",
@@ -571,7 +543,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 1,
         'tlp': 1,
         'pap': 1,
-        'tags': settings.THE_HIVE_TAGS
     },
     'cyber_watch_victim_hit': {
         'title': "Victim Rule Hit - {rule_name} matched {victim_name} ({group_name})",
@@ -589,7 +560,6 @@ APP_CONFIG_THEHIVE = {
         'severity': 2,
         'tlp': 2,
         'pap': 2,
-        'tags': settings.THE_HIVE_TAGS
     },
 }
 
@@ -832,8 +802,9 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
     observables = collect_observables(app_name, context_data)
 
-    thehive_url = settings.THE_HIVE_URL
-    api_key = settings.THE_HIVE_KEY
+    _thehive_cfg = get_thehive_config()
+    thehive_url = _thehive_cfg['url']
+    api_key = _thehive_cfg['key']
 
     def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
         """Helper to format and send notification based on the channel."""
@@ -981,12 +952,12 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     logger.info(f"Found parent domain {parent_domain} in Site model with ticket_id: {ticket_id}")
                     
                     alert_type, alert_item = search_thehive_for_ticket_id(
-                        ticket_id, settings.THE_HIVE_URL, settings.THE_HIVE_KEY, "alert"
+                        ticket_id, thehive_url, api_key, "alert"
                     )
                     if isinstance(alert_item, list):
                         alert_item = alert_item[0] if alert_item else None
                     case_type, case_item = search_thehive_for_ticket_id(
-                        ticket_id, settings.THE_HIVE_URL, settings.THE_HIVE_KEY, "case"
+                        ticket_id, thehive_url, api_key, "case"
                     )
                     if isinstance(case_item, list):
                         case_item = case_item[0] if case_item else None
@@ -1001,7 +972,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 # Step 2: Search by observables in TheHive
                 if not existing_item:
                     item_type, item_obj = search_thehive_for_observable(
-                        parent_domain, settings.THE_HIVE_URL, settings.THE_HIVE_KEY
+                        parent_domain, thehive_url, api_key
                     )
                     if item_obj:
                         existing_item = item_obj
@@ -1028,8 +999,8 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         existing_item=existing_item,
                         observables=observables_dns,
                         comment=comment,
-                        thehive_url=settings.THE_HIVE_URL,
-                        api_key=settings.THE_HIVE_KEY,
+                        thehive_url=thehive_url,
+                        api_key=api_key,
                         parent_domain=parent_domain,
                         subdomain=subdomain
                     )
@@ -1053,16 +1024,16 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         tags=[
                             f"Detected fuzzer: {getattr(alert.dns_twisted, 'fuzzer', 'unknown')}",
                             f"Detected keyword: {getattr(alert.dns_twisted.keyword_monitored, 'name', 'unknown') if alert.dns_twisted.keyword_monitored else 'unknown'}",
-                        ] + (app_config_thehive.get('tags', []) or []),
+                        ] + _thehive_cfg['tags'],
                         app_name='dns_finder',
                         observables=observables_dns,
                         customFields={
-                            settings.THE_HIVE_CUSTOM_FIELD: {"string": ticket_id},
-                            "email-sender": {"string": settings.THE_HIVE_EMAIL_SENDER},
+                            _thehive_cfg['custom_field']: {"string": ticket_id},
+                            "email-sender": {"string": _thehive_cfg['email_sender']},
                         },
                         comment=comment,
-                        thehive_url=settings.THE_HIVE_URL,
-                        api_key=settings.THE_HIVE_KEY,
+                        thehive_url=thehive_url,
+                        api_key=api_key,
                         parent_domain=parent_domain,
                         subdomain=subdomain
                     )
@@ -1165,7 +1136,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             channel="slack",
             content_template=app_config_slack['content_template'],
             subscribers_filter={'slack': True},
-            send_func=lambda content: send_slack_message(content, app_config_slack['channel'], app_name),
+            send_func=lambda content: send_slack_message(content, get_slack_config()['channel'], app_name),
             **common_data
         )
 
@@ -1181,7 +1152,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     "body": citadel_title + " - New Incident Alert", 
                     "formatted_body": content.replace('\n', '<br>')  
                 },
-                room_id=app_config_citadel['citadel_room_id'], 
+                room_id=get_citadel_config()['room_id'],
                 app_name=common_data.get('app_name')  
             ),
             title=citadel_title,
@@ -1211,7 +1182,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         severity=app_config_thehive['severity'],
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
-                        tags=app_config_thehive['tags'],
+                        tags=_thehive_cfg['tags'],
                         customFields=app_config_thehive.get('customFields'),
                         app_name=app_name,
                         domain_name=site.domain_name,
@@ -1227,7 +1198,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         severity=app_config_thehive['severity'],
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
-                        tags=app_config_thehive['tags'],
+                        tags=_thehive_cfg['tags'],
                         app_name=app_name,
                         domain_name=None,
                         observables=observables,
@@ -1317,7 +1288,7 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
             channel="slack",
             content_template=app_config_slack['content_template'],
             subscribers_filter={'slack': True},
-            send_func=lambda content: send_slack_message(content, app_config_slack['channel'], app_name),
+            send_func=lambda content: send_slack_message(content, get_slack_config()['channel'], app_name),
             **common_data
         )
 
@@ -1334,7 +1305,7 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
                     "body": citadel_title + " - New Incident Alert",
                     "formatted_body": content.replace('\n', '<br>')
                 },
-                room_id=app_config_citadel['citadel_room_id'],
+                room_id=get_citadel_config()['room_id'],
                 app_name=common_data.get('app_name')
             ),
             title=citadel_title,
@@ -1385,8 +1356,9 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
     
     observables = collect_observables(app_name, context_data)
 
-    thehive_url = settings.THE_HIVE_URL
-    api_key = settings.THE_HIVE_KEY
+    _thehive_cfg = get_thehive_config()
+    thehive_url = _thehive_cfg['url']
+    api_key = _thehive_cfg['key']
 
     def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
         if subscribers.filter(**subscribers_filter).exists():
@@ -1446,7 +1418,7 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
                         severity=app_config_thehive['severity'],
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
-                        tags=app_config_thehive['tags'],
+                        tags=_thehive_cfg['tags'],
                         customFields=app_config_thehive.get('customFields'),
                         app_name=app_name,
                         domain_name=site.domain_name,
@@ -1462,7 +1434,7 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
                         severity=app_config_thehive['severity'],
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
-                        tags=app_config_thehive['tags'],
+                        tags=_thehive_cfg['tags'],
                         app_name=app_name,
                         domain_name=None,
                         observables=observables,
