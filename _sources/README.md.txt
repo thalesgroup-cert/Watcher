@@ -89,7 +89,9 @@ You just have to wait for Watcher to crawl the Internet. This will happen every 
 ## Static configuration
 Most of the settings can be modified from the `/admin` page.
 
-There are other settings located in the `.env` file that you can configure. 
+There are other settings located in the `.env` file that you can configure.
+
+Many of the external-integration settings below (SMTP, Slack, MISP, TheHive, Citadel, CyberWatch feeds) can also be viewed, overridden, and tested live from the [Connectors](#connectors) page, without editing the `.env` file.
 
 ### Production Settings [Important]
 
@@ -160,7 +162,7 @@ Now, you can restart your instance and the parameters will be taken into account
 
 ### SSO / OpenID Connect Settings
 
-Watcher supports federated login via any **OpenID Connect (OIDC)** provider (Keycloak, Azure AD, etc.).
+Watcher supports federated login via any **OpenID Connect (OIDC)** provider (Keycloak, Azure AD...)
 
 The login page behaviour is controlled by a single variable `LOGIN_MODE`:
 
@@ -184,10 +186,14 @@ In the `.env` file:
     OIDC_OP_USER_ENDPOINT=
     OIDC_OP_JWKS_ENDPOINT=
     OIDC_OP_ISSUER=
+    # Optional - set to False to only allow SSO login for pre-existing users (default: True)
+    OIDC_CREATE_USER=True
 
 Set `LOGIN_MODE=sso_only` (or `both`) and fill in the OIDC credentials to activate the SSO login button and the OIDC routes.
 
 `OIDC_COMPANY_NAME` is optional - when set it is displayed on the SSO button (e.g. `Sign in with Acme Corp`).
+
+`OIDC_CREATE_USER` controls whether a new local account is automatically created the first time someone logs in via SSO. Set it to `False` to require an admin to create the account first - unrecognized SSO users are then redirected back to the login page instead of being auto-provisioned.
 
 The callback URL to register with your identity provider is:
 
@@ -297,7 +303,7 @@ To configure Email, you need the following variables, in the `.env` file:
 
 Follow these steps to get the required information:
 
-1. Choose your email provider (example: Gmail, Outlook...).
+1. Choose your email provider (example: Gmail, Outlook...)
 2. Go to the email provider’s settings and generate the **SMTP configuration**:
    - For **Gmail**, detailed instructions can be found in [Google's SMTP documentation](https://support.google.com/a/answer/176600?hl=en).
    - For **Outlook**, you can refer to the [Outlook SMTP documentation](https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-for-outlook-com-d088b986-291d-42b8-9564-9c414e2aa040) for more information.
@@ -396,7 +402,7 @@ Now, you can restart your instance and the parameters will be taken into account
     docker compose up
 
 ## Add your RSS source to Threats Detection
-As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...).
+As you know this feature allow the detection of emerging vulnerabilities, malwares using social networks & other RSS sources (www.cert.ssi.gouv.fr, www.cert.europa.eu, www.us-cert.gov, www.cyber.gov.au...)
 
 Watcher currently provides hundreds of RSS cybersecurity sources ([Populate default RSS sources](#populate-your-database)).
 
@@ -424,7 +430,7 @@ The **Legitimate Domains** module helps track company-approved domains, monitor 
 2. Click **Add Legitimate Domain**
 3. Fill in the following fields:
    - **Domain**: Company-owned domain (e.g., `company.com`)
-   - **Legitimacy**: Classification status (Unknown, Legitimate, etc.)
+   - **Legitimacy**: Classification status (Unknown, Legitimate...)
    - **Domain Expiry**: Expiration date (YYYY-MM-DD)
    - **Registrar**: Current registrar name
    - **Repurchase**: Mark if domain needs renewal
@@ -489,7 +495,7 @@ GET /api/data_leak/keyword/?page=1&page_size=1000
 - Pagination is implemented across all major API endpoints
 - Default page size is 100 items
 - Maximum page size is 1000 items
-- Most frontend actions (DataLeak.js, DnsFinder.js, etc.) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.
+- Most frontend actions (DataLeak.js, DnsFinder.js...) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.
 
 ### Interactive API Documentation
 
@@ -920,6 +926,29 @@ A dedicated `/profile` route provides a centralised settings and preferences hub
 - A *Reset to Default* button restores the module's default preset.
 - Layout changes made in the profile page are reflected immediately on open dashboards without a page reload.
 
+## Connectors
+
+A dedicated `/connectors` page (**superuser only**) centralises configuration and health-check testing for every external integration Watcher can talk to: SMTP, Slack, Citadel, TheHive, MISP, LDAP, SSO/OIDC, CertStream, SearxNG, the CyberWatch feeds (CVE, Ransomware.live, RansomLook), WIPO UDRP, and the primary MySQL database.
+
+### How it works
+
+- **At startup**, a connector's fields are seeded from the corresponding `.env` / `settings.py` variables described in [Static configuration](#static-configuration) the first time they're read - nothing changes for existing deployments, and a connector that's already configured via environment variables needs no action here.
+- **Editing a value** from the dashboard (click **Edit** on a connector's card) stores an override in the database, which takes effect immediately across the whole app - not just this page's own **Test** button. SMTP, Slack, Citadel, TheHive, MISP, CertStream, SearxNG, and the CyberWatch feeds all read their live configuration through this same override system, so changing a value here changes real app behaviour immediately, with no restart required.
+- **Once a field has been saved here - even cleared to empty - it stops following `.env`/`settings.py`, for good.** Clearing a field is a deliberate "leave this blank" action, not a way to fall back to the environment default. Each field shows a **"From .env"** or **"Manually set"** badge so you always know which state it's in, and a **reset button** appears on manually-set fields to drop the override and resume following `.env`/`settings.py` live.
+- **Sensitive fields** (passwords, tokens, API keys) are encrypted at rest with Django's signing framework and shown masked by default. Click the eye icon to decrypt and reveal the stored value, or the crossed-out eye to hide it again.
+- **Test** runs a real connectivity check (an SMTP handshake, an authenticated API call...) using the values currently saved for that connector, and reports success or failure directly on its card.
+- **Two independent statuses** are shown per connector: **Configured** / **Incomplete** / **Disabled** reflects whether the required fields are filled in, while **Healthy** / **Unhealthy** / **Not tested yet** reflects the outcome of the last connectivity test. A connector can be fully configured and still unhealthy if the external service itself is unreachable.
+- **A scheduled job tests every connector automatically every Monday at 06:00.** A Pending Action alert is only queued for connectors marked **Configured** that fail - a connector nobody has set up yet is still tested (to keep its health badge current) but doesn't raise noise. Repeated failures for the same connector don't create duplicate alerts - the existing pending one has to be resolved first. Manually clicking **Test** never creates an alert; only the scheduled run does.
+- Each connector shows its **plugin version** (e.g. `v1.0.0`) - a static, manually-maintained value for the connector definition itself, unrelated to the version of the external service it talks to.
+- **MySQL, LDAP, and OIDC/SSO are read-only/informational**: their configuration always comes from `settings.py` and can't be changed from this page. For LDAP and OIDC this isn't a UI limitation - Django builds its authentication backends from `settings.py` once, at process startup, so an override wouldn't take effect without a restart anyway.
+
+### Dashboard
+
+- KPI cards summarise how many connectors are **Configured**, **Incomplete**, or **Disabled**, based on which of their required fields are currently filled.
+- Search and filter connectors by name, category, configuration status, or health status.
+- Toggle **Group by category** to organise the grid by theme (Notifications, Threat Intelligence, Authentication, Database...) instead of a flat list.
+
+
 ## AI-Powered Threat Intelligence
 
 Watcher v3.4.0 uses **AI-driven threat analysis** powered by Hugging Face transformers for automated threat detection and summarization.
@@ -1098,7 +1127,7 @@ Then, follow the steps below:
 - **Move to the following directory:** `cd Watcher/Watcher`
 - **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
 - **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
-- **Install Rust (for tokenizers, etc)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
+- **Install Rust (for tokenizers...)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
 - **Install Python dependencies:** `pip3 install -r requirements.txt`
 - **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
 - **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
@@ -1305,7 +1334,7 @@ There are several commands which you will use to interact with migrations and Dj
 - `sqlmigrate`, which displays the SQL statements for a migration.
 - `showmigrations`, which lists a project’s migrations and their status.
 
-### Change a model (adding a field, deleting a model, etc.)
+### Change a model (adding a field, deleting a model...)
 When you are **making a change to a model**, for instance, adding a new field to: **/Watcher/Watcher/data_leak/models.py**
 Then, you need to create a new migration based on the changes you have made:
 - Go to **/Watcher/Watcher/** and run this command: `python3 manage.py makemigrations`
