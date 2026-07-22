@@ -34,7 +34,7 @@ class ConnectorViewSet(viewsets.ViewSet):
             return Response(data)
         except Exception as exc:
             logger.error("Error listing connectors: %s", exc)
-            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Failed to list connectors'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def retrieve(self, request, pk=None):
         """GET /api/connectors/{id}/ - connector detail. ?reveal=true decrypts sensitive fields."""
@@ -46,7 +46,7 @@ class ConnectorViewSet(viewsets.ViewSet):
             return Response({'error': f"Connector '{pk}' not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.error("Error retrieving connector '%s': %s", pk, exc)
-            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f"Failed to retrieve connector '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def partial_update(self, request, pk=None):
         """PATCH /api/connectors/{id}/ - save field overrides."""
@@ -59,11 +59,11 @@ class ConnectorViewSet(viewsets.ViewSet):
             return Response(data)
         except KeyError:
             return Response({'error': f"Connector '{pk}' not found"}, status=status.HTTP_404_NOT_FOUND)
-        except PermissionError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except PermissionError:
+            return Response({'error': f"Connector '{pk}' is read-only and cannot be overridden"}, status=status.HTTP_403_FORBIDDEN)
         except Exception as exc:
             logger.error("Error saving overrides for connector '%s': %s", pk, exc)
-            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f"Failed to save overrides for connector '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'], url_path='test')
     def test(self, request, pk=None):
@@ -80,7 +80,7 @@ class ConnectorViewSet(viewsets.ViewSet):
             return Response({'error': f"Connector '{pk}' not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             logger.error("Error testing connector '%s': %s", pk, exc)
-            return Response({'success': False, 'message': str(exc)})
+            return Response({'success': False, 'message': f"Failed to test connector '{pk}'"})
 
     @action(detail=True, methods=['post'], url_path='reset-field')
     def reset_field(self, request, pk=None):
@@ -92,10 +92,10 @@ class ConnectorViewSet(viewsets.ViewSet):
             reset_connector_field(pk, field_name)
             data = get_connector_by_id(pk)
             return Response(data)
-        except KeyError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
-        except PermissionError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except KeyError:
+            return Response({'error': f"Connector '{pk}' or field '{field_name}' not found"}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionError:
+            return Response({'error': f"Connector '{pk}' is read-only and cannot be overridden"}, status=status.HTTP_403_FORBIDDEN)
         except Exception as exc:
             logger.error("Error resetting field '%s' on connector '%s': %s", field_name, pk, exc)
-            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f"Failed to reset field '{field_name}' on connector '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
