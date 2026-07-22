@@ -482,10 +482,6 @@ class TableManager extends Component {
                 autofitEnabled: false,
                 manualItemsPerPage: newItemsPerPage
             }, () => {
-                // Clamp immediately in case the panel is already too small for the
-                // newly chosen target, instead of waiting for the next resize event.
-                const best = this._computeAdaptiveItemsPerPage();
-                this.applyAutofit(best);
                 if (this.props.onItemsPerPageChange) {
                     this.props.onItemsPerPageChange(newItemsPerPage);
                 }
@@ -504,16 +500,10 @@ class TableManager extends Component {
 
     applyAutofit = (best) => {
         if (best === null) return;
-        if (!this.state.autofitEnabled) {
-            // Manual mode: never show more rows than the user picked, but grow back
-            // up toward that target (and shrink below it) as panel space changes.
-            const target = this.state.manualItemsPerPage ?? this.state.itemsPerPage;
-            const next = Math.min(target, best);
-            if (next !== this.state.itemsPerPage) {
-                this.setState({ itemsPerPage: next });
-            }
-            return;
-        }
+        // Manual mode: the user's chosen page size is authoritative. Resizing the
+        // panel only affects how much of it is visible without scrolling (see
+        // getTableContainerStyle) - it never overrides the row count itself.
+        if (!this.state.autofitEnabled) return;
         if (best !== this.state.itemsPerPage) {
             this.setState({ itemsPerPage: best });
         }
