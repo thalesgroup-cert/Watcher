@@ -99,10 +99,6 @@ export class SuspiciousSites extends Component {
         onDataFiltered: PropTypes.func
     };
 
-    componentDidMount() {
-        this.props.getSites();
-    }
-
     componentDidUpdate(prevProps) {
         const { sites, error } = this.props;
     

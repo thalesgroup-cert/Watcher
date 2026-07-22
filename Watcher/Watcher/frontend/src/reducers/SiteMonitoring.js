@@ -35,10 +35,25 @@ export default function (state = initialState, action) {
     switch (action.type) {
         case GET_SITES: {
             const newResults = action.payload.results || action.payload;
+
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    sites: Array.isArray(newResults) ? newResults.slice().sort((a, b) => b.rtir - a.rtir) : [],
+                    sitesCount: Array.isArray(newResults) ? newResults.length : 0,
+                    sitesNext: null,
+                    sitesPrevious: null
+                };
+            }
+
+            const newMap = new Map(newResults.map(s => [s.id, s]));
+            const merged = state.sites.map(s => newMap.has(s.id) ? newMap.get(s.id) : s);
+            newResults.forEach(s => { if (!state.sites.find(existing => existing.id === s.id)) merged.push(s); });
+
             return {
                 ...state,
-                sites: newResults.slice().sort((a, b) => b.rtir - a.rtir),
-                sitesCount: action.payload.count || newResults.length,
+                sites: merged.sort((a, b) => b.rtir - a.rtir),
+                sitesCount: action.payload.count || state.sitesCount,
                 sitesNext: action.payload.next || null,
                 sitesPrevious: action.payload.previous || null
             };

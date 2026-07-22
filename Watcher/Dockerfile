@@ -81,8 +81,7 @@ FROM python:3.12-slim-bookworm
 LABEL title='Watcher' \
         description='Watcher is a Django & React JS automated platform for discovering new potentially cybersecurity threats targeting your organisation.' \
         documentation='https://thalesgroup-cert.github.io/Watcher/' \
-        source='https://github.com/thalesgroup-cert/Watcher' \
-        maintainer='ygalnezri@icloud.com'
+        source='https://github.com/thalesgroup-cert/Watcher'
 
 ENV http_proxy=${HTTP_PROXY} \
     https_proxy=${HTTPS_PROXY} \

@@ -103,10 +103,9 @@ class TableManager extends Component {
             savedFilters: {},
             containerHeight: 'auto',
             autofitEnabled: savedAutofitEnabled,
-            // The user's chosen page size when not on auto-fit. `itemsPerPage` is the
-            // count actually rendered right now, clamped down to whatever currently
-            // fits the panel; `manualItemsPerPage` is the target we grow back toward
-            // as the panel gets more room.
+            // The user's chosen page size when not on auto-fit. `itemsPerPage` is always
+            // exactly this value in manual mode - it is never auto-adjusted. Only the
+            // scroll area (see getTableContainerStyle) adapts to the panel's live size.
             manualItemsPerPage: savedAutofitEnabled ? null : savedItemsPerPage
         };
         this.containerRef = React.createRef();
@@ -241,6 +240,7 @@ class TableManager extends Component {
     static PAGE_SIZES = [5, 10, 25, 50, 100];
     static TABLE_ROW_HEIGHT_PX = 60;
     static TABLE_OVERHEAD_PX = 150;
+    static PAGINATION_RESERVE_PX = 54;
 
     _computeAvailableTableSpace = () => {
         const panelEl = this._adaptivePanelEl;
@@ -263,12 +263,11 @@ class TableManager extends Component {
         // Subtract bottom padding of the panel wrapper div
         available -= 12;
 
-        // Subtract pagination only when it is actually rendered.
+        // Reserve pagination space even before it's rendered, so the estimate doesn't
+        // overshoot once pagination controls appear (e.g. after more data loads in).
         const paginationEl = this.paginationRef?.current;
-        if (paginationEl) {
-            available -= 16;
-            available -= paginationEl.getBoundingClientRect().height;
-        }
+        available -= 16;
+        available -= paginationEl ? paginationEl.getBoundingClientRect().height : TableManager.PAGINATION_RESERVE_PX;
 
         return available;
     };
@@ -307,6 +306,12 @@ class TableManager extends Component {
 
             this.resizeObserver = new ResizeObserver(this.handlePanelResize);
             this.resizeObserver.observe(panelEl);
+
+            requestAnimationFrame(() => {
+                if (!this.mounted) return;
+                const best = this._computeAdaptiveItemsPerPage();
+                this.applyAutofit(best);
+            });
         }
 
         this.updateHeightTimer = setTimeout(() => {

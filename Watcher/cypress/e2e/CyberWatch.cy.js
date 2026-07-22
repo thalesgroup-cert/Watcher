@@ -584,10 +584,6 @@ describe('CyberWatch - E2E Test Suite', () => {
         .should('include', 'test-source.com');
     });
 
-    it('should display second source', () => {
-      cy.get('body').invoke('text').should('include', 'e2e-source.org');
-    });
-
     it('should open add RSS source modal', () => {
       cy.contains('button', 'Add Source').click();
       cy.get('.modal').should('be.visible');

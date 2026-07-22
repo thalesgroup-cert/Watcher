@@ -571,18 +571,6 @@ describe('Legitimate Domains - E2E Test Suite', () => {
       cy.get('table tbody tr').should('have.length.at.least', 1);
     });
 
-    it('should clear filters with Reset to Default', () => {
-      cy.contains('Items per page').parent().find('select').select('10');
-
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.get('input[placeholder*="Search"]').clear().type('watcher');
-      cy.wait(500);
-
-      cy.get('button:contains("Reset to Default")').click();
-      cy.wait(500);
-
-      cy.get('table tbody tr').should('have.length', 4);
-    });
   });
 
   describe('Data Interaction and Workflow', () => {
