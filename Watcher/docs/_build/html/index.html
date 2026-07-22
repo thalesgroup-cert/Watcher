@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to Watcher’s documentation! &mdash; Watcher 3.5.1 documentation</title>
+  <title>Welcome to Watcher’s documentation! &mdash; Watcher 3.5.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
@@ -14,7 +14,7 @@
     <link rel="shortcut icon" href="_static/Watcher-favicon.ico"/>
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=654eae90"></script>
+      <script src="_static/documentation_options.js?v=52b624fa"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -127,9 +127,42 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/common_misp.html">MISP API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.cleanup"><code class="docutils literal notranslate"><span class="pre">cleanup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.extract_entities_and_threats"><code class="docutils literal notranslate"><span class="pre">extract_entities_and_threats()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.fetch_last_posts"><code class="docutils literal notranslate"><span class="pre">fetch_last_posts()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.focus_five_letters"><code class="docutils literal notranslate"><span class="pre">focus_five_letters()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.focus_on_top"><code class="docutils literal notranslate"><span class="pre">focus_on_top()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_confidence_score"><code class="docutils literal notranslate"><span class="pre">get_confidence_score()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_normalized_domain"><code class="docutils literal notranslate"><span class="pre">get_normalized_domain()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_pre_redirect_domain"><code class="docutils literal notranslate"><span class="pre">get_pre_redirect_domain()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.load_feeds"><code class="docutils literal notranslate"><span class="pre">load_feeds()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.main_watch"><code class="docutils literal notranslate"><span class="pre">main_watch()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.reliability_score"><code class="docutils literal notranslate"><span class="pre">reliability_score()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.remove_banned_words"><code class="docutils literal notranslate"><span class="pre">remove_banned_words()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.send_threats_watcher_notifications"><code class="docutils literal notranslate"><span class="pre">send_threats_watcher_notifications()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.tokenize_count_urls"><code class="docutils literal notranslate"><span class="pre">tokenize_count_urls()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_content"><code class="docutils literal notranslate"><span class="pre">check_content()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_ip"><code class="docutils literal notranslate"><span class="pre">check_ip()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_mail"><code class="docutils literal notranslate"><span class="pre">check_mail()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_alert"><code class="docutils literal notranslate"><span class="pre">create_alert()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_banner_alert"><code class="docutils literal notranslate"><span class="pre">create_banner_alert()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_rdap_alert"><code class="docutils literal notranslate"><span class="pre">create_rdap_alert()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.monitoring_check"><code class="docutils literal notranslate"><span class="pre">monitoring_check()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.monitoring_init"><code class="docutils literal notranslate"><span class="pre">monitoring_init()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.perform_site_rdap_lookup"><code class="docutils literal notranslate"><span class="pre">perform_site_rdap_lookup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.previous_alert"><code class="docutils literal notranslate"><span class="pre">previous_alert()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.send_website_monitoring_notifications"><code class="docutils literal notranslate"><span class="pre">send_website_monitoring_notifications()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.tlsh_score"><code class="docutils literal notranslate"><span class="pre">tlsh_score()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.update_site_monitoring_rdap_data"><code class="docutils literal notranslate"><span class="pre">update_site_monitoring_rdap_data()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="modules/dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
 </ul>
 </div>
