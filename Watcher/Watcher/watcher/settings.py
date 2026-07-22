@@ -282,6 +282,14 @@ OIDC_RP_SIGN_ALGO = 'RS256'
 OIDC_USE_PKCE = True
 OIDC_RP_SCOPES = 'openid email profile'
 
+# When False, SSO login only works for users that already exist (created by an admin);
+# no new account is auto-created on first OIDC login. Defaults to True for backward compatibility.
+OIDC_CREATE_USER = os.environ.get('OIDC_CREATE_USER', 'True')
+if OIDC_CREATE_USER == "True":
+    OIDC_CREATE_USER = True
+if OIDC_CREATE_USER == "False":
+    OIDC_CREATE_USER = False
+
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 

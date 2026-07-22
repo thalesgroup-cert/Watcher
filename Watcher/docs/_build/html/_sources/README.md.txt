@@ -186,10 +186,14 @@ In the `.env` file:
     OIDC_OP_USER_ENDPOINT=
     OIDC_OP_JWKS_ENDPOINT=
     OIDC_OP_ISSUER=
+    # Optional - set to False to only allow SSO login for pre-existing users (default: True)
+    OIDC_CREATE_USER=True
 
 Set `LOGIN_MODE=sso_only` (or `both`) and fill in the OIDC credentials to activate the SSO login button and the OIDC routes.
 
 `OIDC_COMPANY_NAME` is optional - when set it is displayed on the SSO button (e.g. `Sign in with Acme Corp`).
+
+`OIDC_CREATE_USER` controls whether a new local account is automatically created the first time someone logs in via SSO. Set it to `False` to require an admin to create the account first - unrecognized SSO users are then redirected back to the login page instead of being auto-provisioned.
 
 The callback URL to register with your identity provider is:
 
