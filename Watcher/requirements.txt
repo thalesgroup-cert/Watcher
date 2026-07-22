@@ -20,7 +20,7 @@ sphinx-rtd-theme==3.1.0
 myst-parser==5.0.0
 
 # Natural Language Processing and Similarity Checking
-nltk==3.9.4
+nltk==3.10.0
 python-tlsh==4.5.0
 
 # Networking and DNS Utilities
