@@ -55,6 +55,12 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_
 if SECRET_KEY == '':
     SECRET_KEY = '9t4yzl@%fg*vd-@%jxn%e29v)j_pl_9-qu(onjic((jfca$z(!'
 
+# SECURITY WARNING: keep this key secret in production! You can set CONNECTORS_ENCRYPTION_KEY
+# environment variable to change it within the .env file. It encrypts sensitive connector credentials.
+CONNECTORS_ENCRYPTION_KEY = os.environ.get('CONNECTORS_ENCRYPTION_KEY', 'mGcn94AWsOHh8i4s0yHshr4wcoPnmAnsqZXZPcrRbtY=')
+if CONNECTORS_ENCRYPTION_KEY == '':
+    CONNECTORS_ENCRYPTION_KEY = 'mGcn94AWsOHh8i4s0yHshr4wcoPnmAnsqZXZPcrRbtY='
+
 # SECURITY WARNING: In production please put DJANGO_DEBUG environment variable to False in the .env file!
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
