@@ -27,7 +27,7 @@ import Profile from "./accounts/Profile";
 
 import {Provider} from 'react-redux';
 import store from "../store";
-import {loadUser, loginWithToken} from "../actions/auth";
+import {loadUser} from "../actions/auth";
 import {loadConfig} from "../actions/config";
 import { ThemeProvider } from '../contexts/ThemeContext';
 
@@ -95,16 +95,13 @@ function ScrollToTopButton() {
 class App extends Component {
     componentDidMount() {
         store.dispatch(loadConfig());
-        const params = new URLSearchParams(window.location.search);
-        const ssoToken = params.get('sso_token');
+        // The OIDC callback (see accounts/oidc_views.py) sets the session
+        // cookie server-side and redirects to /?sso=1 — no token ever
+        // reaches the URL, so this just tidies the address bar.
         if (window.location.search) {
             window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
         }
-        if (ssoToken) {
-            store.dispatch(loginWithToken(ssoToken));
-        } else {
-            store.dispatch(loadUser());
-        }
+        store.dispatch(loadUser());
     }
 
     render() {

@@ -203,6 +203,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'accounts.authentication.KnoxCookieAuthentication',
         'knox.auth.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),

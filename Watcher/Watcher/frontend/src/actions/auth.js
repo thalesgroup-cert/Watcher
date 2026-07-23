@@ -13,29 +13,26 @@ import {
     IS_PASSWORD_CHANGED
 } from "./types";
 
-// CHECK TOKEN & LOAD USER
+// LOAD USER — auth now rides an httpOnly cookie the browser sends
+// automatically, so there's no token to gate this on; a 401 from the
+// cookie being absent/expired is handled by the AUTH_ERROR branch below.
 export const loadUser = () => (dispatch, getState) => {
-    const token = getState().auth.token;
-    // Check if User tried to connect
-    if (token){
-        // User Loading
-        dispatch({type: USER_LOADING});
+    dispatch({type: USER_LOADING});
 
-        axios
-            .get("/api/auth/user", tokenConfig(getState))
-            .then(res => {
-                dispatch({
-                    type: USER_LOADED,
-                    payload: res.data
-                });
-            })
-            .catch(err => {
-                dispatch(returnErrors(err.response.data, err.response.status));
-                dispatch({
-                    type: AUTH_ERROR
-                });
+    axios
+        .get("/api/auth/user", tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: USER_LOADED,
+                payload: res.data
             });
-    }
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response.data, err.response.status));
+            dispatch({
+                type: AUTH_ERROR
+            });
+        });
 };
 
 // LOGIN USER
@@ -89,25 +86,14 @@ export const logout = () => (dispatch, getState) => {
         });
 };
 
-// Setup config with token - helper function
-export const tokenConfig = getState => {
-    // Get token from state
-    const token = getState().auth.token;
-
-    // Headers
-    const config = {
-        headers: {
-            "Content-Type": "application/json"
-        }
-    };
-
-    // If token, add to headers config
-    if (token) {
-        config.headers["Authorization"] = `Token ${token}`;
+// Base request config. Auth is carried by the httpOnly knox_token cookie,
+// sent automatically by the browser — nothing to attach here. Kept as a
+// named helper since every action in this app threads it through.
+export const tokenConfig = () => ({
+    headers: {
+        "Content-Type": "application/json"
     }
-
-    return config;
-};
+});
 
 // PASSWORD CHANGE USER
 export const passwordChange = (old_password, password) => (dispatch, getState) => {
@@ -130,16 +116,6 @@ export const passwordChange = (old_password, password) => (dispatch, getState) =
                 type: PASSWORD_CHANGE_FAIL,
             });
         });
-};
-
-// LOGIN WITH SSO TOKEN (from OIDC callback redirect)
-export const loginWithToken = (token) => (dispatch) => {
-    localStorage.setItem('token', token);
-    dispatch({
-        type: LOGIN_SUCCESS,
-        payload: { token }
-    });
-    dispatch(loadUser());
 };
 
 export const setIsPasswordChanged = () => (dispatch) => {

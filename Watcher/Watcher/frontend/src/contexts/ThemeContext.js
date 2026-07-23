@@ -34,27 +34,27 @@ export const ThemeProvider = ({ children }) => {
     const [currentTheme, setCurrentTheme] = useState('bootstrap');
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            axios
-                .get('/api/auth/profile', { headers: { Authorization: `Token ${token}` } })
-                .then(res => {
-                    // init preferences cache from server
-                    preferencesService.init(res.data.preferences || {});
-                    // clean up ALL watcher_* localStorage keys (everything is now in DB)
-                    Object.keys(localStorage)
-                        .filter(k => k.startsWith('watcher_'))
-                        .forEach(k => localStorage.removeItem(k));
-                    const serverTheme = res.data.theme;
-                    if (serverTheme && THEMES[serverTheme]) {
-                        applyTheme(serverTheme);
-                        setCurrentTheme(serverTheme);
-                    }
-                })
-                .catch(() => {
-                    preferencesService.init({});
-                });
-        }
+        // Auth rides the httpOnly knox_token cookie — no header to attach,
+        // the browser sends it automatically. A logged-out 401 just falls
+        // into .catch() below, same as before.
+        axios
+            .get('/api/auth/profile')
+            .then(res => {
+                // init preferences cache from server
+                preferencesService.init(res.data.preferences || {});
+                // clean up ALL watcher_* localStorage keys (everything is now in DB)
+                Object.keys(localStorage)
+                    .filter(k => k.startsWith('watcher_'))
+                    .forEach(k => localStorage.removeItem(k));
+                const serverTheme = res.data.theme;
+                if (serverTheme && THEMES[serverTheme]) {
+                    applyTheme(serverTheme);
+                    setCurrentTheme(serverTheme);
+                }
+            })
+            .catch(() => {
+                preferencesService.init({});
+            });
     }, []);
 
     const changeTheme = (themeName) => {
@@ -62,12 +62,9 @@ export const ThemeProvider = ({ children }) => {
         if (!window.AVAILABLE_THEMES || !window.AVAILABLE_THEMES[themeName]) return;
         applyTheme(themeName);
         setCurrentTheme(themeName);
-        const token = localStorage.getItem('token');
-        if (token) {
-            axios
-                .patch('/api/auth/profile', { theme: themeName }, { headers: { Authorization: `Token ${token}` } })
-                .catch(() => {});
-        }
+        axios
+            .patch('/api/auth/profile', { theme: themeName })
+            .catch(() => {});
     };
 
     const value = {

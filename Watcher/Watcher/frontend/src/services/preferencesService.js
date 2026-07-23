@@ -48,13 +48,13 @@ class PreferencesService {
     }
 
     _flush() {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        // Auth rides the httpOnly knox_token cookie — sent automatically by
+        // the browser on this same-origin request. If the user is logged
+        // out the PATCH just 401s, caught below same as any other failure.
         fetch('/api/auth/profile', {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Token ${token}`,
             },
             body: JSON.stringify({ preferences: { ...this._cache } }),
         }).catch(() => {});
