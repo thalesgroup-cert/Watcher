@@ -2,6 +2,9 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
+from rest_framework import status
+from rest_framework.test import APITestCase
+from accounts.authentication import KNOX_COOKIE_NAME, SESSION_INDICATOR_COOKIE
 from accounts.models import UserProfile, _AVATAR_COLORS
 from accounts.serializers import UserProfileSerializer
 from accounts.oidc import WatcherOIDCBackend
@@ -76,3 +79,56 @@ class WatcherOIDCBackendTest(TestCase):
             user = backend.get_or_create_user('token', 'id_token', {})
         self.assertIsNotNone(user)
         self.assertEqual(user.email, 'existing@example.com')
+
+
+class KnoxCookieAuthTest(APITestCase):
+    """
+    The session token must ride an httpOnly cookie, never a value a script
+    on the page can read (see HARMONIZATION_ANALYSIS.md §8) — login sets
+    it, requests authenticate off it without an Authorization header, and
+    logout clears it.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='cookietest', password='testpass123')
+
+    def test_login_sets_httponly_cookie_and_session_indicator(self):
+        response = self.client.post(
+            '/api/auth/login', {'username': 'cookietest', 'password': 'testpass123'}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        token_cookie = response.cookies[KNOX_COOKIE_NAME]
+        self.assertTrue(token_cookie['httponly'])
+        self.assertEqual(token_cookie.value, response.data['token'])
+
+        indicator_cookie = response.cookies[SESSION_INDICATOR_COOKIE]
+        self.assertFalse(indicator_cookie['httponly'])
+
+    def test_cookie_alone_authenticates_without_authorization_header(self):
+        login_response = self.client.post(
+            '/api/auth/login', {'username': 'cookietest', 'password': 'testpass123'}, format='json'
+        )
+        token = login_response.cookies[KNOX_COOKIE_NAME].value
+
+        self.client.cookies[KNOX_COOKIE_NAME] = token
+        response = self.client.get('/api/auth/user')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'cookietest')
+
+    def test_logout_clears_both_cookies(self):
+        login_response = self.client.post(
+            '/api/auth/login', {'username': 'cookietest', 'password': 'testpass123'}, format='json'
+        )
+        token = login_response.cookies[KNOX_COOKIE_NAME].value
+        self.client.cookies[KNOX_COOKIE_NAME] = token
+
+        response = self.client.post('/api/auth/logout/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.cookies[KNOX_COOKIE_NAME].value, '')
+        self.assertEqual(response.cookies[SESSION_INDICATOR_COOKIE].value, '')
+
+        # The now-logged-out cookie must not authenticate a follow-up request.
+        self.client.cookies[KNOX_COOKIE_NAME] = token
+        response = self.client.get('/api/auth/user')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
