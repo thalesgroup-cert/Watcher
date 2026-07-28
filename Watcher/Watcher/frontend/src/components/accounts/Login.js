@@ -41,8 +41,8 @@ export class Login extends Component {
     togglePassword = () => this.setState(s => ({ showPassword: !s.showPassword }));
 
     render() {
+        const redirectPath = this.props.location?.state?.from || "/";
         if (this.props.isAuthenticated) {
-            const redirectPath = this.props.location?.state?.from || "/";
             return <Redirect to={redirectPath} />;
         }
 
@@ -52,6 +52,7 @@ export class Login extends Component {
         const hasSso    = loginMode === "both" || loginMode === "sso_only";
         const hasForm   = loginMode === "both" || loginMode === "form_only";
         const ssoLabel  = this.props.oidcCompanyName ? `${this.props.oidcCompanyName} SSO` : "SSO";
+        const ssoLoginUrl = `/api/auth/oidc/login/?next=/#${redirectPath}`;
 
         return (
             <div className="container" style={{ maxWidth: 860, marginTop: "2.5rem" }}>
@@ -130,7 +131,7 @@ export class Login extends Component {
                             {/* SSO button */}
                             {hasSso && (
                                 <a
-                                    href="/api/auth/oidc/login/"
+                                    href={ssoLoginUrl}
                                     className="btn btn-primary w-100 mb-3 d-flex align-items-center justify-content-center gap-2"
                                 >
                                     <i className="material-icons" style={{ fontSize: 18 }}>vpn_key</i>
