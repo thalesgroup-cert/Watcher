@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-source .env
+
+while IFS='=' read -r key value || [ -n "$key" ]; do
+    if [[ -z "$key" ]] || [[ "$key" == \#* ]]; then continue; fi
+    value="${value#\"}"; value="${value%\"}"
+    value="${value#\'}"; value="${value%\'}"
+    export "$key=$value"
+done < .env
 
 update_tls_yaml() {
     local tls_file="${TRAEFIK_PATH}/dynamic/tls.yaml"

@@ -2,13 +2,19 @@
 
 # Function to load environment variables from a file
 load_env_file() {
-    if [ -f "$1" ]; then
-        echo "Loading environment variables from $1..."
-        export $(grep -v '^#' "$1" | xargs)
-    else
+    if [ ! -f "$1" ]; then
         echo "Error: Environment file $1 does not exist."
         exit 1
     fi
+
+    echo "Loading environment variables from $1..."
+    
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        if [[ -z "$key" ]] || [[ "$key" == \#* ]]; then continue; fi
+        value="${value#\"}"; value="${value%\"}"
+        value="${value#\'}"; value="${value%\'}"
+        export "$key=$value"
+    done < "$1"
 }
 
 load_env_file ".env"
