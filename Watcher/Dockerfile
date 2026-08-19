@@ -63,7 +63,7 @@ COPY requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
 
 # PyTorch (CPU pinned)
-RUN uv pip install --system --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0
+RUN uv pip install --system --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchvision==0.28.0 torchaudio==2.11.0
 
 # NLTK data
 RUN python - <<EOF
