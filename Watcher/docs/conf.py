@@ -23,7 +23,7 @@ django.setup()
 # -- Project information -----------------------------------------------------
 
 project = 'Watcher'
-author = 'Ygal Nezri & Félix Herrenschmidt'
+author = 'Ygal Nezri, Félix Herrenschmidt & Damien Marechal'
 
 # The full version, including alpha/beta/rc tags
 release = '3.5.2'
@@ -53,14 +53,11 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinxawesome_theme'
 
 html_logo = '../static/Watcher-logo-documentation.png'
 html_favicon = '../static/Watcher-favicon.ico'
 
-
-html_theme_options = {
-    'logo_only': True,
-}
+html_permalinks_icon = '<svg width="0.65em" height="0.65em" viewBox="0 0 24 24" style="fill: none !important; stroke: currentColor !important; stroke-width: 1.5px !important;" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>'
 
 myst_heading_anchors = 3
