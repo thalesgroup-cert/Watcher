@@ -1016,17 +1016,23 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
             logger.info(f"Corpus too small for '{keyword}' (len={len(corpus)})")
             return None
 
+        prompt = (
+            f"Provide a comprehensive summary of the following cybersecurity news about '{keyword}'.\n"
+            f"You MUST write exactly 3 detailed sentences covering the threat, the impact, and the affected products.\n\n"
+            f"{corpus}"
+        )
+
         # Generate summary
         try:
-            input_tokens = len(tokenizer.encode(corpus))
+            input_tokens = len(tokenizer.encode(prompt))
         except Exception:
-            input_tokens = len(corpus.split())
+            input_tokens = len(prompt.split())
 
         max_len = min(150, max(80, input_tokens // 2))
         min_len = max(40, max_len // 2)
 
         try:
-            result = summarizer(corpus, max_length=max_len, min_length=min_len, truncation=True, do_sample=False)
+            result = None
         except Exception as e:
             logger.error(f"Summarizer failed for '{keyword}': {e}")
             result = None
@@ -1058,15 +1064,16 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
                 if model and model_tokenizer:
                     import torch
                     with torch.no_grad():
-                        inputs = model_tokenizer(corpus, truncation=True, max_length=450, return_tensors="pt")
+                        inputs = model_tokenizer(prompt, truncation=True, max_length=450, return_tensors="pt")
                         gen_kwargs = {
-                            "max_new_tokens": 120,
-                            "min_new_tokens": 40,
-                            "num_beams": 4,
+                            "max_new_tokens": 160,
+                            "min_new_tokens": 60,
+                            "num_beams": 5,
                             "no_repeat_ngram_size": 3,
                             "early_stopping": True,
                             "do_sample": False,
-                            "length_penalty": 0.9,
+                            "length_penalty": 2.0,
+                            "repetition_penalty": 1.3,
                         }
                         try:
                             outputs = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs.get("attention_mask"), **gen_kwargs)
