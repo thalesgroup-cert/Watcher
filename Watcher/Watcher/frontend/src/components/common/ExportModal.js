@@ -45,8 +45,13 @@ class ExportModal extends Component {
 
     extractUUID = (raw) => {
         if (!raw) return [];
-        if (Array.isArray(raw)) return raw.filter(uuid => uuid && uuid.trim() !== '');
-        return raw.replace(/[\[\]'"\s]/g, '').split(',').filter(Boolean);
+        if (Array.isArray(raw)) {return raw.map(item => String(item)).filter(uuid => uuid && uuid.trim() !== '');}
+
+        if (typeof raw === 'string') {
+            return raw.replace(/[\[\]'"\s]/g, '').split(',').filter(Boolean);
+        };
+
+        return [];
     };
 
     handleFieldChange = (field, value) => {
@@ -114,7 +119,7 @@ class ExportModal extends Component {
 
         const uuid = this.extractUUID(domain?.misp_event_uuid);
         const latestUuid = uuid.at(-1) || '';
-        const isUpdate = Boolean(uuid.length) || Boolean(eventUuid.trim());
+        const isUpdate = Boolean(uuid.length) || (typeof eventUuid === 'string' && Boolean(eventUuid.trim()));
 
         return (
             <Modal show={true} onHide={this.props.onClose} size="lg" centered>

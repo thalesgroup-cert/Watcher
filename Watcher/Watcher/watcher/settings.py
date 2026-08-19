@@ -155,7 +155,7 @@ if MISP_VERIFY_SSL == "False":
     MISP_VERIFY_SSL = False
 MISP_KEY = os.environ.get('MISP_KEY', '')
 MISP_TICKETING_URL = os.environ.get('MISP_TICKETING_URL', '')
-MISP_TAGS = os.environ.get('MISP_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting,TLP:Amber").split(",")
+MISP_TAGS = os.environ.get('MISP_TAGS', "Watcher,Impersonation,Malicious Domain,Typosquatting,tlp:amber").split(",")
 
 # Slack configuration
 SLACK_API_TOKEN = os.environ.get('SLACK_API_TOKEN', '')
