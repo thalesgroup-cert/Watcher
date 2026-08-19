@@ -248,7 +248,7 @@ def fetch_last_posts(nb_max_post):
             feed_content = requests.get(url, headers=HEADERS, timeout=10, verify=True)
             _update_source_status(url, feed_content.status_code)
             if feed_content.status_code // 100 == 2:
-                feeds.append(feedparser.parse(feed_content.text))
+                feeds.append(feedparser.parse(feed_content.content))
             else:
                 logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
         except requests.exceptions.SSLError:
