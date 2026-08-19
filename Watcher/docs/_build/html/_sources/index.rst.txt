@@ -13,6 +13,7 @@ Welcome to Watcher's documentation!
    modules/data_leak_core
    modules/site_monitoring_core
    modules/dns_finder_core
+   modules/cyber_watch_core
 
 
 Indices and tables
