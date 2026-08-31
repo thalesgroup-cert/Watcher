@@ -28,7 +28,7 @@ def get_ner_pipeline():
             _ner_pipeline = pipeline(
                 "ner",
                 model="dslim/bert-base-NER",
-                grouped_entities=True
+                aggregation_strategy="simple"
             )
             logger.info("NER model (dslim/bert-base-NER) loaded successfully")
         except Exception as e:
@@ -50,7 +50,7 @@ def get_summarizer_pipeline():
     if _summarizer_pipeline is None:
         try:
             _summarizer_pipeline = pipeline(
-                "text2text-generation",
+                "text-generation",
                 model="google/flan-t5-base"
             )
             logger.info("FLAN-T5 summarizer pipeline loaded successfully")
