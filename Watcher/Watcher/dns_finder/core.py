@@ -76,7 +76,7 @@ def is_legitimate_domain(domain):
 
 
 def clean_wildcard_domain(domain):
-    """Remove leading '*.' from domain names."""
+    """Remove leading ``*.`` from domain names."""
     if domain.startswith('*.'):
         return domain[2:]
     return domain
