@@ -231,6 +231,14 @@ The header help quick-link is configurable via environment variables:
     WATCHER_HELP_BUTTON_LABEL=API Docs
     WATCHER_HELP_BUTTON_URL=/api/docs/
 
+### Corporate Proxy / Custom CA Certificates
+
+If Watcher runs behind a corporate proxy that intercepts or re-signs HTTPS traffic (SSL/TLS inspection), or must trust an internal Certificate Authority for internal services, drop the CA certificate(s) in `deployment/certificates/` alongside the existing `rootcafile.pem`.
+
+The `watcher` container merges every CA mounted there with the system's public trust store at startup, via the standard `update-ca-certificates` tool, into `/etc/ssl/certs/ca-certificates.crt` — the file `REQUESTS_CA_BUNDLE` points to. This **extends** the trust store instead of replacing it, so public HTTPS endpoints (RSS feeds, CVE APIs, ransomware.live...) keep working alongside your internal ones.
+
+See [deployment/README.md](https://github.com/thalesgroup-cert/Watcher/blob/master/deployment/README.md#corporate-proxy--custom-ca-certificates) for the exact `compose_apps.yaml` volume configuration and how to mount more than one CA file.
+
 ## Troubleshooting
 ### Remove the database
 

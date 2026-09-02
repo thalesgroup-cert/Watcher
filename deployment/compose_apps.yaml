@@ -19,16 +19,16 @@ services:
     ports:
       - "127.0.0.1:${WATCHER_PORT}:9002"
     restart: always
-    command: bash -c 'python manage.py runserver 0.0.0.0:9002'
+    command: bash -c 'update-ca-certificates && python manage.py runserver 0.0.0.0:9002'
     env_file:
       - ${WATCHER_PATH}/.env
       - ./.env
     tty: true
     volumes:
-      - "${CA_PATH}/rootcafile.pem:/etc/private/rootcafile.pem:ro"
+      - "${CA_PATH}/rootcafile.pem:/usr/local/share/ca-certificates/custom-ca.crt:ro"
     environment:
       no_proxy: "${NO_PROXY},searxng,db_watcher"
-      REQUESTS_CA_BUNDLE: /etc/private/rootcafile.pem
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
     networks:
       - watcher_network
 
