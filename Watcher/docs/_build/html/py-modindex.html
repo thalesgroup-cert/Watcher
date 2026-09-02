@@ -23,21 +23,31 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030711" />
   
-  <title>Python Module Index | Watcher 3.5.2 documentation</title>
-  <meta property="og:title" content="Python Module Index | Watcher 3.5.2 documentation" />
-  <meta name="twitter:title" content="Python Module Index | Watcher 3.5.2 documentation" />
-  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=e72c8e07" />
+  <title>Python Module Index | Watcher 3.5.3 documentation</title>
+  <meta property="og:title" content="Python Module Index | Watcher 3.5.3 documentation" />
+  <meta name="twitter:title" content="Python Module Index | Watcher 3.5.3 documentation" />
+  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8d216cef" />
   <link rel="stylesheet" type="text/css" href="_static/theme.css?v=d6d7c91b" />
   <link rel="icon" href="_static/Watcher-favicon.ico" />
   <link rel="search" title="Search" href="search.html" />
   <link rel="index" title="Index" href="genindex.html" />
 
 
+<script>
+  (function () {
+    var stored = localStorage.getItem("_x_darkMode");
+    if (stored !== null) {
+      document.documentElement.classList.toggle("dark", stored === "true");
+    }
+  })();
+</script>
+
+
 
 </head>
 
 <body x-data="{ showSidebar: false, showScrollTop: false }"
-  class="min-h-screen font-sans antialiased bg-background text-foreground" :class="{ 'overflow-hidden': showSidebar }">
+  class="min-h-screen font-sans antialiased bg-background text-foreground" :class="{ 'overflow-hidden': showSidebar }"@scroll.window="showScrollTop = pageYOffset > 100">
   <div x-cloak x-show="showSidebar"
     class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden"
     @click.self="showSidebar = false"></div><div id="page" class="relative flex flex-col min-h-screen"><a href="#content"
@@ -46,7 +56,7 @@
     </a><header class="sticky top-0 z-40 w-full border-b shadow-xs border-border bg-background/90 backdrop-blur"><div class="container flex items-center h-14">
     <div class="hidden mr-4 md:flex">
       <a href="index.html" class="flex items-center mr-6">
-        <img height="24" width="24" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">Watcher 3.5.2 documentation</span>
+        <img height="24" width="24" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">Watcher 3.5.3 documentation</span>
       </a></div><button
       class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden"
       type="button" @click="showSidebar = true">
@@ -77,6 +87,13 @@
 </form>
       </div>
       <nav class="flex items-center gap-1">
+        <a href="https://github.com/thalesgroup-cert/Watcher" title="Visit Watcher on GitHub" rel="noopener nofollow">
+          <div
+            class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9">
+            <svg height="16px" style="margin-top:-2px;display:inline" viewBox="0 0 45 44" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412-3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232 3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24 44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor"/></svg>
+          </div>
+        </a>
+        
         <button @click="darkMode = !darkMode"
           class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9"
           type="button"
@@ -103,7 +120,7 @@
   :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }">
 
     <a href="index.html" class="justify-start text-sm md:!hidden bg-background">
-      <img height="16" width="16" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="font-bold text-clip whitespace-nowrap">Watcher 3.5.2 documentation</span>
+      <img height="16" width="16" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="font-bold text-clip whitespace-nowrap">Watcher 3.5.3 documentation</span>
     </a>
 
     <div class="relative overflow-hidden md:overflow-auto my-4 md:my-0">
@@ -115,6 +132,7 @@
 <li class="toctree-l1"><a class="reference internal" href="README.html#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="README.html#developers">Developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/common_misp.html">MISP API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
@@ -155,6 +173,31 @@
      <tr class="cg-1">
        <td></td>
        <td>&#160;&#160;&#160;
+       <a href="modules/common_core.html#module-Watcher.common.core"><code class="xref">Watcher.common.core</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="modules/common_misp.html#module-Watcher.common.misp"><code class="xref">Watcher.common.misp</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="modules/cyber_watch_core.html#module-Watcher.cyber_watch.core"><code class="xref">Watcher.cyber_watch.core</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="modules/data_leak_core.html#module-Watcher.data_leak.core"><code class="xref">Watcher.data_leak.core</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
+       <a href="modules/dns_finder_core.html#module-Watcher.dns_finder.core"><code class="xref">Watcher.dns_finder.core</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="cg-1">
+       <td></td>
+       <td>&#160;&#160;&#160;
        <a href="modules/site_monitoring_core.html#module-Watcher.site_monitoring.core"><code class="xref">Watcher.site_monitoring.core</code></a></td><td>
        <em></em></td></tr>
      <tr class="cg-1">
@@ -176,9 +219,24 @@
 </div>
 </div>
 </footer>
-    </div>
+    </div><button id="scrolltop"
+        x-cloak
+        @click="window.scrollTo({top: 0, behavior: 'smooth'})"
+        class="fixed bottom-8 right-8 p-2 z-10 rounded-sm bg-gray-700 text-xs text-white transition-all duration-1000 hover:bg-gray-950 focus:bg-gray-950"
+        :class="{'opacity-0 invisible' : !showScrollTop}"
+>
+  <svg xmlns="http://www.w3.org/2000/svg"
+       height="14"
+       viewBox="0 96 960 960"
+       width="14"
+       class="inline fill-current mb-[2px]"
+       aria-hidden="true">
+    <path d="M450 896V370L202 618l-42-42 320-320 320 320-42 42-248-248v526h-60Z" />
+  </svg>
+  Back to top
+</button>
     
-    <script src="_static/documentation_options.js?v=52b624fa"></script>
+    <script src="_static/documentation_options.js?v=f6cea0e3"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script defer="defer" src="_static/theme.js?v=5db23cf8"></script>

@@ -23,18 +23,28 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030711" />
   
-  <title>Index | Watcher 3.5.2 documentation</title>
-  <meta property="og:title" content="Index | Watcher 3.5.2 documentation" />
-  <meta name="twitter:title" content="Index | Watcher 3.5.2 documentation" />
-  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=e72c8e07" />
+  <title>Index | Watcher 3.5.3 documentation</title>
+  <meta property="og:title" content="Index | Watcher 3.5.3 documentation" />
+  <meta name="twitter:title" content="Index | Watcher 3.5.3 documentation" />
+  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8d216cef" />
   <link rel="stylesheet" type="text/css" href="_static/theme.css?v=d6d7c91b" />
   <link rel="icon" href="_static/Watcher-favicon.ico" />
   <link rel="search" title="Search" href="search.html" />
   <link rel="index" title="Index" href="#" />
+
+<script>
+  (function () {
+    var stored = localStorage.getItem("_x_darkMode");
+    if (stored !== null) {
+      document.documentElement.classList.toggle("dark", stored === "true");
+    }
+  })();
+</script>
+
 </head>
 
 <body x-data="{ showSidebar: false, showScrollTop: false }"
-  class="min-h-screen font-sans antialiased bg-background text-foreground" :class="{ 'overflow-hidden': showSidebar }">
+  class="min-h-screen font-sans antialiased bg-background text-foreground" :class="{ 'overflow-hidden': showSidebar }"@scroll.window="showScrollTop = pageYOffset > 100">
   <div x-cloak x-show="showSidebar"
     class="fixed inset-0 z-50 overflow-hidden bg-background/80 backdrop-blur-sm md:hidden"
     @click.self="showSidebar = false"></div><div id="page" class="relative flex flex-col min-h-screen"><a href="#content"
@@ -43,7 +53,7 @@
     </a><header class="sticky top-0 z-40 w-full border-b shadow-xs border-border bg-background/90 backdrop-blur"><div class="container flex items-center h-14">
     <div class="hidden mr-4 md:flex">
       <a href="index.html" class="flex items-center mr-6">
-        <img height="24" width="24" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">Watcher 3.5.2 documentation</span>
+        <img height="24" width="24" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">Watcher 3.5.3 documentation</span>
       </a></div><button
       class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden"
       type="button" @click="showSidebar = true">
@@ -74,6 +84,13 @@
 </form>
       </div>
       <nav class="flex items-center gap-1">
+        <a href="https://github.com/thalesgroup-cert/Watcher" title="Visit Watcher on GitHub" rel="noopener nofollow">
+          <div
+            class="inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9">
+            <svg height="16px" style="margin-top:-2px;display:inline" viewBox="0 0 45 44" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M22.477.927C10.485.927.76 10.65.76 22.647c0 9.596 6.223 17.736 14.853 20.608 1.087.2 1.483-.47 1.483-1.047 0-.516-.019-1.881-.03-3.693-6.04 1.312-7.315-2.912-7.315-2.912-.988-2.51-2.412-3.178-2.412-3.178-1.972-1.346.149-1.32.149-1.32 2.18.154 3.327 2.24 3.327 2.24 1.937 3.318 5.084 2.36 6.321 1.803.197-1.403.759-2.36 1.379-2.903-4.823-.548-9.894-2.412-9.894-10.734 0-2.37.847-4.31 2.236-5.828-.224-.55-.969-2.759.214-5.748 0 0 1.822-.584 5.972 2.226 1.732-.482 3.59-.722 5.437-.732 1.845.01 3.703.25 5.437.732 4.147-2.81 5.967-2.226 5.967-2.226 1.185 2.99.44 5.198.217 5.748 1.392 1.517 2.232 3.457 2.232 5.828 0 8.344-5.078 10.18-9.916 10.717.779.67 1.474 1.996 1.474 4.021 0 2.904-.027 5.247-.027 5.96 0 .58.392 1.256 1.493 1.044C37.981 40.375 44.2 32.24 44.2 22.647c0-11.996-9.726-21.72-21.722-21.72" fill="currentColor"/></svg>
+          </div>
+        </a>
+        
         <button @click="darkMode = !darkMode"
           class="relative inline-flex items-center justify-center px-0 text-sm font-medium transition-colors rounded-md hover:bg-accent hover:text-accent-foreground h-9 w-9"
           type="button"
@@ -100,7 +117,7 @@
   :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }">
 
     <a href="index.html" class="justify-start text-sm md:!hidden bg-background">
-      <img height="16" width="16" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="font-bold text-clip whitespace-nowrap">Watcher 3.5.2 documentation</span>
+      <img height="16" width="16" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="font-bold text-clip whitespace-nowrap">Watcher 3.5.3 documentation</span>
     </a>
 
     <div class="relative overflow-hidden md:overflow-auto my-4 md:my-0">
@@ -112,6 +129,7 @@
 <li class="toctree-l1"><a class="reference internal" href="README.html#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="README.html#developers">Developers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/common_misp.html">MISP API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules/common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
@@ -137,7 +155,7 @@
      class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
   <a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground"
      href="index.html">
-    <span class="hidden md:inline">Watcher 3.5.2 documentation</span>
+    <span class="hidden md:inline">Watcher 3.5.3 documentation</span>
     <svg xmlns="http://www.w3.org/2000/svg"
          height="18"
          width="18"
@@ -162,17 +180,41 @@
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_content">check_content() (in module Watcher.site_monitoring.core)</a>
 </li>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.check_dnstwist">check_dnstwist() (in module Watcher.dns_finder.core)</a>
+</li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_ip">check_ip() (in module Watcher.site_monitoring.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.check_keywords">check_keywords() (in module Watcher.data_leak.core)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_mail">check_mail() (in module Watcher.site_monitoring.core)</a>
 </li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.check_pastebin">check_pastebin() (in module Watcher.data_leak.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.check_searx">check_searx() (in module Watcher.data_leak.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.check_urls">check_urls() (in module Watcher.data_leak.core)</a>
+</li>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.clean_wildcard_domain">clean_wildcard_domain() (in module Watcher.dns_finder.core)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
-      <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.cleanup">cleanup() (in module Watcher.threats_watcher.core)</a>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.cleanup">cleanup() (in module Watcher.data_leak.core)</a>
+
+      <ul style="list-style-type:none">
+        <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.cleanup">(in module Watcher.threats_watcher.core)</a>
+</li>
+      </ul></li>
+      <li><a href="modules/common_core.html#Watcher.common.core.collect_observables">collect_observables() (in module Watcher.common.core)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_alert">create_alert() (in module Watcher.site_monitoring.core)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_banner_alert">create_banner_alert() (in module Watcher.site_monitoring.core)</a>
+</li>
+      <li><a href="modules/common_misp.html#Watcher.common.misp.create_misp_tags">create_misp_tags() (in module Watcher.common.misp)</a>
+</li>
+      <li><a href="modules/common_misp.html#Watcher.common.misp.create_objects">create_objects() (in module Watcher.common.misp)</a>
+</li>
+      <li><a href="modules/common_misp.html#Watcher.common.misp.create_or_update_objects">create_or_update_objects() (in module Watcher.common.misp)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_rdap_alert">create_rdap_alert() (in module Watcher.site_monitoring.core)</a>
 </li>
@@ -194,8 +236,16 @@
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.fetch_last_posts">fetch_last_posts() (in module Watcher.threats_watcher.core)</a>
 </li>
+      <li><a href="modules/cyber_watch_core.html#Watcher.cyber_watch.core.fetch_latest_cves">fetch_latest_cves() (in module Watcher.cyber_watch.core)</a>
+</li>
+      <li><a href="modules/cyber_watch_core.html#Watcher.cyber_watch.core.fetch_ransomlook_data">fetch_ransomlook_data() (in module Watcher.cyber_watch.core)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/cyber_watch_core.html#Watcher.cyber_watch.core.fetch_ransomware_data">fetch_ransomware_data() (in module Watcher.cyber_watch.core)</a>
+</li>
+      <li><a href="modules/common_misp.html#Watcher.common.misp.find_domain_object">find_domain_object() (in module Watcher.common.misp)</a>
+</li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.focus_five_letters">focus_five_letters() (in module Watcher.threats_watcher.core)</a>
 </li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.focus_on_top">focus_on_top() (in module Watcher.threats_watcher.core)</a>
@@ -207,13 +257,30 @@
   <h2 id="G">G</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/common_core.html#Watcher.common.core.generate_ref">generate_ref() (in module Watcher.common.core)</a>
+</li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_confidence_score">get_confidence_score() (in module Watcher.threats_watcher.core)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/common_misp.html#Watcher.common.misp.get_misp_uuid">get_misp_uuid() (in module Watcher.common.misp)</a>
+</li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_normalized_domain">get_normalized_domain() (in module Watcher.threats_watcher.core)</a>
 </li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_pre_redirect_domain">get_pre_redirect_domain() (in module Watcher.threats_watcher.core)</a>
+</li>
+  </ul></td>
+  </tr>
+      </table>
+  
+  <h2 id="I">I</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.in_dns_monitored">in_dns_monitored() (in module Watcher.dns_finder.core)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.is_legitimate_domain">is_legitimate_domain() (in module Watcher.dns_finder.core)</a>
 </li>
   </ul></td>
   </tr>
@@ -231,12 +298,28 @@
   <h2 id="M">M</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.main_certificate_transparency">main_certificate_transparency() (in module Watcher.dns_finder.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.main_data_leak">main_data_leak() (in module Watcher.data_leak.core)</a>
+</li>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.main_dns_twist">main_dns_twist() (in module Watcher.dns_finder.core)</a>
+</li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.main_watch">main_watch() (in module Watcher.threats_watcher.core)</a>
 </li>
       <li>
     module
 
       <ul style="list-style-type:none">
+        <li><a href="modules/common_core.html#module-Watcher.common.core">Watcher.common.core</a>
+</li>
+        <li><a href="modules/common_misp.html#module-Watcher.common.misp">Watcher.common.misp</a>
+</li>
+        <li><a href="modules/cyber_watch_core.html#module-Watcher.cyber_watch.core">Watcher.cyber_watch.core</a>
+</li>
+        <li><a href="modules/data_leak_core.html#module-Watcher.data_leak.core">Watcher.data_leak.core</a>
+</li>
+        <li><a href="modules/dns_finder_core.html#module-Watcher.dns_finder.core">Watcher.dns_finder.core</a>
+</li>
         <li><a href="modules/site_monitoring_core.html#module-Watcher.site_monitoring.core">Watcher.site_monitoring.core</a>
 </li>
         <li><a href="modules/threats_watcher_core.html#module-Watcher.threats_watcher.core">Watcher.threats_watcher.core</a>
@@ -261,6 +344,8 @@
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.previous_alert">previous_alert() (in module Watcher.site_monitoring.core)</a>
 </li>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.print_callback">print_callback() (in module Watcher.dns_finder.core)</a>
+</li>
   </ul></td>
   </tr>
       </table>
@@ -274,6 +359,8 @@
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.remove_banned_words">remove_banned_words() (in module Watcher.threats_watcher.core)</a>
 </li>
+      <li><a href="modules/common_core.html#Watcher.common.core.remove_html_tags">remove_html_tags() (in module Watcher.common.core)</a>
+</li>
   </ul></td>
   </tr>
       </table>
@@ -281,15 +368,39 @@
   <h2 id="S">S</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/common_core.html#Watcher.common.core.send_app_specific_notifications">send_app_specific_notifications() (in module Watcher.common.core)</a>
+</li>
+      <li><a href="modules/common_core.html#Watcher.common.core.send_app_specific_notifications_group">send_app_specific_notifications_group() (in module Watcher.common.core)</a>
+</li>
+      <li><a href="modules/cyber_watch_core.html#Watcher.cyber_watch.core.send_cyber_watch_notifications">send_cyber_watch_notifications() (in module Watcher.cyber_watch.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.send_data_leak_notifications">send_data_leak_notifications() (in module Watcher.data_leak.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.send_data_leak_notifications_group">send_data_leak_notifications_group() (in module Watcher.data_leak.core)</a>
+</li>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_dns_finder_notifications">send_dns_finder_notifications() (in module Watcher.dns_finder.core)</a>
+</li>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_dns_finder_notifications_group">send_dns_finder_notifications_group() (in module Watcher.dns_finder.core)</a>
+</li>
+      <li><a href="modules/common_core.html#Watcher.common.core.send_only_thehive_notifications">send_only_thehive_notifications() (in module Watcher.common.core)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.send_threats_watcher_notifications">send_threats_watcher_notifications() (in module Watcher.threats_watcher.core)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.send_website_monitoring_notifications">send_website_monitoring_notifications() (in module Watcher.site_monitoring.core)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
-      <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.start_scheduler">start_scheduler() (in module Watcher.site_monitoring.core)</a>
+      <li><a href="modules/common_core.html#Watcher.common.core.start_scheduler">start_scheduler() (in module Watcher.common.core)</a>
 
       <ul style="list-style-type:none">
+        <li><a href="modules/cyber_watch_core.html#Watcher.cyber_watch.core.start_scheduler">(in module Watcher.cyber_watch.core)</a>
+</li>
+        <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.start_scheduler">(in module Watcher.data_leak.core)</a>
+</li>
+        <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.start_scheduler">(in module Watcher.dns_finder.core)</a>
+</li>
+        <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.start_scheduler">(in module Watcher.site_monitoring.core)</a>
+</li>
         <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.start_scheduler">(in module Watcher.threats_watcher.core)</a>
 </li>
       </ul></li>
@@ -313,6 +424,18 @@
   <h2 id="U">U</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/common_core.html#Watcher.common.core.update_all_ssl_certificates">update_all_ssl_certificates() (in module Watcher.common.core)</a>
+</li>
+      <li><a href="modules/common_core.html#Watcher.common.core.update_legitimate_domains_rdap_data">update_legitimate_domains_rdap_data() (in module Watcher.common.core)</a>
+</li>
+      <li><a href="modules/common_core.html#Watcher.common.core.update_legitimate_domains_ssl_data">update_legitimate_domains_ssl_data() (in module Watcher.common.core)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/common_misp.html#Watcher.common.misp.update_misp_uuid">update_misp_uuid() (in module Watcher.common.misp)</a>
+</li>
+      <li><a href="modules/common_core.html#Watcher.common.core.update_monitored_sites_rdap_data">update_monitored_sites_rdap_data() (in module Watcher.common.core)</a>
+</li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.update_site_monitoring_rdap_data">update_site_monitoring_rdap_data() (in module Watcher.site_monitoring.core)</a>
 </li>
   </ul></td>
@@ -323,14 +446,49 @@
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li>
+    Watcher.common.core
+
+      <ul style="list-style-type:none">
+        <li><a href="modules/common_core.html#module-Watcher.common.core">module</a>
+</li>
+      </ul></li>
+      <li>
+    Watcher.common.misp
+
+      <ul style="list-style-type:none">
+        <li><a href="modules/common_misp.html#module-Watcher.common.misp">module</a>
+</li>
+      </ul></li>
+      <li>
+    Watcher.cyber_watch.core
+
+      <ul style="list-style-type:none">
+        <li><a href="modules/cyber_watch_core.html#module-Watcher.cyber_watch.core">module</a>
+</li>
+      </ul></li>
+      <li>
+    Watcher.data_leak.core
+
+      <ul style="list-style-type:none">
+        <li><a href="modules/data_leak_core.html#module-Watcher.data_leak.core">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li>
+    Watcher.dns_finder.core
+
+      <ul style="list-style-type:none">
+        <li><a href="modules/dns_finder_core.html#module-Watcher.dns_finder.core">module</a>
+</li>
+      </ul></li>
+      <li>
     Watcher.site_monitoring.core
 
       <ul style="list-style-type:none">
         <li><a href="modules/site_monitoring_core.html#module-Watcher.site_monitoring.core">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li>
     Watcher.threats_watcher.core
 
@@ -343,10 +501,11 @@
       </table>
   
 
+</div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 </div></div>
 <aside id="right-sidebar" class="hidden text-sm xl:block">
 <div class="sticky top-16 -mt-10 max-h-[calc(var(--vh)-4rem)] overflow-y-auto pt-6 space-y-2">
-<a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#C">C</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#E">E</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#F">F</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#G">G</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#L">L</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#M">M</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#P">P</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#R">R</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#S">S</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#T">T</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#U">U</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#W">W</a>
+<a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#C">C</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#E">E</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#F">F</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#G">G</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#I">I</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#L">L</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#M">M</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#P">P</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#R">R</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#S">S</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#T">T</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#U">U</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#W">W</a>
 </div>
 </aside>
           </main>
@@ -360,9 +519,24 @@
 </div>
 </div>
 </footer>
-    </div>
+    </div><button id="scrolltop"
+        x-cloak
+        @click="window.scrollTo({top: 0, behavior: 'smooth'})"
+        class="fixed bottom-8 right-8 p-2 z-10 rounded-sm bg-gray-700 text-xs text-white transition-all duration-1000 hover:bg-gray-950 focus:bg-gray-950"
+        :class="{'opacity-0 invisible' : !showScrollTop}"
+>
+  <svg xmlns="http://www.w3.org/2000/svg"
+       height="14"
+       viewBox="0 96 960 960"
+       width="14"
+       class="inline fill-current mb-[2px]"
+       aria-hidden="true">
+    <path d="M450 896V370L202 618l-42-42 320-320 320 320-42 42-248-248v526h-60Z" />
+  </svg>
+  Back to top
+</button>
     
-    <script src="_static/documentation_options.js?v=52b624fa"></script>
+    <script src="_static/documentation_options.js?v=f6cea0e3"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script defer="defer" src="_static/theme.js?v=5db23cf8"></script>
