@@ -158,7 +158,6 @@ export const exportToMISP = (payload) => (dispatch, getState) => {
         .catch(err => {
             const errorMsg = err.response?.data?.message || 'Failed to export to MISP';
             dispatch(returnErrors(err.response.data, err.response.status));
-            dispatch(createMessage({ error: errorMsg }));
         })
         .finally(() => {
             dispatch({ 
