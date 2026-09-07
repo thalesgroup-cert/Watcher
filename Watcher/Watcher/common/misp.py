@@ -114,6 +114,30 @@ def create_objects(obj, existing_values=None):
                 'object_relation': 'text'
             }
     
+    elif type(obj).__name__ == 'LegitimateDomain':
+        
+        if obj.ticket_id:
+            attributes_map['ticket'] = {
+                'value': obj.ticket_id,
+                'type': 'text',
+                'category': 'Internal reference',
+                'distribution': 0,
+                'to_ids': False,
+                'comment': f"{get_thehive_config().get('custom_field', 'Ticket')} reference",
+                'object_relation': 'text'
+            }
+            
+        if obj.contact:
+            attributes_map['contact'] = {
+                'value': obj.contact,
+                'type': 'text',
+                'category': 'Internal reference',
+                'distribution': 0,
+                'to_ids': False,
+                'comment': "Domain Contact",
+                'object_relation': 'text'
+            }
+    
     # Add attributes to MISP object
     for attr_data in attributes_map.values():
         if not attr_data['value']:
