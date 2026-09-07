@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: Disable Jekyll processing
+        run: touch ./Watcher/docs/_build/html/.nojekyll
+
       - name: Deploy
         uses: s0/git-publish-subdir-action@develop
         env:
