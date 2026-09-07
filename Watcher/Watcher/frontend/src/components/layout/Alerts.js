@@ -39,6 +39,12 @@ export class Alerts extends Component {
                 if (msg.detail) {
                     alert.error(msg.detail);
                 }
+                if (msg.message) {
+                    alert.error(msg.message);
+                }
+                if (msg.error) {
+                    alert.error(msg.error);
+                }
             }
         }
 
@@ -63,6 +69,9 @@ export class Alerts extends Component {
             }
             if (message.ssoError) {
                 alert.error(message.ssoError);
+            }
+            if (message.error) {
+                alert.error(message.error);
             }
         }
     }

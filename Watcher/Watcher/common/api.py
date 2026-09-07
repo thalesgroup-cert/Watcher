@@ -158,6 +158,12 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
             serializer = MISPSerializer(data=misp_data)
             
             if serializer.is_valid():
+                if hasattr(request.data, '_mutable'):
+                    request.data._mutable = True
+                    request.data.update(misp_data)
+                    request.data._mutable = False
+                else:
+                    request.data.update(misp_data)
                 misp_response = misp_viewset.create(request)
                 
                 if misp_response.status_code in [200, 201]:

@@ -37,7 +37,6 @@ confident;url;country;country_code
 3;https://www.clearnetwork.com/feed/;United States;US
 1;https://lab.wallarm.com/feed/;United States;US
 1;https://www.cybersecuritycloudexpo.com/feed/;United Kingdom;GB
-1;https://www.empowerelearning.com/blog/feed/;United States;US
 1;https://www.virtru.com/blog/rss.xml;United States;US
 1;https://www.canarytrap.com/feed/;United States;US
 1;https://www.ignyteplatform.com/feed/;United States;US
@@ -54,11 +53,9 @@ confident;url;country;country_code
 1;https://tacsecurity.com/feed/;United States;US
 2;https://blog.entersoftsecurity.com/feed/;United States;US
 1;https://www.cyberdb.co/blog/?utm_source=feedspot;Israel;IL
-3;https://blog.securityinnovation.com/rss.xml;United States;US
 1;https://socprime.com/feed/;United States;US
 2;https://sectigostore.com/blog/feed/;United States;US
 2;https://www.seqrite.com/blog/feed/;India;IN
-3;https://www.webroot.com/blog/feed/;United States;US
 3;https://blogs.quickheal.com/feed/;India;IN
 1;https://www.acunetix.com/blog/?utm_source=feedspot;United States;US
 3;https://www.scnsoft.com/blog/category/information-security/atom;United States;US

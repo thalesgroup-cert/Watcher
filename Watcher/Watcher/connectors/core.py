@@ -483,12 +483,18 @@ def get_thehive_config() -> dict:
 
 def get_misp_config() -> dict:
     tags = get_config_value('misp', 'MISP_TAGS')
+
+    if tags:
+        clean_tags = [t.strip("[]'\" ") for t in tags.split(',')]
+        tags_list = [t for t in clean_tags if t]
+    else:
+        tags_list = []
     return {
         'url': get_config_value('misp', 'MISP_URL'),
         'key': get_config_value('misp', 'MISP_KEY'),
         'verify_ssl': _as_bool(get_config_value('misp', 'MISP_VERIFY_SSL')),
         'ticketing_url': get_config_value('misp', 'MISP_TICKETING_URL'),
-        'tags': tags.split(',') if tags else [],
+        'tags': tags_list,
     }
 
 

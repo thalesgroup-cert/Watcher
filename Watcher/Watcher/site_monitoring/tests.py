@@ -362,7 +362,10 @@ class APITest(APITestCase):
         """Test MISP export functionality."""
         mock_pymisp_instance = MagicMock()
         mock_pymisp.return_value = mock_pymisp_instance
-        mock_pymisp_instance.add_event.return_value = {"success": True}
+        mock_event_obj = MagicMock()
+        mock_event_obj.id = 456
+        mock_event_obj.uuid = 'site-test-uuid'
+        mock_pymisp_instance.add_event.return_value = mock_event_obj
         mock_pymisp_instance.search.return_value = []
         mock_pymisp_instance.get.return_value = {}
         export_data = {

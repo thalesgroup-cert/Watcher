@@ -84,6 +84,39 @@ docker compose --env-file .env up -d
 └── Makefile
 ```
 
+## Corporate proxy / custom CA certificates
+
+If Watcher runs behind a corporate proxy that intercepts or re-signs TLS
+traffic (or must trust an internal CA for internal services), drop the CA
+certificate(s) in `deployment/certificates/` alongside the existing
+`rootcafile.pem`.
+
+The `watcher` service mounts each CA file into
+`/usr/local/share/ca-certificates/` (as a separate `.crt` file per CA) and
+runs `update-ca-certificates` at container startup. This merges every
+mounted CA with the system's public trust store into
+`/etc/ssl/certs/ca-certificates.crt`, which `REQUESTS_CA_BUNDLE` points to —
+it **extends** the trust store instead of replacing it, so public HTTPS
+endpoints (RSS feeds, CVE APIs, ransomware.live, etc.) keep working
+alongside internal ones.
+
+To add more than one custom CA, add one volume line per file in
+`compose_apps.yaml`, each with its own destination name:
+
+```yaml
+    volumes:
+      - "${CA_PATH}/rootcafile.pem:/usr/local/share/ca-certificates/custom-ca.crt:ro"
+      - "${CA_PATH}/another-ca.pem:/usr/local/share/ca-certificates/another-ca.crt:ro"
+```
+
+No custom CA to trust? Nothing to do — `make init` always generates a
+self-signed `rootcafile.pem`, so the mount above is always valid and
+`update-ca-certificates` simply merges it with the public CAs on every
+start.
+
+See [issue #316](https://github.com/thalesgroup-cert/Watcher/issues/316) for
+the original bug report and root cause.
+
 ## Security notes
 
 - Never commit `.env`.

@@ -2,7 +2,7 @@
 
 cd ../Watcher
 
-filelist=`grep -Rn -E 'from .models|from common|from site_monitoring.models'`
+filelist=`grep -Rn -E '^[[:space:]]*from (\.models|common|site_monitoring\.models|connectors)'`
 re='^[0-9]+$'
 
 while IFS= read -r line; do
@@ -29,13 +29,15 @@ do
    :
     linenumber=${lines[i]}
     line=${lines[i+1]}
-    # Comment each 'from .models|from common|from site_monitoring.models' line
+    # Comment each 'from .models|from common|from site_monitoring.models|from connectors' line
     sed -i "${linenumber}s/.*/#${line}/" $file
     let "i+=2"
 done
 
-# Build the doc
+# Build the doc (clean first so pages removed/renamed since the last build
+# don't leave stale orphaned HTML/doctree files behind in _build/)
 cd ../docs/
+make clean
 make html
 cd ../Watcher
 
@@ -45,7 +47,7 @@ do
    :
     linenumber=${lines[i]}
     line=${lines[i+1]}
-    # Uncomment each 'from .models|from common|from site_monitoring.models' line
+    # Uncomment each 'from .models|from common|from site_monitoring.models|from connectors' line
     sed -i "${linenumber}s/.*/${line}/" $file
     let "i+=2"
 done

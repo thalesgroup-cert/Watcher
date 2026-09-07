@@ -3,7 +3,7 @@ import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { Container, Row, Col, Card, Badge, Nav, Modal, Button } from "react-bootstrap";
-import GridLayout, { WidthProvider } from 'react-grid-layout';
+import GridLayout, { WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useTheme } from "../../contexts/ThemeContext";

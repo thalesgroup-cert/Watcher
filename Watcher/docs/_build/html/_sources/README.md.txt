@@ -231,6 +231,14 @@ The header help quick-link is configurable via environment variables:
     WATCHER_HELP_BUTTON_LABEL=API Docs
     WATCHER_HELP_BUTTON_URL=/api/docs/
 
+### Corporate Proxy / Custom CA Certificates
+
+If Watcher runs behind a corporate proxy that intercepts or re-signs HTTPS traffic (SSL/TLS inspection), or must trust an internal Certificate Authority for internal services, drop the CA certificate(s) in `deployment/certificates/` alongside the existing `rootcafile.pem`.
+
+The `watcher` container merges every CA mounted there with the system's public trust store at startup, via the standard `update-ca-certificates` tool, into `/etc/ssl/certs/ca-certificates.crt` — the file `REQUESTS_CA_BUNDLE` points to. This **extends** the trust store instead of replacing it, so public HTTPS endpoints (RSS feeds, CVE APIs, ransomware.live...) keep working alongside your internal ones.
+
+See [deployment/README.md](https://github.com/thalesgroup-cert/Watcher/blob/master/deployment/README.md#corporate-proxy--custom-ca-certificates) for the exact `compose_apps.yaml` volume configuration and how to mount more than one CA file.
+
 ## Troubleshooting
 ### Remove the database
 
@@ -1061,16 +1069,29 @@ Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **
 
 To update Watcher image please follow the instructions below:
 
-- Stop all containers: `docker compose down`
-- Remove the old docker images: 
+- Stop all containers:
+
   ```bash
-  docker rmi ghcr.io/thalesgroup-cert/watcher:latest
-  docker rmi mysql:8.0.40
-  docker rmi searxng/searxng:latest
-  docker rmi 0rickyy0/certstream-server-go:latest
+    docker compose down
   ```
-- Pull the newer docker images: `docker compose pull`
-- Start the containers: `docker compose up -d`
+- Remove the old docker images:
+
+  ```bash
+    docker rmi ghcr.io/thalesgroup-cert/watcher:latest
+    docker rmi mysql:8.0.40
+    docker rmi searxng/searxng:latest
+    docker rmi 0rickyy0/certstream-server-go:latest
+  ```
+- Pull the newer docker images:
+
+ ```bash
+    docker compose pull
+  ```
+- Start the containers:
+
+  ```bash
+    docker compose up -d
+  ```
 
 This will update the Watcher project.
 
@@ -1106,12 +1127,32 @@ If you want to modify the project and Pull Request (PR) your work, you will need
 
 ## Open a Pull Request (PR) to contribute to this project
 - Fork the official Watcher repository
-- Install `Git`
-- Open a terminal: `git clone <your_forked_repository.git>`
-- Switch to the dev branch: `git checkout -b feature/<name_of_the_new_feature>`
-- Make your changes on the working files and then: `git add *`
-- Add a commit message and description: `git commit -m "Title" -m "Description"`
-- Publish the changes: `git push origin feature/<name_of_the_new_feature>`
+- Install <a href="https://git-scm.com/install/linux" target="_blank" rel="noopener noreferrer">Git</a>
+- Open a terminal: 
+
+  ```bash
+    git clone <your_forked_repository.git>
+  ```
+- Switch to the dev branch:
+  
+  ```bash
+    git checkout -b feature/<name_of_the_new_feature>
+  ```
+- Make your changes on the working files and then:
+  
+  ```bash
+    git add *
+  ``` 
+- Add a commit message and description: 
+
+  ```bash
+    git commit -m "Title" -m "Description"
+  ```
+- Publish the changes:
+
+  ```bash
+    git push origin feature/<name_of_the_new_feature>
+  ```
 - Back to GitHub on your forked repository, click Under Contribute > Open Pull Request and then Confirm the operation
 - Done! Your work will be reviewed by the team! 
 
@@ -1120,61 +1161,119 @@ Use a Linux server, we recommend the use of a Virtual Machine (Ubuntu 20.04 and 
 
 Then, follow the steps below:
 
-- **Update and upgrade your machine:** `sudo apt update && sudo apt upgrade -y`
-- **Install Python and Node.js:** `sudo apt install python3 python3-pip -y` **&** `sudo apt install nodejs -y`
-- **Create and activate a Python virtual environment:** `python3 -m venv .venv |source .venv/bin/activate`
-- **Pull Watcher code:** `git clone <your_forked_repository.git>`
-- **Move to the following directory:** `cd Watcher/Watcher`
-- **Install** `python-ldap` **dependencies:** `sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev`
-- **Install** `mysqlclient` **dependency:** `sudo apt install default-libmysqlclient-dev`
-- **Install Rust (for tokenizers...)** `curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env` 
-- **Install Python dependencies:** `pip3 install -r requirements.txt`
-- **Install Torch and Torchvision dependencies:** `pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0`
-- **Install NLTK/punkt dependency:** `python3 ./nltk_dependencies.py`
-     - If you have a proxy, you can configure it in `nltk_dependencies.py` script.  
+- **Update and upgrade your machine:** 
+  
+  ```bash
+  sudo apt update && sudo apt upgrade -y
+- **Install Python and Node.js:**
+
+  ```bash
+  sudo apt install python3 python3-pip -y 
+  sudo apt install nodejs -y
+- **Create and activate a Python virtual environment:**
+
+  ```bash
+  python3 -m venv .venv |source .venv/bin/activate
+- **Pull Watcher code:**
+
+  ```bash
+  git clone <your_forked_repository.git>
+- **Move to the following directory:**
+  
+  ```bash
+  cd Watcher/Watcher
+- **Install** `python-ldap` **dependencies:**
+
+  ```bash
+  sudo apt install -y libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev
+- **Install** `mysqlclient` **dependency:**
+
+  ```bash
+  sudo apt install default-libmysqlclient-dev
+- **Install Rust (for tokenizers, etc)**
+
+  ```bash
+  curl https://sh.rustup.rs -sSf | sh -s -- -y |source $HOME/.cargo/env 
+- **Install Python dependencies:**
+
+  ```bash
+  pip3 install -r requirements.txt
+- **Install Torch and Torchvision dependencies:**
+
+  ```bash
+  pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchvision==0.28.0 torchaudio==2.11.0
+- **Install NLTK/punkt dependency:** 
+  
+  ```bash
+    python3 ./nltk_dependencies.py
+  ```
+    
+    - If you have a proxy, you can configure it in `nltk_dependencies.py` script.
 - **Install Node.js dependencies:**
-     - `sudo apt install npm -y`
-     - `npm install`
+    ```bash   
+    sudo apt install npm -y
+    npm install
 - **Install MySQL:**
-     - `sudo apt install mysql-server -y`
-     - `sudo mysql_secure_installation`
-          - Enter root password.
-          - You may now enter `Y` and `ENTER`. Accept all fields. This will remove some anonymous users and the test database, 
+
+  ```bash
+  sudo apt install mysql-server -y
+  sudo mysql_secure_installation
+  ```
+  - Enter root password.
+  - You may now enter `Y` and `ENTER`. Accept all fields. This will remove some anonymous users and the test database,  
     disable remote root logins, and load these new rules so that MySQL immediately respects any changes made.
 
 **Create & Configure Watcher database:**
-
+  ```sql
     sudo mysql 
     CREATE USER 'watcher'@'localhost' IDENTIFIED BY 'Ee5kZm4fWWAmE9hs!';
     GRANT ALL PRIVILEGES ON *.* TO 'watcher'@'localhost' WITH GRANT OPTION;
     CREATE DATABASE db_watcher;
     use db_watcher;
     exit
-    systemctl status mysql.service
+  ```
 
-- `cd Watcher/watcher`
+  ```bash
+  systemctl status mysql.service
+  ```
+
+```bash
+  cd Watcher/Watcher
+  ```
 
 In `settings.py` change `HOST` variable to `localhost`:
 
+  ```python
     DATABASES = {
-       'default': {
-           'ENGINE': 'django.db.backends.mysql',
-           'CONN_MAX_AGE': 3600,
-           'NAME': 'db_watcher',
-           'USER': 'watcher',
-           'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
-           'HOST': 'localhost',
-           'PORT': '3306',
-           'OPTIONS': {
-               'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-           },
-       }
+      'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'CONN_MAX_AGE': 3600,
+        'NAME': 'db_watcher',
+        'USER': 'watcher',
+        'PASSWORD': 'Ee5kZm4fWWAmE9hs!',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'OPTIONS': {
+          'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+      }
     }
+  ```
 
 - <span style="color:red">**[IMPORTANT]** When **commit** put `HOST` variable back to `db_watcher`</span>
-- `cd ..`
-- **[Migrate](#migrate) the database:** `python3 manage.py migrate`
-- **Run Watcher:** `python3 manage.py runserver`
+ ```bash
+    cd ..
+  ```
+- **[Migrate](#migrate) the database:** 
+  
+  ```bash
+  python3 manage.py migrate
+  ```
+- **Run Watcher:**
+
+  ```bash
+  python3 manage.py runserver
+  ```
 
 ## Deploy a simple SMTP server to test the email notifications
 If you are working on a test environment and willing to have email alerts, here is a simple way to configure the SMTP settings to make it work.

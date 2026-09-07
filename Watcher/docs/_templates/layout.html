@@ -1,0 +1,25 @@
+{% extends "!layout.html" %}
+
+{#
+  sphinxawesome_theme's own <head> script only ever *adds* the "dark" class
+  (`if (stored === "true" || systemPrefersDark) { add "dark" }`) - it never
+  removes it. So if you explicitly pick light mode, that choice is silently
+  overridden on the next page load whenever the OS is set to dark mode
+  (the OR treats system preference as an override instead of a fallback
+  used only when nothing has been explicitly chosen yet).
+
+  Re-apply the real stored choice here, in <head>, before Alpine.js mounts,
+  so the correct theme shows immediately and an explicit choice always wins
+  over the OS preference.
+#}
+{% block extrahead %}
+{{ super() }}
+<script>
+  (function () {
+    var stored = localStorage.getItem("_x_darkMode");
+    if (stored !== null) {
+      document.documentElement.classList.toggle("dark", stored === "true");
+    }
+  })();
+</script>
+{% endblock %}
