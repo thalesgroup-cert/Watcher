@@ -21,16 +21,15 @@
 <meta content="#ffffff" media="(prefers-color-scheme: light)" name="theme-color"/>
 <meta content="#030711" media="(prefers-color-scheme: dark)" name="theme-color"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>MISP API | Watcher 3.5.3 documentation</title>
-<meta content="MISP API | Watcher 3.5.3 documentation" property="og:title"/>
-<meta content="MISP API | Watcher 3.5.3 documentation" name="twitter:title"/>
+<title>Cyber Watch - Core Algorithm | Watcher 3.5.3 documentation</title>
+<meta content="Cyber Watch - Core Algorithm | Watcher 3.5.3 documentation" property="og:title"/>
+<meta content="Cyber Watch - Core Algorithm | Watcher 3.5.3 documentation" name="twitter:title"/>
 <link href="../_static/pygments.css?v=8d216cef" rel="stylesheet" type="text/css"/>
 <link href="../_static/theme.css?v=d6d7c91b" rel="stylesheet" type="text/css"/>
 <link href="../_static/Watcher-favicon.ico" rel="icon"/>
 <link href="../search.html" rel="search" title="Search"/>
 <link href="../genindex.html" rel="index" title="Index"/>
-<link href="common_core.html" rel="next" title="Common - Core Algorithm"/>
-<link href="../README.html" rel="prev" title="Install Watcher"/>
+<link href="dns_finder_core.html" rel="prev" title="DNS Finder - Core Algorithm"/>
 <script>
   (function () {
     var stored = localStorage.getItem("_x_darkMode");
@@ -92,13 +91,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../README.html#use-watcher">Use Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#update-watcher">Update Watcher</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../README.html#developers">Developers</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">MISP API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="common_misp.html">MISP API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="common_core.html">Common - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="threats_watcher_core.html">Threats Watcher - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_leak_core.html">Data Leak - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="site_monitoring_core.html">Site Monitoring - Core Algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dns_finder_core.html">DNS Finder - Core Algorithm</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cyber_watch_core.html">Cyber Watch - Core Algorithm</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Cyber Watch - Core Algorithm</a></li>
 </ul>
 </nav>
 </div>
@@ -118,111 +117,80 @@
 <path d="M240 856h120V616h240v240h120V496L480 316 240 496v360Zm-80 80V456l320-240 320 240v480H520V696h-80v240H160Zm320-350Z"></path>
 </svg>
 </a>
-<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">MISP API</span>
+<div class="mr-1">/</div><span aria-current="page" class="font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">Cyber Watch - Core Algorithm</span>
 </nav>
 <div id="content" role="main">
-<section id="module-Watcher.common.misp">
-<span id="misp-api"></span><h1>MISP API<a class="headerlink" href="#module-Watcher.common.misp" title="Link to this heading"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></h1>
+<section id="module-Watcher.cyber_watch.core">
+<span id="cyber-watch-core-algorithm"></span><h1>Cyber Watch - Core Algorithm<a class="headerlink" href="#module-Watcher.cyber_watch.core" title="Link to this heading"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.common.misp.create_misp_tags">
-<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">create_misp_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.create_misp_tags" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.create_misp_tags'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Create and verify MISP tags.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>misp_api: PyMISP API instance</p>
-</dd>
-<dt>Returns:</dt><dd><p>list: Created/verified tags</p>
+<dt class="sig sig-object py" id="Watcher.cyber_watch.core.fetch_latest_cves">
+<span class="sig-prename descclassname"><span class="pre">Watcher.cyber_watch.core.</span></span><span class="sig-name descname"><span class="pre">fetch_latest_cves</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.cyber_watch.core.fetch_latest_cves" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.cyber_watch.core.fetch_latest_cves'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Fetch latest CVEs from cve.circl.lu API and store new ones in database.
+Automatically matches against active WatchRules and records hits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.common.misp.create_objects">
-<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">create_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">existing_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.create_objects" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.create_objects'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Create MISP Objects for any domain object (Site or DnsTwisted).</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>obj: Domain object (Site or DnsTwisted) containing domain data
-existing_values: Optional set of (type, value) tuples to check for duplicates</p>
-</dd>
-<dt>Returns:</dt><dd><p>list: MISP objects ready to be added/updated</p>
-</dd>
-</dl>
-</dd></dl>
-<dl class="py function">
-<dt class="sig sig-object py" id="Watcher.common.misp.create_or_update_objects">
-<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">create_or_update_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.create_or_update_objects" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.create_or_update_objects'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Create or update MISP objects for a given site.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>misp_api: PyMISP API instance
-event: MISP Event object
-site: Site object containing domain data
-dry_run: If True, simulate the operation without making changes</p>
-</dd>
-<dt>Returns:</dt><dd><p>tuple: (success, message)</p>
+<dt class="sig sig-object py" id="Watcher.cyber_watch.core.fetch_ransomlook_data">
+<span class="sig-prename descclassname"><span class="pre">Watcher.cyber_watch.core.</span></span><span class="sig-name descname"><span class="pre">fetch_ransomlook_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.cyber_watch.core.fetch_ransomlook_data" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.cyber_watch.core.fetch_ransomlook_data'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Fetch ransomware data from RansomLook API.
+Includes groups, recent victims, and threat actors.
+Automatically matches against active WatchRules and records hits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.common.misp.find_domain_object">
-<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">find_domain_object</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.find_domain_object" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.find_domain_object'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Find a domain object in a MISP event.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>misp_api: PyMISP API instance
-event: MISP Event object
-domain_name: Domain name to search for</p>
-</dd>
-<dt>Returns:</dt><dd><p>tuple: (object_found, existing_object)</p>
+<dt class="sig sig-object py" id="Watcher.cyber_watch.core.fetch_ransomware_data">
+<span class="sig-prename descclassname"><span class="pre">Watcher.cyber_watch.core.</span></span><span class="sig-name descname"><span class="pre">fetch_ransomware_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.cyber_watch.core.fetch_ransomware_data" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.cyber_watch.core.fetch_ransomware_data'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Fetch ransomware groups and recent victims from ransomware.live API.
+Automatically matches against active WatchRules and records hits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.common.misp.get_misp_uuid">
-<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">get_misp_uuid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.get_misp_uuid" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.get_misp_uuid'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Get MISP event UUID for a domain.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>domain_name: Domain name to get UUID for</p>
-</dd>
-<dt>Returns:</dt><dd><p>list: List of MISP event UUID (or empty list if none found)</p>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="Watcher.cyber_watch.core.send_cyber_watch_notifications">
+<span class="sig-prename descclassname"><span class="pre">Watcher.cyber_watch.core.</span></span><span class="sig-name descname"><span class="pre">send_cyber_watch_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">content</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.cyber_watch.core.send_cyber_watch_notifications" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.cyber_watch.core.send_cyber_watch_notifications'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Send CyberWatch notifications to all enabled subscribers via Slack, Citadel, TheHive and/or Email.</p>
 </dd></dl>
 <dl class="py function">
-<dt class="sig sig-object py" id="Watcher.common.misp.update_misp_uuid">
-<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">update_misp_uuid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_uuid</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.update_misp_uuid" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.update_misp_uuid'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Update MISP event UUID for a domain.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>domain_name: Domain name to update UUID for
-event_uuid: UUID to add (will be added as the latest)</p>
-</dd>
-<dt>Returns:</dt><dd><p>list: Updated list of MISP event UUID</p>
+<dt class="sig sig-object py" id="Watcher.cyber_watch.core.start_scheduler">
+<span class="sig-prename descclassname"><span class="pre">Watcher.cyber_watch.core.</span></span><span class="sig-name descname"><span class="pre">start_scheduler</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.cyber_watch.core.start_scheduler" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.cyber_watch.core.start_scheduler'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><dl class="simple">
+<dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
+<li><p>Fetch latest CVEs every 30 minutes.</p></li>
+<li><p>Fetch ransomware data every 30 minutes.</p></li>
+<li><p>Fetch RansomLook data every 30 minutes.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
 </section>
 </div><div class="flex justify-between items-center pt-6 mt-12 border-t border-border gap-4">
 <div class="mr-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="../README.html">
+<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="dns_finder_core.html">
 <svg class="mr-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
 <polyline points="15 18 9 12 15 6"></polyline>
 </svg>
-        Install Watcher
+        DNS Finder - Core Algorithm
       </a>
-</div>
-<div class="ml-auto">
-<a class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input hover:bg-accent hover:text-accent-foreground py-2 px-4" href="common_core.html">
-        Common - Core Algorithm
-        <svg class="ml-2 h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-<polyline points="9 18 15 12 9 6"></polyline>
-</svg>
-</a>
 </div>
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] h-full overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
-<li><a :data-current="activeSection === '#Watcher.common.misp.create_misp_tags'" class="reference internal" href="#Watcher.common.misp.create_misp_tags"><code class="docutils literal notranslate"><span class="pre">create_misp_tags()</span></code></a></li>
-<li><a :data-current="activeSection === '#Watcher.common.misp.create_objects'" class="reference internal" href="#Watcher.common.misp.create_objects"><code class="docutils literal notranslate"><span class="pre">create_objects()</span></code></a></li>
-<li><a :data-current="activeSection === '#Watcher.common.misp.create_or_update_objects'" class="reference internal" href="#Watcher.common.misp.create_or_update_objects"><code class="docutils literal notranslate"><span class="pre">create_or_update_objects()</span></code></a></li>
-<li><a :data-current="activeSection === '#Watcher.common.misp.find_domain_object'" class="reference internal" href="#Watcher.common.misp.find_domain_object"><code class="docutils literal notranslate"><span class="pre">find_domain_object()</span></code></a></li>
-<li><a :data-current="activeSection === '#Watcher.common.misp.get_misp_uuid'" class="reference internal" href="#Watcher.common.misp.get_misp_uuid"><code class="docutils literal notranslate"><span class="pre">get_misp_uuid()</span></code></a></li>
-<li><a :data-current="activeSection === '#Watcher.common.misp.update_misp_uuid'" class="reference internal" href="#Watcher.common.misp.update_misp_uuid"><code class="docutils literal notranslate"><span class="pre">update_misp_uuid()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.cyber_watch.core.fetch_latest_cves'" class="reference internal" href="#Watcher.cyber_watch.core.fetch_latest_cves"><code class="docutils literal notranslate"><span class="pre">fetch_latest_cves()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.cyber_watch.core.fetch_ransomlook_data'" class="reference internal" href="#Watcher.cyber_watch.core.fetch_ransomlook_data"><code class="docutils literal notranslate"><span class="pre">fetch_ransomlook_data()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.cyber_watch.core.fetch_ransomware_data'" class="reference internal" href="#Watcher.cyber_watch.core.fetch_ransomware_data"><code class="docutils literal notranslate"><span class="pre">fetch_ransomware_data()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.cyber_watch.core.send_cyber_watch_notifications'" class="reference internal" href="#Watcher.cyber_watch.core.send_cyber_watch_notifications"><code class="docutils literal notranslate"><span class="pre">send_cyber_watch_notifications()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.cyber_watch.core.start_scheduler'" class="reference internal" href="#Watcher.cyber_watch.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
 </ul>
 </div>
 </aside>
