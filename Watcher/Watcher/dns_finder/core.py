@@ -4,11 +4,17 @@ import six
 import subprocess
 import json
 import logging
+import time
+import dns.resolver
+import dns.exception
+import requests
 from django.utils import timezone
+from django.db import close_old_connections
 from connectors.core import get_certstream_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
-from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
+from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored, \
+    DanglingSubdomain, DanglingAlert
 from common.models import LegitimateDomain
 from . import certstream_client
 from common.core import send_app_specific_notifications
@@ -80,6 +86,114 @@ def clean_wildcard_domain(domain):
     if domain.startswith('*.'):
         return domain[2:]
     return domain
+
+
+_FINGERPRINTS_PATH = "./dns_finder/data/dangling_fingerprints.json"
+_fingerprints_cache = None
+
+
+def load_dangling_fingerprints():
+    """
+    Load (and cache) the dangling-DNS provider fingerprint list.
+
+    :rtype: list[dict]
+    """
+    global _fingerprints_cache
+    if _fingerprints_cache is None:
+        with open(_FINGERPRINTS_PATH) as fingerprints_file:
+            _fingerprints_cache = json.load(fingerprints_file)
+    return _fingerprints_cache
+
+
+def match_fingerprint(cname_target):
+    """
+    Find the fingerprint entry whose cname_pattern is contained in cname_target.
+
+    :param cname_target: Terminal CNAME hostname (Str) or None.
+    :rtype: dict or None
+    """
+    if not cname_target:
+        return None
+    for fingerprint in load_dangling_fingerprints():
+        if fingerprint['cname_pattern'] in cname_target:
+            return fingerprint
+    return None
+
+
+def resolve_cname_chain(subdomain, max_hops=5):
+    """
+    Follow the CNAME chain for a subdomain up to max_hops, returning the
+    terminal target hostname, or None if there is no CNAME record.
+
+    :param subdomain: Subdomain to resolve (Str).
+    :param max_hops: Maximum CNAME hops to follow (Int).
+    :rtype: str or None
+    """
+    current = subdomain
+    target = None
+    for _ in range(max_hops):
+        try:
+            answer = dns.resolver.resolve(current, 'CNAME')
+            target = str(answer[0].target).rstrip('.')
+            current = target
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN,
+                dns.resolver.NoNameservers, dns.exception.Timeout):
+            break
+    return target
+
+
+def check_dangling_status(dangling_subdomain):
+    """
+    Resolve a DanglingSubdomain's CNAME chain, match it against known
+    takeover-able provider fingerprints, and confirm via DNS/HTTP.
+    Updates the DanglingSubdomain row in place.
+
+    :param dangling_subdomain: DanglingSubdomain Object.
+    :return: The subdomain's status *before* this check ran (Str).
+    """
+    previous_status = dangling_subdomain.status
+    cname_target = resolve_cname_chain(dangling_subdomain.subdomain)
+    fingerprint = match_fingerprint(cname_target)
+
+    new_status = 'ok'
+    http_status_code = None
+    provider = None
+
+    if fingerprint:
+        provider = fingerprint['provider']
+        terminal_resolves = True
+        try:
+            dns.resolver.resolve(cname_target, 'A')
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
+            terminal_resolves = False
+        except (dns.resolver.NoAnswer, dns.exception.Timeout):
+            pass  # inconclusive at the DNS level, fall through to the HTTP probe
+
+        if not terminal_resolves and fingerprint.get('nxdomain_is_vulnerable'):
+            new_status = 'dangling_confirmed'
+        else:
+            try:
+                response = requests.get(
+                    f"https://{dangling_subdomain.subdomain}", timeout=5, verify=False
+                )
+                http_status_code = response.status_code
+                if fingerprint['http_body_signature'] in response.text:
+                    new_status = 'dangling_confirmed'
+                else:
+                    new_status = 'ok'
+            except requests.exceptions.RequestException:
+                new_status = 'dangling_suspected'
+
+    DanglingSubdomain.objects.filter(pk=dangling_subdomain.pk).update(
+        last_checked_at=timezone.now(),
+        cname_target=cname_target,
+        provider=provider,
+        status=new_status,
+        http_status_code=http_status_code,
+    )
+    dangling_subdomain.status = new_status
+
+    return previous_status
 
 
 def print_callback(message, context):

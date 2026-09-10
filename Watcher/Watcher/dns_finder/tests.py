@@ -11,6 +11,7 @@ from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored,
 from dns_finder.core import in_dns_monitored, send_dns_finder_notifications
 import uuid
 from unittest.mock import patch
+import dns.resolver
 
 
 class ModelTest(TransactionTestCase):
@@ -102,21 +103,21 @@ class ModelTest(TransactionTestCase):
 
 class CoreTest(TestCase):
     """Test core functions."""
-    
+
     def test_in_dns_monitored(self):
         """Test domain checking function."""
         DnsMonitored.objects.create(domain_name="core-example.com")
         self.assertTrue(in_dns_monitored("sub.core-example.com"))
         self.assertTrue(in_dns_monitored("core-example.com"))
         self.assertFalse(in_dns_monitored("other.com"))
-    
+
     def test_clean_wildcard_domain(self):
         """Test wildcard domain cleaning."""
         from dns_finder.core import clean_wildcard_domain
-        
+
         self.assertEqual(clean_wildcard_domain("*.example.com"), "example.com")
         self.assertEqual(clean_wildcard_domain("example.com"), "example.com")
-    
+
     @patch('dns_finder.core.send_app_specific_notifications')
     def test_notification_system(self, mock_notifications):
         """Test notification system."""
@@ -126,29 +127,112 @@ class CoreTest(TestCase):
             dns_monitored=dns
         )
         alert = Alert.objects.create(dns_twisted=twisted)
-        
+
         user = User.objects.create_user("notif_user", "test@test.com", "pass")
         Subscriber.objects.create(user_rec=user, email=True)
-        
+
         send_dns_finder_notifications(alert)
-        
+
         self.assertTrue(mock_notifications.called)
-    
+
     @patch('dns_finder.core.subprocess.check_output')
     def test_check_dnstwist(self, mock_subprocess):
         """Test dnstwist checking."""
         from dns_finder.core import check_dnstwist
-        
+
         mock_subprocess.return_value = b'{"domain": "test.com"}'
-        
+
         dns = DnsMonitored.objects.create(domain_name="dnstwist-test.com")
-        
+
         with patch('dns_finder.core.open', create=True) as mock_open:
             mock_open.return_value.__enter__.return_value.read.return_value = '[{"domain": "twisted.com", "fuzzer": "addition"}]'
-            
+
             check_dnstwist(dns)
-            
+
             self.assertTrue(mock_subprocess.called)
+
+
+class DanglingDnsDetectionTest(TestCase):
+    """Test dangling DNS detection engine."""
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="detect-test.com")
+
+    def test_match_fingerprint_hit(self):
+        from dns_finder.core import match_fingerprint
+        fingerprint = match_fingerprint("mybucket.s3.amazonaws.com")
+        self.assertIsNotNone(fingerprint)
+        self.assertEqual(fingerprint['provider'], "Amazon S3")
+
+    def test_match_fingerprint_miss(self):
+        from dns_finder.core import match_fingerprint
+        self.assertIsNone(match_fingerprint("random.internal-host.corp"))
+        self.assertIsNone(match_fingerprint(None))
+
+    @patch('dns_finder.core.dns.resolver.resolve')
+    def test_resolve_cname_chain_follows_cname(self, mock_resolve):
+        from dns_finder.core import resolve_cname_chain
+
+        class FakeAnswer:
+            def __init__(self, target):
+                self.target = target
+
+        mock_resolve.side_effect = [
+            [FakeAnswer("mybucket.s3.amazonaws.com.")],
+            dns.resolver.NoAnswer(),
+        ]
+        target = resolve_cname_chain("old.detect-test.com")
+        self.assertEqual(target, "mybucket.s3.amazonaws.com")
+
+    @patch('dns_finder.core.requests.get')
+    @patch('dns_finder.core.dns.resolver.resolve')
+    def test_check_dangling_status_confirmed_via_http(self, mock_resolve, mock_get):
+        from dns_finder.core import check_dangling_status
+
+        class FakeAnswer:
+            def __init__(self, target):
+                self.target = target
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.detect-test.com", dns_monitored=self.dns_monitored
+        )
+
+        # 1st resolve() call: CNAME lookup on the subdomain -> S3 bucket
+        # 2nd resolve() call: CNAME lookup on target fails (no more CNAMEs)
+        # 3rd resolve() call: A lookup on the terminal CNAME target -> resolves fine
+        mock_resolve.side_effect = [
+            [FakeAnswer("mybucket.s3.amazonaws.com.")],
+            dns.resolver.NoAnswer(),
+            MagicMock(),
+        ]
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.text = "<Error><Code>NoSuchBucket</Code></Error>"
+        mock_get.return_value = mock_response
+
+        previous_status = check_dangling_status(dangling)
+
+        self.assertEqual(previous_status, 'pending')
+        dangling.refresh_from_db()
+        self.assertEqual(dangling.status, 'dangling_confirmed')
+        self.assertEqual(dangling.provider, 'Amazon S3')
+        self.assertEqual(dangling.cname_target, 'mybucket.s3.amazonaws.com')
+        self.assertEqual(dangling.http_status_code, 404)
+
+    @patch('dns_finder.core.dns.resolver.resolve')
+    def test_check_dangling_status_no_fingerprint_match_is_ok(self, mock_resolve):
+        from dns_finder.core import check_dangling_status
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.detect-test.com", dns_monitored=self.dns_monitored
+        )
+        mock_resolve.side_effect = dns.resolver.NoAnswer()
+
+        check_dangling_status(dangling)
+
+        dangling.refresh_from_db()
+        self.assertEqual(dangling.status, 'ok')
+        self.assertIsNone(dangling.provider)
 
 
 class SerializerTest(TestCase):
