@@ -30,6 +30,7 @@ def start_scheduler():
     Launch multiple planning tasks in background:
         - Fire main_dns_twist from Monday to Sunday: every 2 hours.
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
+        - Fire recheck_dangling_subdomains from Monday to Sunday: every 6 hours.
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
     scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
@@ -38,6 +39,10 @@ def start_scheduler():
     scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
                       id='main_certificate_transparency',
                       max_instances=2,
+                      replace_existing=True)
+    scheduler.add_job(recheck_dangling_subdomains, 'cron', day_of_week='mon-sun', hour='*/6',
+                      id='recheck_dangling_subdomains',
+                      max_instances=1,
                       replace_existing=True)
 
     scheduler.start()
@@ -248,6 +253,27 @@ def track_dangling_subdomain(domain):
             if created:
                 evaluate_dangling_subdomain(dangling_subdomain, source='certstream')
             break
+
+
+def recheck_dangling_subdomains():
+    """
+    Re-check every catalogued DanglingSubdomain that hasn't been triaged as
+    resolved/false_positive, to catch takeovers that appear long after the
+    subdomain was first discovered.
+    """
+    close_old_connections()
+    logger.info("CRON TASK: Dangling DNS re-check")
+
+    subdomains = DanglingSubdomain.objects.exclude(status__in=['resolved', 'false_positive'])
+
+    for dangling_subdomain in subdomains:
+        try:
+            evaluate_dangling_subdomain(dangling_subdomain, 'periodic_recheck')
+            time.sleep(1)  # Rate limiting
+        except Exception as e:
+            logger.error(f"Error rechecking dangling subdomain {dangling_subdomain.subdomain}: {str(e)}")
+
+    logger.info("Dangling DNS re-check completed")
 
 
 def print_callback(message, context):

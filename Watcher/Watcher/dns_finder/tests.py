@@ -318,6 +318,53 @@ class DanglingDnsRealtimeTest(TestCase):
         self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="realtime-test-evil.com").exists())
 
 
+class DanglingDnsRecheckTest(TransactionTestCase):
+    """Test the periodic dangling DNS recheck job.
+
+    Uses TransactionTestCase so close_old_connections() doesn't break test
+    isolation (see cyber_watch.tests for the same pattern).
+    """
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="recheck-test.com")
+        # Prevent close_old_connections() from dropping the test DB connection
+        self._conn_patcher = patch('dns_finder.core.close_old_connections')
+        self._conn_patcher.start()
+
+    def tearDown(self):
+        self._conn_patcher.stop()
+
+    @patch('dns_finder.core.time.sleep')
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_recheck_evaluates_pending_and_dangling_rows(self, mock_evaluate, mock_sleep):
+        from dns_finder.core import recheck_dangling_subdomains
+
+        pending = DanglingSubdomain.objects.create(
+            subdomain="pending.recheck-test.com", dns_monitored=self.dns_monitored, status='pending'
+        )
+        confirmed = DanglingSubdomain.objects.create(
+            subdomain="confirmed.recheck-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_confirmed'
+        )
+        resolved = DanglingSubdomain.objects.create(
+            subdomain="resolved.recheck-test.com", dns_monitored=self.dns_monitored, status='resolved'
+        )
+        false_positive = DanglingSubdomain.objects.create(
+            subdomain="fp.recheck-test.com", dns_monitored=self.dns_monitored, status='false_positive'
+        )
+
+        recheck_dangling_subdomains()
+
+        checked_subdomains = {call.args[0].subdomain for call in mock_evaluate.call_args_list}
+        self.assertIn(pending.subdomain, checked_subdomains)
+        self.assertIn(confirmed.subdomain, checked_subdomains)
+        self.assertNotIn(resolved.subdomain, checked_subdomains)
+        self.assertNotIn(false_positive.subdomain, checked_subdomains)
+
+        for call in mock_evaluate.call_args_list:
+            self.assertEqual(call.args[1], 'periodic_recheck')
+
+
 class SerializerTest(TestCase):
     """Test serializers."""
     
