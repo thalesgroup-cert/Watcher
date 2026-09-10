@@ -300,6 +300,23 @@ class DanglingDnsRealtimeTest(TestCase):
         self.assertFalse(DanglingSubdomain.objects.exists())
         self.assertFalse(mock_evaluate.called)
 
+    @patch('dns_finder.core.track_dangling_subdomain')
+    def test_print_callback_keyword_loop_survives_dangling_tracking_error(self, mock_track):
+        """A fault in the new dangling-DNS path must not skip the pre-existing
+        keyword-matching/typosquat detection loop for that CertStream message."""
+        from dns_finder.core import print_callback
+
+        mock_track.side_effect = Exception("boom")
+        KeywordMonitored.objects.create(name="realtime-test")
+
+        message = {'data': {'leaf_cert': {'subject': {'CN': 'realtime-test-evil.com'}}}}
+
+        print_callback(message, None)
+
+        self.assertTrue(mock_track.called)
+        self.assertTrue(DnsTwisted.objects.filter(domain_name="realtime-test-evil.com").exists())
+        self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="realtime-test-evil.com").exists())
+
 
 class SerializerTest(TestCase):
     """Test serializers."""

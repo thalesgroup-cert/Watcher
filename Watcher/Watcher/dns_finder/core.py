@@ -260,7 +260,10 @@ def print_callback(message, context):
     domain = str(message['data']['leaf_cert']['subject']['CN'])
     domain = clean_wildcard_domain(domain)
 
-    track_dangling_subdomain(domain)
+    try:
+        track_dangling_subdomain(domain)
+    except Exception as e:
+        logger.error(f"Dangling DNS tracking failed for {domain}: {str(e)}")
 
     for keyword_monitored in KeywordMonitored.objects.all():
         if keyword_monitored.name in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
