@@ -1,0 +1,104 @@
+[
+  {
+    "provider": "Amazon S3",
+    "cname_pattern": "s3.amazonaws.com",
+    "http_body_signature": "NoSuchBucket",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "GitHub Pages",
+    "cname_pattern": "github.io",
+    "http_body_signature": "There isn't a GitHub Pages site here",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Heroku",
+    "cname_pattern": "herokuapp.com",
+    "http_body_signature": "No such app",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Microsoft Azure Web App",
+    "cname_pattern": "azurewebsites.net",
+    "http_body_signature": "404 Web Site not found",
+    "nxdomain_is_vulnerable": true
+  },
+  {
+    "provider": "Fastly",
+    "cname_pattern": "fastly.net",
+    "http_body_signature": "Fastly error: unknown domain",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Shopify",
+    "cname_pattern": "myshopify.com",
+    "http_body_signature": "Sorry, this shop is currently unavailable",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Surge.sh",
+    "cname_pattern": "surge.sh",
+    "http_body_signature": "project not found",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Tumblr",
+    "cname_pattern": "domains.tumblr.com",
+    "http_body_signature": "Whatever you were looking for doesn't currently exist",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Pantheon",
+    "cname_pattern": "pantheonsite.io",
+    "http_body_signature": "The gods are wise",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Zendesk",
+    "cname_pattern": "zendesk.com",
+    "http_body_signature": "Help Center Closed",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "UserVoice",
+    "cname_pattern": "uservoice.com",
+    "http_body_signature": "This UserVoice subdomain is currently available",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Ghost",
+    "cname_pattern": "ghost.io",
+    "http_body_signature": "The thing you were looking for is no longer here",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Bitbucket",
+    "cname_pattern": "bitbucket.io",
+    "http_body_signature": "Repository not found",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Netlify",
+    "cname_pattern": "netlify.app",
+    "http_body_signature": "Not Found - Request ID",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Cargo Collective",
+    "cname_pattern": "cargocollective.com",
+    "http_body_signature": "404 Not Found",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Statuspage",
+    "cname_pattern": "statuspage.io",
+    "http_body_signature": "You are being redirected",
+    "nxdomain_is_vulnerable": false
+  },
+  {
+    "provider": "Help Scout Docs",
+    "cname_pattern": "helpscoutdocs.com",
+    "http_body_signature": "No settings were found for this company",
+    "nxdomain_is_vulnerable": false
+  }
+]

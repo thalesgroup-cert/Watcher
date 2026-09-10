@@ -89,6 +89,53 @@ class Subscriber(models.Model):
         return f'{self.user_rec.username} - {self.created_at}'
 
 
+class DanglingSubdomain(models.Model):
+    """
+    Subdomain of a DnsMonitored root domain, tracked for subdomain-takeover
+    (dangling DNS) risk: its CNAME may point to a decommissioned cloud
+    resource that anyone could re-claim.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending check'),
+        ('ok', 'OK'),
+        ('dangling_suspected', 'Dangling suspected'),
+        ('dangling_confirmed', 'Dangling confirmed'),
+        ('resolved', 'Resolved'),
+        ('false_positive', 'False positive'),
+    ]
+
+    subdomain = models.CharField(max_length=255, unique=True)
+    dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE)
+    discovered_at = models.DateTimeField(default=timezone.now)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    cname_target = models.CharField(max_length=255, blank=True, null=True)
+    provider = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    http_status_code = models.IntegerField(null=True, blank=True)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='danglingsubdomain')
+
+    class Meta:
+        ordering = ["-discovered_at"]
+        verbose_name = 'Dangling Subdomain'
+        verbose_name_plural = 'Dangling Subdomains'
+
+    def __str__(self):
+        return self.subdomain
+
+
+class DanglingAlert(models.Model):
+    """
+    Triggered when a DanglingSubdomain transitions into a dangling status.
+    """
+    dangling_subdomain = models.ForeignKey(DanglingSubdomain, on_delete=models.CASCADE)
+    status = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    source = models.CharField(max_length=50, default='certstream')
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 @receiver(post_delete, sender=DnsTwisted)
 def handle_dns_twisted_deletion(sender, instance, **kwargs):
     """

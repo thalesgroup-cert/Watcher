@@ -6,7 +6,8 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
-from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber
+from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber, \
+    DanglingSubdomain, DanglingAlert
 from dns_finder.core import in_dns_monitored, send_dns_finder_notifications
 import uuid
 from unittest.mock import patch
@@ -68,6 +69,35 @@ class ModelTest(TransactionTestCase):
         self.assertFalse(subscriber.thehive)
         self.assertFalse(subscriber.citadel)
         self.assertIn(f"dnsuser{unique_id}", str(subscriber))
+
+    def test_dangling_subdomain_and_alert_functionality(self):
+        """Test DanglingSubdomain and DanglingAlert models with relationships."""
+        unique_id = str(uuid.uuid4())[:8]
+
+        dns = DnsMonitored.objects.create(domain_name=f"dangling-test-{unique_id}.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain=f"old-app.dangling-test-{unique_id}.com",
+            dns_monitored=dns,
+        )
+        self.assertEqual(dangling.status, 'pending')
+        self.assertEqual(str(dangling), f"old-app.dangling-test-{unique_id}.com")
+
+        with self.assertRaises(Exception):
+            DanglingSubdomain.objects.create(
+                subdomain=f"old-app.dangling-test-{unique_id}.com",
+                dns_monitored=dns,
+            )
+
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, source='certstream')
+        self.assertEqual(alert.dangling_subdomain, dangling)
+        self.assertTrue(alert.status)
+        self.assertEqual(alert.source, 'certstream')
+
+        # Test cascade
+        dns_id = dns.id
+        dns.delete()
+        self.assertFalse(DanglingSubdomain.objects.filter(id=dangling.id).exists())
+        self.assertFalse(DnsMonitored.objects.filter(id=dns_id).exists())
 
 
 class CoreTest(TestCase):
