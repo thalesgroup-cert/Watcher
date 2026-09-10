@@ -235,6 +235,72 @@ class DanglingDnsDetectionTest(TestCase):
         self.assertIsNone(dangling.provider)
 
 
+class DanglingDnsRealtimeTest(TestCase):
+    """Test the CertStream real-time dangling DNS hook."""
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="realtime-test.com")
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_creates_alert_on_new_dangling_status(self, mock_notify, mock_check):
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.realtime-test.com", dns_monitored=self.dns_monitored, status='pending'
+        )
+        mock_check.return_value = 'pending'  # previous status returned by check_dangling_status
+        DanglingSubdomain.objects.filter(pk=dangling.pk).update(status='dangling_confirmed')
+
+        evaluate_dangling_subdomain(dangling, source='certstream')
+
+        self.assertTrue(DanglingAlert.objects.filter(dangling_subdomain=dangling, source='certstream').exists())
+        self.assertTrue(mock_notify.called)
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_no_alert_when_already_dangling(self, mock_notify, mock_check):
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old2.realtime-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_confirmed'
+        )
+        mock_check.return_value = 'dangling_confirmed'  # already dangling before this check too
+
+        evaluate_dangling_subdomain(dangling, source='periodic_recheck')
+
+        self.assertFalse(DanglingAlert.objects.filter(dangling_subdomain=dangling).exists())
+        self.assertFalse(mock_notify.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_creates_row_for_genuine_subdomain(self, mock_evaluate):
+        from dns_finder.core import track_dangling_subdomain
+
+        track_dangling_subdomain("old.realtime-test.com")
+
+        self.assertTrue(DanglingSubdomain.objects.filter(subdomain="old.realtime-test.com").exists())
+        self.assertTrue(mock_evaluate.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_ignores_root_domain(self, mock_evaluate):
+        from dns_finder.core import track_dangling_subdomain
+
+        track_dangling_subdomain("realtime-test.com")
+
+        self.assertFalse(DanglingSubdomain.objects.filter(subdomain="realtime-test.com").exists())
+        self.assertFalse(mock_evaluate.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_ignores_unrelated_domain(self, mock_evaluate):
+        from dns_finder.core import track_dangling_subdomain
+
+        track_dangling_subdomain("totally-unrelated.example")
+
+        self.assertFalse(DanglingSubdomain.objects.exists())
+        self.assertFalse(mock_evaluate.called)
+
+
 class SerializerTest(TestCase):
     """Test serializers."""
     

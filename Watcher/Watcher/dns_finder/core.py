@@ -196,6 +196,60 @@ def check_dangling_status(dangling_subdomain):
     return previous_status
 
 
+def evaluate_dangling_subdomain(dangling_subdomain, source):
+    """
+    Runs check_dangling_status and creates + notifies a DanglingAlert only if
+    the subdomain just transitioned into a dangling status (avoids re-alerting
+    on every periodic recheck of an already-flagged subdomain).
+
+    :param dangling_subdomain: DanglingSubdomain Object.
+    :param source: 'certstream' or 'periodic_recheck' (Str).
+    """
+    previous_status = check_dangling_status(dangling_subdomain)
+    dangling_subdomain.refresh_from_db()
+
+    dangling_statuses = ('dangling_suspected', 'dangling_confirmed')
+    newly_dangling = dangling_subdomain.status in dangling_statuses
+    was_already_dangling = previous_status in dangling_statuses
+
+    if newly_dangling and not was_already_dangling:
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling_subdomain, source=source)
+        send_dangling_dns_notifications(alert)
+
+
+def send_dangling_dns_notifications(alert):
+    """
+    Sends notifications for a Dangling DNS alert. Implemented in full once
+    the notification wiring lands (see Task 5 of the dangling DNS plan).
+
+    :param alert: DanglingAlert Object.
+    """
+    pass
+
+
+def track_dangling_subdomain(domain):
+    """
+    If domain is a genuine subdomain (not the root itself) of a monitored
+    corporate root domain, catalog it for dangling-DNS tracking and check
+    its status immediately.
+
+    Uses a strict suffix check (rather than in_dns_monitored's substring
+    check, which would also match unrelated domains sharing a substring)
+    since correctness matters here: this path writes a new DB row.
+
+    :param domain: Domain from a CertStream event (Str).
+    """
+    for dns_monitored in DnsMonitored.objects.all():
+        if domain != dns_monitored.domain_name and domain.endswith('.' + dns_monitored.domain_name):
+            dangling_subdomain, created = DanglingSubdomain.objects.get_or_create(
+                subdomain=domain,
+                defaults={'dns_monitored': dns_monitored}
+            )
+            if created:
+                evaluate_dangling_subdomain(dangling_subdomain, source='certstream')
+            break
+
+
 def print_callback(message, context):
     """
     Runs CertStream scan.
@@ -205,6 +259,8 @@ def print_callback(message, context):
     """
     domain = str(message['data']['leaf_cert']['subject']['CN'])
     domain = clean_wildcard_domain(domain)
+
+    track_dangling_subdomain(domain)
 
     for keyword_monitored in KeywordMonitored.objects.all():
         if keyword_monitored.name in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
