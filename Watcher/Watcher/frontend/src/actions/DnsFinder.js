@@ -267,7 +267,10 @@ export const getDnsFinderStatistics = () => (dispatch, getState) => {
             dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: res.data });
         })
         .catch(err => {
-            dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: { totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0 } });
+            dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: {
+                totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0,
+                totalDanglingSubdomains: 0, totalDanglingConfirmed: 0, totalDanglingSuspected: 0
+            } });
             if (err.response) dispatch(returnErrors(err.response.data, err.response.status));
         });
 };

@@ -193,6 +193,10 @@ class DnsFinderStats extends Component {
                         <KpiCard title="Keywords" value={statistics.totalKeywords ?? keywordMonitored.length}
                                  sub="patterns monitored" icon="search" variant="warning" />
                     </div>
+                    <div className="col-xl-3 col-md-6 mb-4">
+                        <KpiCard title="Dangling Subdomains" value={statistics.totalDanglingConfirmed ?? 0}
+                                 sub="confirmed takeover risk" icon="link_off" variant="danger" />
+                    </div>
                 </div>
 
                 <div className="row">

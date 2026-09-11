@@ -5,6 +5,7 @@ import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
 import DnsMonitored from "./DnsMonitored";
 import KeywordMonitored from "./KeywordMonitored";
+import DanglingSubdomains from "./DanglingSubdomains";
 import TableManager from '../common/TableManager';
 import DnsFinderStats from "./DnsFinderStats";
 import PanelGrid from '../common/PanelGrid';
@@ -16,9 +17,10 @@ const DEFAULT_LAYOUT = [
     { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
     { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
     { i: 'keywords', x: 7, y: 19, w: 5,  h: 11, minW: 3, minH: 5 },
+    { i: 'dangling', x: 0, y: 30, w: 12, h: 11, minW: 4, minH: 5 },
 ];
 
-const DEFAULT_ACTIVE = ['stats', 'alerts', 'dns', 'archived', 'keywords'];
+const DEFAULT_ACTIVE = ['stats', 'alerts', 'dns', 'archived', 'keywords', 'dangling'];
 
 const FILTER_CONFIG = [
     {
@@ -304,6 +306,16 @@ class Dashboard extends Component {
                 children: (
                     <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <KeywordMonitored globalFilters={globalFilters} />
+                    </div>
+                ),
+            },
+            dangling: {
+                label: 'Dangling Subdomains',
+                icon: 'link_off',
+                tooltip: 'Subdomains of your corporate assets that may be vulnerable to takeover',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <DanglingSubdomains globalFilters={globalFilters} />
                     </div>
                 ),
             },
