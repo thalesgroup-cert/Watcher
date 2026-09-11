@@ -25,19 +25,19 @@ InfoTip.propTypes = { text: PropTypes.string.isRequired };
 
 const KpiCard = ({ title, value, sub, icon, variant }) => (
     <div className={"card border-0 shadow-sm h-100 bg-" + variant}>
-        <div className="card-body d-flex align-items-center p-4">
-            <div className="d-flex align-items-center justify-content-center bg-white rounded-circle me-3 flex-shrink-0"
-                 style={{ width: 50, height: 50, minWidth: 50, minHeight: 50 }}>
+        <div className="card-body d-flex align-items-center p-3">
+            <div className="d-flex align-items-center justify-content-center bg-white rounded-circle me-2 flex-shrink-0"
+                 style={{ width: 38, height: 38, minWidth: 38, minHeight: 38 }}>
                 <i className={"material-icons text-" + variant}
-                   style={{ fontSize: 28, lineHeight: 1, display: 'block' }}>{icon}</i>
+                   style={{ fontSize: 20, lineHeight: 1, display: 'block' }}>{icon}</i>
             </div>
-            <div className="flex-fill">
-                <div className="text-white-50 text-uppercase fw-bold small mb-1"
-                     style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>{title}</div>
-                <div className="text-white fw-bold h2 mb-1" style={{ fontSize: '2rem', lineHeight: 1 }}>
+            <div className="flex-fill" style={{ minWidth: 0 }}>
+                <div className="text-white-50 text-uppercase fw-bold small mb-1 text-truncate"
+                     style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>{title}</div>
+                <div className="text-white fw-bold mb-0" style={{ fontSize: '1.4rem', lineHeight: 1 }}>
                     {typeof value === 'number' ? value.toLocaleString() : value}
                 </div>
-                {sub && <div className="text-white-50 small" style={{ fontSize: '0.8rem' }}>{sub}</div>}
+                {sub && <div className="text-white-50 small text-truncate" style={{ fontSize: '0.7rem' }}>{sub}</div>}
             </div>
         </div>
     </div>
@@ -176,24 +176,24 @@ class DnsFinderStats extends Component {
 
         return (
             <div>
-                <div className="row mb-4">
-                    <div className="col-xl-3 col-md-6 mb-4">
+                <div className="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+                    <div className="col mb-2">
                         <KpiCard title="Total Alerts" value={alerts.length}
                                  sub="twisted DNS detections" icon="notifications" variant="primary" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col mb-2">
                         <KpiCard title="Active Alerts" value={activeAlerts}
                                  sub="currently unresolved" icon="warning" variant="danger" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col mb-2">
                         <KpiCard title="DNS Monitored" value={statistics.totalDnsMonitored ?? dnsMonitored.length}
                                  sub="corporate domains watched" icon="dns" variant="info" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col mb-2">
                         <KpiCard title="Keywords" value={statistics.totalKeywords ?? keywordMonitored.length}
                                  sub="patterns monitored" icon="search" variant="warning" />
                     </div>
-                    <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="col mb-2">
                         <KpiCard title="Dangling Subdomains" value={statistics.totalDanglingConfirmed ?? 0}
                                  sub="confirmed takeover risk" icon="link_off" variant="danger" />
                     </div>
