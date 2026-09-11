@@ -11,7 +11,8 @@ class TimelineConfig(AppConfig):
         from cyber_watch.models import WatchRule
         from data_leak.models import Keyword as DataLeakKeyword
         from site_monitoring.models import Site
-        from dns_finder.models import DnsMonitored, KeywordMonitored as DnsKeywordMonitored
+        from dns_finder.models import DnsMonitored, KeywordMonitored as DnsKeywordMonitored, \
+            DanglingSubdomain
         from .signals import connect_tracking
         connect_tracking(LegitimateDomain)
         connect_tracking(Source)
@@ -22,3 +23,4 @@ class TimelineConfig(AppConfig):
         connect_tracking(Site)
         connect_tracking(DnsMonitored)
         connect_tracking(DnsKeywordMonitored)
+        connect_tracking(DanglingSubdomain)

@@ -190,10 +190,24 @@ export default function(state = initialState, action) {
 
         case GET_DANGLING_SUBDOMAINS: {
             const newResults = action.payload.results || action.payload;
+
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    danglingSubdomains: newResults,
+                    danglingSubdomainsCount: newResults.length,
+                    danglingSubdomainsNext: null,
+                    danglingSubdomainsPrevious: null
+                };
+            }
+
+            const existingIds = new Set(state.danglingSubdomains.map(s => s.id));
+            const uniqueNewSubdomains = newResults.filter(subdomain => !existingIds.has(subdomain.id));
+
             return {
                 ...state,
-                danglingSubdomains: newResults.slice(),
-                danglingSubdomainsCount: action.payload.count || newResults.length,
+                danglingSubdomains: [...state.danglingSubdomains, ...uniqueNewSubdomains],
+                danglingSubdomainsCount: action.payload.count || state.danglingSubdomainsCount,
                 danglingSubdomainsNext: action.payload.next || null,
                 danglingSubdomainsPrevious: action.payload.previous || null
             };

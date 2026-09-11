@@ -1,6 +1,6 @@
 import React, {Component, Fragment} from 'react';
 import { connect } from 'react-redux';
-import { getAlerts, getDnsMonitored, getKeywordMonitored } from "../../actions/DnsFinder";
+import { getAlerts, getDnsMonitored, getKeywordMonitored, getDanglingSubdomains } from "../../actions/DnsFinder";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
 import DnsMonitored from "./DnsMonitored";
@@ -97,9 +97,9 @@ class Dashboard extends Component {
     };
 
     loadRemainingDataInBackground = async () => {
-        const { alertsNext, dnsMonitoredNext, keywordMonitoredNext } = this.props;
-        
-        if (!alertsNext && !dnsMonitoredNext && !keywordMonitoredNext) {
+        const { alertsNext, dnsMonitoredNext, keywordMonitoredNext, danglingSubdomainsNext } = this.props;
+
+        if (!alertsNext && !dnsMonitoredNext && !keywordMonitoredNext && !danglingSubdomainsNext) {
             return;
         }
 
@@ -166,7 +166,27 @@ class Dashboard extends Component {
                 }
             }
 
-            this.setState({ 
+            // Load remaining Dangling Subdomains pages
+            if (danglingSubdomainsNext) {
+                let currentPage = 2;
+                let hasMore = true;
+
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getDanglingSubdomains(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
+            }
+
+            this.setState({
                 allDataLoaded: true,
                 isLoadingInBackground: false
             });
@@ -344,7 +364,8 @@ const mapStateToProps = state => ({
     dnsMonitored: state.DnsFinder.dnsMonitored || [],
     dnsMonitoredNext: state.DnsFinder.dnsMonitoredNext || null,
     keywordMonitored: state.DnsFinder.keywordMonitored || [],
-    keywordMonitoredNext: state.DnsFinder.keywordMonitoredNext || null
+    keywordMonitoredNext: state.DnsFinder.keywordMonitoredNext || null,
+    danglingSubdomainsNext: state.DnsFinder.danglingSubdomainsNext || null
 });
 
-export default connect(mapStateToProps, {getAlerts, getDnsMonitored, getKeywordMonitored})(Dashboard);
+export default connect(mapStateToProps, {getAlerts, getDnsMonitored, getKeywordMonitored, getDanglingSubdomains})(Dashboard);

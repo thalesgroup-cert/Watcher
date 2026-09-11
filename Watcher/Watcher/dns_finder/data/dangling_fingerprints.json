@@ -84,18 +84,6 @@
     "nxdomain_is_vulnerable": false
   },
   {
-    "provider": "Cargo Collective",
-    "cname_pattern": "cargocollective.com",
-    "http_body_signature": "404 Not Found",
-    "nxdomain_is_vulnerable": false
-  },
-  {
-    "provider": "Statuspage",
-    "cname_pattern": "statuspage.io",
-    "http_body_signature": "You are being redirected",
-    "nxdomain_is_vulnerable": false
-  },
-  {
     "provider": "Help Scout Docs",
     "cname_pattern": "helpscoutdocs.com",
     "http_body_signature": "No settings were found for this company",

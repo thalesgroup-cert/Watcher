@@ -4,6 +4,7 @@ import six
 import subprocess
 import json
 import logging
+import re
 import time
 import dns.resolver
 import dns.exception
@@ -96,6 +97,16 @@ def clean_wildcard_domain(domain):
 _FINGERPRINTS_PATH = "./dns_finder/data/dangling_fingerprints.json"
 _fingerprints_cache = None
 
+# Maximum number of body bytes read from a (possibly attacker-controlled)
+# dangling-subdomain HTTP probe before matching the fingerprint signature.
+_HTTP_BODY_READ_LIMIT = 65536
+
+# Strict hostname validation for domains coming from CertStream certificate
+# CN fields, before they are used to build a DB row and an HTTPS URL.
+_HOSTNAME_REGEX = re.compile(
+    r"^(?=.{1,253}$)([a-zA-Z0-9_](?:[a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$"
+)
+
 
 def load_dangling_fingerprints():
     """
@@ -178,11 +189,20 @@ def check_dangling_status(dangling_subdomain):
             new_status = 'dangling_confirmed'
         else:
             try:
+                # The probed host is attacker-controlled in the true-positive
+                # case: bound the connect/read time, refuse redirects and cap
+                # how much of the body we are willing to read into memory.
                 response = requests.get(
-                    f"https://{dangling_subdomain.subdomain}", timeout=5, verify=False
+                    f"https://{dangling_subdomain.subdomain}",
+                    timeout=(3, 5),
+                    verify=False,
+                    allow_redirects=False,
+                    stream=True,
                 )
                 http_status_code = response.status_code
-                if fingerprint['http_body_signature'] in response.text:
+                body = response.raw.read(_HTTP_BODY_READ_LIMIT, decode_content=True)
+                body_text = body.decode('utf-8', errors='ignore')
+                if fingerprint['http_body_signature'] in body_text:
                     new_status = 'dangling_confirmed'
                 else:
                     new_status = 'ok'
@@ -204,8 +224,15 @@ def check_dangling_status(dangling_subdomain):
 def evaluate_dangling_subdomain(dangling_subdomain, source):
     """
     Runs check_dangling_status and creates + notifies a DanglingAlert only if
-    the subdomain just transitioned into a dangling status (avoids re-alerting
-    on every periodic recheck of an already-flagged subdomain).
+    the subdomain just transitioned INTO 'dangling_confirmed' from some other
+    status (avoids re-alerting on every periodic recheck of an already-confirmed
+    subdomain).
+
+    'dangling_suspected' is deliberately silent: it is reached on a transient
+    network/DNS error during the HTTP probe, so alerting on it would page the
+    SOC on every blip and make a flapping subdomain spam the channels. It is
+    still persisted and surfaced in the UI/statistics, and escalating from
+    'dangling_suspected' to 'dangling_confirmed' does alert.
 
     :param dangling_subdomain: DanglingSubdomain Object.
     :param source: 'certstream' or 'periodic_recheck' (Str).
@@ -213,11 +240,12 @@ def evaluate_dangling_subdomain(dangling_subdomain, source):
     previous_status = check_dangling_status(dangling_subdomain)
     dangling_subdomain.refresh_from_db()
 
-    dangling_statuses = ('dangling_suspected', 'dangling_confirmed')
-    newly_dangling = dangling_subdomain.status in dangling_statuses
-    was_already_dangling = previous_status in dangling_statuses
+    newly_confirmed = (
+        dangling_subdomain.status == 'dangling_confirmed'
+        and previous_status != 'dangling_confirmed'
+    )
 
-    if newly_dangling and not was_already_dangling:
+    if newly_confirmed:
         alert = DanglingAlert.objects.create(dangling_subdomain=dangling_subdomain, source=source)
         send_dangling_dns_notifications(alert)
 
@@ -251,8 +279,16 @@ def send_dangling_dns_notifications(alert):
 def track_dangling_subdomain(domain):
     """
     If domain is a genuine subdomain (not the root itself) of a monitored
-    corporate root domain, catalog it for dangling-DNS tracking and check
-    its status immediately.
+    corporate root domain, catalog it for dangling-DNS tracking.
+
+    Discovery is catalog-only in real time: the row is created with its
+    default 'pending' status and nothing else happens here. Verification
+    (DNS resolution + HTTP probe, up to ~35s of blocking I/O) is left to the
+    periodic recheck_dangling_subdomains job, which already picks up 'pending'
+    rows. This runs on CertStream's single-threaded message-reader callback,
+    which has no queue: blocking it would make the feed drop (not buffer)
+    certificate-transparency events, degrading the pre-existing typosquat
+    detection that shares this callback.
 
     Uses a strict suffix check (rather than in_dns_monitored's substring
     check, which would also match unrelated domains sharing a substring)
@@ -260,14 +296,16 @@ def track_dangling_subdomain(domain):
 
     :param domain: Domain from a CertStream event (Str).
     """
+    if not _HOSTNAME_REGEX.match(domain):
+        logger.warning(f"Skipping invalid hostname from CertStream: {domain}")
+        return
+
     for dns_monitored in DnsMonitored.objects.all():
         if domain != dns_monitored.domain_name and domain.endswith('.' + dns_monitored.domain_name):
-            dangling_subdomain, created = DanglingSubdomain.objects.get_or_create(
+            DanglingSubdomain.objects.get_or_create(
                 subdomain=domain,
                 defaults={'dns_monitored': dns_monitored}
             )
-            if created:
-                evaluate_dangling_subdomain(dangling_subdomain, source='certstream')
             break
 
 
