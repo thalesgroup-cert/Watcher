@@ -104,7 +104,8 @@ _HTTP_BODY_READ_LIMIT = 65536
 # Strict hostname validation for domains coming from CertStream certificate
 # CN fields, before they are used to build a DB row and an HTTPS URL.
 _HOSTNAME_REGEX = re.compile(
-    r"^(?=.{1,253}$)([a-zA-Z0-9_](?:[a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$"
+    r"^(?=.{1,253}$)([a-zA-Z0-9_](?:[a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?\.)+"
+    r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
 )
 
 
