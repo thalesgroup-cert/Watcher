@@ -436,7 +436,12 @@ class APITest(APITestCase):
             fuzzer="addition"
         )
         self.alert = Alert.objects.create(dns_twisted=self.twisted)
-    
+        self.dangling_subdomain = DanglingSubdomain.objects.create(
+            subdomain="old.api-dns-test.com", dns_monitored=self.dns, status='dangling_confirmed',
+            provider='Amazon S3'
+        )
+        self.dangling_alert = DanglingAlert.objects.create(dangling_subdomain=self.dangling_subdomain)
+
     def test_dns_monitored_api(self):
         """Test DnsMonitored API operations."""
         # List and Create
@@ -478,7 +483,38 @@ class APITest(APITestCase):
         self.client.credentials()
         response = self.client.post('/api/dns_finder/dns_monitored/', {'domain_name': 'test.com'})
         self.assertIn(response.status_code, [401, 403])
-    
+
+    def test_dangling_subdomain_and_alert_api(self):
+        """Test DanglingSubdomain and DanglingAlert API operations."""
+        response = self.client.get('/api/dns_finder/dangling_subdomain/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        update_data = {'status': 'resolved'}
+        response = self.client.patch(
+            f'/api/dns_finder/dangling_subdomain/{self.dangling_subdomain.pk}/', update_data
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'resolved')
+
+        response = self.client.get('/api/dns_finder/dangling_alert/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        update_data = {'status': False}
+        response = self.client.patch(f'/api/dns_finder/dangling_alert/{self.dangling_alert.pk}/', update_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['status'])
+
+    def test_statistics_include_dangling_counts(self):
+        """Test that the statistics endpoint reports dangling subdomain counts."""
+        response = self.client.get('/api/dns_finder/dns_monitored/statistics/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('totalDanglingSubdomains', response.data)
+        self.assertIn('totalDanglingConfirmed', response.data)
+        self.assertIn('totalDanglingSuspected', response.data)
+        self.assertEqual(response.data['totalDanglingSubdomains'], 1)
+        self.assertEqual(response.data['totalDanglingConfirmed'], 1)
+
+
     @patch('dns_finder.serializers.PyMISP')
     def test_misp_export(self, mock_pymisp):
         """Test MISP export functionality."""

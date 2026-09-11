@@ -1,5 +1,5 @@
 import logging
-from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored
+from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, DanglingSubdomain, DanglingAlert
 
 logger = logging.getLogger('watcher.dns_finder')
 from rest_framework import viewsets, permissions, status
@@ -10,7 +10,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from datetime import timedelta
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, \
-    MISPSerializer, KeywordMonitoredSerializer
+    MISPSerializer, KeywordMonitoredSerializer, DanglingSubdomainSerializer, DanglingAlertSerializer
 
 
 # Pagination
@@ -50,6 +50,9 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
                 'newThisWeek':      Alert.objects.filter(created_at__gte=week_ago).count(),
                 'totalDnsMonitored': DnsMonitored.objects.count(),
                 'totalKeywords':    KeywordMonitored.objects.count(),
+                'totalDanglingSubdomains': DanglingSubdomain.objects.count(),
+                'totalDanglingConfirmed':  DanglingSubdomain.objects.filter(status='dangling_confirmed').count(),
+                'totalDanglingSuspected':  DanglingSubdomain.objects.filter(status='dangling_suspected').count(),
             }, status=status.HTTP_200_OK)
         except Exception:
             logger.exception("Error computing DNS Finder statistics")
@@ -103,6 +106,42 @@ class AlertViewSet(viewsets.ModelViewSet):
             'dns_twisted',
             'dns_twisted__dns_monitored',
             'dns_twisted__keyword_monitored'
+        ).order_by('-created_at')
+
+
+# DanglingSubdomain Viewset
+class DanglingSubdomainViewSet(viewsets.ModelViewSet):
+    permission_classes = [
+        permissions.DjangoModelPermissions
+    ]
+    serializer_class = DanglingSubdomainSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        from timeline.models import TimelineEvent
+        return DanglingSubdomain.objects.select_related('dns_monitored').order_by(
+            '-discovered_at'
+        ).prefetch_related(
+            Prefetch(
+                'timeline_events',
+                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                to_attr='_timeline_events',
+            )
+        )
+
+
+# DanglingAlert Viewset
+class DanglingAlertViewSet(viewsets.ModelViewSet):
+    permission_classes = [
+        permissions.DjangoModelPermissions
+    ]
+    serializer_class = DanglingAlertSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return DanglingAlert.objects.select_related(
+            'dangling_subdomain',
+            'dangling_subdomain__dns_monitored'
         ).order_by('-created_at')
 
 

@@ -4,7 +4,7 @@ from rest_framework import serializers
 logger = logging.getLogger('watcher.dns_finder')
 from django.utils import timezone
 from connectors.core import get_misp_config
-from .models import Alert, DnsMonitored, DnsTwisted, KeywordMonitored
+from .models import Alert, DnsMonitored, DnsTwisted, KeywordMonitored, DanglingSubdomain, DanglingAlert
 from site_monitoring.models import Site
 from site_monitoring.core import monitoring_init
 import requests
@@ -97,6 +97,28 @@ class AlertSerializer(serializers.ModelSerializer):
 
 
 from django.core.exceptions import ObjectDoesNotExist
+
+# DanglingSubdomain Serializer
+class DanglingSubdomainSerializer(serializers.ModelSerializer):
+    dns_monitored = DnsMonitoredSerializer(read_only=True)
+    last_event = serializers.SerializerMethodField()
+
+    def get_last_event(self, obj):
+        return _get_last_event(obj)
+
+    class Meta:
+        model = DanglingSubdomain
+        fields = '__all__'
+
+
+# DanglingAlert Serializer
+class DanglingAlertSerializer(serializers.ModelSerializer):
+    dangling_subdomain = DanglingSubdomainSerializer(read_only=True)
+
+    class Meta:
+        model = DanglingAlert
+        fields = '__all__'
+
 
 # MISP Serializer
 class MISPSerializer(serializers.Serializer):
