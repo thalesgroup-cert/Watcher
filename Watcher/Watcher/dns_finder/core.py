@@ -224,12 +224,28 @@ def evaluate_dangling_subdomain(dangling_subdomain, source):
 
 def send_dangling_dns_notifications(alert):
     """
-    Sends notifications for a Dangling DNS alert. Implemented in full once
-    the notification wiring lands (see Task 5 of the dangling DNS plan).
+    Sends notifications to Slack, Citadel, TheHive or Email for a Dangling
+    DNS alert.
 
     :param alert: DanglingAlert Object.
     """
-    pass
+    subscribers = Subscriber.objects.filter(
+        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
+    )
+
+    if not subscribers.exists():
+        logger.info("No subscribers for DNS Finder, no dangling DNS message sent.")
+        return
+
+    if not alert or not alert.dangling_subdomain or not alert.dangling_subdomain.subdomain:
+        logger.error(f"Invalid alert object or missing subdomain in dangling_subdomain for alert: {alert}")
+        return
+
+    context_data = {
+        'alert': alert,
+    }
+
+    send_app_specific_notifications('dns_finder_dangling', context_data, subscribers)
 
 
 def track_dangling_subdomain(domain):

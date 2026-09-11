@@ -132,6 +132,34 @@ class NotificationSystemTest(TestCase):
         
         self.assertTrue(test_passed)
 
+    @patch('common.core.send_slack_message')
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_dangling_notifications(self, mock_email, mock_slack):
+        """Test that the dns_finder_dangling app_name dispatches without error."""
+        from common.core import send_app_specific_notifications
+        from dns_finder.models import DnsMonitored, DanglingSubdomain, DanglingAlert, Subscriber
+
+        user = User.objects.create_user("dangling_notify_user", "dangling@test.com", "pass")
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-dangling.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.notify-dangling.com",
+            dns_monitored=dns_monitored,
+            status='dangling_confirmed',
+            provider='Amazon S3',
+            cname_target='mybucket.s3.amazonaws.com',
+        )
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, source='certstream')
+
+        subscribers = Subscriber.objects.filter(id=subscriber.id)
+        context_data = {'alert': alert}
+
+        send_app_specific_notifications('dns_finder_dangling', context_data, subscribers)
+
+        self.assertTrue(mock_slack.called)
+        self.assertTrue(mock_email.called)
+
 
 class SecurityTest(TestCase):
     """Test security-related functionality."""

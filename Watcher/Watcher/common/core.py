@@ -20,6 +20,7 @@ from .mail_template.site_monitoring_template import get_site_monitoring_template
 from .mail_template.dns_finder_template import get_dns_finder_template
 from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_transparency_template
 from .mail_template.dns_finder_group_template import get_dns_finder_group_template
+from .mail_template.dns_finder_dangling_template import get_dns_finder_dangling_template
 from .mail_template.cyber_watch_template import get_cyber_watch_template
 from .mail_template.udrp_template import get_udrp_template
 from .utils.send_thehive_alerts import send_thehive_alert
@@ -171,6 +172,19 @@ APP_CONFIG_SLACK = {
             "*[{alerts_number} ALERTS] 🚨 DNS Finder 🚨*\n\n"
             "Dear team,\n\n"
             "*{alerts_number}* New DNS Twisted Alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'url_suffix': '#/dns_finder/',
+    },
+    'dns_finder_dangling': {
+        'content_template': (
+            "*[DNS FINDER - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️*\n\n"
+            "Dear team,\n\n"
+            "A monitored subdomain may be vulnerable to takeover:\n\n"
+            "*• Subdomain:* {subdomain}\n"
+            "*• Corporate DNS:* {parent_domain}\n"
+            "*• CNAME Target:* {cname_target}\n"
+            "*• Provider:* {provider}\n\n"
             "Please, find more details <{details_url}|here>."
         ),
         'url_suffix': '#/dns_finder/',
@@ -341,6 +355,21 @@ APP_CONFIG_CITADEL = {
         ),
         'url_suffix': '#/dns_finder/',
     },
+    'dns_finder_dangling': {
+        'content_template': (
+            "<p><strong><h4>[DNS FINDER - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p>A monitored subdomain may be vulnerable to takeover:</p>"
+            "<ul>"
+            "<li><strong>Subdomain:</strong> {subdomain}</li>"
+            "<li><strong>Corporate DNS:</strong> {parent_domain}</li>"
+            "<li><strong>CNAME Target:</strong> {cname_target}</li>"
+            "<li><strong>Provider:</strong> {provider}</li>"
+            "</ul>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'url_suffix': '#/dns_finder/',
+    },
     'cyber_watch_new_cve': {
         'content_template': (
             "<p><strong><h4>[CYBER WATCH - NEW CVE] 🛡️ {cve_id} detected ({severity})</h4></strong></p>"
@@ -498,6 +527,20 @@ APP_CONFIG_THEHIVE = {
         'tlp': 1,
         'pap': 1,
     },
+    'dns_finder_dangling': {
+        'title': "Possible Subdomain Takeover - {subdomain}",
+        'description_template': (
+            "**Alert:**\n"
+            "**Possible subdomain takeover detected:**\n"
+            "*Subdomain:* {subdomain}\n"
+            "*Corporate DNS:* {parent_domain}\n"
+            "*CNAME Target:* {cname_target}\n"
+            "*Provider:* {provider}\n"
+        ),
+        'severity': 2,
+        'tlp': 2,
+        'pap': 2,
+    },
     'cyber_watch_new_cve': {
         'title': "New CVE - {cve_id} | Severity: {severity} | CVSS: {cvss_score}",
         'description_template': (
@@ -601,6 +644,10 @@ APP_CONFIG_EMAIL = {
     'dns_finder_group': {
         'subject': "[{alerts_number} ALERTS] DNS Finder",
         'template_func': get_dns_finder_group_template,
+    },
+    'dns_finder_dangling': {
+        'subject': "[ALERT #{alert.pk}] DNS Finder - Dangling Subdomain",
+        'template_func': get_dns_finder_dangling_template,
     },
     'cyber_watch_new_cve': {
         'subject': "New CVE - {cve_id} ({severity})",
@@ -717,6 +764,19 @@ def collect_observables(app_name, context_data):
                         ]
                     }
                     observables.append(parent_observable)
+
+    elif app_name == 'dns_finder_dangling':
+        alert = context_data.get('alert')
+        if alert and alert.dangling_subdomain:
+            dangling = alert.dangling_subdomain
+            observable = {"dataType": "domain", "data": dangling.subdomain, "tags": []}
+            if dangling.provider:
+                observable["tags"].append(f"provider:{dangling.provider}")
+            if dangling.cname_target:
+                observable["tags"].append(f"cname_target:{dangling.cname_target}")
+            if dangling.dns_monitored:
+                observable["tags"].append(f"corporate_dns:{dangling.dns_monitored.domain_name}")
+            observables.append(observable)
 
     elif app_name == 'cyber_watch':
         notification_type = context_data.get('notification_type', '')
@@ -1130,6 +1190,25 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             else:
                 logger.warning(f"Unknown cyber_watch notification_type: {notification_type}")
                 return
+
+        elif app_name == 'dns_finder_dangling':
+            alert = context_data.get('alert')
+
+            if not alert or not alert.dangling_subdomain or not alert.dangling_subdomain.subdomain:
+                logger.warning("No valid alert data found or DanglingSubdomain information missing.")
+                return
+
+            dangling = alert.dangling_subdomain
+            common_data = {
+                'alert': alert,
+                'subdomain': dangling.subdomain,
+                'parent_domain': dangling.dns_monitored.domain_name if dangling.dns_monitored else 'N/A',
+                'cname_target': dangling.cname_target or 'N/A',
+                'provider': dangling.provider or 'Unknown',
+                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'app_name': 'dns_finder_dangling'
+            }
+            email_body = get_dns_finder_dangling_template(alert)
 
 
         send_notification(

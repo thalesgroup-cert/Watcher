@@ -8,7 +8,7 @@ from rest_framework import status
 from knox.models import AuthToken
 from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber, \
     DanglingSubdomain, DanglingAlert
-from dns_finder.core import in_dns_monitored, send_dns_finder_notifications
+from dns_finder.core import in_dns_monitored, send_dns_finder_notifications, send_dangling_dns_notifications
 import uuid
 from unittest.mock import patch
 import dns.resolver
@@ -132,6 +132,23 @@ class CoreTest(TestCase):
         Subscriber.objects.create(user_rec=user, email=True)
 
         send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_notifications.called)
+
+    @patch('dns_finder.core.send_app_specific_notifications')
+    def test_dangling_notification_system(self, mock_notifications):
+        """Test dangling DNS notification dispatch."""
+        dns_monitored = DnsMonitored.objects.create(domain_name="dangling-notify-test.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.dangling-notify-test.com", dns_monitored=dns_monitored,
+            status='dangling_confirmed'
+        )
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling)
+
+        user = User.objects.create_user("dangling_notif_user", "test2@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        send_dangling_dns_notifications(alert)
 
         self.assertTrue(mock_notifications.called)
 
