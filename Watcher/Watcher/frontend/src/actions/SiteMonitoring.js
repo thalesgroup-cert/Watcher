@@ -14,6 +14,7 @@ import {
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
+import {fetchAllPages} from "./paginationUtils";
 
 
 // GET SITES
@@ -176,30 +177,30 @@ export const getSiteStatistics = () => (dispatch, getState) => {
         });
 };
 
-// GET ALL SITES (stats only – no pagination)
+// GET ALL SITES (stats only)
 export const getAllSites = () => (dispatch, getState) => {
-    return axios
-        .get('/api/site_monitoring/site/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
+    return fetchAllPages('/api/site_monitoring/site/', getState)
+        .then(results => {
             dispatch({
                 type: GET_SITES_ALL,
-                payload: res.data.results || res.data
+                payload: results
             });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL SITE ALERTS (stats only – no pagination)
+// GET ALL SITE ALERTS (stats only)
 export const getAllSiteAlerts = () => (dispatch, getState) => {
-    return axios
-        .get('/api/site_monitoring/alert/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
+    return fetchAllPages('/api/site_monitoring/alert/', getState)
+        .then(results => {
             dispatch({
                 type: GET_SITE_ALERTS_ALL,
-                payload: res.data.results || res.data
+                payload: results
             });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));

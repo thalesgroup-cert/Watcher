@@ -23,6 +23,7 @@ import {
 } from './types';
 import { createMessage, returnErrors } from './messages';
 import { tokenConfig } from './auth';
+import { fetchAllPages } from './paginationUtils';
 
 export const getAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
     return axios
@@ -275,36 +276,36 @@ export const getDnsFinderStatistics = () => (dispatch, getState) => {
         });
 };
 
-// GET ALL DNS ALERTS (stats only – no pagination)
+// GET ALL DNS ALERTS (stats only)
 export const getAllDnsAlerts = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/alert/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: DNS_GET_ALERTS_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/alert/', getState)
+        .then(results => {
+            dispatch({ type: DNS_GET_ALERTS_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL DNS MONITORED (stats only – no pagination)
+// GET ALL DNS MONITORED (stats only)
 export const getAllDnsMonitored = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/dns_monitored/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_DNS_MONITORED_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/dns_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_DNS_MONITORED_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL KEYWORD MONITORED (stats only – no pagination)
+// GET ALL KEYWORD MONITORED (stats only)
 export const getAllKeywordMonitored = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/keyword_monitored/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/keyword_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
