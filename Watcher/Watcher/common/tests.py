@@ -10,6 +10,7 @@ from knox.models import AuthToken
 from common.models import MISPEventUuidLink, LegitimateDomain, PendingAction, NotificationDedupEntry
 from common.core import generate_ref
 from common.misp import get_misp_uuid, update_misp_uuid
+from common.notification_dedup import was_recently_notified, record_notification
 
 
 class MISPEventUuidLinkModelTest(TestCase):
@@ -388,3 +389,25 @@ class PendingActionResolutionTest(APITestCase):
             event_exists,
             "Expected a ACTION_CANCELLED TimelineEvent with object_id=site.pk after rejection"
         )
+
+
+class NotificationDedupWindowTest(TestCase):
+    def test_not_notified_returns_false(self):
+        self.assertFalse(was_recently_notified('cyber_watch', 'new_cve', 'CVE-2025-00001'))
+
+    def test_recently_notified_returns_true(self):
+        record_notification('cyber_watch', 'new_cve', 'CVE-2025-00002')
+        self.assertTrue(was_recently_notified('cyber_watch', 'new_cve', 'CVE-2025-00002'))
+
+    def test_outside_window_returns_false(self):
+        entry = NotificationDedupEntry.objects.create(
+            app_name='cyber_watch', notification_type='new_cve', dedup_key='CVE-2025-00003',
+        )
+        NotificationDedupEntry.objects.filter(pk=entry.pk).update(
+            sent_at=timezone.now() - timedelta(hours=25)
+        )
+        self.assertFalse(was_recently_notified('cyber_watch', 'new_cve', 'CVE-2025-00003', window_hours=24))
+
+    def test_different_key_is_independent(self):
+        record_notification('cyber_watch', 'new_cve', 'CVE-2025-00004')
+        self.assertFalse(was_recently_notified('cyber_watch', 'new_cve', 'CVE-2025-00005'))

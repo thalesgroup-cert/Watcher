@@ -173,6 +173,9 @@ WEEKLY_SUMMARY_HOUR = os.environ.get('WEEKLY_SUMMARY_HOUR', '09:30')
 # Breaking News Configuration
 BREAKING_NEWS_THRESHOLD = int(os.environ.get('BREAKING_NEWS_THRESHOLD', 15))
 
+# Notification Dedup Configuration
+NOTIFICATION_DEDUP_WINDOW_HOURS = int(os.environ.get('NOTIFICATION_DEDUP_WINDOW_HOURS', 24))
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
