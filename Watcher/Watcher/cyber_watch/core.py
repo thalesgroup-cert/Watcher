@@ -10,7 +10,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 
 from .models import CVEAlert, RansomwareGroup, RansomwareVictim, WatchRule, WatchRuleHit, Subscriber
-from common.core import send_app_specific_notifications
+from common.core import send_app_specific_notifications, send_app_specific_notifications_group
+from common.notification_dedup import was_recently_notified
 from django.db.models import Q
 
 # Configure logger
@@ -577,32 +578,33 @@ def fetch_ransomlook_data():
         logger.error(f"RansomLook actors fetch error: {e}")
 
 
-def send_cyber_watch_notifications(content):
+def send_cyber_watch_notifications_group(notification_type, items):
     """
-    Send CyberWatch notifications to all enabled subscribers via Slack, Citadel, TheHive and/or Email.
-    """
-    notification_type = content.get('notification_type', '')
+    Send a single grouped CyberWatch notification (Slack/Citadel/Email/TheHive)
+    for all items accumulated during one scheduler run, instead of one message
+    per item.
 
-    # Filter subscribers by channel availability
+    :param notification_type: 'new_cve', 'cve_hit', 'new_victim' or 'victim_hit'.
+    :param items: List of context dicts (one per CVE/victim/hit), each
+        including a 'dedup_key' entry.
+    :return: None
+    """
+    if not items:
+        return
+
+    pref_field = {
+        'new_cve':    'notify_all_cves',
+        'cve_hit':    'notify_cve_hits',
+        'new_victim': 'notify_all_victims',
+        'victim_hit': 'notify_victim_hits',
+    }[notification_type]
+
     subscribers = Subscriber.objects.filter(
         Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
-    )
+    ).filter(**{pref_field: True})
 
     if not subscribers.exists():
-        logger.warning(f"{timezone.now()} - No CyberWatch subscribers configured, no notification sent.")
+        logger.warning(f"{timezone.now()} - No CyberWatch subscribers for {notification_type}, no group notification sent.")
         return
 
-    # Filter by subscription preference
-    if notification_type == 'new_cve':
-        subscribers = subscribers.filter(notify_all_cves=True)
-    elif notification_type == 'cve_hit':
-        subscribers = subscribers.filter(notify_cve_hits=True)
-    elif notification_type == 'new_victim':
-        subscribers = subscribers.filter(notify_all_victims=True)
-    elif notification_type == 'victim_hit':
-        subscribers = subscribers.filter(notify_victim_hits=True)
-
-    if not subscribers.exists():
-        return
-
-    send_app_specific_notifications('cyber_watch', content, subscribers)
+    send_app_specific_notifications_group(f'cyber_watch_{notification_type}_group', {'items': items}, subscribers)

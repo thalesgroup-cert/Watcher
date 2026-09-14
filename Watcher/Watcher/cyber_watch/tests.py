@@ -430,3 +430,35 @@ class ExtractCveIdTest(TestCase):
         id_from_run_1 = extract_cve_id({'id': 'CVE-2025-55555'})
         id_from_run_2 = extract_cve_id({'aliases': ['cve-2025-55555']})
         self.assertEqual(id_from_run_1, id_from_run_2)
+
+
+from cyber_watch.core import send_cyber_watch_notifications_group
+from cyber_watch.models import Subscriber
+
+
+class SendCyberWatchNotificationsGroupTest(TestCase):
+    def setUp(self):
+        user = User.objects.create_user('cwgroupuser', 'cwgroup@test.com', 'pass')
+        Subscriber.objects.create(
+            user_rec=user, email=True, slack=True,
+            notify_all_cves=True, notify_cve_hits=True,
+            notify_all_victims=True, notify_victim_hits=True,
+        )
+
+    def test_empty_items_returns_without_error(self):
+        send_cyber_watch_notifications_group('new_cve', [])  # must not raise
+
+    @patch('cyber_watch.core.send_app_specific_notifications_group')
+    def test_filters_subscribers_by_preference(self, mock_send_group):
+        items = [{'cve_id': 'CVE-2025-00001', 'severity': 'HIGH', 'cvss_score': 7.0, 'description': 'x', 'dedup_key': 'CVE-2025-00001'}]
+        send_cyber_watch_notifications_group('new_cve', items)
+        self.assertEqual(mock_send_group.call_count, 1)
+        called_app_name = mock_send_group.call_args[0][0]
+        self.assertEqual(called_app_name, 'cyber_watch_new_cve_group')
+
+    @patch('cyber_watch.core.send_app_specific_notifications_group')
+    def test_no_matching_subscribers_skips_send(self, mock_send_group):
+        Subscriber.objects.all().update(notify_all_cves=False)
+        items = [{'cve_id': 'CVE-2025-00002', 'severity': 'LOW', 'cvss_score': 1.0, 'description': 'y', 'dedup_key': 'CVE-2025-00002'}]
+        send_cyber_watch_notifications_group('new_cve', items)
+        mock_send_group.assert_not_called()
