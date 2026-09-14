@@ -7,7 +7,7 @@ from datetime import timedelta
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
-from common.models import MISPEventUuidLink, LegitimateDomain, PendingAction
+from common.models import MISPEventUuidLink, LegitimateDomain, PendingAction, NotificationDedupEntry
 from common.core import generate_ref
 from common.misp import get_misp_uuid, update_misp_uuid
 
@@ -287,6 +287,17 @@ class ModelValidationTest(TestCase):
         # Empty string is allowed by Django CharField, so we test that it creates successfully
         empty_mapping = MISPEventUuidLink.objects.create(domain_name="")
         self.assertTrue(empty_mapping.id)
+
+
+class NotificationDedupEntryModelTest(TestCase):
+    def test_create_entry(self):
+        entry = NotificationDedupEntry.objects.create(
+            app_name='cyber_watch',
+            notification_type='new_cve',
+            dedup_key='CVE-2025-12345',
+        )
+        self.assertIsNotNone(entry.sent_at)
+        self.assertEqual(str(entry.app_name), 'cyber_watch')
 
 
 class PendingActionResolutionTest(APITestCase):

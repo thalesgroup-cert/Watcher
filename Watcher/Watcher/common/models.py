@@ -116,3 +116,24 @@ class PendingAction(models.Model):
 
     def __str__(self):
         return f"[{self.get_action_type_display()}] {self.title} ({self.status})"
+
+
+class NotificationDedupEntry(models.Model):
+    """
+    Records that a notification was actually sent for a given (app, type, key)
+    so a sliding-window check can skip re-notifying the same real-world event.
+    """
+    app_name           = models.CharField(max_length=50)
+    notification_type  = models.CharField(max_length=50)
+    dedup_key           = models.CharField(max_length=500)
+    sent_at             = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['app_name', 'notification_type', 'dedup_key', 'sent_at']),
+        ]
+        verbose_name = 'Notification Dedup Entry'
+        verbose_name_plural = 'Notification Dedup Entries'
+
+    def __str__(self):
+        return f"{self.app_name}/{self.notification_type}/{self.dedup_key} @ {self.sent_at}"
