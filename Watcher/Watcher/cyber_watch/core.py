@@ -382,6 +382,8 @@ def fetch_ransomware_data():
         resp.raise_for_status()
 
         new_count = 0
+        new_victims = []
+        victim_hits = []
         for v in resp.json():
             group_name = (v.get('group_name', '') or v.get('group', '')).strip()
             if not group_name:
@@ -420,19 +422,22 @@ def fetch_ransomware_data():
 
             if created:
                 new_count += 1
-                
-                _check_watch_rules_for_victim(victim)
+                _check_watch_rules_for_victim(victim, victim_hits)
 
-                try:
-                    send_cyber_watch_notifications({
-                        'notification_type': 'new_victim',
+                dedup_key = f"{group_name}::{victim_name}"
+                if not was_recently_notified('cyber_watch', 'new_victim', dedup_key):
+                    new_victims.append({
                         'victim_name': victim.victim_name,
                         'group_name': group_name,
                         'country': victim.country or 'N/A',
                         'sector': victim.sector or 'N/A',
+                        'dedup_key': dedup_key,
                     })
-                except Exception as e:
-                    logger.error(f"New victim notification error: {e}")
+
+        if new_victims:
+            send_cyber_watch_notifications_group('new_victim', new_victims)
+        if victim_hits:
+            send_cyber_watch_notifications_group('victim_hit', victim_hits)
 
         logger.info(f"Ransomware victims fetch complete - {new_count} new victims")
 
@@ -499,6 +504,8 @@ def fetch_ransomlook_data():
         resp.raise_for_status()
 
         victim_count = 0
+        new_victims = []
+        victim_hits = []
         for v in resp.json():
             group_name = (v.get('group', '') or v.get('actor', '')).strip()
             if not group_name:
@@ -537,19 +544,22 @@ def fetch_ransomlook_data():
 
             if created:
                 victim_count += 1
+                _check_watch_rules_for_victim(victim, victim_hits)
 
-                _check_watch_rules_for_victim(victim)
-
-                try:
-                    send_cyber_watch_notifications({
-                        'notification_type': 'new_victim',
+                dedup_key = f"{group_name}::{victim_name}"
+                if not was_recently_notified('cyber_watch', 'new_victim', dedup_key):
+                    new_victims.append({
                         'victim_name': victim.victim_name,
                         'group_name': group_name,
                         'country': victim.country or 'N/A',
                         'sector': victim.sector or 'N/A',
+                        'dedup_key': dedup_key,
                     })
-                except Exception as e:
-                    logger.error(f"New victim notification error: {e}")
+
+        if new_victims:
+            send_cyber_watch_notifications_group('new_victim', new_victims)
+        if victim_hits:
+            send_cyber_watch_notifications_group('victim_hit', victim_hits)
 
         logger.info(f"RansomLook victims fetch complete - {victim_count} new victims")
 

@@ -552,3 +552,64 @@ class FetchLatestCvesDigestTest(TransactionTestCase):
 
         new_cve_calls = [c for c in mock_send_group.call_args_list if c[0][0] == 'new_cve']
         self.assertEqual(len(new_cve_calls), 0)
+
+
+from cyber_watch.core import fetch_ransomware_data, fetch_ransomlook_data
+
+
+class FetchRansomwareDataDigestTest(TransactionTestCase):
+    """Use TransactionTestCase so close_old_connections() doesn't break test isolation
+    (same rationale as FetchCVETest/FetchLatestCvesDigestTest above)."""
+
+    def setUp(self):
+        # Prevent close_old_connections() from dropping the test DB connection
+        self._conn_patcher = patch('cyber_watch.core.close_old_connections')
+        self._conn_patcher.start()
+
+    def tearDown(self):
+        self._conn_patcher.stop()
+
+    @patch('cyber_watch.core.send_cyber_watch_notifications_group')
+    @patch('cyber_watch.core.requests.get')
+    def test_multiple_new_victims_trigger_one_grouped_call(self, mock_get, mock_send_group):
+        groups_response = MagicMock()
+        groups_response.json.return_value = []
+        groups_response.raise_for_status = MagicMock()
+
+        victims_response = MagicMock()
+        victims_response.json.return_value = [
+            {'group_name': 'LockBit', 'victim': 'Victim A', 'country': 'US', 'activity': 'Finance', 'published': '2026-09-10T00:00:00'},
+            {'group_name': 'LockBit', 'victim': 'Victim B', 'country': 'FR', 'activity': 'Health', 'published': '2026-09-10T01:00:00'},
+        ]
+        victims_response.raise_for_status = MagicMock()
+
+        mock_get.side_effect = [groups_response, victims_response]
+
+        fetch_ransomware_data()
+
+        new_victim_calls = [c for c in mock_send_group.call_args_list if c[0][0] == 'new_victim']
+        self.assertEqual(len(new_victim_calls), 1)
+        self.assertEqual(len(new_victim_calls[0][0][1]), 2)
+
+    def test_victim_attacked_at_drift_does_not_duplicate_dedup_key(self):
+        """
+        Same real-world victim, attacked_at differs slightly between two fetches
+        (a known DB-row-duplication risk per the audit) — the dedup_key used for
+        notifications must still collapse to the same value regardless.
+        """
+        from cyber_watch.core import _check_watch_rules_for_victim
+
+        group = RansomwareGroup.objects.create(name='LockBit')
+        victim_1 = RansomwareVictim.objects.create(group=group, victim_name='Acme', attacked_at=timezone.now())
+        victim_2 = RansomwareVictim.objects.create(
+            group=group, victim_name='Acme', attacked_at=timezone.now() + timezone.timedelta(hours=2)
+        )
+        WatchRule.objects.create(name='Acme Watch', keywords=['acme'], scope='ransomware')
+
+        hits_1, hits_2 = [], []
+        _check_watch_rules_for_victim(victim_1, hits_1)
+        _check_watch_rules_for_victim(victim_2, hits_2)
+
+        # Second call must be excluded by the dedup window (same dedup_key as the first).
+        self.assertEqual(len(hits_1), 1)
+        self.assertEqual(len(hits_2), 0)
