@@ -263,6 +263,8 @@ def fetch_latest_cves():
             return None
 
         new_count = 0
+        new_cves = []
+        cve_hits = []
         for item in data:
             cve_id = extract_cve_id(item)
             if not cve_id:
@@ -309,19 +311,24 @@ def fetch_latest_cves():
             obj, created = CVEAlert.objects.update_or_create(cve_id=cve_id, defaults=defaults)
             if created:
                 new_count += 1
-                try:
-                    send_cyber_watch_notifications({
-                        'notification_type': 'new_cve',
+                if not was_recently_notified('cyber_watch', 'new_cve', obj.cve_id):
+                    new_cves.append({
                         'cve_id': obj.cve_id,
                         'severity': obj.severity or 'N/A',
                         'cvss_score': obj.cvss_score or 'N/A',
                         'description': (obj.description or '')[:300],
+                        'dedup_key': obj.cve_id,
                     })
-                except Exception as e:
-                    logger.error(f"New CVE notification error: {e}")
+                else:
+                    logger.info(f"Skipping duplicate notification for {obj.cve_id} (already notified within dedup window)")
 
             # Check if this CVE matches any active watch rules
-            _check_watch_rules_for_cve(obj)
+            _check_watch_rules_for_cve(obj, cve_hits)
+
+        if new_cves:
+            send_cyber_watch_notifications_group('new_cve', new_cves)
+        if cve_hits:
+            send_cyber_watch_notifications_group('cve_hit', cve_hits)
 
         logger.info(f"CVE fetch complete - {new_count} new CVEs added")
 

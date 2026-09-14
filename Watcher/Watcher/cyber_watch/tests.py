@@ -504,3 +504,51 @@ class CheckWatchRulesAccumulatorTest(TestCase):
         _check_watch_rules_for_cve(cve, hits)
 
         self.assertEqual(len(hits), 0)
+
+
+from cyber_watch.core import fetch_latest_cves
+
+
+class FetchLatestCvesDigestTest(TransactionTestCase):
+    """Use TransactionTestCase so close_old_connections() doesn't break test isolation
+    (same rationale as FetchCVETest above)."""
+
+    def setUp(self):
+        # Prevent close_old_connections() from dropping the test DB connection
+        self._conn_patcher = patch('cyber_watch.core.close_old_connections')
+        self._conn_patcher.start()
+
+    def tearDown(self):
+        self._conn_patcher.stop()
+
+    @patch('cyber_watch.core.send_cyber_watch_notifications_group')
+    @patch('cyber_watch.core.requests.get')
+    def test_multiple_new_cves_trigger_one_grouped_call(self, mock_get, mock_send_group):
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {'id': 'CVE-2025-10001', 'severity': 'HIGH', 'cvss': 7.5, 'summary': 'desc 1'},
+            {'id': 'CVE-2025-10002', 'severity': 'LOW', 'cvss': 2.0, 'summary': 'desc 2'},
+            {'id': 'CVE-2025-10003', 'severity': 'CRITICAL', 'cvss': 9.9, 'summary': 'desc 3'},
+        ]
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        fetch_latest_cves()
+
+        new_cve_calls = [c for c in mock_send_group.call_args_list if c[0][0] == 'new_cve']
+        self.assertEqual(len(new_cve_calls), 1)
+        self.assertEqual(len(new_cve_calls[0][0][1]), 3)
+
+    @patch('cyber_watch.core.send_cyber_watch_notifications_group')
+    @patch('cyber_watch.core.requests.get')
+    def test_no_new_cves_sends_nothing(self, mock_get, mock_send_group):
+        CVEAlert.objects.create(cve_id='CVE-2025-10004', description='existing')
+        mock_response = MagicMock()
+        mock_response.json.return_value = [{'id': 'CVE-2025-10004', 'severity': 'LOW', 'cvss': 1.0, 'summary': 'existing'}]
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        fetch_latest_cves()
+
+        new_cve_calls = [c for c in mock_send_group.call_args_list if c[0][0] == 'new_cve']
+        self.assertEqual(len(new_cve_calls), 0)
