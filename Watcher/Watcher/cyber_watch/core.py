@@ -123,7 +123,7 @@ def _check_watch_rules_for_victim(victim):
             'group_name': victim.group.name if victim.group_id else '',
         }
 
-        obj_id = (f"{victim.group.name}::{victim.victim_name}" 
+        obj_id = (f"{victim.group.name}::{victim.victim_name}"
                   if victim.group_id else victim.victim_name)
 
         for rule in rules:
@@ -157,6 +157,27 @@ def _check_watch_rules_for_victim(victim):
                             logger.error(f"Victim hit notification error: {e}")
     except Exception as e:
         logger.error(f"Error checking watch rules for ransomware victim: {e}")
+
+
+def extract_cve_id(item):
+    """
+    Extract and normalize CVE ID from an API item.
+
+    Attempts to extract the CVE ID from multiple possible fields in the item dict
+    and normalizes it to uppercase to prevent duplicate rows for the same CVE
+    with different casings.
+
+    :param item: API item dictionary
+    :return: Normalized CVE ID string (uppercase) or empty string if not found
+    """
+    raw_id = item.get('id', '') or item.get('cveMetadata', {}).get('cveId', '')
+    if isinstance(raw_id, str) and raw_id.upper().startswith('CVE-'):
+        return raw_id.upper()
+    aliases = item.get('aliases', []) or []
+    for alias in aliases:
+        if isinstance(alias, str) and alias.upper().startswith('CVE-'):
+            return alias.upper()
+    return raw_id.upper() if isinstance(raw_id, str) else raw_id
 
 
 def fetch_latest_cves():
@@ -236,16 +257,6 @@ def fetch_latest_cves():
                         continue
             return None
 
-        def extract_cve_id(item):
-            raw_id = item.get('id', '') or item.get('cveMetadata', {}).get('cveId', '')
-            if isinstance(raw_id, str) and raw_id.upper().startswith('CVE-'):
-                return raw_id
-            aliases = item.get('aliases', []) or []
-            for alias in aliases:
-                if isinstance(alias, str) and alias.upper().startswith('CVE-'):
-                    return alias
-            return raw_id
-        
         new_count = 0
         for item in data:
             cve_id = extract_cve_id(item)

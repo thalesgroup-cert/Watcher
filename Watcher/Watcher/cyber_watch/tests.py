@@ -408,3 +408,25 @@ class WatchRuleLastEventFieldTest(APITestCase):
         if last_event is not None:
             self.assertIn('action', last_event)
             self.assertIn('username', last_event)
+
+
+from cyber_watch.core import extract_cve_id
+
+
+class ExtractCveIdTest(TestCase):
+    def test_normalizes_case_from_id_field(self):
+        item = {'id': 'cve-2025-12345'}
+        self.assertEqual(extract_cve_id(item), 'CVE-2025-12345')
+
+    def test_normalizes_case_from_cve_metadata(self):
+        item = {'cveMetadata': {'cveId': 'cve-2025-99999'}}
+        self.assertEqual(extract_cve_id(item), 'CVE-2025-99999')
+
+    def test_normalizes_case_from_alias_fallback(self):
+        item = {'aliases': ['ghsa-xxxx-yyyy-zzzz', 'cve-2025-11111']}
+        self.assertEqual(extract_cve_id(item), 'CVE-2025-11111')
+
+    def test_same_cve_different_case_yields_same_id(self):
+        id_from_run_1 = extract_cve_id({'id': 'CVE-2025-55555'})
+        id_from_run_2 = extract_cve_id({'aliases': ['cve-2025-55555']})
+        self.assertEqual(id_from_run_1, id_from_run_2)
