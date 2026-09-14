@@ -613,3 +613,14 @@ class FetchRansomwareDataDigestTest(TransactionTestCase):
         # Second call must be excluded by the dedup window (same dedup_key as the first).
         self.assertEqual(len(hits_1), 1)
         self.assertEqual(len(hits_2), 0)
+
+
+import cyber_watch.core as cyber_watch_core
+
+
+class OldFunctionRemovedTest(TestCase):
+    def test_send_cyber_watch_notifications_no_longer_exists(self):
+        self.assertFalse(
+            hasattr(cyber_watch_core, 'send_cyber_watch_notifications'),
+            "send_cyber_watch_notifications should have been replaced by send_cyber_watch_notifications_group (Task 8)",
+        )
