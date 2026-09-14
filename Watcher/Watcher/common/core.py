@@ -887,6 +887,25 @@ def collect_observables(app_name, context_data):
     return observables
 
 
+def collect_observables_for_batch(notification_type, items):
+    """
+    Build a flat observables list for a batch of CyberWatch items — one
+    TheHive alert per digest instead of one per item. Reuses
+    collect_observables() per item and concatenates the results.
+
+    :param notification_type: 'new_cve', 'cve_hit', 'new_victim' or 'victim_hit'.
+    :param items: List of context dicts, same shape as the individual
+        notification content dicts (one per CVE/victim/hit).
+    :return: Flat list of observable dicts.
+    :rtype: list
+    """
+    observables = []
+    for item in items:
+        context_data = {'notification_type': notification_type, **item}
+        observables.extend(collect_observables('cyber_watch', context_data))
+    return observables
+
+
 def remove_html_tags(text):
     """
     Remove HTML tags from a string.

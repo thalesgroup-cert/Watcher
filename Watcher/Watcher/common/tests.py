@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
 from common.models import MISPEventUuidLink, LegitimateDomain, PendingAction, NotificationDedupEntry
-from common.core import generate_ref
+from common.core import generate_ref, collect_observables_for_batch
 from common.misp import get_misp_uuid, update_misp_uuid
 from common.notification_dedup import was_recently_notified, record_notification
 from common.mail_template.cyber_watch_group_template import get_cyber_watch_group_template
@@ -455,3 +455,18 @@ class CyberWatchGroupConfigTest(TestCase):
             count=3, preview='CVE-2025-00001 (HIGH)', details_url='http://x/#/cyber_watch',
         )
         self.assertIn('3', content)
+
+
+class CollectObservablesForBatchTest(TestCase):
+    def test_builds_one_observable_set_per_item(self):
+        items = [
+            {'cve_id': 'CVE-2025-00001', 'severity': 'CRITICAL'},
+            {'cve_id': 'CVE-2025-00002', 'severity': 'HIGH'},
+        ]
+        observables = collect_observables_for_batch('new_cve', items)
+        data_values = [o['data'] for o in observables]
+        self.assertIn('CVE-2025-00001', data_values)
+        self.assertIn('CVE-2025-00002', data_values)
+
+    def test_empty_items_returns_empty_list(self):
+        self.assertEqual(collect_observables_for_batch('new_cve', []), [])
