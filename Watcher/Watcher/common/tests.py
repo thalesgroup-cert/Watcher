@@ -432,3 +432,26 @@ class CyberWatchGroupTemplateTest(TestCase):
         body = get_cyber_watch_group_template('victim_hit', items)
         self.assertIn('Acme Corp', body)
         self.assertIn('VIP Clients', body)
+
+
+from common.core import APP_CONFIG_SLACK, APP_CONFIG_CITADEL, APP_CONFIG_EMAIL, APP_CONFIG_THEHIVE
+
+
+class CyberWatchGroupConfigTest(TestCase):
+    GROUP_KEYS = [
+        'cyber_watch_new_cve_group', 'cyber_watch_cve_hit_group',
+        'cyber_watch_new_victim_group', 'cyber_watch_victim_hit_group',
+    ]
+
+    def test_all_four_channels_have_all_four_group_keys(self):
+        for key in self.GROUP_KEYS:
+            self.assertIn(key, APP_CONFIG_SLACK, f"Missing {key} in APP_CONFIG_SLACK")
+            self.assertIn(key, APP_CONFIG_CITADEL, f"Missing {key} in APP_CONFIG_CITADEL")
+            self.assertIn(key, APP_CONFIG_EMAIL, f"Missing {key} in APP_CONFIG_EMAIL")
+            self.assertIn(key, APP_CONFIG_THEHIVE, f"Missing {key} in APP_CONFIG_THEHIVE")
+
+    def test_slack_template_formats_with_common_data_keys(self):
+        content = APP_CONFIG_SLACK['cyber_watch_new_cve_group']['content_template'].format(
+            count=3, preview='CVE-2025-00001 (HIGH)', details_url='http://x/#/cyber_watch',
+        )
+        self.assertIn('3', content)

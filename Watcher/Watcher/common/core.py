@@ -21,6 +21,7 @@ from .mail_template.dns_finder_template import get_dns_finder_template
 from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_transparency_template
 from .mail_template.dns_finder_group_template import get_dns_finder_group_template
 from .mail_template.cyber_watch_template import get_cyber_watch_template
+from .mail_template.cyber_watch_group_template import get_cyber_watch_group_template
 from .mail_template.udrp_template import get_udrp_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
@@ -229,6 +230,46 @@ APP_CONFIG_SLACK = {
         ),
         'url_suffix': '#/cyber_watch',
     },
+    'cyber_watch_new_cve_group': {
+        'content_template': (
+            "*[CYBER WATCH - {count} NEW CVEs] 🛡️ New CVEs detected*\n\n"
+            "Dear team,\n\n"
+            "{count} new CVE(s) were fetched in this cycle:\n\n"
+            "{preview}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_cve_hit_group': {
+        'content_template': (
+            "*[CYBER WATCH - {count} CVE HITS] 🎯 Watch rule hits*\n\n"
+            "Dear team,\n\n"
+            "{count} CVE watch rule hit(s) were recorded in this cycle:\n\n"
+            "{preview}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_new_victim_group': {
+        'content_template': (
+            "*[CYBER WATCH - {count} NEW VICTIMS] 🏴‍☠️ New ransomware victims*\n\n"
+            "Dear team,\n\n"
+            "{count} new ransomware victim(s) were detected in this cycle:\n\n"
+            "{preview}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_victim_hit_group': {
+        'content_template': (
+            "*[CYBER WATCH - {count} VICTIM HITS] 🎯 Watch rule hits*\n\n"
+            "Dear team,\n\n"
+            "{count} ransomware victim watch rule hit(s) were recorded in this cycle:\n\n"
+            "{preview}\n\n"
+            "Please, find more details <{details_url}|here>."
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
     'udrp_decision': {
         'content_template': (
             "*[UDRP DECISION] ⚖️ {domain_name_sanitized}*\n\n"
@@ -403,6 +444,46 @@ APP_CONFIG_CITADEL = {
         ),
         'url_suffix': '#/cyber_watch',
     },
+    'cyber_watch_new_cve_group': {
+        'content_template': (
+            "<p><strong><h4>[{count} NEW CVEs] 🛡️ New CVEs detected</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p><strong>{count}</strong> new CVE(s) were fetched in this cycle:</p>"
+            "<pre>{preview}</pre>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_cve_hit_group': {
+        'content_template': (
+            "<p><strong><h4>[{count} CVE HITS] 🎯 Watch rule hits</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p><strong>{count}</strong> CVE watch rule hit(s) were recorded in this cycle:</p>"
+            "<pre>{preview}</pre>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_new_victim_group': {
+        'content_template': (
+            "<p><strong><h4>[{count} NEW VICTIMS] 🏴‍☠️ New ransomware victims</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p><strong>{count}</strong> new ransomware victim(s) were detected in this cycle:</p>"
+            "<pre>{preview}</pre>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
+    'cyber_watch_victim_hit_group': {
+        'content_template': (
+            "<p><strong><h4>[{count} VICTIM HITS] 🎯 Watch rule hits</h4></strong></p>"
+            "<p>Dear team,</p>"
+            "<p><strong>{count}</strong> ransomware victim watch rule hit(s) were recorded in this cycle:</p>"
+            "<pre>{preview}</pre>"
+            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
+        ),
+        'url_suffix': '#/cyber_watch',
+    },
     'udrp_decision': {
         'content_template': (
             "<p><strong><h4>[UDRP DECISION] ⚖️ {domain_name_sanitized}</h4></strong></p>"
@@ -561,6 +642,46 @@ APP_CONFIG_THEHIVE = {
         'tlp': 2,
         'pap': 2,
     },
+    'cyber_watch_new_cve_group': {
+        'title': "{count} New CVEs Detected",
+        'description_template': (
+            "## CyberWatch - {count} New CVEs Detected\n\n"
+            "{preview}\n\n"
+        ),
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+    },
+    'cyber_watch_cve_hit_group': {
+        'title': "{count} CVE Watch Rule Hits",
+        'description_template': (
+            "## CyberWatch - {count} CVE Watch Rule Hits\n\n"
+            "{preview}\n\n"
+        ),
+        'severity': 2,
+        'tlp': 2,
+        'pap': 2,
+    },
+    'cyber_watch_new_victim_group': {
+        'title': "{count} New Ransomware Victims Detected",
+        'description_template': (
+            "## CyberWatch - {count} New Ransomware Victims Detected\n\n"
+            "{preview}\n\n"
+        ),
+        'severity': 1,
+        'tlp': 1,
+        'pap': 1,
+    },
+    'cyber_watch_victim_hit_group': {
+        'title': "{count} Ransomware Victim Watch Rule Hits",
+        'description_template': (
+            "## CyberWatch - {count} Ransomware Victim Watch Rule Hits\n\n"
+            "{preview}\n\n"
+        ),
+        'severity': 2,
+        'tlp': 2,
+        'pap': 2,
+    },
 }
 
 
@@ -617,6 +738,22 @@ APP_CONFIG_EMAIL = {
     'cyber_watch_victim_hit': {
         'subject': "Rule Hit - {rule_name} matched {victim_name} ({group_name})",
         'template_func': get_cyber_watch_template,
+    },
+    'cyber_watch_new_cve_group': {
+        'subject': "[{count} NEW CVEs] CyberWatch Digest",
+        'template_func': get_cyber_watch_group_template,
+    },
+    'cyber_watch_cve_hit_group': {
+        'subject': "[{count} CVE HITS] CyberWatch Digest",
+        'template_func': get_cyber_watch_group_template,
+    },
+    'cyber_watch_new_victim_group': {
+        'subject': "[{count} NEW VICTIMS] CyberWatch Digest",
+        'template_func': get_cyber_watch_group_template,
+    },
+    'cyber_watch_victim_hit_group': {
+        'subject': "[{count} VICTIM HITS] CyberWatch Digest",
+        'template_func': get_cyber_watch_group_template,
     },
     'udrp_decision': {
         'subject': "[UDRP DECISION] {domain_name_sanitized}",
