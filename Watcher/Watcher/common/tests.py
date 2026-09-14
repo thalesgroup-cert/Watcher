@@ -11,6 +11,7 @@ from common.models import MISPEventUuidLink, LegitimateDomain, PendingAction, No
 from common.core import generate_ref
 from common.misp import get_misp_uuid, update_misp_uuid
 from common.notification_dedup import was_recently_notified, record_notification
+from common.mail_template.cyber_watch_group_template import get_cyber_watch_group_template
 
 
 class MISPEventUuidLinkModelTest(TestCase):
@@ -411,3 +412,23 @@ class NotificationDedupWindowTest(TestCase):
     def test_different_key_is_independent(self):
         record_notification('cyber_watch', 'new_cve', 'CVE-2025-00004')
         self.assertFalse(was_recently_notified('cyber_watch', 'new_cve', 'CVE-2025-00005'))
+
+
+class CyberWatchGroupTemplateTest(TestCase):
+    def test_new_cve_body_contains_count_and_ids(self):
+        items = [
+            {'cve_id': 'CVE-2025-00001', 'severity': 'CRITICAL'},
+            {'cve_id': 'CVE-2025-00002', 'severity': 'HIGH'},
+        ]
+        body = get_cyber_watch_group_template('new_cve', items)
+        self.assertIn('2', body)
+        self.assertIn('CVE-2025-00001', body)
+        self.assertIn('CVE-2025-00002', body)
+
+    def test_victim_hit_body_contains_rule_name(self):
+        items = [
+            {'victim_name': 'Acme Corp', 'group_name': 'LockBit', 'rule_name': 'VIP Clients'},
+        ]
+        body = get_cyber_watch_group_template('victim_hit', items)
+        self.assertIn('Acme Corp', body)
+        self.assertIn('VIP Clients', body)
