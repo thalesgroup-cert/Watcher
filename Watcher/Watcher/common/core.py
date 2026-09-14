@@ -26,6 +26,7 @@ from .mail_template.udrp_template import get_udrp_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 from connectors.core import get_thehive_config, get_slack_config, get_citadel_config
+from .notification_dedup import record_notification
 import tldextract
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
@@ -1384,15 +1385,37 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
         logger.error(f"Error sending notifications for {app_name}: {str(e)}")
 
 
+CYBER_WATCH_GROUP_TYPES = {
+    'cyber_watch_new_cve_group':    'new_cve',
+    'cyber_watch_cve_hit_group':    'cve_hit',
+    'cyber_watch_new_victim_group': 'new_victim',
+    'cyber_watch_victim_hit_group': 'victim_hit',
+}
+
+
+def _format_cyber_watch_preview_line(notification_type, item):
+    if notification_type == 'new_cve':
+        return f"{item.get('cve_id', 'N/A')} ({item.get('severity', 'N/A')})"
+    if notification_type == 'cve_hit':
+        return f"{item.get('cve_id', 'N/A')} — rule '{item.get('rule_name', 'N/A')}'"
+    if notification_type == 'new_victim':
+        return f"{item.get('victim_name', 'N/A')} ({item.get('group_name', 'N/A')})"
+    if notification_type == 'victim_hit':
+        return f"{item.get('victim_name', 'N/A')} ({item.get('group_name', 'N/A')}) — rule '{item.get('rule_name', 'N/A')}'"
+    return str(item)
+
+
 def send_app_specific_notifications_group(app_name, context_data, subscribers):
     """
-    Send group notifications based on app type (Slack, Citadel, Email).
+    Send group notifications based on app type (Slack, Citadel, Email, and —
+    for cyber_watch_*_group — TheHive).
     """
     app_config_slack = APP_CONFIG_SLACK.get(app_name)
     app_config_citadel = APP_CONFIG_CITADEL.get(app_name)
     app_config_email = APP_CONFIG_EMAIL.get(app_name)
+    app_config_thehive = APP_CONFIG_THEHIVE.get(app_name)
 
-    if not (app_config_slack or app_config_citadel or app_config_email):
+    if not (app_config_slack or app_config_citadel or app_config_email or app_config_thehive):
         return
 
     if not subscribers.exists():
@@ -1407,7 +1430,23 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
     try:
         common_data = {}
 
-        if app_name == 'data_leak_group':
+        if app_name in CYBER_WATCH_GROUP_TYPES:
+            notification_type = CYBER_WATCH_GROUP_TYPES[app_name]
+            items = context_data.get('items', [])
+            if not items:
+                return
+            preview_lines = [_format_cyber_watch_preview_line(notification_type, item) for item in items[:15]]
+            if len(items) > 15:
+                preview_lines.append(f"... and {len(items) - 15} more")
+            common_data = {
+                'count': len(items),
+                'preview': "\n".join(preview_lines),
+                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'app_name': app_name,
+            }
+            email_body = get_cyber_watch_group_template(notification_type, items)
+
+        elif app_name == 'data_leak_group':
             alerts_number = context_data.get('alerts_number')
             keyword = context_data.get('keyword')
 
@@ -1476,9 +1515,11 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
                     email_subject = app_config_email['subject'].format(**common_data)
 
                     if app_name == 'data_leak_group':
-                        email_body = get_data_leak_group_template(keyword, alerts_number)  
+                        email_body = get_data_leak_group_template(keyword, alerts_number)
                     elif app_name == 'dns_finder_group':
                         email_body = get_dns_finder_group_template(dns_monitored, alerts_number)
+                    elif app_name in CYBER_WATCH_GROUP_TYPES:
+                        pass  # email_body already set above, no per-app rebuild needed
                     else:
                         logger.warning(f"Unknown app_name for group email: {app_name}")
                         return
@@ -1492,6 +1533,37 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
                 except Exception as e:
                     logger.error(f"Error sending group email for {app_name}: {e}")
                     return
+
+        if app_config_thehive and subscribers.filter(thehive=True).exists():
+            _thehive_cfg = get_thehive_config()
+            formatted_title = app_config_thehive['title'].format(**common_data)
+            formatted_description = app_config_thehive['description_template'].format(**common_data)
+
+            observables = []
+            if app_name in CYBER_WATCH_GROUP_TYPES:
+                observables = collect_observables_for_batch(
+                    CYBER_WATCH_GROUP_TYPES[app_name], context_data.get('items', [])
+                )
+
+            send_thehive_alert(
+                title=formatted_title,
+                description=formatted_description,
+                severity=app_config_thehive['severity'],
+                tlp=app_config_thehive['tlp'],
+                pap=app_config_thehive['pap'],
+                tags=_thehive_cfg['tags'],
+                app_name=app_name,
+                domain_name=None,
+                observables=observables,
+                customFields=app_config_thehive.get('customFields'),
+                thehive_url=_thehive_cfg['url'],
+                api_key=_thehive_cfg['key'],
+            )
+
+        if app_name in CYBER_WATCH_GROUP_TYPES:
+            notification_type = CYBER_WATCH_GROUP_TYPES[app_name]
+            for item in context_data.get('items', []):
+                record_notification('cyber_watch', notification_type, item['dedup_key'])
 
     except Exception as e:
         logger.error(f"Error sending group notifications for {app_name}: {str(e)}")

@@ -470,3 +470,57 @@ class CollectObservablesForBatchTest(TestCase):
 
     def test_empty_items_returns_empty_list(self):
         self.assertEqual(collect_observables_for_batch('new_cve', []), [])
+
+
+from cyber_watch.models import Subscriber as CyberWatchSubscriber
+from common.core import send_app_specific_notifications_group
+
+
+class SendCyberWatchGroupNotificationTest(TestCase):
+    def setUp(self):
+        user = User.objects.create_user('cwuser', 'cw@test.com', 'pass')
+        self.subscriber = CyberWatchSubscriber.objects.create(
+            user_rec=user, email=True, slack=True, citadel=True, thehive=True,
+        )
+
+    @patch('common.core.send_thehive_alert')
+    @patch('common.core.send_email_notifications')
+    @patch('common.core.send_citadel_message')
+    @patch('common.core.send_slack_message')
+    def test_one_call_per_channel_for_whole_batch(self, mock_slack, mock_citadel, mock_email, mock_thehive):
+        items = [
+            {'cve_id': 'CVE-2025-00001', 'severity': 'CRITICAL', 'cvss_score': 9.8, 'description': 'x', 'dedup_key': 'CVE-2025-00001'},
+            {'cve_id': 'CVE-2025-00002', 'severity': 'HIGH', 'cvss_score': 7.5, 'description': 'y', 'dedup_key': 'CVE-2025-00002'},
+        ]
+        subscribers = CyberWatchSubscriber.objects.filter(pk=self.subscriber.pk)
+
+        send_app_specific_notifications_group(
+            'cyber_watch_new_cve_group', {'items': items}, subscribers,
+        )
+
+        self.assertEqual(mock_slack.call_count, 1)
+        self.assertEqual(mock_citadel.call_count, 1)
+        self.assertEqual(mock_email.call_count, 1)
+        self.assertEqual(mock_thehive.call_count, 1)
+
+        _, thehive_kwargs = mock_thehive.call_args
+        self.assertEqual(len(thehive_kwargs['observables']), 2)
+
+    @patch('common.core.record_notification')
+    @patch('common.core.send_thehive_alert')
+    @patch('common.core.send_email_notifications')
+    @patch('common.core.send_citadel_message')
+    @patch('common.core.send_slack_message')
+    def test_records_dedup_entry_per_item_after_send(self, mock_slack, mock_citadel, mock_email, mock_thehive, mock_record):
+        items = [{'cve_id': 'CVE-2025-00003', 'severity': 'LOW', 'cvss_score': 3.1, 'description': 'z', 'dedup_key': 'CVE-2025-00003'}]
+        subscribers = CyberWatchSubscriber.objects.filter(pk=self.subscriber.pk)
+
+        send_app_specific_notifications_group('cyber_watch_new_cve_group', {'items': items}, subscribers)
+
+        mock_record.assert_called_once_with('cyber_watch', 'new_cve', 'CVE-2025-00003')
+
+    @patch('common.core.send_slack_message')
+    def test_empty_items_sends_nothing(self, mock_slack):
+        subscribers = CyberWatchSubscriber.objects.filter(pk=self.subscriber.pk)
+        send_app_specific_notifications_group('cyber_watch_new_cve_group', {'items': []}, subscribers)
+        mock_slack.assert_not_called()
