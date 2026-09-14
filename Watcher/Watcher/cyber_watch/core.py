@@ -60,16 +60,19 @@ def _match_keyword_against_fields(keyword, exceptions, fields):
     return False
 
 
-def _check_watch_rules_for_cve(cve):
+def _check_watch_rules_for_cve(cve, hits_accumulator):
     """
     Check a CVE alert against active WatchRules and record matching hits.
+    Hits not already notified within the dedup window are appended to
+    hits_accumulator instead of being sent immediately.
 
     :param cve: CVEAlert object to check.
+    :param hits_accumulator: List to append notifiable hit dicts to.
     :return: None
     """
     try:
         rules = WatchRule.objects.filter(is_active=True, scope__in=['cve', 'both'])
-        
+
         fields = {
             'cve_id': cve.cve_id,
             'description': cve.description,
@@ -93,25 +96,27 @@ def _check_watch_rules_for_cve(cve):
                         }
                     )
                     if created:
-                        try:
-                            send_cyber_watch_notifications({
-                                'notification_type': 'cve_hit',
+                        dedup_key = f"{rule.id}::{cve.cve_id}::{keyword}"
+                        if not was_recently_notified('cyber_watch', 'cve_hit', dedup_key):
+                            hits_accumulator.append({
                                 'rule_name': rule.name,
                                 'cve_id': cve.cve_id,
                                 'keyword': keyword,
                                 'severity': cve.severity or 'N/A',
+                                'dedup_key': dedup_key,
                             })
-                        except Exception as e:
-                            logger.error(f"CVE hit notification error: {e}")
     except Exception as e:
         logger.error(f"Error checking watch rules for CVE: {e}")
 
 
-def _check_watch_rules_for_victim(victim):
+def _check_watch_rules_for_victim(victim, hits_accumulator):
     """
     Check a ransomware victim against active WatchRules and record matching hits.
+    Hits not already notified within the dedup window are appended to
+    hits_accumulator instead of being sent immediately.
 
     :param victim: RansomwareVictim object to check.
+    :param hits_accumulator: List to append notifiable hit dicts to.
     :return: None
     """
     try:
@@ -144,18 +149,17 @@ def _check_watch_rules_for_victim(victim):
                         }
                     )
                     if created:
-                        try:
-                            send_cyber_watch_notifications({
-                                'notification_type': 'victim_hit',
+                        dedup_key = f"{rule.id}::{obj_id}::{keyword}"
+                        if not was_recently_notified('cyber_watch', 'victim_hit', dedup_key):
+                            hits_accumulator.append({
                                 'rule_name': rule.name,
                                 'victim_name': victim.victim_name,
                                 'group_name': fields['group_name'],
                                 'keyword': keyword,
                                 'sector': victim.sector or 'N/A',
                                 'country': victim.country or 'N/A',
+                                'dedup_key': dedup_key,
                             })
-                        except Exception as e:
-                            logger.error(f"Victim hit notification error: {e}")
     except Exception as e:
         logger.error(f"Error checking watch rules for ransomware victim: {e}")
 

@@ -462,3 +462,45 @@ class SendCyberWatchNotificationsGroupTest(TestCase):
         items = [{'cve_id': 'CVE-2025-00002', 'severity': 'LOW', 'cvss_score': 1.0, 'description': 'y', 'dedup_key': 'CVE-2025-00002'}]
         send_cyber_watch_notifications_group('new_cve', items)
         mock_send_group.assert_not_called()
+
+
+from cyber_watch.core import _check_watch_rules_for_cve, _check_watch_rules_for_victim
+from cyber_watch.models import CVEAlert, RansomwareGroup, RansomwareVictim, WatchRule
+
+
+class CheckWatchRulesAccumulatorTest(TestCase):
+    def test_cve_hit_is_appended_to_accumulator_not_sent_directly(self):
+        WatchRule.objects.create(name='Test Rule', keywords=['openssl'], scope='cve')
+        cve = CVEAlert.objects.create(cve_id='CVE-2025-77777', description='openssl vulnerability', severity='HIGH')
+
+        hits = []
+        _check_watch_rules_for_cve(cve, hits)
+
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]['cve_id'], 'CVE-2025-77777')
+        self.assertEqual(hits[0]['dedup_key'], f"{WatchRule.objects.first().id}::CVE-2025-77777::openssl")
+
+    def test_victim_hit_dedup_key_excludes_attacked_at(self):
+        WatchRule.objects.create(name='Sector Rule', keywords=['finance'], scope='ransomware')
+        group = RansomwareGroup.objects.create(name='LockBit')
+        victim = RansomwareVictim.objects.create(group=group, victim_name='Bank X', sector='finance')
+
+        hits = []
+        _check_watch_rules_for_victim(victim, hits)
+
+        self.assertEqual(len(hits), 1)
+        rule_id = WatchRule.objects.first().id
+        self.assertEqual(hits[0]['dedup_key'], f"{rule_id}::LockBit::Bank X::finance")
+
+    def test_already_notified_hit_is_excluded_from_accumulator(self):
+        from common.notification_dedup import record_notification
+
+        WatchRule.objects.create(name='Repeat Rule', keywords=['log4j'], scope='cve')
+        cve = CVEAlert.objects.create(cve_id='CVE-2025-88888', description='log4j issue', severity='CRITICAL')
+        rule_id = WatchRule.objects.first().id
+        record_notification('cyber_watch', 'cve_hit', f"{rule_id}::CVE-2025-88888::log4j")
+
+        hits = []
+        _check_watch_rules_for_cve(cve, hits)
+
+        self.assertEqual(len(hits), 0)
