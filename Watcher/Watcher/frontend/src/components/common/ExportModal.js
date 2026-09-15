@@ -425,7 +425,7 @@ class ExportModal extends Component {
 
         if (!show || !domain) return null;
 
-        if (mode === 'legitimate') {
+        if (mode === 'legitimate' || mode === 'subdomainTakeover') {
             return this.renderMispModal();
         }
 
