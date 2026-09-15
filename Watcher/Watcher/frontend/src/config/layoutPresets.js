@@ -301,7 +301,7 @@ const LEGIT_PRESETS = [
 
 export const LAYOUT_PRESETS = {
     'watcher_threats_grid':          THREATS_PRESETS,
-    'watcher_dns_finder_grid':       DNS_PRESETS,
+    'watcher_dns_finder_grid_v2':    DNS_PRESETS,
     'watcher_site_monitoring_grid':  SITE_PRESETS,
     'watcher_dataleak_grid':         DATALEAK_PRESETS,
     'watcher_cyber_watch_grid':      CYBERWATCH_PRESETS,

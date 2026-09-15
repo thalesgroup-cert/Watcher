@@ -17,9 +17,7 @@ import {
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
     GET_DNS_FINDER_STATISTICS,
-    GET_DANGLING_SUBDOMAINS,
     PATCH_DANGLING_SUBDOMAIN,
-    GET_DANGLING_ALERTS,
     GET_THREATS_MONITORED
 } from './types';
 import { createMessage, returnErrors } from './messages';
@@ -261,8 +259,6 @@ export const exportToMISP = (id, event_uuid, domain_name, source) => (dispatch, 
                 });
             }
 
-            dispatch(getAlerts());
-
             return res.data;
         })
         .catch(err => {
@@ -325,23 +321,6 @@ export const getAllKeywordMonitored = () => (dispatch, getState) => {
         });
 };
 
-// GET DANGLING SUBDOMAINS
-export const getDanglingSubdomains = (page = 1, pageSize = 100) => (dispatch, getState) => {
-    return axios
-        .get(`/api/dns_finder/dangling_subdomain/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
-        .then(res => {
-            dispatch({
-                type: GET_DANGLING_SUBDOMAINS,
-                payload: res.data
-            });
-            return res.data;
-        })
-        .catch(err => {
-            dispatch(returnErrors(err.response?.data, err.response?.status));
-            throw err;
-        });
-};
-
 export const patchDanglingSubdomain = (id, dangling_subdomain) => (dispatch, getState) => {
     axios
         .patch(`/api/dns_finder/dangling_subdomain/${id}/`, dangling_subdomain, tokenConfig(getState))
@@ -355,23 +334,6 @@ export const patchDanglingSubdomain = (id, dangling_subdomain) => (dispatch, get
         .catch(err =>
             dispatch(returnErrors(err.response.data, err.response.status))
         );
-};
-
-// GET DANGLING ALERTS
-export const getDanglingAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
-    return axios
-        .get(`/api/dns_finder/dangling_alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
-        .then(res => {
-            dispatch({
-                type: GET_DANGLING_ALERTS,
-                payload: res.data
-            });
-            return res.data;
-        })
-        .catch(err => {
-            dispatch(returnErrors(err.response?.data, err.response?.status));
-            throw err;
-        });
 };
 
 // GET UNIFIED DNS THREATS MONITORED (dnstwist + certstream_keyword + subdomain_takeover)

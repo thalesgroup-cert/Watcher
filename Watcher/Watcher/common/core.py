@@ -1099,9 +1099,9 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     )
 
             source = context_data.get('source')
-            if source == 'print_callback':
+            if source in ('certstream_keyword', 'print_callback'):
                 email_body = get_dns_finder_cert_transparency_template(alert)
-            elif source == 'check_dnstwist':
+            elif source in ('dnstwist', 'check_dnstwist'):
                 email_body = get_dns_finder_template(alert)
             else:
                 logger.warning(f"Unknown source '{source}' for alert.")

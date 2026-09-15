@@ -110,7 +110,7 @@ const MODULES = [
         presets: LAYOUT_PRESETS['watcher_site_monitoring_grid'],
     },
     {
-        key: 'watcher_dns_finder_grid',
+        key: 'watcher_dns_finder_grid_v2',
         label: 'Twisted DNS Finder',
         icon: 'saved_search',
         panels: {
@@ -127,7 +127,7 @@ const MODULES = [
             { i: 'archived', x: 0, y: 19, w: 7,  h: 11 },
             { i: 'keywords', x: 7, y: 19, w: 5,  h: 11 },
         ],
-        presets: LAYOUT_PRESETS['watcher_dns_finder_grid'],
+        presets: LAYOUT_PRESETS['watcher_dns_finder_grid_v2'],
     },
 ];
 

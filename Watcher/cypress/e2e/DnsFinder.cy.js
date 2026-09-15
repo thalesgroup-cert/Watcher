@@ -315,7 +315,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Corporate DNS")', { timeout: 10000 }).should('exist');
-          cy.get('h6:contains("Dnstwist Algorithm")', { timeout: 10000 }).should('exist');
+          cy.get('h6:contains("Dnstwist Algorithm & Subdomain Takeover Detection")', { timeout: 10000 }).should('exist');
           cy.get('table', { timeout: 10000 }).should('exist');
         });
     });

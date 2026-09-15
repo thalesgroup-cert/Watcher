@@ -230,7 +230,8 @@ class Dashboard extends Component {
         const { globalFilters, filteredThreats } = this.state;
         const { threatsMonitored } = this.props;
         const filterConfig = this.getFilterConfig();
-        const dataToPass = filteredThreats.length > 0 ? filteredThreats : threatsMonitored;
+        const hasActiveFilters = Object.values(globalFilters).some(val => val !== '');
+        const dataToPass = hasActiveFilters ? (filteredThreats.length > 0 ? filteredThreats : []) : null;
 
         return {
             stats: {
@@ -303,8 +304,8 @@ class Dashboard extends Component {
                     panels={this.buildPanels()}
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
-                    storageKey="watcher_dns_finder_grid"
-                    layoutPresets={LAYOUT_PRESETS['watcher_dns_finder_grid']}
+                    storageKey="watcher_dns_finder_grid_v2"
+                    layoutPresets={LAYOUT_PRESETS['watcher_dns_finder_grid_v2']}
                 />
             </Fragment>
         );

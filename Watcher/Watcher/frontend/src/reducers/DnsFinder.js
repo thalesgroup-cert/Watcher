@@ -16,9 +16,7 @@ import {
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
     GET_DNS_FINDER_STATISTICS,
-    GET_DANGLING_SUBDOMAINS,
     PATCH_DANGLING_SUBDOMAIN,
-    GET_DANGLING_ALERTS,
     GET_THREATS_MONITORED
 } from '../actions/types';
 
@@ -46,14 +44,13 @@ const initialState = {
         totalDnsMonitored: 0,
         totalKeywords: 0,
     },
+    // Kept for PATCH_DANGLING_SUBDOMAIN below (patched via patchDanglingSubdomain,
+    // e.g. from the ThreatsMonitored/DnsMonitored confirm-status modals); the
+    // paginated GET_DANGLING_SUBDOMAINS/GET_DANGLING_ALERTS fetch actions that used
+    // to populate a full dangling list were removed as dead code (unified into
+    // the threatsMonitored feed instead), but this bare array must stay so this
+    // reducer case has something to map over.
     danglingSubdomains: [],
-    danglingSubdomainsCount: 0,
-    danglingSubdomainsNext: null,
-    danglingSubdomainsPrevious: null,
-    danglingAlerts: [],
-    danglingAlertsCount: 0,
-    danglingAlertsNext: null,
-    danglingAlertsPrevious: null,
     threatsMonitored: [],
     threatsMonitoredCount: 0,
     threatsMonitoredNext: null,
@@ -181,7 +178,23 @@ export default function(state = initialState, action) {
             };
 
         case EXPORT_TO_MISP:
-            return state;
+            // action.payload.id is in the same id-space the export was requested with:
+            // the Alert id for dnstwist/certstream_keyword items (matched the same way
+            // UPDATE_ALERT_STATUS does), or the DanglingSubdomain id for subdomain_takeover
+            // items (matched the same way PATCH_DANGLING_SUBDOMAIN does), since
+            // ThreatsMonitored.displayExportModal sends technical_details.dangling_subdomain_id
+            // as the id for takeover items.
+            return {
+                ...state,
+                threatsMonitored: state.threatsMonitored.map(item => {
+                    const matchesExportedItem = item.source === 'subdomain_takeover'
+                        ? item.technical_details?.dangling_subdomain_id === action.payload.id
+                        : item.id === action.payload.id;
+                    return matchesExportedItem
+                        ? { ...item, misp_event_uuid: action.payload.misp_event_uuid }
+                        : item;
+                })
+            };
 
         case GET_DNS_FINDER_STATISTICS:
             return {
@@ -197,31 +210,6 @@ export default function(state = initialState, action) {
 
         case GET_KEYWORD_MONITORED_ALL:
             return { ...state, allKeywordMonitored: Array.isArray(action.payload) ? action.payload : [] };
-
-        case GET_DANGLING_SUBDOMAINS: {
-            const newResults = action.payload.results || action.payload;
-
-            if (!action.payload.results) {
-                return {
-                    ...state,
-                    danglingSubdomains: newResults,
-                    danglingSubdomainsCount: newResults.length,
-                    danglingSubdomainsNext: null,
-                    danglingSubdomainsPrevious: null
-                };
-            }
-
-            const existingIds = new Set(state.danglingSubdomains.map(s => s.id));
-            const uniqueNewSubdomains = newResults.filter(subdomain => !existingIds.has(subdomain.id));
-
-            return {
-                ...state,
-                danglingSubdomains: [...state.danglingSubdomains, ...uniqueNewSubdomains],
-                danglingSubdomainsCount: action.payload.count || state.danglingSubdomainsCount,
-                danglingSubdomainsNext: action.payload.next || null,
-                danglingSubdomainsPrevious: action.payload.previous || null
-            };
-        }
 
         case PATCH_DANGLING_SUBDOMAIN:
             return {
@@ -246,17 +234,6 @@ export default function(state = initialState, action) {
                         : item
                 )
             };
-
-        case GET_DANGLING_ALERTS: {
-            const newResults = action.payload.results || action.payload;
-            return {
-                ...state,
-                danglingAlerts: newResults.slice(),
-                danglingAlertsCount: action.payload.count || newResults.length,
-                danglingAlertsNext: action.payload.next || null,
-                danglingAlertsPrevious: action.payload.previous || null
-            };
-        }
 
         case GET_THREATS_MONITORED: {
             const newResults = action.payload.results || action.payload;

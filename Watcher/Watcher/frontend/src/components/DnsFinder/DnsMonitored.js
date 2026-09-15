@@ -164,7 +164,7 @@ export class DnsMonitored extends Component {
                                             <td>{sub.cname_target || '-'}</td>
                                             <td><span className={`badge ${badge.className}`}>{badge.label}</span></td>
                                             <td>
-                                                <DateWithTooltip date={sub.last_checked_at} includeTime={true} type="checked" />
+                                                <DateWithTooltip date={sub.last_checked_at} includeTime={true} type="default" />
                                             </td>
                                         </tr>
                                     );
@@ -335,7 +335,7 @@ export class DnsMonitored extends Component {
                         <div className="d-flex justify-content-between align-items-center" style={{marginBottom: 12}}>
                             <div>
                                 <h4>Corporate DNS Assets Monitored</h4>
-                                <h6 className="text-muted">Dnstwist Algorithm</h6>
+                                <h6 className="text-muted">Dnstwist Algorithm & Subdomain Takeover Detection</h6>
                             </div>
                             <div>
                                 <button className="btn btn-success" onClick={() => {

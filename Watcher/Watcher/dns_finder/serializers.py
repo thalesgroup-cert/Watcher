@@ -126,7 +126,7 @@ class MISPSerializer(serializers.Serializer):
     event_uuid = serializers.CharField(required=False, allow_blank=True)
     domain_name = serializers.CharField(required=False, allow_blank=True)
     fuzzer = serializers.CharField(required=False, allow_blank=True)
-    source = serializers.CharField(required=False, allow_blank=True)
+    source = serializers.ChoiceField(choices=['subdomain_takeover'], required=False, allow_blank=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -202,6 +202,65 @@ class NotificationSystemTest(TestCase):
         self.assertTrue(mock_slack.called)
         self.assertTrue(mock_email.called)
 
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_notifications_certstream_keyword_source_uses_real_template(self, mock_email):
+        """
+        Regression test for the source-branch bug: Alert.source is now written as
+        'certstream_keyword' (Alert.SOURCE_CERTSTREAM_KEYWORD), but common/core.py used to
+        branch on the old literal 'print_callback', so this path always fell through to the
+        generic "Alert with no specific model defined." fallback body instead of the real
+        DNS Finder cert-transparency HTML template. Exercises the real
+        send_dns_finder_notifications -> send_app_specific_notifications path (not a mock of
+        the dispatch itself), only mocking the outbound SMTP call.
+        """
+        from dns_finder.core import send_dns_finder_notifications
+        from dns_finder.models import DnsMonitored, KeywordMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("certstream_notify_user", "certstream_notify@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-certstream.com")
+        keyword = KeywordMonitored.objects.create(name="notify-keyword")
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="evil.notify-certstream.com",
+            dns_monitored=dns_monitored,
+            keyword_monitored=keyword,
+        )
+        alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_CERTSTREAM_KEYWORD)
+
+        send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_email.called)
+        email_body = mock_email.call_args[0][1]
+        self.assertNotEqual(email_body, "Alert with no specific model defined.")
+        self.assertIn("evil.notify-certstream.com", email_body)
+
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_notifications_dnstwist_source_uses_real_template(self, mock_email):
+        """
+        Same regression as above, for the 'dnstwist' (Alert.SOURCE_DNSTWIST) source value,
+        which common/core.py used to compare against the old literal 'check_dnstwist'.
+        """
+        from dns_finder.core import send_dns_finder_notifications
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dnstwist_notify_user", "dnstwist_notify@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-dnstwist.com")
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="notify-dnstw1st.com",
+            dns_monitored=dns_monitored,
+        )
+        alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_DNSTWIST)
+
+        send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_email.called)
+        email_body = mock_email.call_args[0][1]
+        self.assertNotEqual(email_body, "Alert with no specific model defined.")
+        self.assertIn("notify-dnstw1st.com", email_body)
+
 
 class SecurityTest(TestCase):
     """Test security-related functionality."""

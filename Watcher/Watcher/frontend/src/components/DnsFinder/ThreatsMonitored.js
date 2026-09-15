@@ -306,7 +306,7 @@ export class ThreatsMonitored extends Component {
             exportMode: isTakeover ? 'subdomainTakeover' : 'dnsFinder',
             selectedItem: item,
             exportDomain: {
-                id: item.id,
+                id: isTakeover ? td?.dangling_subdomain_id : item.id,
                 domain_name: item.domain_name,
                 misp_event_uuid: item.misp_event_uuid,
             },
