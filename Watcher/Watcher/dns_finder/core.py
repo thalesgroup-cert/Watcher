@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+import datetime as dt
 import dns.resolver
 import dns.exception
 import requests
@@ -92,6 +93,42 @@ def clean_wildcard_domain(domain):
     if domain.startswith('*.'):
         return domain[2:]
     return domain
+
+
+def extract_certificate_metadata(message):
+    """
+    Extract issuer/SAN/validity/serial/fingerprint from a CertStream
+    certificate_update message's leaf certificate and issuing chain.
+    Every field is read defensively - a leaner or differently-shaped
+    certstream-server-go payload must never raise here, only omit data.
+
+    :param message: CertStream event (Dict).
+    :rtype: dict
+    """
+    leaf_cert = (message.get('data') or {}).get('leaf_cert') or {}
+    chain = (message.get('data') or {}).get('chain') or []
+
+    issuer = None
+    if chain:
+        issuer_subject = chain[0].get('subject') or {}
+        issuer = issuer_subject.get('O') or issuer_subject.get('CN')
+
+    def _to_datetime(epoch_seconds):
+        if epoch_seconds is None:
+            return None
+        try:
+            return dt.datetime.utcfromtimestamp(float(epoch_seconds))
+        except (TypeError, ValueError, OSError):
+            return None
+
+    return {
+        'issuer': issuer,
+        'san_list': leaf_cert.get('all_domains') or None,
+        'not_before': _to_datetime(leaf_cert.get('not_before')),
+        'not_after': _to_datetime(leaf_cert.get('not_after')),
+        'serial_number': leaf_cert.get('serial_number'),
+        'fingerprint_sha256': leaf_cert.get('fingerprint'),
+    }
 
 
 _FINGERPRINTS_PATH = "./dns_finder/data/dangling_fingerprints.json"
@@ -349,14 +386,17 @@ def print_callback(message, context):
     for keyword_monitored in KeywordMonitored.objects.all():
         if keyword_monitored.name in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
                 not in_dns_monitored(domain):
-            
+
             # Check if domain is legitimate before creating alert
             if is_legitimate_domain(domain):
                 logger.info(f"Skipping alert for {domain} - domain is in Legitimate Domains")
                 continue
-            
+
             logger.info(f"Keyword {keyword_monitored.name} detected in: {domain}")
-            dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
+            cert_metadata = extract_certificate_metadata(message)
+            dns_twisted = DnsTwisted.objects.create(
+                domain_name=domain, keyword_monitored=keyword_monitored, **cert_metadata
+            )
             alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_CERTSTREAM_KEYWORD)
             send_dns_finder_notifications(alert)
 

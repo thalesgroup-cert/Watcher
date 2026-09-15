@@ -231,6 +231,71 @@ class CoreTest(TestCase):
         alert = Alert.objects.get(dns_twisted__domain_name="source-keyword-test-evil.com")
         self.assertEqual(alert.source, Alert.SOURCE_CERTSTREAM_KEYWORD)
 
+    def test_extract_certificate_metadata_full_message(self):
+        from dns_finder.core import extract_certificate_metadata
+
+        message = {
+            'data': {
+                'leaf_cert': {
+                    'subject': {'CN': 'evil.example.com'},
+                    'not_before': 1700000000,
+                    'not_after': 1731536000,
+                    'serial_number': '03AB',
+                    'fingerprint': 'AA:BB:CC:DD',
+                    'all_domains': ['evil.example.com', 'www.evil.example.com'],
+                },
+                'chain': [{'subject': {'O': "Let's Encrypt", 'CN': 'R3'}}],
+            }
+        }
+
+        metadata = extract_certificate_metadata(message)
+
+        self.assertEqual(metadata['issuer'], "Let's Encrypt")
+        self.assertEqual(metadata['san_list'], ['evil.example.com', 'www.evil.example.com'])
+        self.assertEqual(metadata['serial_number'], '03AB')
+        self.assertEqual(metadata['fingerprint_sha256'], 'AA:BB:CC:DD')
+        self.assertIsNotNone(metadata['not_before'])
+        self.assertIsNotNone(metadata['not_after'])
+
+    def test_extract_certificate_metadata_missing_fields_is_safe(self):
+        """A leaner/older certstream-server-go payload must never raise."""
+        from dns_finder.core import extract_certificate_metadata
+
+        metadata = extract_certificate_metadata({'data': {'leaf_cert': {'subject': {'CN': 'x.com'}}}})
+
+        self.assertIsNone(metadata['issuer'])
+        self.assertIsNone(metadata['san_list'])
+        self.assertIsNone(metadata['not_before'])
+        self.assertIsNone(metadata['not_after'])
+        self.assertIsNone(metadata['serial_number'])
+        self.assertIsNone(metadata['fingerprint_sha256'])
+
+    def test_print_callback_stores_certificate_metadata_on_dns_twisted(self):
+        from dns_finder.core import print_callback
+        from dns_finder.models import DnsTwisted
+
+        KeywordMonitored.objects.create(name="cert-capture-test")
+        message = {
+            'data': {
+                'leaf_cert': {
+                    'subject': {'CN': 'cert-capture-test-evil.com'},
+                    'not_before': 1700000000,
+                    'not_after': 1731536000,
+                    'serial_number': '03AB',
+                    'fingerprint': 'AA:BB:CC:DD',
+                    'all_domains': ['cert-capture-test-evil.com'],
+                },
+                'chain': [{'subject': {'O': "Let's Encrypt"}}],
+            }
+        }
+
+        print_callback(message, None)
+
+        twisted = DnsTwisted.objects.get(domain_name="cert-capture-test-evil.com")
+        self.assertEqual(twisted.issuer, "Let's Encrypt")
+        self.assertEqual(twisted.serial_number, '03AB')
+        self.assertEqual(twisted.san_list, ['cert-capture-test-evil.com'])
+
 
 class DanglingDnsDetectionTest(TestCase):
     """Test dangling DNS detection engine."""
