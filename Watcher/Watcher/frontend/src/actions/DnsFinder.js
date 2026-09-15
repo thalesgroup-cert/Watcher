@@ -19,7 +19,8 @@ import {
     GET_DNS_FINDER_STATISTICS,
     GET_DANGLING_SUBDOMAINS,
     PATCH_DANGLING_SUBDOMAIN,
-    GET_DANGLING_ALERTS
+    GET_DANGLING_ALERTS,
+    GET_THREATS_MONITORED
 } from './types';
 import { createMessage, returnErrors } from './messages';
 import { tokenConfig } from './auth';
@@ -227,16 +228,17 @@ export const patchKeywordMonitored = (id, keyword_monitored) => (dispatch, getSt
         );
 };
 
-export const exportToMISP = (id, event_uuid, domain_name) => (dispatch, getState) => {
+export const exportToMISP = (id, event_uuid, domain_name, source) => (dispatch, getState) => {
     const payload = { id, event_uuid };
-    
+    if (source) payload.source = source;
+
     return axios
         .post('/api/dns_finder/misp/', payload, tokenConfig(getState))
         .then(res => {
             const message = res.data.message || `${domain_name} exported to MISP`;
-            
+
             dispatch(createMessage({ add: message }));
-            
+
             if (res.data.misp_event_uuid) {
                 dispatch({
                     type: EXPORT_TO_MISP,
@@ -247,9 +249,9 @@ export const exportToMISP = (id, event_uuid, domain_name) => (dispatch, getState
                     }
                 });
             }
-            
+
             dispatch(getAlerts());
-            
+
             return res.data;
         })
         .catch(err => {
@@ -352,6 +354,33 @@ export const getDanglingAlerts = (page = 1, pageSize = 100) => (dispatch, getSta
             dispatch({
                 type: GET_DANGLING_ALERTS,
                 payload: res.data
+            });
+            return res.data;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
+};
+
+// GET UNIFIED DNS THREATS MONITORED (dnstwist + certstream_keyword + subdomain_takeover)
+export const getThreatsMonitored = (page = 1, pageSize = 100, filters = {}) => (dispatch, getState) => {
+    const params = new URLSearchParams({ page, page_size: pageSize });
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+    });
+
+    return axios
+        .get(`/api/dns_finder/threats_monitored/?${params.toString()}`, tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_THREATS_MONITORED,
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || 0,
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
             });
             return res.data;
         })

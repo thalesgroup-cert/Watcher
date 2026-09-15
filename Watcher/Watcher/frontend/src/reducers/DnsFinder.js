@@ -18,7 +18,8 @@ import {
     GET_DNS_FINDER_STATISTICS,
     GET_DANGLING_SUBDOMAINS,
     PATCH_DANGLING_SUBDOMAIN,
-    GET_DANGLING_ALERTS
+    GET_DANGLING_ALERTS,
+    GET_THREATS_MONITORED
 } from '../actions/types';
 
 const initialState = {
@@ -53,6 +54,10 @@ const initialState = {
     danglingAlertsCount: 0,
     danglingAlertsNext: null,
     danglingAlertsPrevious: null,
+    threatsMonitored: [],
+    threatsMonitoredCount: 0,
+    threatsMonitoredNext: null,
+    threatsMonitoredPrevious: null,
 };
 
 export default function(state = initialState, action) {
@@ -101,6 +106,11 @@ export default function(state = initialState, action) {
                 ...state,
                 alerts: state.alerts.map(alert =>
                     alert.id === action.payload.id ? action.payload : alert
+                ),
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.source !== 'subdomain_takeover' && item.id === action.payload.id
+                        ? { ...item, status_tag: action.payload.status ? 'active' : 'archived' }
+                        : item
                 )
             };
 
@@ -218,6 +228,22 @@ export default function(state = initialState, action) {
                 ...state,
                 danglingSubdomains: state.danglingSubdomains.map(sub =>
                     sub.id === action.payload.id ? action.payload : sub
+                ),
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.source === 'subdomain_takeover' &&
+                    item.technical_details?.dangling_subdomain_id === action.payload.id
+                        ? {
+                            ...item,
+                            status_tag: action.payload.status,
+                            technical_details: {
+                                ...item.technical_details,
+                                provider: action.payload.provider,
+                                cname_target: action.payload.cname_target,
+                                http_status_code: action.payload.http_status_code,
+                                last_checked_at: action.payload.last_checked_at
+                            }
+                        }
+                        : item
                 )
             };
 
@@ -229,6 +255,32 @@ export default function(state = initialState, action) {
                 danglingAlertsCount: action.payload.count || newResults.length,
                 danglingAlertsNext: action.payload.next || null,
                 danglingAlertsPrevious: action.payload.previous || null
+            };
+        }
+
+        case GET_THREATS_MONITORED: {
+            const newResults = action.payload.results || action.payload;
+
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    threatsMonitored: newResults,
+                    threatsMonitoredCount: newResults.length,
+                    threatsMonitoredNext: null,
+                    threatsMonitoredPrevious: null
+                };
+            }
+
+            const threatKey = (item) => `${item.source}:${item.id}`;
+            const existingKeys = new Set(state.threatsMonitored.map(threatKey));
+            const uniqueNewItems = newResults.filter(item => !existingKeys.has(threatKey(item)));
+
+            return {
+                ...state,
+                threatsMonitored: [...state.threatsMonitored, ...uniqueNewItems],
+                threatsMonitoredCount: action.payload.count || state.threatsMonitoredCount,
+                threatsMonitoredNext: action.payload.next || null,
+                threatsMonitoredPrevious: action.payload.previous || null
             };
         }
 
