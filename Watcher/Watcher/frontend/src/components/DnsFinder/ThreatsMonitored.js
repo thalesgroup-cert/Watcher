@@ -10,7 +10,7 @@ import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import ExportModal from '../common/ExportModal';
-import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
+import { TimelineModal } from '../Timeline/TimelineModal';
 
 const SOURCE_BADGES = {
     dnstwist: { label: 'Dnstwist Algorithm', className: 'bg-primary' },
@@ -401,7 +401,7 @@ export class ThreatsMonitored extends Component {
                     <Form.Label column sm="4">HTTP Status</Form.Label>
                     <Col sm="8" className="mt-2">{td.http_status_code || '-'}</Col>
                     <Form.Label column sm="4">Last Checked</Form.Label>
-                    <Col sm="8" className="mt-2"><DateWithTooltip date={td.last_checked_at} includeTime={true} type="checked" /></Col>
+                    <Col sm="8" className="mt-2"><DateWithTooltip date={td.last_checked_at} includeTime={true} type="default" /></Col>
                     <Form.Label column sm="4">Corporate DNS</Form.Label>
                     <Col sm="8" className="mt-2">{td.corporate_dns || '-'}</Col>
                 </Fragment>

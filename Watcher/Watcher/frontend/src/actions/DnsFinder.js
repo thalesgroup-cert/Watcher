@@ -229,7 +229,7 @@ export const patchKeywordMonitored = (id, keyword_monitored) => (dispatch, getSt
 };
 
 export const exportToMISP = (id, event_uuid, domain_name, source) => (dispatch, getState) => {
-    const payload = { id, event_uuid };
+    const payload = { id, event_uuid, domain_name };
     if (source) payload.source = source;
 
     return axios
