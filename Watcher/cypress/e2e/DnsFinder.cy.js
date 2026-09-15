@@ -48,7 +48,9 @@ describe('DNS Finder - E2E Test Suite', () => {
       }
     }).as('getKeywordMonitored');
 
-    cy.intercept('GET', '**/api/dns_finder/alert/**', {
+    // Unified DNS Threats Monitored table (replaces the old alert/dangling_alert panel listings).
+    // One row per source so filtering-by-source and the source-specific action sets can be exercised.
+    cy.intercept('GET', '**/api/dns_finder/threats_monitored/**', {
       statusCode: 200,
       body: {
         count: 3,
@@ -57,77 +59,100 @@ describe('DNS Finder - E2E Test Suite', () => {
         results: [
           {
             id: 1,
-            dns_twisted: {
-              id: 101,
-              domain_name: "vvatcher.com",
-              dns_monitored: { id: 1, domain_name: "watcher.com" },
-              keyword_monitored: null,
+            source: "dnstwist",
+            domain_name: "vvatcher.com",
+            status_tag: "active",
+            corporate_keyword: null,
+            corporate_dns: "watcher.com",
+            created_at: "2025-06-19T14:30:00Z",
+            misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440000']",
+            technical_details: {
               fuzzer: "homoglyph",
-              misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440000']",
-              created_at: "2025-06-19T14:30:00Z"
-            },
-            status: true,
-            created_at: "2025-06-19T14:30:00Z"
+              corporate_dns: "watcher.com",
+              detected_at: "2025-06-19T14:30:00Z"
+            }
           },
           {
             id: 2,
-            dns_twisted: {
-              id: 102,
-              domain_name: "watcher-threat.com",
-              dns_monitored: null,
-              keyword_monitored: { id: 1, name: "watcher" },
-              fuzzer: null,
-              misp_event_uuid: null,
-              created_at: "2025-06-19T12:15:00Z"
-            },
-            status: true,
-            created_at: "2025-06-19T12:15:00Z"
+            source: "certstream_keyword",
+            domain_name: "watcher-threat.com",
+            status_tag: "archived",
+            corporate_keyword: "watcher",
+            corporate_dns: null,
+            created_at: "2025-06-18T16:45:00Z",
+            misp_event_uuid: null,
+            technical_details: {
+              corporate_keyword: "watcher",
+              issuer: "Let's Encrypt",
+              san_list: ["watcher-threat.com", "www.watcher-threat.com"],
+              not_before: "2025-06-18T00:00:00Z",
+              not_after: "2025-09-18T00:00:00Z",
+              serial_number: "0x1234",
+              fingerprint_sha256: "AA:BB:CC:DD"
+            }
           },
           {
             id: 3,
-            dns_twisted: {
-              id: 103,
-              domain_name: "vvatcher.fr",
-              dns_monitored: { id: 2, domain_name: "watcher.fr" },
-              keyword_monitored: null,
-              fuzzer: "bitsquatting",
-              misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440001']",
-              created_at: "2025-06-18T16:45:00Z"
-            },
-            status: false,
-            created_at: "2025-06-18T16:45:00Z"
+            source: "subdomain_takeover",
+            domain_name: "old.watcher.com",
+            status_tag: "dangling_confirmed",
+            corporate_keyword: null,
+            corporate_dns: "watcher.com",
+            created_at: "2025-06-17T08:15:00Z",
+            misp_event_uuid: null,
+            technical_details: {
+              provider: "Amazon S3",
+              cname_target: "mybucket.s3.amazonaws.com",
+              http_status_code: 404,
+              last_checked_at: "2025-06-20T10:00:00Z",
+              corporate_dns: "watcher.com",
+              dangling_subdomain_id: 501
+            }
           }
         ]
       }
-    }).as('getAlerts');
+    }).as('getThreatsMonitored');
 
-    cy.intercept('GET', '**/api/dns_finder/dangling_subdomain/**', {
+    // Dangling subdomains for one Corporate DNS Asset, opened from DnsMonitored's per-row modal.
+    cy.intercept('GET', '**/api/dns_finder/dns_monitored/*/dangling_subdomains/**', {
       statusCode: 200,
-      body: {
-        count: 1,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1,
-            subdomain: "old.watcher.com",
-            dns_monitored: { id: 1, domain_name: "watcher.com" },
-            provider: "Amazon S3",
-            cname_target: "mybucket.s3.amazonaws.com",
-            status: "dangling_confirmed",
-            discovered_at: "2025-06-19T10:00:00Z",
-            last_checked_at: "2025-06-20T10:00:00Z",
-            http_status_code: 404,
-            last_event: null
-          }
-        ]
-      }
-    }).as('getDanglingSubdomains');
+      body: [
+        {
+          id: 1,
+          subdomain: "old.watcher.com",
+          provider: "Amazon S3",
+          cname_target: "mybucket.s3.amazonaws.com",
+          status: "dangling_confirmed",
+          discovered_at: "2025-06-19T10:00:00Z",
+          last_checked_at: "2025-06-20T10:00:00Z",
+          http_status_code: 404
+        }
+      ]
+    }).as('getDnsMonitoredDanglingSubdomains');
 
     cy.intercept('PATCH', '**/api/dns_finder/dangling_subdomain/**', (req) => ({
       statusCode: 200,
       body: { id: parseInt(req.url.split('/').pop()), subdomain: "old.watcher.com", ...req.body }
     })).as('patchDanglingSubdomain');
+
+    // Statistics panel + supporting "all pages" fetches used by DnsFinderStats.
+    cy.intercept('GET', '**/api/dns_finder/dns_monitored/statistics/**', {
+      statusCode: 200,
+      body: {
+        totalAlerts: 3, newToday: 0, newThisWeek: 3, totalDnsMonitored: 3, totalKeywords: 3,
+        totalDanglingSubdomains: 1, totalDanglingConfirmed: 1, totalDanglingSuspected: 0
+      }
+    }).as('getDnsFinderStatistics');
+
+    cy.intercept('GET', '**/api/dns_finder/alert/**', {
+      statusCode: 200,
+      body: { count: 0, next: null, previous: null, results: [] }
+    }).as('getAlerts');
+
+    cy.intercept('GET', '**/api/site_monitoring/site/**', {
+      statusCode: 200,
+      body: { count: 0, next: null, previous: null, results: [] }
+    }).as('getSites');
 
     // Mock CRUD operations
     cy.intercept('POST', '**/api/dns_finder/dns_monitored/**', (req) => ({
@@ -199,7 +224,7 @@ describe('DNS Finder - E2E Test Suite', () => {
 
     // Navigate to DNS Finder
     cy.visit('/#/dns_finder');
-    cy.wait('@getDnsMonitored', { timeout: 15000 });
+    cy.wait('@getThreatsMonitored', { timeout: 15000 });
 
     cy.log('Authentication completed and navigated to DNS Finder');
   });
@@ -245,10 +270,10 @@ describe('DNS Finder - E2E Test Suite', () => {
     it('should display main sections with ResizableContainers', () => {
       cy.get('.container-fluid', { timeout: 15000 }).should('exist');
 
-      cy.contains('.card-header', 'DNS Alerts', { timeout: 15000 }).should('exist');
-      cy.contains('.card-header', 'DNS Monitored').should('exist');
-      cy.contains('.card-header', 'Archived Alerts').should('exist');
-      cy.contains('.card-header', 'Keyword Monitored').should('exist');
+      cy.contains('.card-header', 'Statistics', { timeout: 15000 }).should('exist');
+      cy.contains('.card-header', 'DNS Threats Monitored').should('exist');
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').should('exist');
+      cy.contains('.card-header', 'Corporate Keywords Monitored').should('exist');
     });
 
     it('should display TableManager filter controls', () => {
@@ -274,20 +299,20 @@ describe('DNS Finder - E2E Test Suite', () => {
 
     it('should maintain session across navigation', () => {
       cy.get('.navbar').should('exist');
-    
+
       cy.visit('/#/');
       cy.url().should('include', '#/');
-    
+
       cy.visit('/#/dns_finder');
       cy.url().should('include', '/dns_finder');
-    
+
       cy.get('.navbar').should('exist');
     });
-  }); 
+  });
 
   describe('DNS Monitored Display and Management', () => {
     it('should display DNS monitored table in ResizableContainer', () => {
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Corporate DNS")', { timeout: 10000 }).should('exist');
           cy.get('h6:contains("Dnstwist Algorithm")', { timeout: 10000 }).should('exist');
@@ -296,7 +321,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display DNS monitored data when available', () => {
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'watcher.com');
@@ -327,7 +352,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display edit and delete buttons for authenticated users', () => {
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('.material-icons:contains("edit")').should('exist');
           cy.get('.material-icons:contains("delete")').should('exist');
@@ -335,7 +360,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle DNS edit workflow', () => {
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("edit")')
         .first()
         .scrollIntoView()
@@ -348,7 +373,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle DNS deletion workflow', () => {
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("delete")')
         .first()
         .click();
@@ -360,7 +385,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should sort DNS monitored table', () => {
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table th:contains("Domain Name")').click();
           cy.wait(500);
@@ -368,11 +393,27 @@ describe('DNS Finder - E2E Test Suite', () => {
           cy.wait(500);
         });
     });
+
+    it('should open the Dangling Subdomains modal for a Corporate DNS Asset', () => {
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm')
+        .find('button[title="View Dangling Subdomains"]')
+        .first()
+        .click();
+
+      cy.wait('@getDnsMonitoredDanglingSubdomains', { timeout: 10000 });
+      cy.contains('Dangling Subdomains for').should('be.visible');
+      cy.get('.modal').within(() => {
+        cy.get('table tbody tr').should('have.length.at.least', 1);
+        cy.get('tbody').should('contain', 'old.watcher.com');
+        cy.get('tbody').should('contain', 'Amazon S3');
+        cy.contains('button', 'Close').click();
+      });
+    });
   });
 
   describe('Keyword Monitored Display and Management', () => {
     it('should display keyword monitored table in ResizableContainer', () => {
-      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate Keywords Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('h4:contains("Corporate Keywords")', { timeout: 10000 }).should('exist');
           cy.get('h6:contains("Certificate Transparency")', { timeout: 10000 }).should('exist');
@@ -381,7 +422,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display keyword monitored data when available', () => {
-      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate Keywords Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'watcher');
@@ -412,7 +453,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should display edit and delete buttons for authenticated users', () => {
-      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate Keywords Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('.material-icons:contains("edit")').should('exist');
           cy.get('.material-icons:contains("delete")').should('exist');
@@ -420,7 +461,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle keyword edit workflow', () => {
-      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate Keywords Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("edit")')
         .first()
         .scrollIntoView()
@@ -432,7 +473,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle keyword deletion workflow', () => {
-      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate Keywords Monitored').closest('.card.h-100.shadow-sm')
         .find('.material-icons:contains("delete")')
         .first()
         .click();
@@ -444,7 +485,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should sort keyword monitored table', () => {
-      cy.contains('.card-header', 'Keyword Monitored').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'Corporate Keywords Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table th:contains("Name")').click();
           cy.wait(500);
@@ -452,65 +493,101 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
   });
 
-  describe('Alerts Display and Management', () => {
-    it('should display alerts table in ResizableContainer', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
+  describe('DNS Threats Monitored (unified) Display and Management', () => {
+    it('should display the unified threats table in ResizableContainer with all three sources selectable', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
-          cy.get('h4:contains("Alerts")', { timeout: 10000 }).should('exist');
+          cy.get('h4:contains("DNS Threats Monitored")', { timeout: 10000 }).should('exist');
           cy.get('table', { timeout: 10000 }).should('exist');
-        });
-    });
-
-    it('should display alert data structure correctly', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('table thead th').should('contain', 'ID');
-          cy.get('table thead th').should('contain', 'Twisted DNS');
+          cy.get('table thead th').should('contain', 'Domain Name');
+          cy.get('table thead th').should('contain', 'Source');
           cy.get('table thead th').should('contain', 'Corporate Keyword');
           cy.get('table thead th').should('contain', 'Corporate DNS');
-          cy.get('table thead th').should('contain', 'Fuzzer');
+          cy.get('table thead th').should('contain', 'Created At');
         });
+
+      cy.contains('button', 'Show Filters').click();
+      cy.contains('label', 'Source').parent().find('select').as('sourceSelect');
+      cy.get('@sourceSelect').find('option').should('contain.text', 'Dnstwist Algorithm');
+      cy.get('@sourceSelect').find('option').should('contain.text', 'Certificate Transparency Stream');
+      cy.get('@sourceSelect').find('option').should('contain.text', 'Subdomain Takeover Detection');
+      cy.contains('button', 'Hide Filters').click();
     });
 
-    it('should display active alerts (status=true)', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
+    it('should display each source with its badge and status tag', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
-          cy.get('table tbody tr').should('have.length.at.least', 1);
           cy.get('tbody').should('contain', 'vvatcher.com');
+          cy.get('tbody').should('contain', 'watcher-threat.com');
+          cy.get('tbody').should('contain', 'old.watcher.com');
+
+          cy.get('tbody').should('contain', 'Dnstwist Algorithm');
+          cy.get('tbody').should('contain', 'Certificate Transparency Stream');
+          cy.get('tbody').should('contain', 'Subdomain Takeover Detection');
+
+          cy.get('tbody').should('contain', 'Active');
+          cy.get('tbody').should('contain', 'Archived');
         });
     });
 
-    it('should display alert action buttons', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
+    it('should display MISP export and Technical Details buttons on every row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .find('table tbody tr')
-        .first()
-        .within(() => {
-          cy.get('button:contains("Disable")').should('exist');
+        .each($row => {
+          cy.wrap($row).find('button[title="Technical Details"]').should('exist');
+          cy.wrap($row).find('button[title="Export"]').should('exist');
         });
-  
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
+    });
+
+    it('should only show Monitor/Disable actions on dnstwist and certstream rows, not on subdomain takeover rows', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
-          cy.get('button').then(($buttons) => {
-            const addButtons = $buttons.toArray().filter(btn => {
-              const text = Cypress.$(btn).text();
-              return text.includes('Add to Website Monitoring') || text.includes('Website Monitoring');
-            });
-            
-            if (addButtons.length > 0) {
-              cy.log('Add to Website Monitoring buttons found');
-              expect(addButtons.length).to.be.greaterThan(0);
-            } else {
-              cy.log('No Add to Website Monitoring buttons - alerts may not support this action');
-              cy.get('button:contains("Disable")').should('exist');
-            }
+          cy.contains('table tbody tr', 'vvatcher.com').within(() => {
+            cy.get('button:contains("Disable"), button:contains("Enable")').should('exist');
+            cy.get('button[title="Mark Resolved"]').should('not.exist');
+          });
+
+          cy.contains('table tbody tr', 'old.watcher.com').within(() => {
+            cy.get('button:contains("Disable"), button:contains("Enable")').should('not.exist');
+            cy.get('button[title="Mark Resolved"]').should('exist');
+            cy.get('button[title="Mark False Positive"]').should('exist');
+            cy.get('button[title="Re-check"]').should('exist');
+            cy.get('button[title="History"]').should('exist');
           });
         });
     });
 
-    it('should handle alert disable workflow', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
-        .find('table tbody tr')
-        .first()
+    it('should open the Technical Details modal for a dnstwist row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'vvatcher.com')
+        .find('button[title="Technical Details"]')
+        .click();
+
+      cy.contains('Technical details for').should('be.visible');
+      cy.get('.modal').within(() => {
+        cy.contains('Fuzzer').should('exist');
+        cy.contains('homoglyph').should('exist');
+        cy.contains('button', 'Close').click();
+      });
+    });
+
+    it('should open the Technical Details modal for a subdomain takeover row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'old.watcher.com')
+        .find('button[title="Technical Details"]')
+        .click();
+
+      cy.contains('Technical details for').should('be.visible');
+      cy.get('.modal').within(() => {
+        cy.contains('Provider').should('exist');
+        cy.contains('Amazon S3').should('exist');
+        cy.contains('button', 'Close').click();
+      });
+    });
+
+    it('should handle alert disable workflow on a dnstwist row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'vvatcher.com')
         .find('button:contains("Disable")')
         .click();
 
@@ -520,81 +597,10 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.get('button:contains("Close")').first().click();
     });
 
-    it('should display MISP export buttons', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('button[title*="Export"], i.material-icons:contains("cloud_upload")').should('exist');
-        });
-    });
-
-    it('should display MISP status badges', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('i.material-icons').filter((index, icon) => {
-            const text = Cypress.$(icon).text();
-            return text.includes('cloud') || text.includes('check') || text.includes('close');
-          }).should('exist');
-        });
-    });
-
-    it('should handle add to website monitoring workflow', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
-        .then(($container) => {
-          const addButton = $container.find('button').filter((index, btn) => {
-            const text = Cypress.$(btn).text();
-            return text.includes('Add to Website Monitoring') || text.includes('Website Monitoring');
-          });
-  
-          if (addButton.length > 0) {
-            cy.wrap(addButton.first()).click();
-  
-            cy.get('.modal', { timeout: 10000 }).should('be.visible');
-            cy.get('.modal-title').should('contain', 'Action Requested');
-            cy.get('button:contains("Close")').first().click();
-          } else {
-            cy.log('Add to Website Monitoring button not found - alert may not support this action');
-            cy.wrap($container).find('button:contains("Disable")').should('exist');
-          }
-        });
-    });
-  
-    it('should sort alerts table', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('table th:contains("ID")').click();
-          cy.wait(500);
-        });
-    });
-  });
-
-  describe('Archived Alerts Display and Management', () => {
-    it('should display archived alerts table in ResizableContainer', () => {
-      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('h4:contains("Archived Alerts")', { timeout: 10000 }).should('exist');
-          cy.get('table', { timeout: 10000 }).should('exist');
-        });
-    });
-
-    it('should display archived alerts (status=false)', () => {
-      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('table tbody tr').should('have.length.at.least', 1);
-          cy.get('tbody').should('contain', 'vvatcher.fr');
-        });
-    });
-
-    it('should display Enable button for archived alerts', () => {
-      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('button:contains("Enable")').should('exist');
-        });
-    });
-
-    it('should handle alert enable workflow', () => {
-      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
+    it('should handle alert enable workflow on an archived certstream row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'watcher-threat.com')
         .find('button:contains("Enable")')
-        .first()
         .click();
 
       cy.get('.modal', { timeout: 10000 }).should('be.visible');
@@ -603,37 +609,22 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.get('button:contains("Close")').first().click();
     });
 
-    it('should sort archived alerts table', () => {
-      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('table th:contains("Fuzzer")').click();
-          cy.wait(500);
-        });
-    });
-  });
+    it('should handle the "Monitor this domain" workflow on a dnstwist row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'vvatcher.com')
+        .find('button[title*="Monitor"]')
+        .click();
 
-  describe('Dangling Subdomains Display and Management', () => {
-    it('should display dangling subdomains table in ResizableContainer', () => {
-      cy.contains('.card-header', 'Dangling Subdomains').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('h4:contains("Dangling Subdomains")', { timeout: 10000 }).should('exist');
-          cy.get('table', { timeout: 10000 }).should('exist');
-        });
+      cy.get('.modal', { timeout: 10000 }).should('be.visible');
+      cy.get('.modal-title').should('contain', 'Action Requested');
+      cy.get('.modal-body').should('contain', 'vvatcher.com');
+      cy.get('button:contains("Close")').first().click();
     });
 
-    it('should display dangling subdomain data when available', () => {
-      cy.contains('.card-header', 'Dangling Subdomains').closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('table tbody tr').should('have.length.at.least', 1);
-          cy.get('tbody').should('contain', 'old.watcher.com');
-          cy.get('tbody').should('contain', 'Amazon S3');
-        });
-    });
-
-    it('should handle mark-resolved workflow', () => {
-      cy.contains('.card-header', 'Dangling Subdomains').closest('.card.h-100.shadow-sm')
+    it('should handle the mark-resolved workflow on a subdomain takeover row', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'old.watcher.com')
         .find('button[title="Mark Resolved"]')
-        .first()
         .click();
 
       cy.get('.modal', { timeout: 10000 }).should('be.visible');
@@ -641,6 +632,36 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.get('.modal-body').should('contain', 'Resolved');
       cy.get('.modal button:contains("Yes")').click();
       cy.wait('@patchDanglingSubdomain', { timeout: 10000 });
+    });
+
+    it('should sort the unified threats table', () => {
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('table th:contains("Domain Name")').click();
+          cy.wait(500);
+        });
+    });
+
+    it('should filter the table down to a single source via the Source dropdown', () => {
+      cy.contains('button', 'Show Filters').click();
+
+      cy.contains('label', 'Source').parent().find('select').select('subdomain_takeover');
+      cy.wait(300);
+
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('table tbody tr').each($row => {
+            cy.wrap($row).find('td').eq(1).invoke('text').then(text => {
+              if (!text.includes('No results found')) {
+                expect(text).to.contain('Subdomain Takeover Detection');
+              }
+            });
+          });
+        });
+
+      // Reset the filter so it doesn't leak into subsequent tests.
+      cy.contains('label', 'Source').parent().find('select').select('');
+      cy.contains('button', 'Hide Filters').click();
     });
   });
 
@@ -657,17 +678,17 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle divider double-click to reset', () => {
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
-        cy.log('DNS Alerts panel found - PanelGrid layout verified');
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm').should('exist').then(() => {
+        cy.log('DNS Threats Monitored panel found - PanelGrid layout verified');
       });
-      cy.contains('.card-header', 'DNS Monitored').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
-        cy.log('DNS Monitored panel found - PanelGrid layout verified');
+      cy.contains('.card-header', 'Corporate DNS Assets Monitored').closest('.card.h-100.shadow-sm').should('exist').then(() => {
+        cy.log('Corporate DNS Assets Monitored panel found - PanelGrid layout verified');
       });
     });
 
     it('should show tooltip on divider hover', () => {
-      cy.get('.card.h-100.shadow-sm [title="Hide DNS Alerts"]').should('exist');
-      cy.get('.card.h-100.shadow-sm [title="Hide DNS Monitored"]').should('exist');
+      cy.get('.card.h-100.shadow-sm [title="Hide DNS Threats Monitored"]').should('exist');
+      cy.get('.card.h-100.shadow-sm [title="Hide Corporate DNS Assets Monitored"]').should('exist');
     });
   });
 
@@ -682,10 +703,10 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should handle complete alert status change workflow', () => {
-      // Disable an active alert
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
+      // Disable the active dnstwist row
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'vvatcher.com')
         .find('button:contains("Disable")')
-        .first()
         .click();
 
       cy.get('.modal button:contains("Yes")').click();
@@ -693,10 +714,10 @@ describe('DNS Finder - E2E Test Suite', () => {
 
       cy.wait(1000);
 
-      // Enable an archived alert
-      cy.contains('.card-header', 'Archived Alerts').closest('.card.h-100.shadow-sm')
+      // Enable the archived certstream row
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'watcher-threat.com')
         .find('button:contains("Enable")')
-        .first()
         .click();
 
       cy.get('.modal button:contains("Yes")').click();
@@ -710,9 +731,12 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.wait(1000);
 
       // Check that data is filtered
-      cy.contains('.card-header', 'DNS Alerts').closest('.card.h-100.shadow-sm')
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .find('table tbody tr')
         .should('have.length.at.least', 1);
+
+      cy.get('input[placeholder*="Search"]').clear();
+      cy.contains('button', 'Hide Filters').click();
     });
   });
 
@@ -753,10 +777,10 @@ describe('DNS Finder - E2E Test Suite', () => {
         body: { error: 'Server Error' }
       }).as('keywordError');
 
-      cy.intercept('GET', '**/api/dns_finder/alert/**', {
+      cy.intercept('GET', '**/api/dns_finder/threats_monitored/**', {
         statusCode: 500,
         body: { error: 'Server Error' }
-      }).as('alertsError');
+      }).as('threatsError');
 
       cy.reload();
       cy.get('body').should('be.visible');
@@ -774,26 +798,27 @@ describe('DNS Finder - E2E Test Suite', () => {
         body: { count: 0, next: null, previous: null, results: [] }
       }).as('emptyKeywords');
 
-      cy.intercept('GET', '**/api/dns_finder/alert/**', {
+      cy.intercept('GET', '**/api/dns_finder/threats_monitored/**', {
         statusCode: 200,
         body: { count: 0, next: null, previous: null, results: [] }
-      }).as('emptyAlerts');
+      }).as('emptyThreats');
 
       cy.reload();
-      cy.wait(['@emptyDns', '@emptyKeywords', '@emptyAlerts']);
-      
+      cy.wait(['@emptyDns', '@emptyKeywords', '@emptyThreats']);
+
       cy.get('body').should('be.visible');
       cy.get('.container-fluid').should('exist');
-      
+
       cy.get('table').should('exist');
       cy.get('body').then(($body) => {
         const bodyText = $body.text();
-        const hasEmptyIndicator = 
-          bodyText.includes('No data') || 
+        const hasEmptyIndicator =
+          bodyText.includes('No data') ||
           bodyText.includes('No records') ||
+          bodyText.includes('No results found') ||
           bodyText.includes('0 entries') ||
           $body.find('tbody tr').length === 0;
-        
+
         expect(hasEmptyIndicator).to.be.true;
       });
     });
@@ -813,7 +838,7 @@ describe('DNS Finder - E2E Test Suite', () => {
     it('should complete basic workflow integration test', () => {
       cy.get('body').should('be.visible');
       cy.get('.container-fluid').should('exist');
-      cy.get('h4').should('have.length.at.least', 4);
+      cy.get('h4').should('have.length.at.least', 3);
       cy.get('table').should('have.length.at.least', 2);
 
       cy.get('body').then(($body) => {
@@ -829,15 +854,15 @@ describe('DNS Finder - E2E Test Suite', () => {
 
         const hasDnstwist = bodyText.includes('Dnstwist Algorithm');
         const hasCertTransparency = bodyText.includes('Certificate Transparency');
-        const hasTwistedDNS = bodyText.includes('Twisted DNS');
+        const hasSubdomainTakeover = bodyText.includes('Subdomain Takeover Detection');
         const hasKeyword = bodyText.includes('Corporate Keyword');
 
-        if (hasDnstwist) cy.log('Dnstwist Algorithm section found');
-        if (hasCertTransparency) cy.log('Certificate Transparency section found');
-        if (hasTwistedDNS) cy.log('Twisted DNS data found');
+        if (hasDnstwist) cy.log('Dnstwist Algorithm source found');
+        if (hasCertTransparency) cy.log('Certificate Transparency source found');
+        if (hasSubdomainTakeover) cy.log('Subdomain Takeover Detection source found');
         if (hasKeyword) cy.log('Corporate Keyword data found');
 
-        expect(hasDnstwist || hasCertTransparency).to.be.true;
+        expect(hasDnstwist || hasCertTransparency || hasSubdomainTakeover).to.be.true;
       });
     });
 
@@ -845,9 +870,8 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.get('.container-fluid').should('exist');
       cy.get('.card.h-100.shadow-sm').should('have.length.at.least', 2);
       cy.get('table').should('have.length.at.least', 2);
-      cy.get('h4:contains("Alerts")').should('exist');
+      cy.get('h4:contains("DNS Threats Monitored")').should('exist');
       cy.get('h4:contains("Corporate DNS")').should('exist');
-      cy.get('h4:contains("Archived Alerts")').should('exist');
       cy.get('h4:contains("Corporate Keywords")').should('exist');
     });
   });
