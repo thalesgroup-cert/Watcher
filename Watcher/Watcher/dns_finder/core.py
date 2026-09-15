@@ -357,9 +357,7 @@ def print_callback(message, context):
             
             logger.info(f"Keyword {keyword_monitored.name} detected in: {domain}")
             dns_twisted = DnsTwisted.objects.create(domain_name=domain, keyword_monitored=keyword_monitored)
-            alert = Alert.objects.create(dns_twisted=dns_twisted)
-            alert.source = 'print_callback'
-            alert.save()
+            alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_CERTSTREAM_KEYWORD)
             send_dns_finder_notifications(alert)
 
 
@@ -443,9 +441,7 @@ def check_dnstwist(dns_monitored):
                             dns_twisted = DnsTwisted.objects.create(domain_name=twisted_website_dict['domain'],
                                                                     dns_monitored=dns_monitored,
                                                                     fuzzer=twisted_website_dict['fuzzer'])
-                            alert = Alert.objects.create(dns_twisted=dns_twisted)
-                            alert.source = 'check_dnstwist'
-                            alert.save()
+                            alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_DNSTWIST)
                             alerts_list.append(alert)
 
             # Send email alerts

@@ -62,9 +62,17 @@ class Alert(models.Model):
     """
     Triggered when there is a new twisted dns.
     """
+    SOURCE_DNSTWIST = 'dnstwist'
+    SOURCE_CERTSTREAM_KEYWORD = 'certstream_keyword'
+    SOURCE_CHOICES = [
+        (SOURCE_DNSTWIST, 'Dnstwist Algorithm'),
+        (SOURCE_CERTSTREAM_KEYWORD, 'Certificate Transparency Stream'),
+    ]
+
     dns_twisted = models.ForeignKey(DnsTwisted, on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
+    source = models.CharField(max_length=30, choices=SOURCE_CHOICES, default=SOURCE_CERTSTREAM_KEYWORD)
 
     class Meta:
         ordering = ["-created_at"]

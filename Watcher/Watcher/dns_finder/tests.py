@@ -168,6 +168,39 @@ class CoreTest(TestCase):
 
             self.assertTrue(mock_subprocess.called)
 
+    def test_check_dnstwist_persists_source(self):
+        """check_dnstwist must persist Alert.source, not just set-then-discard it."""
+        from dns_finder.core import check_dnstwist
+        from dns_finder.models import Alert
+
+        dns = DnsMonitored.objects.create(domain_name="source-dnstwist-test.com")
+
+        fake_dnstwist_output = (
+            '[{"domain": "tw1sted-source-test.com", "fuzzer": "homoglyph", '
+            '"dns_a": ["1.2.3.4"]}]'
+        )
+        with patch('dns_finder.core.subprocess.check_output') as mock_subprocess, \
+             patch('dns_finder.core.open', create=True) as mock_open:
+            mock_subprocess.return_value = b''
+            mock_open.return_value.__enter__.return_value.read.return_value = fake_dnstwist_output
+            check_dnstwist(dns)
+
+        alert = Alert.objects.get(dns_twisted__domain_name="tw1sted-source-test.com")
+        self.assertEqual(alert.source, Alert.SOURCE_DNSTWIST)
+
+    def test_print_callback_persists_source(self):
+        """print_callback's keyword branch must persist Alert.source."""
+        from dns_finder.core import print_callback
+        from dns_finder.models import Alert
+
+        KeywordMonitored.objects.create(name="source-keyword-test")
+        message = {'data': {'leaf_cert': {'subject': {'CN': 'source-keyword-test-evil.com'}}}}
+
+        print_callback(message, None)
+
+        alert = Alert.objects.get(dns_twisted__domain_name="source-keyword-test-evil.com")
+        self.assertEqual(alert.source, Alert.SOURCE_CERTSTREAM_KEYWORD)
+
 
 class DanglingDnsDetectionTest(TestCase):
     """Test dangling DNS detection engine."""
