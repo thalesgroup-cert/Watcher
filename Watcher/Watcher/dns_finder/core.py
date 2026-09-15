@@ -117,7 +117,8 @@ def extract_certificate_metadata(message):
         if epoch_seconds is None:
             return None
         try:
-            return dt.datetime.utcfromtimestamp(float(epoch_seconds))
+            aware = dt.datetime.fromtimestamp(float(epoch_seconds), tz=dt.timezone.utc)
+            return timezone.localtime(aware).replace(tzinfo=None)
         except (TypeError, ValueError, OSError):
             return None
 

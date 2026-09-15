@@ -233,6 +233,7 @@ class CoreTest(TestCase):
 
     def test_extract_certificate_metadata_full_message(self):
         from dns_finder.core import extract_certificate_metadata
+        import datetime as dt
 
         message = {
             'data': {
@@ -254,8 +255,17 @@ class CoreTest(TestCase):
         self.assertEqual(metadata['san_list'], ['evil.example.com', 'www.evil.example.com'])
         self.assertEqual(metadata['serial_number'], '03AB')
         self.assertEqual(metadata['fingerprint_sha256'], 'AA:BB:CC:DD')
-        self.assertIsNotNone(metadata['not_before'])
-        self.assertIsNotNone(metadata['not_after'])
+
+        # Verify datetimes are stored in local time, not UTC
+        # Epoch 1700000000 is 2023-11-14 22:13:20 UTC, which converts to local Paris time
+        expected_not_before = timezone.localtime(
+            dt.datetime.fromtimestamp(1700000000, tz=dt.timezone.utc)
+        ).replace(tzinfo=None)
+        expected_not_after = timezone.localtime(
+            dt.datetime.fromtimestamp(1731536000, tz=dt.timezone.utc)
+        ).replace(tzinfo=None)
+        self.assertEqual(metadata['not_before'], expected_not_before)
+        self.assertEqual(metadata['not_after'], expected_not_after)
 
     def test_extract_certificate_metadata_missing_fields_is_safe(self):
         """A leaner/older certstream-server-go payload must never raise."""
