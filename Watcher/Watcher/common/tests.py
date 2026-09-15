@@ -106,6 +106,48 @@ class MISPIntegrationTest(TestCase):
         self.assertEqual(result, [])
 
 
+class TakeoverMispObjectTest(TestCase):
+    """Test the dedicated MISP object builder for subdomain-takeover findings."""
+
+    def test_create_takeover_objects_includes_expected_attributes(self):
+        from common.misp import create_takeover_objects
+        from dns_finder.models import DnsMonitored, DanglingSubdomain
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-test.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.misp-takeover-test.com",
+            dns_monitored=dns_monitored,
+            cname_target="bucket.s3.amazonaws.com",
+            provider="Amazon S3",
+            http_status_code=404,
+        )
+
+        objects = create_takeover_objects(dangling)
+
+        self.assertEqual(len(objects), 1)
+        values = {(attr.type, attr.value) for attr in objects[0].attributes}
+        self.assertIn(('domain', 'old.misp-takeover-test.com'), values)
+        self.assertIn(('domain', 'bucket.s3.amazonaws.com'), values)
+        self.assertIn(('text', 'Amazon S3'), values)
+
+    def test_create_takeover_objects_skips_existing_values(self):
+        from common.misp import create_takeover_objects
+        from dns_finder.models import DnsMonitored, DanglingSubdomain
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-dedup.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.misp-takeover-dedup.com", dns_monitored=dns_monitored, provider="Amazon S3"
+        )
+
+        objects = create_takeover_objects(
+            dangling, existing_values={('domain', 'old.misp-takeover-dedup.com')}
+        )
+
+        values = {(attr.type, attr.value) for attr in objects[0].attributes}
+        self.assertNotIn(('domain', 'old.misp-takeover-dedup.com'), values)
+        self.assertIn(('text', 'Amazon S3'), values)
+
+
 class NotificationSystemTest(TestCase):
     """Test notification system components."""
     

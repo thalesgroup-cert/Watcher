@@ -954,6 +954,26 @@ class MISPTest(TestCase):
         serializer = MISPSerializer(data={'id': twisted.id, 'event_uuid': ''})
         self.assertTrue(serializer.is_valid())
 
+    @patch('dns_finder.serializers.PyMISP')
+    def test_misp_serializer_routes_subdomain_takeover_to_dangling_subdomain(self, mock_misp):
+        """source='subdomain_takeover' must resolve against DanglingSubdomain,
+        not DnsTwisted (which has no matching domain_name for a subdomain)."""
+        from dns_finder.serializers import MISPSerializer
+        from dns_finder.models import DanglingSubdomain
+
+        mock_misp.return_value = MagicMock()
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-serializer-takeover.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.misp-serializer-takeover.com", dns_monitored=dns_monitored
+        )
+
+        serializer = MISPSerializer(data={
+            'domain_name': dangling.subdomain, 'source': 'subdomain_takeover', 'event_uuid': ''
+        })
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data['id'], dangling.id)
+
 
 class IntegrationTest(TestCase):
     """Integration tests."""

@@ -9,6 +9,16 @@ from connectors.core import get_misp_config, get_thehive_config
 logger = logging.getLogger('watcher.common')
 
 
+def _get_domain_identifier(obj):
+    """
+    The string identity MISP tracking (find_domain_object/get_misp_uuid) keys
+    on: Site/LegitimateDomain/DnsTwisted expose `.domain_name`, DanglingSubdomain
+    exposes `.subdomain` - this lets create_or_update_objects/find_domain_object
+    stay object-type-agnostic instead of special-casing DanglingSubdomain.
+    """
+    return getattr(obj, 'domain_name', None) or getattr(obj, 'subdomain', None)
+
+
 def create_misp_tags(misp_api):
     """
     Create and verify MISP tags.
@@ -163,6 +173,74 @@ def create_objects(obj, existing_values=None):
     return [network_obj] if network_obj.attributes else []
 
 
+def create_takeover_objects(dangling_subdomain, existing_values=None):
+    """
+    Create a MISP object for a subdomain-takeover (dangling DNS) finding.
+    Kept separate from create_objects() (Site/LegitimateDomain) since a
+    DanglingSubdomain carries a different attribute set (CNAME target,
+    provider, HTTP status) and no domain_name field.
+
+    Args:
+        dangling_subdomain: DanglingSubdomain instance
+        existing_values: Optional set of (type, value) tuples to check for duplicates
+
+    Returns:
+        list: MISP objects ready to be added/updated
+    """
+    network_obj = MISPObject('domain-ip')
+    network_obj.distribution = 5
+
+    attributes_map = {
+        'subdomain': {
+            'value': dangling_subdomain.subdomain,
+            'type': 'domain',
+            'category': 'Network activity',
+            'to_ids': True,
+            'comment': "Subdomain vulnerable to takeover",
+            'object_relation': 'domain',
+        }
+    }
+
+    if dangling_subdomain.cname_target:
+        attributes_map['cname_target'] = {
+            'value': dangling_subdomain.cname_target,
+            'type': 'domain',
+            'category': 'Network activity',
+            'to_ids': True,
+            'comment': "CNAME target (decommissioned resource)",
+            'object_relation': 'cname-target',
+        }
+
+    if dangling_subdomain.provider:
+        attributes_map['provider'] = {
+            'value': dangling_subdomain.provider,
+            'type': 'text',
+            'category': 'Other',
+            'to_ids': False,
+            'comment': "Detected cloud provider",
+            'object_relation': 'text',
+        }
+
+    if dangling_subdomain.http_status_code:
+        attributes_map['http_status_code'] = {
+            'value': str(dangling_subdomain.http_status_code),
+            'type': 'text',
+            'category': 'Other',
+            'to_ids': False,
+            'comment': "HTTP status observed during probe",
+            'object_relation': 'comment',
+        }
+
+    for attr_data in attributes_map.values():
+        if not attr_data['value']:
+            continue
+        if existing_values and (attr_data['type'], attr_data['value']) in existing_values:
+            continue
+        network_obj.add_attribute(**attr_data)
+
+    return [network_obj] if network_obj.attributes else []
+
+
 def find_domain_object(misp_api, event, domain_name):
     """
     Find a domain object in a MISP event.
@@ -203,34 +281,40 @@ def find_domain_object(misp_api, event, domain_name):
 
 def create_or_update_objects(misp_api, event, site, dry_run=False):
     """
-    Create or update MISP objects for a given site.
-    
+    Create or update MISP objects for a given domain-bearing object (Site,
+    LegitimateDomain, DnsTwisted, or DanglingSubdomain).
+
     Args:
         misp_api: PyMISP API instance
         event: MISP Event object
-        site: Site object containing domain data
+        site: Domain-bearing object (identified via _get_domain_identifier)
         dry_run: If True, simulate the operation without making changes
-        
+
     Returns:
         tuple: (success, message)
     """
+    from dns_finder.models import DanglingSubdomain
+
     try:
         if 'Event' not in event:
             logger.error("Invalid MISP event format - please check the event UUID")
             return False, "Invalid MISP event format - please check the event UUID"
 
-        logger.info(f"Processing domain name {site.domain_name} for event {event['Event']['uuid']}")
-        
-        domain_exists, existing_obj = find_domain_object(misp_api, event, site.domain_name)
-        
+        domain_identifier = _get_domain_identifier(site)
+        objects_builder = create_takeover_objects if isinstance(site, DanglingSubdomain) else create_objects
+
+        logger.info(f"Processing domain name {domain_identifier} for event {event['Event']['uuid']}")
+
+        domain_exists, existing_obj = find_domain_object(misp_api, event, domain_identifier)
+
         if domain_exists:
             existing_values = {(attr.type, attr.value) for attr in existing_obj.attributes}
-            objects = create_objects(site, existing_values)
-            
+            objects = objects_builder(site, existing_values)
+
             if not objects:
-                logger.info(f"Already on MISP - No changes applied for {site.domain_name}")
-                return True, f"Already on MISP - No changes applied for {site.domain_name}"
-                            
+                logger.info(f"Already on MISP - No changes applied for {domain_identifier}")
+                return True, f"Already on MISP - No changes applied for {domain_identifier}"
+
             if not dry_run:
                 for obj in objects:
                     for attr in obj.attributes:
@@ -247,16 +331,16 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
                                 }
                             )
                             misp_api.update_object(existing_obj)
-                            logger.info(f"Updating MISP object for {site.domain_name} - Added attribute {attr.type}: {attr.value}")
+                            logger.info(f"Updating MISP object for {domain_identifier} - Added attribute {attr.type}: {attr.value}")
                         except Exception as e:
                             logger.error(f"Error adding attribute to object: {str(e)}")
                             raise
-                    
-            return True, f"Successfully updated {site.domain_name} in MISP"
-            
+
+            return True, f"Successfully updated {domain_identifier} in MISP"
+
         else:
-            objects = create_objects(site)
-            
+            objects = objects_builder(site)
+
             if not dry_run and objects:
                 for obj in objects:
                     try:
@@ -265,9 +349,9 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
                     except Exception as e:
                         logger.error(f"Error adding object: {str(e)}")
                         raise
-                    
-            return True, f"Successfully added {site.domain_name} to MISP"
-            
+
+            return True, f"Successfully added {domain_identifier} to MISP"
+
     except Exception as e:
         logger.error(f"Error in create_or_update_objects: {str(e)}")
         return False, f"Error: {str(e)}"
