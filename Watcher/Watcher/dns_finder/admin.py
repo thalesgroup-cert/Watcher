@@ -143,8 +143,8 @@ class DanglingAlertResource(resources.ModelResource):
 
 @admin.register(DanglingAlert)
 class DanglingAlert(ExportMixin, admin.ModelAdmin):
-    list_display = ['id', 'dangling_subdomain', 'source', 'status', 'created_at']
-    list_filter = ('created_at', 'source', ('status', custom_titled_filter('Active Status')))
+    list_display = ['id', 'dangling_subdomain', 'trigger', 'status', 'created_at']
+    list_filter = ('created_at', 'trigger', ('status', custom_titled_filter('Active Status')))
     search_fields = ['id', 'dangling_subdomain__subdomain']
     resource_class = DanglingAlertResource
 

@@ -247,7 +247,7 @@ def evaluate_dangling_subdomain(dangling_subdomain, source):
     )
 
     if newly_confirmed:
-        alert = DanglingAlert.objects.create(dangling_subdomain=dangling_subdomain, source=source)
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling_subdomain, trigger=source)
         send_dangling_dns_notifications(alert)
 
 

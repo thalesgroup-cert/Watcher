@@ -89,10 +89,10 @@ class ModelTest(TransactionTestCase):
                 dns_monitored=dns,
             )
 
-        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, source='certstream')
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, trigger='certstream')
         self.assertEqual(alert.dangling_subdomain, dangling)
         self.assertTrue(alert.status)
-        self.assertEqual(alert.source, 'certstream')
+        self.assertEqual(alert.trigger, 'certstream')
 
         # Test cascade
         dns_id = dns.id
@@ -344,7 +344,7 @@ class DanglingDnsRealtimeTest(TestCase):
 
         evaluate_dangling_subdomain(dangling, source='certstream')
 
-        self.assertTrue(DanglingAlert.objects.filter(dangling_subdomain=dangling, source='certstream').exists())
+        self.assertTrue(DanglingAlert.objects.filter(dangling_subdomain=dangling, trigger='certstream').exists())
         self.assertTrue(mock_notify.called)
 
     @patch('dns_finder.core.check_dangling_status')
@@ -379,7 +379,7 @@ class DanglingDnsRealtimeTest(TestCase):
         evaluate_dangling_subdomain(dangling, source='periodic_recheck')
 
         self.assertTrue(
-            DanglingAlert.objects.filter(dangling_subdomain=dangling, source='periodic_recheck').exists()
+            DanglingAlert.objects.filter(dangling_subdomain=dangling, trigger='periodic_recheck').exists()
         )
         self.assertTrue(mock_notify.called)
 

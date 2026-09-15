@@ -147,7 +147,7 @@ class DanglingAlert(models.Model):
     dangling_subdomain = models.ForeignKey(DanglingSubdomain, on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
-    source = models.CharField(max_length=50, default='certstream')
+    trigger = models.CharField(max_length=50, default='certstream')
 
     class Meta:
         ordering = ["-created_at"]
