@@ -1,6 +1,7 @@
+from django.urls import path
 from rest_framework import routers
 from .api import DnsMonitoredViewSet, DnsTwistedViewSet, AlertViewSet, MISPViewSet, KeywordMonitoredViewSet, \
-    DanglingSubdomainViewSet, DanglingAlertViewSet
+    DanglingSubdomainViewSet, DanglingAlertViewSet, ThreatsMonitoredView
 
 from .core import start_scheduler
 
@@ -13,6 +14,8 @@ router.register('api/dns_finder/misp', MISPViewSet, 'misp')
 router.register('api/dns_finder/dangling_subdomain', DanglingSubdomainViewSet, 'dangling_subdomain')
 router.register('api/dns_finder/dangling_alert', DanglingAlertViewSet, 'dangling_alert')
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path('api/dns_finder/threats_monitored/', ThreatsMonitoredView.as_view(), name='threats_monitored'),
+]
 
 start_scheduler()

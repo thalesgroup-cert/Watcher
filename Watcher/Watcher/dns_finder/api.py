@@ -3,6 +3,7 @@ from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, DanglingS
 
 logger = logging.getLogger('watcher.dns_finder')
 from rest_framework import viewsets, permissions, status
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -11,6 +12,7 @@ from django.utils import timezone
 from datetime import timedelta
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, \
     MISPSerializer, KeywordMonitoredSerializer, DanglingSubdomainSerializer, DanglingAlertSerializer
+from .threats import get_unified_threats
 
 
 # Pagination
@@ -164,3 +166,14 @@ class MISPViewSet(viewsets.ModelViewSet):
         ExportPermission
     ]
     serializer_class = MISPSerializer
+
+
+# Unified DNS Threats Monitored view (merges Alert + DanglingAlert)
+class ThreatsMonitoredView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        items = get_unified_threats(request.query_params)
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(items, request, view=self)
+        return paginator.get_paginated_response(page)

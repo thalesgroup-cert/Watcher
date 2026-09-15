@@ -837,6 +837,85 @@ class APITest(APITestCase):
         self.assertIn(response.status_code, [200, 201, 400])
 
 
+class ThreatsMonitoredAPITest(APITestCase):
+    """Test the unified DNS Threats Monitored endpoint (Alert + DanglingAlert merge)."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("threatsuser", password="threatspass123")
+        self.token = AuthToken.objects.create(self.user)[1]
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token}')
+
+        self.dns = DnsMonitored.objects.create(domain_name="threats-api-test.com")
+        self.keyword = KeywordMonitored.objects.create(name="threats-keyword")
+
+        self.twisted_dnstwist = DnsTwisted.objects.create(
+            domain_name="threats-dnstwist.com", dns_monitored=self.dns, fuzzer="homoglyph"
+        )
+        self.alert_dnstwist = Alert.objects.create(dns_twisted=self.twisted_dnstwist, source=Alert.SOURCE_DNSTWIST)
+
+        self.twisted_certstream = DnsTwisted.objects.create(
+            domain_name="threats-certstream.com", keyword_monitored=self.keyword
+        )
+        self.alert_certstream = Alert.objects.create(
+            dns_twisted=self.twisted_certstream, source=Alert.SOURCE_CERTSTREAM_KEYWORD
+        )
+
+        self.dangling = DanglingSubdomain.objects.create(
+            subdomain="old.threats-api-test.com", dns_monitored=self.dns,
+            status='dangling_confirmed', provider='Amazon S3', cname_target='bucket.s3.amazonaws.com'
+        )
+        self.dangling_alert = DanglingAlert.objects.create(dangling_subdomain=self.dangling, trigger='certstream')
+
+    def test_unified_feed_returns_all_three_sources(self):
+        response = self.client.get('/api/dns_finder/threats_monitored/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        sources = {item['source'] for item in response.data['results']}
+        self.assertEqual(sources, {'dnstwist', 'certstream_keyword', 'subdomain_takeover'})
+
+    def test_unified_feed_items_have_unique_source_id_pairs(self):
+        """id alone is not unique across sources (Alert and DanglingAlert are
+        separate auto-increment sequences) - (source, id) together must be."""
+        response = self.client.get('/api/dns_finder/threats_monitored/')
+        composite_keys = [(item['source'], item['id']) for item in response.data['results']]
+        self.assertEqual(len(composite_keys), len(set(composite_keys)))
+
+    def test_unified_feed_sorted_chronologically(self):
+        response = self.client.get('/api/dns_finder/threats_monitored/')
+        created_ats = [item['created_at'] for item in response.data['results']]
+        self.assertEqual(created_ats, sorted(created_ats, reverse=True))
+
+    def test_unified_feed_filter_by_source(self):
+        response = self.client.get('/api/dns_finder/threats_monitored/?source=subdomain_takeover')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['source'], 'subdomain_takeover')
+        self.assertEqual(response.data['results'][0]['status_tag'], 'dangling_confirmed')
+
+    def test_unified_feed_filter_by_corporate_dns(self):
+        response = self.client.get(f'/api/dns_finder/threats_monitored/?corporate_dns={self.dns.domain_name}')
+        domains_in_result = {item['domain_name'] for item in response.data['results']}
+        self.assertIn('threats-dnstwist.com', domains_in_result)
+        self.assertIn('old.threats-api-test.com', domains_in_result)
+        self.assertNotIn('threats-certstream.com', domains_in_result)
+
+    def test_unified_feed_dnstwist_technical_details(self):
+        response = self.client.get('/api/dns_finder/threats_monitored/?source=dnstwist')
+        item = response.data['results'][0]
+        self.assertEqual(item['technical_details']['fuzzer'], 'homoglyph')
+
+    def test_unified_feed_subdomain_takeover_technical_details(self):
+        response = self.client.get('/api/dns_finder/threats_monitored/?source=subdomain_takeover')
+        item = response.data['results'][0]
+        self.assertEqual(item['technical_details']['provider'], 'Amazon S3')
+        self.assertEqual(item['technical_details']['cname_target'], 'bucket.s3.amazonaws.com')
+        self.assertEqual(item['technical_details']['dangling_subdomain_id'], self.dangling.id)
+
+    def test_unified_feed_requires_auth(self):
+        self.client.credentials()
+        response = self.client.get('/api/dns_finder/threats_monitored/')
+        self.assertIn(response.status_code, [401, 403])
+
+
 class MISPTest(TestCase):
     """Test MISP integration."""
     
