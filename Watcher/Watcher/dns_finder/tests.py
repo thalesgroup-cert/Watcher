@@ -100,6 +100,36 @@ class ModelTest(TransactionTestCase):
         self.assertFalse(DanglingSubdomain.objects.filter(id=dangling.id).exists())
         self.assertFalse(DnsMonitored.objects.filter(id=dns_id).exists())
 
+    def test_dns_twisted_certificate_metadata_fields(self):
+        """DnsTwisted must accept the new CT certificate metadata columns."""
+        unique_id = str(uuid.uuid4())[:8]
+        dns = DnsMonitored.objects.create(domain_name=f"cert-meta-test-{unique_id}.com")
+
+        twisted = DnsTwisted.objects.create(
+            domain_name=f"cert-meta-evil-{unique_id}.com",
+            dns_monitored=dns,
+            issuer="Let's Encrypt",
+            san_list=[f"cert-meta-evil-{unique_id}.com", f"www.cert-meta-evil-{unique_id}.com"],
+            not_before=timezone.now(),
+            not_after=timezone.now(),
+            serial_number="03:AB:CD",
+            fingerprint_sha256="AA:BB:CC",
+        )
+
+        twisted.refresh_from_db()
+        self.assertEqual(twisted.issuer, "Let's Encrypt")
+        self.assertEqual(len(twisted.san_list), 2)
+        self.assertIsNotNone(twisted.not_before)
+        self.assertEqual(twisted.serial_number, "03:AB:CD")
+        self.assertEqual(twisted.fingerprint_sha256, "AA:BB:CC")
+
+        # dnstwist-sourced rows never populate these - all must stay nullable
+        twisted_dnstwist = DnsTwisted.objects.create(
+            domain_name=f"cert-meta-dnstwist-{unique_id}.com", dns_monitored=dns
+        )
+        self.assertIsNone(twisted_dnstwist.issuer)
+        self.assertIsNone(twisted_dnstwist.san_list)
+
 
 class CoreTest(TestCase):
     """Test core functions."""

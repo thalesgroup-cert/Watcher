@@ -48,6 +48,15 @@ class DnsTwisted(models.Model):
     keyword_monitored = models.ForeignKey(KeywordMonitored, on_delete=models.CASCADE, blank=True, null=True)
     fuzzer = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    # Populated for certstream_keyword-sourced rows from the CertStream leaf
+    # certificate/chain (see core.extract_certificate_metadata); always empty
+    # for dnstwist-sourced rows, which have no certificate to read from.
+    issuer = models.CharField(max_length=255, blank=True, null=True)
+    san_list = models.JSONField(blank=True, null=True)
+    not_before = models.DateTimeField(blank=True, null=True)
+    not_after = models.DateTimeField(blank=True, null=True)
+    serial_number = models.CharField(max_length=100, blank=True, null=True)
+    fingerprint_sha256 = models.CharField(max_length=100, blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
