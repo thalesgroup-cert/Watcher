@@ -60,6 +60,16 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
             logger.exception("Error computing DNS Finder statistics")
             return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='dangling_subdomains')
+    def get_dangling_subdomains(self, request, pk=None):
+        """Return every DanglingSubdomain tracked for this Corporate DNS asset."""
+        dns_monitored = self.get_object()
+        subdomains = DanglingSubdomain.objects.filter(
+            dns_monitored=dns_monitored
+        ).order_by('-discovered_at')
+        serializer = DanglingSubdomainSerializer(subdomains, many=True)
+        return Response(serializer.data)
+
 
 # KeywordMonitored Viewset
 class KeywordMonitoredViewSet(viewsets.ModelViewSet):

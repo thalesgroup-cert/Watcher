@@ -817,6 +817,23 @@ class APITest(APITestCase):
         self.assertEqual(response.data['totalDanglingSubdomains'], 1)
         self.assertEqual(response.data['totalDanglingConfirmed'], 1)
 
+    def test_dns_monitored_dangling_subdomains_action(self):
+        """The per-asset dangling-subdomains action must return all statuses,
+        including pending/ok rows that never produced a DanglingAlert."""
+        never_alerted = DanglingSubdomain.objects.create(
+            subdomain="pending-only.api-dns-test.com", dns_monitored=self.dns, status='pending'
+        )
+        other_dns = DnsMonitored.objects.create(domain_name="other-asset-test.com")
+        DanglingSubdomain.objects.create(subdomain="unrelated.other-asset-test.com", dns_monitored=other_dns)
+
+        response = self.client.get(f'/api/dns_finder/dns_monitored/{self.dns.pk}/dangling_subdomains/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        subdomains = {item['subdomain'] for item in response.data}
+        self.assertIn(self.dangling_subdomain.subdomain, subdomains)
+        self.assertIn(never_alerted.subdomain, subdomains)
+        self.assertNotIn('unrelated.other-asset-test.com', subdomains)
+
 
     @patch('dns_finder.serializers.PyMISP')
     def test_misp_export(self, mock_pymisp):
