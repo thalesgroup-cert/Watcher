@@ -150,7 +150,7 @@ class NotificationSystemTest(TestCase):
             provider='Amazon S3',
             cname_target='mybucket.s3.amazonaws.com',
         )
-        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, source='certstream')
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, trigger='certstream')
 
         subscribers = Subscriber.objects.filter(id=subscriber.id)
         context_data = {'alert': alert}
