@@ -101,6 +101,34 @@ describe('DNS Finder - E2E Test Suite', () => {
       }
     }).as('getAlerts');
 
+    cy.intercept('GET', '**/api/dns_finder/dangling_subdomain/**', {
+      statusCode: 200,
+      body: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            subdomain: "old.watcher.com",
+            dns_monitored: { id: 1, domain_name: "watcher.com" },
+            provider: "Amazon S3",
+            cname_target: "mybucket.s3.amazonaws.com",
+            status: "dangling_confirmed",
+            discovered_at: "2025-06-19T10:00:00Z",
+            last_checked_at: "2025-06-20T10:00:00Z",
+            http_status_code: 404,
+            last_event: null
+          }
+        ]
+      }
+    }).as('getDanglingSubdomains');
+
+    cy.intercept('PATCH', '**/api/dns_finder/dangling_subdomain/**', (req) => ({
+      statusCode: 200,
+      body: { id: parseInt(req.url.split('/').pop()), subdomain: "old.watcher.com", ...req.body }
+    })).as('patchDanglingSubdomain');
+
     // Mock CRUD operations
     cy.intercept('POST', '**/api/dns_finder/dns_monitored/**', (req) => ({
       statusCode: 201,
@@ -581,6 +609,38 @@ describe('DNS Finder - E2E Test Suite', () => {
           cy.get('table th:contains("Fuzzer")').click();
           cy.wait(500);
         });
+    });
+  });
+
+  describe('Dangling Subdomains Display and Management', () => {
+    it('should display dangling subdomains table in ResizableContainer', () => {
+      cy.contains('.card-header', 'Dangling Subdomains').closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('h4:contains("Dangling Subdomains")', { timeout: 10000 }).should('exist');
+          cy.get('table', { timeout: 10000 }).should('exist');
+        });
+    });
+
+    it('should display dangling subdomain data when available', () => {
+      cy.contains('.card-header', 'Dangling Subdomains').closest('.card.h-100.shadow-sm')
+        .within(() => {
+          cy.get('table tbody tr').should('have.length.at.least', 1);
+          cy.get('tbody').should('contain', 'old.watcher.com');
+          cy.get('tbody').should('contain', 'Amazon S3');
+        });
+    });
+
+    it('should handle mark-resolved workflow', () => {
+      cy.contains('.card-header', 'Dangling Subdomains').closest('.card.h-100.shadow-sm')
+        .find('button[title="Mark Resolved"]')
+        .first()
+        .click();
+
+      cy.get('.modal', { timeout: 10000 }).should('be.visible');
+      cy.get('.modal-title').should('contain', 'Action Requested');
+      cy.get('.modal-body').should('contain', 'Resolved');
+      cy.get('.modal button:contains("Yes")').click();
+      cy.wait('@patchDanglingSubdomain', { timeout: 10000 });
     });
   });
 

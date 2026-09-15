@@ -16,10 +16,14 @@ import {
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
-    GET_DNS_FINDER_STATISTICS
+    GET_DNS_FINDER_STATISTICS,
+    GET_DANGLING_SUBDOMAINS,
+    PATCH_DANGLING_SUBDOMAIN,
+    GET_DANGLING_ALERTS
 } from './types';
 import { createMessage, returnErrors } from './messages';
 import { tokenConfig } from './auth';
+import { fetchAllPages } from './paginationUtils';
 
 export const getAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
     return axios
@@ -264,43 +268,95 @@ export const getDnsFinderStatistics = () => (dispatch, getState) => {
             dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: res.data });
         })
         .catch(err => {
-            dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: { totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0 } });
+            dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: {
+                totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0,
+                totalDanglingSubdomains: 0, totalDanglingConfirmed: 0, totalDanglingSuspected: 0
+            } });
             if (err.response) dispatch(returnErrors(err.response.data, err.response.status));
         });
 };
 
-// GET ALL DNS ALERTS (stats only – no pagination)
+// GET ALL DNS ALERTS (stats only)
 export const getAllDnsAlerts = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/alert/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: DNS_GET_ALERTS_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/alert/', getState)
+        .then(results => {
+            dispatch({ type: DNS_GET_ALERTS_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL DNS MONITORED (stats only – no pagination)
+// GET ALL DNS MONITORED (stats only)
 export const getAllDnsMonitored = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/dns_monitored/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_DNS_MONITORED_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/dns_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_DNS_MONITORED_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL KEYWORD MONITORED (stats only – no pagination)
+// GET ALL KEYWORD MONITORED (stats only)
 export const getAllKeywordMonitored = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/keyword_monitored/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/keyword_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+// GET DANGLING SUBDOMAINS
+export const getDanglingSubdomains = (page = 1, pageSize = 100) => (dispatch, getState) => {
+    return axios
+        .get(`/api/dns_finder/dangling_subdomain/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_DANGLING_SUBDOMAINS,
+                payload: res.data
+            });
+            return res.data;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
+};
+
+export const patchDanglingSubdomain = (id, dangling_subdomain) => (dispatch, getState) => {
+    axios
+        .patch(`/api/dns_finder/dangling_subdomain/${id}/`, dangling_subdomain, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({ add: `${res.data.subdomain} Updated` }));
+            dispatch({
+                type: PATCH_DANGLING_SUBDOMAIN,
+                payload: res.data
+            });
+        })
+        .catch(err =>
+            dispatch(returnErrors(err.response.data, err.response.status))
+        );
+};
+
+// GET DANGLING ALERTS
+export const getDanglingAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
+    return axios
+        .get(`/api/dns_finder/dangling_alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_DANGLING_ALERTS,
+                payload: res.data
+            });
+            return res.data;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
         });
 };

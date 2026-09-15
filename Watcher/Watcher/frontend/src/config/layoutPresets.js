@@ -74,7 +74,7 @@ const DNS_PRESETS = [
     {
         id: 'default',
         name: 'Standard',
-        description: 'Full view: stats, DNS alerts, monitored domains, archived and keywords.',
+        description: 'Full view: stats, DNS alerts, monitored domains, archived, keywords and dangling subdomains.',
         icon: 'dashboard',
         layout: [
             { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
@@ -82,8 +82,9 @@ const DNS_PRESETS = [
             { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
             { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
             { i: 'keywords', x: 7, y: 19, w: 5,  h: 11, minW: 3, minH: 5 },
+            { i: 'dangling', x: 0, y: 30, w: 12, h: 11, minW: 4, minH: 5 },
         ],
-        active: ['stats', 'alerts', 'dns', 'archived', 'keywords'],
+        active: ['stats', 'alerts', 'dns', 'archived', 'keywords', 'dangling'],
     },
     {
         id: 'triage',

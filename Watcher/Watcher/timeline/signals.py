@@ -23,6 +23,7 @@ TRACKED_FIELDS = {
     ],
     'dns_finder.dnsmonitored': ['domain_name'],
     'dns_finder.keywordmonitored': ['name'],
+    'dns_finder.danglingsubdomain': ['status', 'provider', 'cname_target'],
 }
 
 _pre_save_cache = {}

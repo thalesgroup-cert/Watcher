@@ -15,7 +15,10 @@ import {
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
-    GET_DNS_FINDER_STATISTICS
+    GET_DNS_FINDER_STATISTICS,
+    GET_DANGLING_SUBDOMAINS,
+    PATCH_DANGLING_SUBDOMAIN,
+    GET_DANGLING_ALERTS
 } from '../actions/types';
 
 const initialState = {
@@ -41,7 +44,15 @@ const initialState = {
         newThisWeek: 0,
         totalDnsMonitored: 0,
         totalKeywords: 0,
-    }
+    },
+    danglingSubdomains: [],
+    danglingSubdomainsCount: 0,
+    danglingSubdomainsNext: null,
+    danglingSubdomainsPrevious: null,
+    danglingAlerts: [],
+    danglingAlertsCount: 0,
+    danglingAlertsNext: null,
+    danglingAlertsPrevious: null,
 };
 
 export default function(state = initialState, action) {
@@ -176,6 +187,50 @@ export default function(state = initialState, action) {
 
         case GET_KEYWORD_MONITORED_ALL:
             return { ...state, allKeywordMonitored: Array.isArray(action.payload) ? action.payload : [] };
+
+        case GET_DANGLING_SUBDOMAINS: {
+            const newResults = action.payload.results || action.payload;
+
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    danglingSubdomains: newResults,
+                    danglingSubdomainsCount: newResults.length,
+                    danglingSubdomainsNext: null,
+                    danglingSubdomainsPrevious: null
+                };
+            }
+
+            const existingIds = new Set(state.danglingSubdomains.map(s => s.id));
+            const uniqueNewSubdomains = newResults.filter(subdomain => !existingIds.has(subdomain.id));
+
+            return {
+                ...state,
+                danglingSubdomains: [...state.danglingSubdomains, ...uniqueNewSubdomains],
+                danglingSubdomainsCount: action.payload.count || state.danglingSubdomainsCount,
+                danglingSubdomainsNext: action.payload.next || null,
+                danglingSubdomainsPrevious: action.payload.previous || null
+            };
+        }
+
+        case PATCH_DANGLING_SUBDOMAIN:
+            return {
+                ...state,
+                danglingSubdomains: state.danglingSubdomains.map(sub =>
+                    sub.id === action.payload.id ? action.payload : sub
+                )
+            };
+
+        case GET_DANGLING_ALERTS: {
+            const newResults = action.payload.results || action.payload;
+            return {
+                ...state,
+                danglingAlerts: newResults.slice(),
+                danglingAlertsCount: action.payload.count || newResults.length,
+                danglingAlertsNext: action.payload.next || null,
+                danglingAlertsPrevious: action.payload.previous || null
+            };
+        }
 
         default:
             return state;

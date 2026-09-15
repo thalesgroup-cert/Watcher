@@ -1,5 +1,6 @@
 from rest_framework import routers
-from .api import DnsMonitoredViewSet, DnsTwistedViewSet, AlertViewSet, MISPViewSet, KeywordMonitoredViewSet
+from .api import DnsMonitoredViewSet, DnsTwistedViewSet, AlertViewSet, MISPViewSet, KeywordMonitoredViewSet, \
+    DanglingSubdomainViewSet, DanglingAlertViewSet
 
 from .core import start_scheduler
 
@@ -9,6 +10,8 @@ router.register('api/dns_finder/keyword_monitored', KeywordMonitoredViewSet, 'ke
 router.register('api/dns_finder/dns_twisted', DnsTwistedViewSet, 'dns_twisted')
 router.register('api/dns_finder/alert', AlertViewSet, 'alert')
 router.register('api/dns_finder/misp', MISPViewSet, 'misp')
+router.register('api/dns_finder/dangling_subdomain', DanglingSubdomainViewSet, 'dangling_subdomain')
+router.register('api/dns_finder/dangling_alert', DanglingAlertViewSet, 'dangling_alert')
 
 urlpatterns = router.urls
 

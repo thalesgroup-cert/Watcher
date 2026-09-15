@@ -317,3 +317,13 @@ dist
 
 # TernJS port file
 .tern-port
+# Tooling & editors
+.claude/
+.codegraph/
+.mcp.json
+SKILLS.md
+deployment/certificates/certfile.pem
+deployment/certificates/keyfile.pem
+deployment/certificates/rootcafile.pem
+db_watcher/
+Watcher/Watcher/static/

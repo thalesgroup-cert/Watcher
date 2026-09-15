@@ -1,10 +1,11 @@
 import React, {Component, Fragment} from 'react';
 import { connect } from 'react-redux';
-import { getAlerts, getDnsMonitored, getKeywordMonitored } from "../../actions/DnsFinder";
+import { getAlerts, getDnsMonitored, getKeywordMonitored, getDanglingSubdomains } from "../../actions/DnsFinder";
 import Alerts from "./Alerts";
 import ArchivedAlerts from "./ArchivedAlerts";
 import DnsMonitored from "./DnsMonitored";
 import KeywordMonitored from "./KeywordMonitored";
+import DanglingSubdomains from "./DanglingSubdomains";
 import TableManager from '../common/TableManager';
 import DnsFinderStats from "./DnsFinderStats";
 import PanelGrid from '../common/PanelGrid';
@@ -16,9 +17,10 @@ const DEFAULT_LAYOUT = [
     { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
     { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
     { i: 'keywords', x: 7, y: 19, w: 5,  h: 11, minW: 3, minH: 5 },
+    { i: 'dangling', x: 0, y: 30, w: 12, h: 11, minW: 4, minH: 5 },
 ];
 
-const DEFAULT_ACTIVE = ['stats', 'alerts', 'dns', 'archived', 'keywords'];
+const DEFAULT_ACTIVE = ['stats', 'alerts', 'dns', 'archived', 'keywords', 'dangling'];
 
 const FILTER_CONFIG = [
     {
@@ -95,9 +97,9 @@ class Dashboard extends Component {
     };
 
     loadRemainingDataInBackground = async () => {
-        const { alertsNext, dnsMonitoredNext, keywordMonitoredNext } = this.props;
-        
-        if (!alertsNext && !dnsMonitoredNext && !keywordMonitoredNext) {
+        const { alertsNext, dnsMonitoredNext, keywordMonitoredNext, danglingSubdomainsNext } = this.props;
+
+        if (!alertsNext && !dnsMonitoredNext && !keywordMonitoredNext && !danglingSubdomainsNext) {
             return;
         }
 
@@ -164,7 +166,27 @@ class Dashboard extends Component {
                 }
             }
 
-            this.setState({ 
+            // Load remaining Dangling Subdomains pages
+            if (danglingSubdomainsNext) {
+                let currentPage = 2;
+                let hasMore = true;
+
+                while (hasMore) {
+                    try {
+                        const response = await this.props.getDanglingSubdomains(currentPage, 100);
+                        hasMore = response?.next !== null;
+                        currentPage++;
+
+                        if (hasMore) {
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+                    } catch (error) {
+                        hasMore = false;
+                    }
+                }
+            }
+
+            this.setState({
                 allDataLoaded: true,
                 isLoadingInBackground: false
             });
@@ -307,6 +329,16 @@ class Dashboard extends Component {
                     </div>
                 ),
             },
+            dangling: {
+                label: 'Dangling Subdomains',
+                icon: 'link_off',
+                tooltip: 'Subdomains of your corporate assets that may be vulnerable to takeover',
+                children: (
+                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <DanglingSubdomains globalFilters={globalFilters} />
+                    </div>
+                ),
+            },
         };
     }
 
@@ -332,7 +364,8 @@ const mapStateToProps = state => ({
     dnsMonitored: state.DnsFinder.dnsMonitored || [],
     dnsMonitoredNext: state.DnsFinder.dnsMonitoredNext || null,
     keywordMonitored: state.DnsFinder.keywordMonitored || [],
-    keywordMonitoredNext: state.DnsFinder.keywordMonitoredNext || null
+    keywordMonitoredNext: state.DnsFinder.keywordMonitoredNext || null,
+    danglingSubdomainsNext: state.DnsFinder.danglingSubdomainsNext || null
 });
 
-export default connect(mapStateToProps, {getAlerts, getDnsMonitored, getKeywordMonitored})(Dashboard);
+export default connect(mapStateToProps, {getAlerts, getDnsMonitored, getKeywordMonitored, getDanglingSubdomains})(Dashboard);

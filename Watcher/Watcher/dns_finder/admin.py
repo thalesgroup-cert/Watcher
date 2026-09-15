@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import DnsMonitored, DnsTwisted, Alert, Subscriber, KeywordMonitored
+from .models import DnsMonitored, DnsTwisted, Alert, Subscriber, KeywordMonitored, \
+    DanglingSubdomain, DanglingAlert
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 from common.misp import get_misp_uuid
@@ -109,6 +110,70 @@ class DnsTwisted(ExportMixin, admin.ModelAdmin):
             return ", ".join(uuid)
 
     display_misp_uuid.short_description = "MISP Event UUID"
+
+
+class DanglingSubdomainResource(resources.ModelResource):
+    class Meta:
+        model = DanglingSubdomain
+
+
+@admin.register(DanglingSubdomain)
+class DanglingSubdomain(ExportMixin, admin.ModelAdmin):
+    list_display = ['subdomain', 'dns_monitored', 'provider', 'status', 'last_checked_at']
+    list_filter = ['status', 'provider', 'dns_monitored']
+    search_fields = ['subdomain']
+    resource_class = DanglingSubdomainResource
+
+    def has_add_permission(self, request):
+        return False
+
+    def mark_recheck(self, request, queryset):
+        rows_updated = queryset.update(status='pending')
+        self.message_user(request, "%s subdomain(s) marked for re-check." % rows_updated)
+
+    mark_recheck.short_description = "Mark selected subdomains for re-check"
+
+    actions = [mark_recheck]
+
+
+class DanglingAlertResource(resources.ModelResource):
+    class Meta:
+        model = DanglingAlert
+
+
+@admin.register(DanglingAlert)
+class DanglingAlert(ExportMixin, admin.ModelAdmin):
+    list_display = ['id', 'dangling_subdomain', 'source', 'status', 'created_at']
+    list_filter = ('created_at', 'source', ('status', custom_titled_filter('Active Status')))
+    search_fields = ['id', 'dangling_subdomain__subdomain']
+    resource_class = DanglingAlertResource
+
+    def has_add_permission(self, request):
+        return False
+
+    def make_disable(self, request, queryset):
+        rows_updated = queryset.update(status=False)
+
+        if rows_updated == 1:
+            message_bit = "1 alert was"
+        else:
+            message_bit = "%s alerts were" % rows_updated
+        self.message_user(request, "%s successfully marked as disable." % message_bit)
+
+    make_disable.short_description = "Disable selected alerts"
+
+    def make_enable(self, request, queryset):
+        rows_updated = queryset.update(status=True)
+
+        if rows_updated == 1:
+            message_bit = "1 alert was"
+        else:
+            message_bit = "%s alerts were" % rows_updated
+        self.message_user(request, "%s successfully marked as enable." % message_bit)
+
+    make_enable.short_description = "Enable selected alerts"
+
+    actions = [make_disable, make_enable]
 
 
 @admin.register(Subscriber)

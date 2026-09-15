@@ -6,10 +6,12 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
-from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber
-from dns_finder.core import in_dns_monitored, send_dns_finder_notifications
+from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber, \
+    DanglingSubdomain, DanglingAlert
+from dns_finder.core import in_dns_monitored, send_dns_finder_notifications, send_dangling_dns_notifications
 import uuid
 from unittest.mock import patch
+import dns.resolver
 
 
 class ModelTest(TransactionTestCase):
@@ -69,24 +71,53 @@ class ModelTest(TransactionTestCase):
         self.assertFalse(subscriber.citadel)
         self.assertIn(f"dnsuser{unique_id}", str(subscriber))
 
+    def test_dangling_subdomain_and_alert_functionality(self):
+        """Test DanglingSubdomain and DanglingAlert models with relationships."""
+        unique_id = str(uuid.uuid4())[:8]
+
+        dns = DnsMonitored.objects.create(domain_name=f"dangling-test-{unique_id}.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain=f"old-app.dangling-test-{unique_id}.com",
+            dns_monitored=dns,
+        )
+        self.assertEqual(dangling.status, 'pending')
+        self.assertEqual(str(dangling), f"old-app.dangling-test-{unique_id}.com")
+
+        with self.assertRaises(Exception):
+            DanglingSubdomain.objects.create(
+                subdomain=f"old-app.dangling-test-{unique_id}.com",
+                dns_monitored=dns,
+            )
+
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, source='certstream')
+        self.assertEqual(alert.dangling_subdomain, dangling)
+        self.assertTrue(alert.status)
+        self.assertEqual(alert.source, 'certstream')
+
+        # Test cascade
+        dns_id = dns.id
+        dns.delete()
+        self.assertFalse(DanglingSubdomain.objects.filter(id=dangling.id).exists())
+        self.assertFalse(DnsMonitored.objects.filter(id=dns_id).exists())
+
 
 class CoreTest(TestCase):
     """Test core functions."""
-    
+
     def test_in_dns_monitored(self):
         """Test domain checking function."""
         DnsMonitored.objects.create(domain_name="core-example.com")
         self.assertTrue(in_dns_monitored("sub.core-example.com"))
         self.assertTrue(in_dns_monitored("core-example.com"))
         self.assertFalse(in_dns_monitored("other.com"))
-    
+
     def test_clean_wildcard_domain(self):
         """Test wildcard domain cleaning."""
         from dns_finder.core import clean_wildcard_domain
-        
+
         self.assertEqual(clean_wildcard_domain("*.example.com"), "example.com")
         self.assertEqual(clean_wildcard_domain("example.com"), "example.com")
-    
+
     @patch('dns_finder.core.send_app_specific_notifications')
     def test_notification_system(self, mock_notifications):
         """Test notification system."""
@@ -96,29 +127,424 @@ class CoreTest(TestCase):
             dns_monitored=dns
         )
         alert = Alert.objects.create(dns_twisted=twisted)
-        
+
         user = User.objects.create_user("notif_user", "test@test.com", "pass")
         Subscriber.objects.create(user_rec=user, email=True)
-        
+
         send_dns_finder_notifications(alert)
-        
+
         self.assertTrue(mock_notifications.called)
-    
+
+    @patch('dns_finder.core.send_app_specific_notifications')
+    def test_dangling_notification_system(self, mock_notifications):
+        """Test dangling DNS notification dispatch."""
+        dns_monitored = DnsMonitored.objects.create(domain_name="dangling-notify-test.com")
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.dangling-notify-test.com", dns_monitored=dns_monitored,
+            status='dangling_confirmed'
+        )
+        alert = DanglingAlert.objects.create(dangling_subdomain=dangling)
+
+        user = User.objects.create_user("dangling_notif_user", "test2@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        send_dangling_dns_notifications(alert)
+
+        self.assertTrue(mock_notifications.called)
+
     @patch('dns_finder.core.subprocess.check_output')
     def test_check_dnstwist(self, mock_subprocess):
         """Test dnstwist checking."""
         from dns_finder.core import check_dnstwist
-        
+
         mock_subprocess.return_value = b'{"domain": "test.com"}'
-        
+
         dns = DnsMonitored.objects.create(domain_name="dnstwist-test.com")
-        
+
         with patch('dns_finder.core.open', create=True) as mock_open:
             mock_open.return_value.__enter__.return_value.read.return_value = '[{"domain": "twisted.com", "fuzzer": "addition"}]'
-            
+
             check_dnstwist(dns)
-            
+
             self.assertTrue(mock_subprocess.called)
+
+
+class DanglingDnsDetectionTest(TestCase):
+    """Test dangling DNS detection engine."""
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="detect-test.com")
+
+    def test_match_fingerprint_hit(self):
+        from dns_finder.core import match_fingerprint
+        fingerprint = match_fingerprint("mybucket.s3.amazonaws.com")
+        self.assertIsNotNone(fingerprint)
+        self.assertEqual(fingerprint['provider'], "Amazon S3")
+
+    def test_match_fingerprint_miss(self):
+        from dns_finder.core import match_fingerprint
+        self.assertIsNone(match_fingerprint("random.internal-host.corp"))
+        self.assertIsNone(match_fingerprint(None))
+
+    @patch('dns_finder.core.dns.resolver.resolve')
+    def test_resolve_cname_chain_follows_cname(self, mock_resolve):
+        from dns_finder.core import resolve_cname_chain
+
+        class FakeAnswer:
+            def __init__(self, target):
+                self.target = target
+
+        mock_resolve.side_effect = [
+            [FakeAnswer("mybucket.s3.amazonaws.com.")],
+            dns.resolver.NoAnswer(),
+        ]
+        target = resolve_cname_chain("old.detect-test.com")
+        self.assertEqual(target, "mybucket.s3.amazonaws.com")
+
+    @patch('dns_finder.core.requests.get')
+    @patch('dns_finder.core.dns.resolver.resolve')
+    def test_check_dangling_status_confirmed_via_http(self, mock_resolve, mock_get):
+        from dns_finder.core import check_dangling_status
+
+        class FakeAnswer:
+            def __init__(self, target):
+                self.target = target
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.detect-test.com", dns_monitored=self.dns_monitored
+        )
+
+        # 1st resolve() call: CNAME lookup on the subdomain -> S3 bucket
+        # 2nd resolve() call: CNAME lookup on target fails (no more CNAMEs)
+        # 3rd resolve() call: A lookup on the terminal CNAME target -> resolves fine
+        mock_resolve.side_effect = [
+            [FakeAnswer("mybucket.s3.amazonaws.com.")],
+            dns.resolver.NoAnswer(),
+            MagicMock(),
+        ]
+        # The probe is streamed and capped: the body is read from response.raw,
+        # not response.text.
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.raw.read.return_value = b"<Error><Code>NoSuchBucket</Code></Error>"
+        mock_get.return_value = mock_response
+
+        previous_status = check_dangling_status(dangling)
+
+        self.assertEqual(previous_status, 'pending')
+        dangling.refresh_from_db()
+        self.assertEqual(dangling.status, 'dangling_confirmed')
+        self.assertEqual(dangling.provider, 'Amazon S3')
+        self.assertEqual(dangling.cname_target, 'mybucket.s3.amazonaws.com')
+        self.assertEqual(dangling.http_status_code, 404)
+
+        # The probe must be bounded: tuple timeout, no redirects, streamed.
+        _, kwargs = mock_get.call_args
+        self.assertEqual(kwargs['timeout'], (3, 5))
+        self.assertFalse(kwargs['allow_redirects'])
+        self.assertTrue(kwargs['stream'])
+        mock_response.raw.read.assert_called_once_with(65536, decode_content=True)
+
+    @patch('dns_finder.core.dns.resolver.resolve')
+    def test_check_dangling_status_no_fingerprint_match_is_ok(self, mock_resolve):
+        from dns_finder.core import check_dangling_status
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.detect-test.com", dns_monitored=self.dns_monitored
+        )
+        mock_resolve.side_effect = dns.resolver.NoAnswer()
+
+        check_dangling_status(dangling)
+
+        dangling.refresh_from_db()
+        self.assertEqual(dangling.status, 'ok')
+        self.assertIsNone(dangling.provider)
+
+
+class DanglingDnsRealtimeTest(TestCase):
+    """Test the CertStream real-time dangling DNS hook."""
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="realtime-test.com")
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_creates_alert_on_new_dangling_status(self, mock_notify, mock_check):
+        """pending -> dangling_confirmed (direct jump, no suspected stage) alerts."""
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.realtime-test.com", dns_monitored=self.dns_monitored, status='pending'
+        )
+        mock_check.return_value = 'pending'  # previous status returned by check_dangling_status
+        DanglingSubdomain.objects.filter(pk=dangling.pk).update(status='dangling_confirmed')
+
+        evaluate_dangling_subdomain(dangling, source='certstream')
+
+        self.assertTrue(DanglingAlert.objects.filter(dangling_subdomain=dangling, source='certstream').exists())
+        self.assertTrue(mock_notify.called)
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_no_alert_when_already_dangling(self, mock_notify, mock_check):
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old2.realtime-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_confirmed'
+        )
+        mock_check.return_value = 'dangling_confirmed'  # already dangling before this check too
+
+        evaluate_dangling_subdomain(dangling, source='periodic_recheck')
+
+        self.assertFalse(DanglingAlert.objects.filter(dangling_subdomain=dangling).exists())
+        self.assertFalse(mock_notify.called)
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_alerts_on_suspected_to_confirmed_escalation(self, mock_notify, mock_check):
+        """An inconclusive 'suspected' becoming a proven takeover must alert."""
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="escalate.realtime-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_suspected'
+        )
+        mock_check.return_value = 'dangling_suspected'
+        DanglingSubdomain.objects.filter(pk=dangling.pk).update(status='dangling_confirmed')
+
+        evaluate_dangling_subdomain(dangling, source='periodic_recheck')
+
+        self.assertTrue(
+            DanglingAlert.objects.filter(dangling_subdomain=dangling, source='periodic_recheck').exists()
+        )
+        self.assertTrue(mock_notify.called)
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_no_alert_on_entering_suspected(self, mock_notify, mock_check):
+        """Entering 'dangling_suspected' (a transient probe error) must stay silent."""
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        for index, previous_status in enumerate(('pending', 'ok')):
+            with self.subTest(previous_status=previous_status):
+                dangling = DanglingSubdomain.objects.create(
+                    subdomain=f"suspected{index}.realtime-test.com",
+                    dns_monitored=self.dns_monitored, status=previous_status
+                )
+                mock_check.return_value = previous_status
+                DanglingSubdomain.objects.filter(pk=dangling.pk).update(status='dangling_suspected')
+
+                evaluate_dangling_subdomain(dangling, source='periodic_recheck')
+
+                self.assertFalse(DanglingAlert.objects.filter(dangling_subdomain=dangling).exists())
+                self.assertFalse(mock_notify.called)
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dangling_dns_notifications')
+    def test_evaluate_no_alert_on_repeated_suspected(self, mock_notify, mock_check):
+        """A flapping subdomain re-entering 'dangling_suspected' must not re-page."""
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="flapping.realtime-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_suspected'
+        )
+        mock_check.return_value = 'dangling_suspected'
+
+        evaluate_dangling_subdomain(dangling, source='periodic_recheck')
+
+        self.assertFalse(DanglingAlert.objects.filter(dangling_subdomain=dangling).exists())
+        self.assertFalse(mock_notify.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_creates_row_for_genuine_subdomain(self, mock_evaluate):
+        """Discovery is catalog-only: the row is created 'pending', with no
+        blocking DNS/HTTP work on the CertStream reader thread."""
+        from dns_finder.core import track_dangling_subdomain
+
+        track_dangling_subdomain("old.realtime-test.com")
+
+        dangling = DanglingSubdomain.objects.get(subdomain="old.realtime-test.com")
+        self.assertEqual(dangling.status, 'pending')
+        self.assertFalse(mock_evaluate.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_rejects_invalid_hostname(self, mock_evaluate):
+        """A CertStream CN carrying URL metacharacters must never reach the DB,
+        even when it would suffix-match a monitored root domain."""
+        from dns_finder.core import track_dangling_subdomain
+
+        for bad_domain in (
+            "evil.com/x.realtime-test.com",
+            "evil.com#.realtime-test.com",
+            "evil.com?a=b.realtime-test.com",
+            "192.0.2.1.realtime-test.com:8080",
+        ):
+            with self.subTest(domain=bad_domain):
+                track_dangling_subdomain(bad_domain)
+                self.assertFalse(DanglingSubdomain.objects.filter(subdomain=bad_domain).exists())
+
+        self.assertFalse(DanglingSubdomain.objects.exists())
+        self.assertFalse(mock_evaluate.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_ignores_root_domain(self, mock_evaluate):
+        from dns_finder.core import track_dangling_subdomain
+
+        track_dangling_subdomain("realtime-test.com")
+
+        self.assertFalse(DanglingSubdomain.objects.filter(subdomain="realtime-test.com").exists())
+        self.assertFalse(mock_evaluate.called)
+
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_track_dangling_subdomain_ignores_unrelated_domain(self, mock_evaluate):
+        from dns_finder.core import track_dangling_subdomain
+
+        track_dangling_subdomain("totally-unrelated.example")
+
+        self.assertFalse(DanglingSubdomain.objects.exists())
+        self.assertFalse(mock_evaluate.called)
+
+    @patch('dns_finder.core.track_dangling_subdomain')
+    def test_print_callback_keyword_loop_survives_dangling_tracking_error(self, mock_track):
+        """A fault in the new dangling-DNS path must not skip the pre-existing
+        keyword-matching/typosquat detection loop for that CertStream message."""
+        from dns_finder.core import print_callback
+
+        mock_track.side_effect = Exception("boom")
+        KeywordMonitored.objects.create(name="realtime-test")
+
+        message = {'data': {'leaf_cert': {'subject': {'CN': 'realtime-test-evil.com'}}}}
+
+        print_callback(message, None)
+
+        self.assertTrue(mock_track.called)
+        self.assertTrue(DnsTwisted.objects.filter(domain_name="realtime-test-evil.com").exists())
+        self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="realtime-test-evil.com").exists())
+
+
+class DanglingDnsRecheckTest(TransactionTestCase):
+    """Test the periodic dangling DNS recheck job.
+
+    Uses TransactionTestCase so close_old_connections() doesn't break test
+    isolation (see cyber_watch.tests for the same pattern).
+    """
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="recheck-test.com")
+        # Prevent close_old_connections() from dropping the test DB connection
+        self._conn_patcher = patch('dns_finder.core.close_old_connections')
+        self._conn_patcher.start()
+
+    def tearDown(self):
+        self._conn_patcher.stop()
+
+    @patch('dns_finder.core.time.sleep')
+    @patch('dns_finder.core.evaluate_dangling_subdomain')
+    def test_recheck_evaluates_pending_and_dangling_rows(self, mock_evaluate, mock_sleep):
+        from dns_finder.core import recheck_dangling_subdomains
+
+        pending = DanglingSubdomain.objects.create(
+            subdomain="pending.recheck-test.com", dns_monitored=self.dns_monitored, status='pending'
+        )
+        confirmed = DanglingSubdomain.objects.create(
+            subdomain="confirmed.recheck-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_confirmed'
+        )
+        resolved = DanglingSubdomain.objects.create(
+            subdomain="resolved.recheck-test.com", dns_monitored=self.dns_monitored, status='resolved'
+        )
+        false_positive = DanglingSubdomain.objects.create(
+            subdomain="fp.recheck-test.com", dns_monitored=self.dns_monitored, status='false_positive'
+        )
+
+        recheck_dangling_subdomains()
+
+        checked_subdomains = {call.args[0].subdomain for call in mock_evaluate.call_args_list}
+        self.assertIn(pending.subdomain, checked_subdomains)
+        self.assertIn(confirmed.subdomain, checked_subdomains)
+        self.assertNotIn(resolved.subdomain, checked_subdomains)
+        self.assertNotIn(false_positive.subdomain, checked_subdomains)
+
+        for call in mock_evaluate.call_args_list:
+            self.assertEqual(call.args[1], 'periodic_recheck')
+
+
+class DanglingSubdomainTimelineTest(TransactionTestCase):
+    """DanglingSubdomain must be tracked by the timeline app, so that the
+    serializer's last_event field and the History modal are populated.
+
+    Mirrors timeline.tests.TimelineSignalTest's pattern for LegitimateDomain.
+    Note the recheck job updates rows with queryset .update(), which bypasses
+    signals on purpose (automated status churn must not spam History); only
+    .save()-based changes (API PATCH / admin triage) are recorded.
+    """
+
+    def setUp(self):
+        self.dns_monitored = DnsMonitored.objects.create(domain_name="timeline-test.com")
+
+    def _ct(self):
+        from django.contrib.contenttypes.models import ContentType
+        return ContentType.objects.get_for_model(DanglingSubdomain)
+
+    def test_timeline_event_created_on_create(self):
+        from timeline.models import TimelineEvent
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="old.timeline-test.com", dns_monitored=self.dns_monitored
+        )
+
+        self.assertTrue(
+            TimelineEvent.objects.filter(
+                content_type=self._ct(),
+                object_id=dangling.pk,
+                action=TimelineEvent.ACTION_CREATED,
+            ).exists(),
+            "Creating a DanglingSubdomain must produce an ACTION_CREATED TimelineEvent.",
+        )
+
+    def test_timeline_event_updated_on_status_triage(self):
+        from timeline.models import TimelineEvent
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="triaged.timeline-test.com", dns_monitored=self.dns_monitored,
+            status='dangling_confirmed'
+        )
+
+        dangling.status = 'false_positive'
+        dangling.save()
+
+        events = TimelineEvent.objects.filter(
+            content_type=self._ct(),
+            object_id=dangling.pk,
+            action=TimelineEvent.ACTION_UPDATED,
+        )
+        self.assertTrue(events.exists())
+        event = events.first()
+        self.assertIn('status', event.diff)
+        self.assertEqual(event.diff['status']['old'], 'dangling_confirmed')
+        self.assertEqual(event.diff['status']['new'], 'false_positive')
+
+    def test_bulk_update_does_not_create_timeline_event(self):
+        """check_dangling_status' queryset .update() must stay signal-free."""
+        from timeline.models import TimelineEvent
+
+        dangling = DanglingSubdomain.objects.create(
+            subdomain="churn.timeline-test.com", dns_monitored=self.dns_monitored
+        )
+        before = TimelineEvent.objects.filter(
+            content_type=self._ct(), object_id=dangling.pk,
+            action=TimelineEvent.ACTION_UPDATED,
+        ).count()
+
+        DanglingSubdomain.objects.filter(pk=dangling.pk).update(status='ok')
+
+        after = TimelineEvent.objects.filter(
+            content_type=self._ct(), object_id=dangling.pk,
+            action=TimelineEvent.ACTION_UPDATED,
+        ).count()
+        self.assertEqual(before, after)
 
 
 class SerializerTest(TestCase):
@@ -175,7 +601,12 @@ class APITest(APITestCase):
             fuzzer="addition"
         )
         self.alert = Alert.objects.create(dns_twisted=self.twisted)
-    
+        self.dangling_subdomain = DanglingSubdomain.objects.create(
+            subdomain="old.api-dns-test.com", dns_monitored=self.dns, status='dangling_confirmed',
+            provider='Amazon S3'
+        )
+        self.dangling_alert = DanglingAlert.objects.create(dangling_subdomain=self.dangling_subdomain)
+
     def test_dns_monitored_api(self):
         """Test DnsMonitored API operations."""
         # List and Create
@@ -217,7 +648,38 @@ class APITest(APITestCase):
         self.client.credentials()
         response = self.client.post('/api/dns_finder/dns_monitored/', {'domain_name': 'test.com'})
         self.assertIn(response.status_code, [401, 403])
-    
+
+    def test_dangling_subdomain_and_alert_api(self):
+        """Test DanglingSubdomain and DanglingAlert API operations."""
+        response = self.client.get('/api/dns_finder/dangling_subdomain/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        update_data = {'status': 'resolved'}
+        response = self.client.patch(
+            f'/api/dns_finder/dangling_subdomain/{self.dangling_subdomain.pk}/', update_data
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'resolved')
+
+        response = self.client.get('/api/dns_finder/dangling_alert/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        update_data = {'status': False}
+        response = self.client.patch(f'/api/dns_finder/dangling_alert/{self.dangling_alert.pk}/', update_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['status'])
+
+    def test_statistics_include_dangling_counts(self):
+        """Test that the statistics endpoint reports dangling subdomain counts."""
+        response = self.client.get('/api/dns_finder/dns_monitored/statistics/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('totalDanglingSubdomains', response.data)
+        self.assertIn('totalDanglingConfirmed', response.data)
+        self.assertIn('totalDanglingSuspected', response.data)
+        self.assertEqual(response.data['totalDanglingSubdomains'], 1)
+        self.assertEqual(response.data['totalDanglingConfirmed'], 1)
+
+
     @patch('dns_finder.serializers.PyMISP')
     def test_misp_export(self, mock_pymisp):
         """Test MISP export functionality."""
