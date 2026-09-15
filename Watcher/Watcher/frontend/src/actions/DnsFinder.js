@@ -113,6 +113,17 @@ export const getDnsMonitored = (page = 1, pageSize = 100) => (dispatch, getState
         });
 };
 
+// GET DANGLING SUBDOMAINS FOR ONE CORPORATE DNS ASSET (on-demand, not stored in Redux)
+export const getDnsMonitoredDanglingSubdomains = (dnsMonitoredId) => (dispatch, getState) => {
+    return axios
+        .get(`/api/dns_finder/dns_monitored/${dnsMonitoredId}/dangling_subdomains/`, tokenConfig(getState))
+        .then(res => res.data)
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
+};
+
 export const deleteDnsMonitored = (id, domain_name) => (dispatch, getState) => {
     axios
         .delete(`/api/dns_finder/dns_monitored/${id}/`, tokenConfig(getState))

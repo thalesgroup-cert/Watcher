@@ -1,7 +1,7 @@
 import React, {Component, Fragment} from 'react';
 import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
-import { getDnsMonitored, deleteDnsMonitored, addDnsMonitored, patchDnsMonitored } from "../../actions/DnsFinder";
+import { getDnsMonitored, deleteDnsMonitored, addDnsMonitored, patchDnsMonitored, getDnsMonitoredDanglingSubdomains } from "../../actions/DnsFinder";
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
@@ -20,6 +20,10 @@ export class DnsMonitored extends Component {
             id: 0,
             word: "",
             isLoading: true,
+            showDanglingModal: false,
+            danglingSubdomains: [],
+            danglingLoading: false,
+            danglingDomainName: '',
         };
         this.inputRef = React.createRef();
     }
@@ -30,6 +34,7 @@ export class DnsMonitored extends Component {
         deleteDnsMonitored: PropTypes.func.isRequired,
         addDnsMonitored: PropTypes.func.isRequired,
         patchDnsMonitored: PropTypes.func.isRequired,
+        getDnsMonitoredDanglingSubdomains: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         globalFilters: PropTypes.object,
         filteredData: PropTypes.array
@@ -101,6 +106,75 @@ export class DnsMonitored extends Component {
                             Yes, I'm sure
                         </Button>
                     </form>
+                </Modal.Footer>
+            </Modal>
+        );
+    };
+
+    displayDanglingModal = (domain) => {
+        this.setState({ showDanglingModal: true, danglingLoading: true, danglingDomainName: domain.domain_name, danglingSubdomains: [] });
+        this.props.getDnsMonitoredDanglingSubdomains(domain.id)
+            .then(subdomains => this.setState({ danglingSubdomains: subdomains, danglingLoading: false }))
+            .catch(() => this.setState({ danglingLoading: false }));
+    };
+
+    danglingModal = () => {
+        const handleClose = () => this.setState({ showDanglingModal: false, danglingSubdomains: [] });
+        const STATUS_BADGES = {
+            pending: { label: 'Pending', className: 'bg-secondary' },
+            ok: { label: 'OK', className: 'bg-success' },
+            dangling_suspected: { label: 'Suspected', className: 'bg-warning text-dark' },
+            dangling_confirmed: { label: 'Confirmed', className: 'bg-danger' },
+            resolved: { label: 'Resolved', className: 'bg-info text-dark' },
+            false_positive: { label: 'False Positive', className: 'bg-dark' },
+        };
+
+        return (
+            <Modal show={this.state.showDanglingModal} onHide={handleClose} centered size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Dangling Subdomains for <b>{this.state.danglingDomainName}</b></Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {this.state.danglingLoading ? (
+                        <div className="d-flex flex-column align-items-center py-4">
+                            <div className="spinner-border text-primary mb-2" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    ) : this.state.danglingSubdomains.length === 0 ? (
+                        <p className="text-muted text-center py-4 mb-0">No subdomains tracked for this asset yet.</p>
+                    ) : (
+                        <table className="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Subdomain</th>
+                                    <th>Provider</th>
+                                    <th>CNAME Target</th>
+                                    <th>Status</th>
+                                    <th>Last Checked</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {this.state.danglingSubdomains.map(sub => {
+                                    const badge = STATUS_BADGES[sub.status] || { label: sub.status, className: 'bg-secondary' };
+                                    return (
+                                        <tr key={sub.id}>
+                                            <td>{sub.subdomain}</td>
+                                            <td>{sub.provider || '-'}</td>
+                                            <td>{sub.cname_target || '-'}</td>
+                                            <td><span className={`badge ${badge.className}`}>{badge.label}</span></td>
+                                            <td>
+                                                <DateWithTooltip date={sub.last_checked_at} includeTime={true} type="checked" />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleClose}>Close</Button>
                 </Modal.Footer>
             </Modal>
         );
@@ -336,6 +410,15 @@ export class DnsMonitored extends Component {
                                                             </td>
                                                             <LastEventCell event={domain.last_event} />
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                                                                <button
+                                                                    className="btn btn-outline-secondary btn-sm me-2"
+                                                                    data-toggle="tooltip"
+                                                                    data-placement="top"
+                                                                    title="View Dangling Subdomains"
+                                                                    onClick={() => this.displayDanglingModal(domain)}
+                                                                >
+                                                                    <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>link_off</i>
+                                                                </button>
                                                                 {canManage && (
                                                                     <>
                                                                         <button
@@ -385,6 +468,7 @@ export class DnsMonitored extends Component {
                 {this.deleteModal()}
                 {this.editModal()}
                 {this.addModal()}
+                {this.danglingModal()}
                 <TimelineModal
                     show={showTimelineModal}
                     onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
@@ -406,5 +490,6 @@ export default connect(mapStateToProps, {
     getDnsMonitored,
     deleteDnsMonitored,
     addDnsMonitored,
-    patchDnsMonitored
+    patchDnsMonitored,
+    getDnsMonitoredDanglingSubdomains
 })(DnsMonitored);
