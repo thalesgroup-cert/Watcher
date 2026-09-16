@@ -127,7 +127,7 @@ class TakeoverMispObjectTest(TestCase):
         self.assertEqual(len(objects), 1)
         values = {(attr.type, attr.value) for attr in objects[0].attributes}
         self.assertIn(('domain', 'old.misp-takeover-test.com'), values)
-        self.assertIn(('domain', 'bucket.s3.amazonaws.com'), values)
+        self.assertIn(('hostname', 'bucket.s3.amazonaws.com'), values)
         self.assertIn(('text', 'Amazon S3'), values)
 
     def test_create_takeover_objects_skips_existing_values(self):

@@ -204,11 +204,11 @@ def create_takeover_objects(dangling_subdomain, existing_values=None):
     if dangling_subdomain.cname_target:
         attributes_map['cname_target'] = {
             'value': dangling_subdomain.cname_target,
-            'type': 'domain',
+            'type': 'hostname',
             'category': 'Network activity',
             'to_ids': True,
             'comment': "CNAME target (decommissioned resource)",
-            'object_relation': 'cname-target',
+            'object_relation': 'hostname',
         }
 
     if dangling_subdomain.provider:
@@ -228,7 +228,7 @@ def create_takeover_objects(dangling_subdomain, existing_values=None):
             'category': 'Other',
             'to_ids': False,
             'comment': "HTTP status observed during probe",
-            'object_relation': 'comment',
+            'object_relation': 'text',
         }
 
     for attr_data in attributes_map.values():
