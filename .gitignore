@@ -328,3 +328,4 @@ deployment/certificates/rootcafile.pem
 db_watcher/
 Watcher/Watcher/static/
 .worktrees/
+.superpowers/
