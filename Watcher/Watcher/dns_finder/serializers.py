@@ -4,7 +4,7 @@ from rest_framework import serializers
 logger = logging.getLogger('watcher.dns_finder')
 from django.utils import timezone
 from connectors.core import get_misp_config
-from .models import Alert, DnsMonitored, DnsTwisted, KeywordMonitored, DanglingSubdomain, DanglingAlert
+from .models import Alert, DnsMonitored, DnsTwisted, KeywordMonitored
 from site_monitoring.models import Site
 from site_monitoring.core import monitoring_init
 import requests
@@ -78,10 +78,15 @@ class DnsTwistedSerializer(serializers.ModelSerializer):
     dns_monitored = DnsMonitoredSerializer(read_only=True)
     keyword_monitored = KeywordMonitoredSerializer(read_only=True)
     misp_event_uuid = serializers.SerializerMethodField()
-    
+    status = serializers.SerializerMethodField()
+
     def get_misp_event_uuid(self, obj):
         return get_misp_uuid(obj.domain_name)
-    
+
+    def get_status(self, obj):
+        alert = obj.alert_set.filter(source=Alert.SOURCE_SUBDOMAIN_TAKEOVER).first()
+        return alert.status if alert else None
+
     class Meta:
         model = DnsTwisted
         fields = '__all__'
@@ -98,35 +103,12 @@ class AlertSerializer(serializers.ModelSerializer):
 
 from django.core.exceptions import ObjectDoesNotExist
 
-# DanglingSubdomain Serializer
-class DanglingSubdomainSerializer(serializers.ModelSerializer):
-    dns_monitored = DnsMonitoredSerializer(read_only=True)
-    last_event = serializers.SerializerMethodField()
-
-    def get_last_event(self, obj):
-        return _get_last_event(obj)
-
-    class Meta:
-        model = DanglingSubdomain
-        fields = '__all__'
-
-
-# DanglingAlert Serializer
-class DanglingAlertSerializer(serializers.ModelSerializer):
-    dangling_subdomain = DanglingSubdomainSerializer(read_only=True)
-
-    class Meta:
-        model = DanglingAlert
-        fields = '__all__'
-
-
 # MISP Serializer
 class MISPSerializer(serializers.Serializer):
     id = serializers.IntegerField(required=False)
     event_uuid = serializers.CharField(required=False, allow_blank=True)
     domain_name = serializers.CharField(required=False, allow_blank=True)
     fuzzer = serializers.CharField(required=False, allow_blank=True)
-    source = serializers.ChoiceField(choices=['subdomain_takeover'], required=False, allow_blank=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -138,30 +120,22 @@ class MISPSerializer(serializers.Serializer):
         )
         self._message = ""
 
-    def _get_target_obj(self, obj_id, domain_name, fuzzer, source=None):
+    def _get_target_obj(self, obj_id, domain_name, fuzzer):
         """
         Retrieve the target domain object from the appropriate database model.
 
-        Routes to DanglingSubdomain when source='subdomain_takeover' (a
-        subdomain has no domain_name to match against DnsTwisted), to
-        LegitimateDomain/Site when fuzzer='legitimate_domain', otherwise to
-        DnsTwisted. Prioritizes resolution by domain_name with a fallback
-        to the primary key (obj_id).
+        Routes to LegitimateDomain/Site when fuzzer='legitimate_domain',
+        otherwise to DnsTwisted. Prioritizes resolution by domain_name with a
+        fallback to the primary key (obj_id).
 
         Args:
             obj_id (int): The primary key of the object (fallback lookup).
             domain_name (str): The domain name to search for (primary lookup).
             fuzzer (str): The origin context string (e.g., 'legitimate_domain').
-            source (str): The unified-feed source (e.g., 'subdomain_takeover').
 
         Returns:
-            Object: An instance of LegitimateDomain, Site, DnsTwisted, or DanglingSubdomain.
+            Object: An instance of LegitimateDomain, Site, or DnsTwisted.
         """
-        if source == 'subdomain_takeover':
-            from dns_finder.models import DanglingSubdomain
-            if domain_name: return DanglingSubdomain.objects.get(subdomain=domain_name)
-            return DanglingSubdomain.objects.get(pk=obj_id)
-
         if fuzzer == 'legitimate_domain':
             from site_monitoring.models import Site
             try:
@@ -180,10 +154,9 @@ class MISPSerializer(serializers.Serializer):
         event_uuid = data.get('event_uuid', '')
         domain_name = data.get('domain_name')
         fuzzer = data.get('fuzzer')
-        source = data.get('source')
 
         try:
-            target_obj = self._get_target_obj(dns_id, domain_name, fuzzer, source)
+            target_obj = self._get_target_obj(dns_id, domain_name, fuzzer)
 
             data['id'] = target_obj.id
 
@@ -206,9 +179,8 @@ class MISPSerializer(serializers.Serializer):
             dns_id = self.validated_data['id']
             domain_name = self.validated_data.get('domain_name')
             fuzzer = self.validated_data.get('fuzzer')
-            source = self.validated_data.get('source')
             event_uuid = self.validated_data.get('event_uuid')
-            target_obj = self._get_target_obj(dns_id, domain_name, fuzzer, source)
+            target_obj = self._get_target_obj(dns_id, domain_name, fuzzer)
             domain_identifier = _get_domain_identifier(target_obj)
 
             if not event_uuid:
@@ -266,9 +238,8 @@ class MISPSerializer(serializers.Serializer):
         dns_id = self.validated_data['id']
         domain_name = self.validated_data.get('domain_name')
         fuzzer = self.validated_data.get('fuzzer')
-        source = self.validated_data.get('source')
 
-        target_obj = self._get_target_obj(dns_id, domain_name, fuzzer, source)
+        target_obj = self._get_target_obj(dns_id, domain_name, fuzzer)
         domain_identifier = _get_domain_identifier(target_obj)
 
         return {

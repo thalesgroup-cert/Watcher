@@ -1,7 +1,7 @@
 from django.conf import settings
 
 def get_dns_finder_dangling_template(alert):
-    dangling = alert.dangling_subdomain
+    dns_twisted = alert.dns_twisted
     body = """\
     <html>
         <head>
@@ -116,7 +116,7 @@ def get_dns_finder_dangling_template(alert):
                     <!-- Header -->
                     <td class="header" colspan="2">
                         <img src=\"""" + str(settings.WATCHER_LOGO) + """ " alt="Threats Watcher Logo">
-                        <h1>DNS Finder: Dangling Alert #""" + str(alert.pk) + """</h1>
+                        <h1>DNS Threats Monitored: Dangling Alert #""" + str(alert.pk) + """</h1>
                     </td>
                 </tr>
                 <!-- Content -->
@@ -125,10 +125,10 @@ def get_dns_finder_dangling_template(alert):
                         <p>Dear team,</p>
                         <p>A monitored subdomain may be vulnerable to takeover:</p>
                         <div class="word-list">
-                            <p><strong>Subdomain:</strong> """ + str(dangling.subdomain) + """</p>
-                            <p><strong>Corporate DNS:</strong> """ + str(dangling.dns_monitored) + """</p>
-                            <p><strong>CNAME Target:</strong> """ + str(dangling.cname_target or 'N/A') + """</p>
-                            <p><strong>Provider:</strong> """ + str(dangling.provider or 'Unknown') + """</p>
+                            <p><strong>Subdomain:</strong> """ + str(dns_twisted.domain_name) + """</p>
+                            <p><strong>Corporate DNS:</strong> """ + str(dns_twisted.dns_monitored) + """</p>
+                            <p><strong>CNAME Target:</strong> """ + str(dns_twisted.cname_target or 'N/A') + """</p>
+                            <p><strong>Provider:</strong> """ + str(dns_twisted.provider or 'Unknown') + """</p>
                         </div>
 
                         <p>You can check more details <a href=" """ + str(settings.WATCHER_URL + "/#/dns_finder") + """ ">here.</a></p>

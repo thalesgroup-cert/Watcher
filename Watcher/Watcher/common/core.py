@@ -169,7 +169,7 @@ APP_CONFIG_SLACK = {
     },
     'dns_finder_group': {
         'content_template': (
-            "*[{alerts_number} ALERTS] 🚨 DNS Finder 🚨*\n\n"
+            "*[{alerts_number} ALERTS] 🚨 DNS Threats Monitored 🚨*\n\n"
             "Dear team,\n\n"
             "*{alerts_number}* New DNS Twisted Alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
             "Please, find more details <{details_url}|here>."
@@ -348,7 +348,7 @@ APP_CONFIG_CITADEL = {
     },
     'dns_finder_group': {
         'content_template': (
-            "<p><strong><h4>[{alerts_number} ALERTS] 🚨 DNS Finder 🚨</h4></strong></p>"
+            "<p><strong><h4>[{alerts_number} ALERTS] 🚨 DNS Threats Monitored 🚨</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p><strong>{alerts_number}</strong> New DNS Twisted Alerts for <strong>{dns_domain_name_sanitized_group}</strong> asset.</p>"
             "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
@@ -634,19 +634,19 @@ APP_CONFIG_EMAIL = {
         'template_func': get_site_monitoring_template,
     },
     'dns_finder': {
-        'subject': "[ALERT #{alert.pk}] DNS Finder",
+        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored",
         'template_func': get_dns_finder_template,
     },
     'dns_finder_cert_transparency': {
-        'subject': "[ALERT #{alert.pk}] DNS Finder",
+        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored",
         'template_func': get_dns_finder_cert_transparency_template,
     },
     'dns_finder_group': {
-        'subject': "[{alerts_number} ALERTS] DNS Finder",
+        'subject': "[{alerts_number} ALERTS] DNS Threats Monitored",
         'template_func': get_dns_finder_group_template,
     },
     'dns_finder_dangling': {
-        'subject': "[ALERT #{alert.pk}] DNS Finder - Dangling Subdomain",
+        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored - Dangling Subdomain",
         'template_func': get_dns_finder_dangling_template,
     },
     'cyber_watch_new_cve': {
@@ -767,15 +767,15 @@ def collect_observables(app_name, context_data):
 
     elif app_name == 'dns_finder_dangling':
         alert = context_data.get('alert')
-        if alert and alert.dangling_subdomain:
-            dangling = alert.dangling_subdomain
-            observable = {"dataType": "domain", "data": dangling.subdomain, "tags": []}
-            if dangling.provider:
-                observable["tags"].append(f"provider:{dangling.provider}")
-            if dangling.cname_target:
-                observable["tags"].append(f"cname_target:{dangling.cname_target}")
-            if dangling.dns_monitored:
-                observable["tags"].append(f"corporate_dns:{dangling.dns_monitored.domain_name}")
+        if alert and alert.dns_twisted:
+            dns_twisted = alert.dns_twisted
+            observable = {"dataType": "domain", "data": dns_twisted.domain_name, "tags": []}
+            if dns_twisted.provider:
+                observable["tags"].append(f"provider:{dns_twisted.provider}")
+            if dns_twisted.cname_target:
+                observable["tags"].append(f"cname_target:{dns_twisted.cname_target}")
+            if dns_twisted.dns_monitored:
+                observable["tags"].append(f"corporate_dns:{dns_twisted.dns_monitored.domain_name}")
             observables.append(observable)
 
     elif app_name == 'cyber_watch':
@@ -1194,17 +1194,17 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
         elif app_name == 'dns_finder_dangling':
             alert = context_data.get('alert')
 
-            if not alert or not alert.dangling_subdomain or not alert.dangling_subdomain.subdomain:
-                logger.warning("No valid alert data found or DanglingSubdomain information missing.")
+            if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
+                logger.warning("No valid alert data found or DnsTwisted information missing.")
                 return
 
-            dangling = alert.dangling_subdomain
+            dns_twisted = alert.dns_twisted
             common_data = {
                 'alert': alert,
-                'subdomain': dangling.subdomain,
-                'parent_domain': dangling.dns_monitored.domain_name if dangling.dns_monitored else 'N/A',
-                'cname_target': dangling.cname_target or 'N/A',
-                'provider': dangling.provider or 'Unknown',
+                'subdomain': dns_twisted.domain_name,
+                'parent_domain': dns_twisted.dns_monitored.domain_name if dns_twisted.dns_monitored else 'N/A',
+                'cname_target': dns_twisted.cname_target or 'N/A',
+                'provider': dns_twisted.provider or 'Unknown',
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder_dangling'
             }

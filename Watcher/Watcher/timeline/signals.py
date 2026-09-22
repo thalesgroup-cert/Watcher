@@ -23,7 +23,8 @@ TRACKED_FIELDS = {
     ],
     'dns_finder.dnsmonitored': ['domain_name'],
     'dns_finder.keywordmonitored': ['name'],
-    'dns_finder.danglingsubdomain': ['status', 'provider', 'cname_target'],
+    'dns_finder.dnstwisted': ['fuzzer', 'issuer', 'san_list', 'provider', 'cname_target'],
+    'dns_finder.alert': ['status', 'comments', 'trigger'],
 }
 
 _pre_save_cache = {}

@@ -11,7 +11,7 @@ import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 
 const DEFAULT_LAYOUT = [
     { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
-    { i: 'threats',  x: 0, y: 8,  w: 12, h: 14, minW: 6, minH: 6 },
+    { i: 'threats',  x: 0, y: 8,  w: 12, h: 11, minW: 6, minH: 6 },
     { i: 'dns',      x: 0, y: 22, w: 6,  h: 11, minW: 3, minH: 5 },
     { i: 'keywords', x: 6, y: 22, w: 6,  h: 11, minW: 3, minH: 5 },
 ];
@@ -24,11 +24,11 @@ const SOURCE_OPTIONS = [
     { value: 'subdomain_takeover', label: 'Subdomain Takeover Detection' },
 ];
 
-const DANGLING_STATUS_OPTIONS = [
+const STATUS_OPTIONS = [
+    { value: 'open', label: 'Open (not resolved)' },
     { value: 'pending', label: 'Pending' },
-    { value: 'ok', label: 'OK' },
-    { value: 'dangling_suspected', label: 'Suspected' },
-    { value: 'dangling_confirmed', label: 'Confirmed' },
+    { value: 'suspected', label: 'Suspected' },
+    { value: 'confirmed', label: 'Confirmed' },
     { value: 'resolved', label: 'Resolved' },
     { value: 'false_positive', label: 'False Positive' },
 ];
@@ -41,13 +41,14 @@ class Dashboard extends Component {
                 search: '',
                 source: '',
                 corporate_dns: '',
+                status: 'open',
                 fuzzer: '',
                 corporate_keyword: '',
                 provider: '',
-                cname_target: '',
-                dangling_status: ''
+                cname_target: ''
             },
             filteredThreats: [],
+            filteredThreatsSource: null,
             isLoadingInBackground: false,
             allDataLoaded: false
         };
@@ -145,6 +146,8 @@ class Dashboard extends Component {
         const { dnsMonitored, threatsMonitored } = this.props;
         const { globalFilters } = this.state;
         const uniqueDomains = [...new Set((dnsMonitored || []).map(d => d.domain_name).filter(Boolean))].sort();
+        const hasDynamicFilter = Boolean(globalFilters.source);
+        const searchWidth = hasDynamicFilter ? 2 : 3;
 
         const base = [
             {
@@ -152,7 +155,7 @@ class Dashboard extends Component {
                 type: 'search',
                 label: 'Search',
                 placeholder: 'Search domains, keywords, providers...',
-                width: 3
+                width: searchWidth
             },
             {
                 key: 'source',
@@ -167,12 +170,17 @@ class Dashboard extends Component {
                 label: 'Corporate DNS',
                 width: 2,
                 options: uniqueDomains.map(domain => ({ value: domain, label: domain }))
+            },
+            {
+                key: 'status',
+                type: 'select',
+                label: 'Status',
+                width: 2,
+                defaultValue: 'open',
+                options: STATUS_OPTIONS
             }
         ];
 
-        // Per-source dynamic filters (spec 3.4): only show the filter relevant
-        // to the currently-selected source, since TableManager renders every
-        // entry in filterConfig unconditionally.
         if (globalFilters.source === 'dnstwist') {
             const uniqueFuzzers = [...new Set(
                 (threatsMonitored || [])
@@ -201,7 +209,6 @@ class Dashboard extends Component {
                     .filter(Boolean)
             )].sort();
             base.push({ key: 'provider', type: 'select', label: 'Provider', width: 2, options: uniqueProviders.map(p => ({ value: p, label: p })) });
-            base.push({ key: 'dangling_status', type: 'select', label: 'Status', width: 2, options: DANGLING_STATUS_OPTIONS });
         }
 
         return base;
@@ -213,25 +220,27 @@ class Dashboard extends Component {
                 search: filters.search || '',
                 source: filters.source || '',
                 corporate_dns: filters.corporate_dns || '',
+                status: filters.status || '',
                 fuzzer: filters.fuzzer || '',
                 corporate_keyword: filters.corporate_keyword || '',
                 provider: filters.provider || '',
-                cname_target: filters.cname_target || '',
-                dangling_status: filters.dangling_status || ''
+                cname_target: filters.cname_target || ''
             }
         });
     };
 
-    onDataFiltered = (filteredData) => {
-        this.setState({ filteredThreats: filteredData });
+    onDataFiltered = (filteredData, sourceData) => {
+        this.setState({ filteredThreats: filteredData, filteredThreatsSource: sourceData });
     };
 
     buildPanels() {
-        const { globalFilters, filteredThreats } = this.state;
+        const { globalFilters, filteredThreats, filteredThreatsSource } = this.state;
         const { threatsMonitored } = this.props;
         const filterConfig = this.getFilterConfig();
         const hasActiveFilters = Object.values(globalFilters).some(val => val !== '');
-        const dataToPass = hasActiveFilters ? (filteredThreats.length > 0 ? filteredThreats : []) : null;
+        const filteredThreatsIsFresh = filteredThreatsSource === threatsMonitored;
+        const dataToPass = (hasActiveFilters && filteredThreatsIsFresh) ? filteredThreats : null;
+        const hasDynamicFilter = Boolean(globalFilters.source);
 
         return {
             stats: {
@@ -246,7 +255,7 @@ class Dashboard extends Component {
             },
             threats: {
                 label: 'DNS Threats Monitored',
-                icon: 'gpp_maybe',
+                icon: 'link',
                 tooltip: 'Dnstwist, Certificate Transparency Stream and Subdomain Takeover detections, unified',
                 children: (
                     <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -257,7 +266,8 @@ class Dashboard extends Component {
                             onDataFiltered={this.onDataFiltered}
                             enableDateFilter={true}
                             dateFields={['created_at']}
-                            dateFilterWidth={2}
+                            dateFilterWidth={hasDynamicFilter ? 1 : 2}
+                            clearButtonWidth={1}
                             searchFields={['domain_name', 'corporate_dns', 'corporate_keyword']}
                             defaultSort="created_at"
                             moduleKey="dnsFinder"

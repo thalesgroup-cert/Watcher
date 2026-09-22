@@ -6,7 +6,6 @@ import json
 import logging
 import re
 import time
-import datetime as dt
 import dns.resolver
 import dns.exception
 import requests
@@ -15,8 +14,7 @@ from django.db import close_old_connections
 from connectors.core import get_certstream_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
-from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored, \
-    DanglingSubdomain, DanglingAlert
+from .models import Alert, DnsMonitored, DnsTwisted, Subscriber, KeywordMonitored
 from common.models import LegitimateDomain
 from . import certstream_client
 from common.core import send_app_specific_notifications
@@ -97,10 +95,10 @@ def clean_wildcard_domain(domain):
 
 def extract_certificate_metadata(message):
     """
-    Extract issuer/SAN/validity/serial/fingerprint from a CertStream
-    certificate_update message's leaf certificate and issuing chain.
-    Every field is read defensively - a leaner or differently-shaped
-    certstream-server-go payload must never raise here, only omit data.
+    Extract issuer/SAN from a CertStream certificate_update message's leaf
+    certificate and issuing chain. Every field is read defensively - a leaner
+    or differently-shaped certstream-server-go payload must never raise here,
+    only omit data.
 
     :param message: CertStream event (Dict).
     :rtype: dict
@@ -113,22 +111,9 @@ def extract_certificate_metadata(message):
         issuer_subject = chain[0].get('subject') or {}
         issuer = issuer_subject.get('O') or issuer_subject.get('CN')
 
-    def _to_datetime(epoch_seconds):
-        if epoch_seconds is None:
-            return None
-        try:
-            aware = dt.datetime.fromtimestamp(float(epoch_seconds), tz=dt.timezone.utc)
-            return timezone.localtime(aware).replace(tzinfo=None)
-        except (TypeError, ValueError, OSError):
-            return None
-
     return {
         'issuer': issuer,
         'san_list': leaf_cert.get('all_domains') or None,
-        'not_before': _to_datetime(leaf_cert.get('not_before')),
-        'not_after': _to_datetime(leaf_cert.get('not_after')),
-        'serial_number': leaf_cert.get('serial_number'),
-        'fingerprint_sha256': leaf_cert.get('fingerprint'),
     }
 
 
@@ -197,17 +182,16 @@ def resolve_cname_chain(subdomain, max_hops=5):
     return target
 
 
-def check_dangling_status(dangling_subdomain):
+def check_dangling_status(dns_twisted):
     """
-    Resolve a DanglingSubdomain's CNAME chain, match it against known
+    Resolve a DnsTwisted row's CNAME chain, match it against known
     takeover-able provider fingerprints, and confirm via DNS/HTTP.
-    Updates the DanglingSubdomain row in place.
+    Updates the DnsTwisted row's technical probe fields in place.
 
-    :param dangling_subdomain: DanglingSubdomain Object.
-    :return: The subdomain's status *before* this check ran (Str).
+    :param dns_twisted: DnsTwisted Object.
+    :return: The raw probe verdict: 'ok', 'dangling_suspected', or 'dangling_confirmed' (Str).
     """
-    previous_status = dangling_subdomain.status
-    cname_target = resolve_cname_chain(dangling_subdomain.subdomain)
+    cname_target = resolve_cname_chain(dns_twisted.domain_name)
     fingerprint = match_fingerprint(cname_target)
 
     new_status = 'ok'
@@ -232,7 +216,7 @@ def check_dangling_status(dangling_subdomain):
                 # case: bound the connect/read time, refuse redirects and cap
                 # how much of the body we are willing to read into memory.
                 response = requests.get(
-                    f"https://{dangling_subdomain.subdomain}",
+                    f"https://{dns_twisted.domain_name}",
                     timeout=(3, 5),
                     verify=False,
                     allow_redirects=False,
@@ -248,90 +232,74 @@ def check_dangling_status(dangling_subdomain):
             except requests.exceptions.RequestException:
                 new_status = 'dangling_suspected'
 
-    DanglingSubdomain.objects.filter(pk=dangling_subdomain.pk).update(
+    DnsTwisted.objects.filter(pk=dns_twisted.pk).update(
         last_checked_at=timezone.now(),
         cname_target=cname_target,
         provider=provider,
-        status=new_status,
         http_status_code=http_status_code,
     )
-    dangling_subdomain.status = new_status
 
-    return previous_status
+    return new_status
 
 
-def evaluate_dangling_subdomain(dangling_subdomain, source):
+DETECTION_TO_ALERT_STATUS = {
+    'ok': Alert.STATUS_RESOLVED,
+    'dangling_suspected': Alert.STATUS_SUSPECTED,
+    'dangling_confirmed': Alert.STATUS_CONFIRMED,
+}
+
+
+def evaluate_dangling_subdomain(dns_twisted, source):
     """
-    Runs check_dangling_status and creates + notifies a DanglingAlert only if
-    the subdomain just transitioned INTO 'dangling_confirmed' from some other
-    status (avoids re-alerting on every periodic recheck of an already-confirmed
-    subdomain).
+    Runs check_dangling_status and creates/updates the single
+    subdomain_takeover Alert for this domain, notifying only if the status
+    just transitioned INTO 'confirmed' from some other status (avoids
+    re-alerting on every periodic recheck of an already-confirmed subdomain).
 
-    'dangling_suspected' is deliberately silent: it is reached on a transient
+    'suspected' is deliberately silent: it is reached on a transient
     network/DNS error during the HTTP probe, so alerting on it would page the
     SOC on every blip and make a flapping subdomain spam the channels. It is
     still persisted and surfaced in the UI/statistics, and escalating from
-    'dangling_suspected' to 'dangling_confirmed' does alert.
+    'suspected' to 'confirmed' does alert.
 
-    :param dangling_subdomain: DanglingSubdomain Object.
+    :param dns_twisted: DnsTwisted Object.
     :param source: 'certstream' or 'periodic_recheck' (Str).
     """
-    previous_status = check_dangling_status(dangling_subdomain)
-    dangling_subdomain.refresh_from_db()
+    raw_status = check_dangling_status(dns_twisted)
+    new_status = DETECTION_TO_ALERT_STATUS[raw_status]
 
-    newly_confirmed = (
-        dangling_subdomain.status == 'dangling_confirmed'
-        and previous_status != 'dangling_confirmed'
+    alert, created = Alert.objects.get_or_create(
+        dns_twisted=dns_twisted, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER,
+        defaults={'status': Alert.STATUS_PENDING, 'trigger': source},
     )
+    previous_status = Alert.STATUS_PENDING if created else alert.status
 
+    if new_status != previous_status:
+        Alert.objects.filter(pk=alert.pk).update(status=new_status, trigger=source)
+        alert.status = new_status
+
+    newly_confirmed = new_status == Alert.STATUS_CONFIRMED and previous_status != Alert.STATUS_CONFIRMED
     if newly_confirmed:
-        alert = DanglingAlert.objects.create(dangling_subdomain=dangling_subdomain, trigger=source)
-        send_dangling_dns_notifications(alert)
-
-
-def send_dangling_dns_notifications(alert):
-    """
-    Sends notifications to Slack, Citadel, TheHive or Email for a Dangling
-    DNS alert.
-
-    :param alert: DanglingAlert Object.
-    """
-    subscribers = Subscriber.objects.filter(
-        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for DNS Finder, no dangling DNS message sent.")
-        return
-
-    if not alert or not alert.dangling_subdomain or not alert.dangling_subdomain.subdomain:
-        logger.error(f"Invalid alert object or missing subdomain in dangling_subdomain for alert: {alert}")
-        return
-
-    context_data = {
-        'alert': alert,
-    }
-
-    send_app_specific_notifications('dns_finder_dangling', context_data, subscribers)
+        send_dns_finder_notifications(alert)
 
 
 def track_dangling_subdomain(domain):
     """
     If domain is a genuine subdomain (not the root itself) of a monitored
-    corporate root domain, catalog it for dangling-DNS tracking.
+    corporate root domain, catalog it for dangling-DNS tracking (a DnsTwisted
+    row plus its subdomain_takeover Alert).
 
-    Discovery is catalog-only in real time: the row is created with its
-    default 'pending' status and nothing else happens here. Verification
-    (DNS resolution + HTTP probe, up to ~35s of blocking I/O) is left to the
-    periodic recheck_dangling_subdomains job, which already picks up 'pending'
-    rows. This runs on CertStream's single-threaded message-reader callback,
-    which has no queue: blocking it would make the feed drop (not buffer)
-    certificate-transparency events, degrading the pre-existing typosquat
-    detection that shares this callback.
+    Discovery is catalog-only in real time: nothing is probed here.
+    Verification (DNS resolution + HTTP probe, up to ~35s of blocking I/O) is
+    left to the periodic recheck_dangling_subdomains job, which already picks
+    up 'pending' rows. This runs on CertStream's single-threaded
+    message-reader callback, which has no queue: blocking it would make the
+    feed drop (not buffer) certificate-transparency events, degrading the
+    pre-existing typosquat detection that shares this callback.
 
     Uses a strict suffix check (rather than in_dns_monitored's substring
     check, which would also match unrelated domains sharing a substring)
-    since correctness matters here: this path writes a new DB row.
+    since correctness matters here: this path writes new DB rows.
 
     :param domain: Domain from a CertStream event (Str).
     """
@@ -341,30 +309,36 @@ def track_dangling_subdomain(domain):
 
     for dns_monitored in DnsMonitored.objects.all():
         if domain != dns_monitored.domain_name and domain.endswith('.' + dns_monitored.domain_name):
-            DanglingSubdomain.objects.get_or_create(
-                subdomain=domain,
-                defaults={'dns_monitored': dns_monitored}
+            # domain_name is shared across all 3 sources - may already exist.
+            dns_twisted, _ = DnsTwisted.objects.get_or_create(
+                domain_name=domain, defaults={'dns_monitored': dns_monitored}
+            )
+            Alert.objects.get_or_create(
+                dns_twisted=dns_twisted, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER,
+                defaults={'status': Alert.STATUS_PENDING, 'trigger': 'certstream'},
             )
             break
 
 
 def recheck_dangling_subdomains():
     """
-    Re-check every catalogued DanglingSubdomain that hasn't been triaged as
+    Re-check every subdomain_takeover Alert that hasn't been triaged as
     resolved/false_positive, to catch takeovers that appear long after the
     subdomain was first discovered.
     """
     close_old_connections()
     logger.info("CRON TASK: Dangling DNS re-check")
 
-    subdomains = DanglingSubdomain.objects.exclude(status__in=['resolved', 'false_positive'])
+    alerts = Alert.objects.filter(source=Alert.SOURCE_SUBDOMAIN_TAKEOVER).exclude(
+        status__in=[Alert.STATUS_RESOLVED, Alert.STATUS_FALSE_POSITIVE]
+    ).select_related('dns_twisted')
 
-    for dangling_subdomain in subdomains:
+    for alert in alerts:
         try:
-            evaluate_dangling_subdomain(dangling_subdomain, 'periodic_recheck')
+            evaluate_dangling_subdomain(alert.dns_twisted, 'periodic_recheck')
             time.sleep(1)  # Rate limiting
         except Exception as e:
-            logger.error(f"Error rechecking dangling subdomain {dangling_subdomain.subdomain}: {str(e)}")
+            logger.error(f"Error rechecking dangling subdomain {alert.dns_twisted.domain_name}: {str(e)}")
 
     logger.info("Dangling DNS re-check completed")
 
@@ -499,8 +473,11 @@ def check_dnstwist(dns_monitored):
 
 def send_dns_finder_notifications(alert):
     """
-    Sends notifications to Slack, Citadel, TheHive or Email based on DNS Finder.
-    
+    Sends notifications to Slack, Citadel, TheHive or Email for a DNS Finder
+    alert, across all three sources. subdomain_takeover routes through the
+    dedicated 'dns_finder_dangling' templates; dnstwist/certstream_keyword
+    share 'dns_finder' and pick their template internally from `source`.
+
     :param alert: Alert Object.
     """
     subscribers = Subscriber.objects.filter(
@@ -515,13 +492,13 @@ def send_dns_finder_notifications(alert):
         logger.error(f"Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
         return
 
-    source = None
-    if hasattr(alert, 'source'):
-        source = alert.source 
+    if alert.source == Alert.SOURCE_SUBDOMAIN_TAKEOVER:
+        send_app_specific_notifications('dns_finder_dangling', {'alert': alert}, subscribers)
+        return
 
     context_data = {
         'alert': alert,
-        'source': source 
+        'source': alert.source,
     }
 
     send_app_specific_notifications('dns_finder', context_data, subscribers)

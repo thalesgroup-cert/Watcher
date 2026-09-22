@@ -1,6 +1,5 @@
 import {
     DNS_GET_ALERTS,
-    DNS_GET_ALERTS_ALL,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
@@ -16,8 +15,9 @@ import {
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
     GET_DNS_FINDER_STATISTICS,
-    PATCH_DANGLING_SUBDOMAIN,
-    GET_THREATS_MONITORED
+    PATCH_DNS_TWISTED,
+    GET_THREATS_MONITORED,
+    GET_THREATS_MONITORED_ALL
 } from '../actions/types';
 
 const initialState = {
@@ -34,9 +34,9 @@ const initialState = {
     keywordMonitoredNext: null,
     keywordMonitoredPrevious: null,
     // Stats-only: all items loaded at once
-    allAlerts: [],
     allDnsMonitored: [],
     allKeywordMonitored: [],
+    allThreatsMonitored: [],
     statistics: {
         totalAlerts: 0,
         newToday: 0,
@@ -44,13 +44,6 @@ const initialState = {
         totalDnsMonitored: 0,
         totalKeywords: 0,
     },
-    // Kept for PATCH_DANGLING_SUBDOMAIN below (patched via patchDanglingSubdomain,
-    // e.g. from the ThreatsMonitored/DnsMonitored confirm-status modals); the
-    // paginated GET_DANGLING_SUBDOMAINS/GET_DANGLING_ALERTS fetch actions that used
-    // to populate a full dangling list were removed as dead code (unified into
-    // the threatsMonitored feed instead), but this bare array must stay so this
-    // reducer case has something to map over.
-    danglingSubdomains: [],
     threatsMonitored: [],
     threatsMonitoredCount: 0,
     threatsMonitoredNext: null,
@@ -105,8 +98,29 @@ export default function(state = initialState, action) {
                     alert.id === action.payload.id ? action.payload : alert
                 ),
                 threatsMonitored: state.threatsMonitored.map(item =>
-                    item.source !== 'subdomain_takeover' && item.id === action.payload.id
-                        ? { ...item, status_tag: action.payload.status ? 'active' : 'archived' }
+                    item.id === action.payload.id
+                        ? { ...item, status: action.payload.status, comments: action.payload.comments }
+                        : item
+                )
+            };
+
+        case PATCH_DNS_TWISTED:
+            return {
+                ...state,
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.technical_details?.dns_twisted_id === action.payload.id
+                        ? {
+                            ...item,
+                            technical_details: {
+                                ...item.technical_details,
+                                fuzzer: action.payload.fuzzer,
+                                issuer: action.payload.issuer,
+                                provider: action.payload.provider,
+                                cname_target: action.payload.cname_target,
+                                http_status_code: action.payload.http_status_code,
+                                last_checked_at: action.payload.last_checked_at,
+                            }
+                        }
                         : item
                 )
             };
@@ -178,22 +192,15 @@ export default function(state = initialState, action) {
             };
 
         case EXPORT_TO_MISP:
-            // action.payload.id is in the same id-space the export was requested with:
-            // the Alert id for dnstwist/certstream_keyword items (matched the same way
-            // UPDATE_ALERT_STATUS does), or the DanglingSubdomain id for subdomain_takeover
-            // items (matched the same way PATCH_DANGLING_SUBDOMAIN does), since
-            // ThreatsMonitored.displayExportModal sends technical_details.dangling_subdomain_id
-            // as the id for takeover items.
+            // action.payload.id is technical_details.dns_twisted_id, uniformly
+            // across all 3 sources - see ThreatsMonitored.displayExportModal.
             return {
                 ...state,
-                threatsMonitored: state.threatsMonitored.map(item => {
-                    const matchesExportedItem = item.source === 'subdomain_takeover'
-                        ? item.technical_details?.dangling_subdomain_id === action.payload.id
-                        : item.id === action.payload.id;
-                    return matchesExportedItem
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.technical_details?.dns_twisted_id === action.payload.id
                         ? { ...item, misp_event_uuid: action.payload.misp_event_uuid }
-                        : item;
-                })
+                        : item
+                )
             };
 
         case GET_DNS_FINDER_STATISTICS:
@@ -202,38 +209,14 @@ export default function(state = initialState, action) {
                 statistics: action.payload
             };
 
-        case DNS_GET_ALERTS_ALL:
-            return { ...state, allAlerts: Array.isArray(action.payload) ? action.payload : [] };
+        case GET_THREATS_MONITORED_ALL:
+            return { ...state, allThreatsMonitored: Array.isArray(action.payload) ? action.payload : [] };
 
         case GET_DNS_MONITORED_ALL:
             return { ...state, allDnsMonitored: Array.isArray(action.payload) ? action.payload : [] };
 
         case GET_KEYWORD_MONITORED_ALL:
             return { ...state, allKeywordMonitored: Array.isArray(action.payload) ? action.payload : [] };
-
-        case PATCH_DANGLING_SUBDOMAIN:
-            return {
-                ...state,
-                danglingSubdomains: state.danglingSubdomains.map(sub =>
-                    sub.id === action.payload.id ? action.payload : sub
-                ),
-                threatsMonitored: state.threatsMonitored.map(item =>
-                    item.source === 'subdomain_takeover' &&
-                    item.technical_details?.dangling_subdomain_id === action.payload.id
-                        ? {
-                            ...item,
-                            status_tag: action.payload.status,
-                            technical_details: {
-                                ...item.technical_details,
-                                provider: action.payload.provider,
-                                cname_target: action.payload.cname_target,
-                                http_status_code: action.payload.http_status_code,
-                                last_checked_at: action.payload.last_checked_at
-                            }
-                        }
-                        : item
-                )
-            };
 
         case GET_THREATS_MONITORED: {
             const newResults = action.payload.results || action.payload;

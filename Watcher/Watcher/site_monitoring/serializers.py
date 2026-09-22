@@ -7,7 +7,6 @@ import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
 from connectors.core import get_misp_config
 
-from dns_finder.models import DnsTwisted
 from .core import monitoring_init
 from .models import Alert, Site
 

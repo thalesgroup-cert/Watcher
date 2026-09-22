@@ -1,5 +1,5 @@
 import logging
-from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, DanglingSubdomain, DanglingAlert
+from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored
 
 logger = logging.getLogger('watcher.dns_finder')
 from rest_framework import viewsets, permissions, status
@@ -11,7 +11,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from datetime import timedelta
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, \
-    MISPSerializer, KeywordMonitoredSerializer, DanglingSubdomainSerializer, DanglingAlertSerializer
+    MISPSerializer, KeywordMonitoredSerializer
 from .threats import get_unified_threats
 
 
@@ -52,9 +52,13 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
                 'newThisWeek':      Alert.objects.filter(created_at__gte=week_ago).count(),
                 'totalDnsMonitored': DnsMonitored.objects.count(),
                 'totalKeywords':    KeywordMonitored.objects.count(),
-                'totalDanglingSubdomains': DanglingSubdomain.objects.count(),
-                'totalDanglingConfirmed':  DanglingSubdomain.objects.filter(status='dangling_confirmed').count(),
-                'totalDanglingSuspected':  DanglingSubdomain.objects.filter(status='dangling_suspected').count(),
+                'totalDanglingSubdomains': Alert.objects.filter(source=Alert.SOURCE_SUBDOMAIN_TAKEOVER).count(),
+                'totalDanglingConfirmed':  Alert.objects.filter(
+                    source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=Alert.STATUS_CONFIRMED
+                ).count(),
+                'totalDanglingSuspected':  Alert.objects.filter(
+                    source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=Alert.STATUS_SUSPECTED
+                ).count(),
             }, status=status.HTTP_200_OK)
         except Exception:
             logger.exception("Error computing DNS Finder statistics")
@@ -62,12 +66,13 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='dangling_subdomains')
     def get_dangling_subdomains(self, request, pk=None):
-        """Return every DanglingSubdomain tracked for this Corporate DNS asset."""
+        """Return every dangling-subdomain-detection DnsTwisted row tracked
+        for this Corporate DNS asset (rows with a subdomain_takeover Alert)."""
         dns_monitored = self.get_object()
-        subdomains = DanglingSubdomain.objects.filter(
-            dns_monitored=dns_monitored
-        ).order_by('-discovered_at')
-        serializer = DanglingSubdomainSerializer(subdomains, many=True)
+        subdomains = DnsTwisted.objects.filter(
+            dns_monitored=dns_monitored, alert__source=Alert.SOURCE_SUBDOMAIN_TAKEOVER
+        ).order_by('-created_at')
+        serializer = DnsTwistedSerializer(subdomains, many=True)
         return Response(serializer.data)
 
 
@@ -121,42 +126,6 @@ class AlertViewSet(viewsets.ModelViewSet):
         ).order_by('-created_at')
 
 
-# DanglingSubdomain Viewset
-class DanglingSubdomainViewSet(viewsets.ModelViewSet):
-    permission_classes = [
-        permissions.DjangoModelPermissions
-    ]
-    serializer_class = DanglingSubdomainSerializer
-    pagination_class = StandardResultsSetPagination
-
-    def get_queryset(self):
-        from timeline.models import TimelineEvent
-        return DanglingSubdomain.objects.select_related('dns_monitored').order_by(
-            '-discovered_at'
-        ).prefetch_related(
-            Prefetch(
-                'timeline_events',
-                queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
-                to_attr='_timeline_events',
-            )
-        )
-
-
-# DanglingAlert Viewset
-class DanglingAlertViewSet(viewsets.ModelViewSet):
-    permission_classes = [
-        permissions.DjangoModelPermissions
-    ]
-    serializer_class = DanglingAlertSerializer
-    pagination_class = StandardResultsSetPagination
-
-    def get_queryset(self):
-        return DanglingAlert.objects.select_related(
-            'dangling_subdomain',
-            'dangling_subdomain__dns_monitored'
-        ).order_by('-created_at')
-
-
 class ExportPermission(permissions.DjangoModelPermissions):
     """
     Check for export permission.
@@ -178,7 +147,7 @@ class MISPViewSet(viewsets.ModelViewSet):
     serializer_class = MISPSerializer
 
 
-# Unified DNS Threats Monitored view (merges Alert + DanglingAlert)
+# Unified DNS Threats Monitored view (all 3 sources via a single Alert queryset)
 class ThreatsMonitoredView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

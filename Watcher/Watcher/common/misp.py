@@ -12,11 +12,10 @@ logger = logging.getLogger('watcher.common')
 def _get_domain_identifier(obj):
     """
     The string identity MISP tracking (find_domain_object/get_misp_uuid) keys
-    on: Site/LegitimateDomain/DnsTwisted expose `.domain_name`, DanglingSubdomain
-    exposes `.subdomain` - this lets create_or_update_objects/find_domain_object
-    stay object-type-agnostic instead of special-casing DanglingSubdomain.
+    on. Site/LegitimateDomain/DnsTwisted (including dangling-detection rows)
+    all expose `.domain_name`.
     """
-    return getattr(obj, 'domain_name', None) or getattr(obj, 'subdomain', None)
+    return obj.domain_name
 
 
 def create_misp_tags(misp_api):
@@ -173,15 +172,15 @@ def create_objects(obj, existing_values=None):
     return [network_obj] if network_obj.attributes else []
 
 
-def create_takeover_objects(dangling_subdomain, existing_values=None):
+def create_takeover_objects(dns_twisted, existing_values=None):
     """
     Create a MISP object for a subdomain-takeover (dangling DNS) finding.
     Kept separate from create_objects() (Site/LegitimateDomain) since a
-    DanglingSubdomain carries a different attribute set (CNAME target,
-    provider, HTTP status) and no domain_name field.
+    dangling-detection DnsTwisted row carries a different attribute set
+    (CNAME target, provider, HTTP status).
 
     Args:
-        dangling_subdomain: DanglingSubdomain instance
+        dns_twisted: DnsTwisted instance with a subdomain_takeover Alert
         existing_values: Optional set of (type, value) tuples to check for duplicates
 
     Returns:
@@ -192,7 +191,7 @@ def create_takeover_objects(dangling_subdomain, existing_values=None):
 
     attributes_map = {
         'subdomain': {
-            'value': dangling_subdomain.subdomain,
+            'value': dns_twisted.domain_name,
             'type': 'domain',
             'category': 'Network activity',
             'to_ids': True,
@@ -201,9 +200,9 @@ def create_takeover_objects(dangling_subdomain, existing_values=None):
         }
     }
 
-    if dangling_subdomain.cname_target:
+    if dns_twisted.cname_target:
         attributes_map['cname_target'] = {
-            'value': dangling_subdomain.cname_target,
+            'value': dns_twisted.cname_target,
             'type': 'hostname',
             'category': 'Network activity',
             'to_ids': True,
@@ -211,9 +210,9 @@ def create_takeover_objects(dangling_subdomain, existing_values=None):
             'object_relation': 'hostname',
         }
 
-    if dangling_subdomain.provider:
+    if dns_twisted.provider:
         attributes_map['provider'] = {
-            'value': dangling_subdomain.provider,
+            'value': dns_twisted.provider,
             'type': 'text',
             'category': 'Other',
             'to_ids': False,
@@ -221,9 +220,9 @@ def create_takeover_objects(dangling_subdomain, existing_values=None):
             'object_relation': 'text',
         }
 
-    if dangling_subdomain.http_status_code:
+    if dns_twisted.http_status_code:
         attributes_map['http_status_code'] = {
-            'value': str(dangling_subdomain.http_status_code),
+            'value': str(dns_twisted.http_status_code),
             'type': 'text',
             'category': 'Other',
             'to_ids': False,
@@ -282,7 +281,7 @@ def find_domain_object(misp_api, event, domain_name):
 def create_or_update_objects(misp_api, event, site, dry_run=False):
     """
     Create or update MISP objects for a given domain-bearing object (Site,
-    LegitimateDomain, DnsTwisted, or DanglingSubdomain).
+    LegitimateDomain, or DnsTwisted - including dangling-detection rows).
 
     Args:
         misp_api: PyMISP API instance
@@ -293,15 +292,14 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
     Returns:
         tuple: (success, message)
     """
-    from dns_finder.models import DanglingSubdomain
-
     try:
         if 'Event' not in event:
             logger.error("Invalid MISP event format - please check the event UUID")
             return False, "Invalid MISP event format - please check the event UUID"
 
         domain_identifier = _get_domain_identifier(site)
-        objects_builder = create_takeover_objects if isinstance(site, DanglingSubdomain) else create_objects
+        is_takeover = hasattr(site, 'alert_set') and site.alert_set.filter(source='subdomain_takeover').exists()
+        objects_builder = create_takeover_objects if is_takeover else create_objects
 
         logger.info(f"Processing domain name {domain_identifier} for event {event['Event']['uuid']}")
 

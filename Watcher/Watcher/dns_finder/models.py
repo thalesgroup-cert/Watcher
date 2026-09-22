@@ -41,7 +41,11 @@ class KeywordMonitored(models.Model):
 
 class DnsTwisted(models.Model):
     """
-    Twisted dns: typosquatting, phishing attacks, fraud, and brand impersonation.
+    A detected domain: typosquatting/phishing (dnstwist), a newly-issued
+    certificate matching a corporate keyword (certstream_keyword), or a
+    dangling subdomain at takeover risk (subdomain_takeover) - see the
+    `source` choices on Alert, which owns the FK to this model. One table
+    for all three so the unified feed (threats.py) is a single query.
     """
     domain_name = models.CharField(max_length=100, unique=True)
     dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE, blank=True, null=True)
@@ -53,15 +57,16 @@ class DnsTwisted(models.Model):
     # for dnstwist-sourced rows, which have no certificate to read from.
     issuer = models.CharField(max_length=255, blank=True, null=True)
     san_list = models.JSONField(blank=True, null=True)
-    not_before = models.DateTimeField(blank=True, null=True)
-    not_after = models.DateTimeField(blank=True, null=True)
-    serial_number = models.CharField(max_length=100, blank=True, null=True)
-    fingerprint_sha256 = models.CharField(max_length=100, blank=True, null=True)
+    cname_target = models.CharField(max_length=255, blank=True, null=True)
+    provider = models.CharField(max_length=100, blank=True, null=True)
+    http_status_code = models.IntegerField(null=True, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='dnstwisted')
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = 'Twisted DNS'
-        verbose_name_plural = "Twisted DNS"
+        verbose_name = 'Detected Domain'
+        verbose_name_plural = 'Detected Domains'
 
     def __str__(self):
         return self.domain_name
@@ -69,22 +74,46 @@ class DnsTwisted(models.Model):
 
 class Alert(models.Model):
     """
-    Triggered when there is a new twisted dns.
+    Triggered when a DnsTwisted row is newly detected (dnstwist/certstream_keyword)
+    or transitions into a dangling status worth paging on (subdomain_takeover).
     """
     SOURCE_DNSTWIST = 'dnstwist'
     SOURCE_CERTSTREAM_KEYWORD = 'certstream_keyword'
+    SOURCE_SUBDOMAIN_TAKEOVER = 'subdomain_takeover'
     SOURCE_CHOICES = [
         (SOURCE_DNSTWIST, 'Dnstwist Algorithm'),
         (SOURCE_CERTSTREAM_KEYWORD, 'Certificate Transparency Stream'),
+        (SOURCE_SUBDOMAIN_TAKEOVER, 'Subdomain Takeover Detection'),
+    ]
+
+    STATUS_PENDING = 'pending'
+    STATUS_SUSPECTED = 'suspected'
+    STATUS_CONFIRMED = 'confirmed'
+    STATUS_RESOLVED = 'resolved'
+    STATUS_FALSE_POSITIVE = 'false_positive'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_SUSPECTED, 'Suspected'),
+        (STATUS_CONFIRMED, 'Confirmed'),
+        (STATUS_RESOLVED, 'Resolved'),
+        (STATUS_FALSE_POSITIVE, 'False Positive'),
     ]
 
     dns_twisted = models.ForeignKey(DnsTwisted, on_delete=models.CASCADE)
-    status = models.BooleanField(default=True)
+    # SOC triage lifecycle, same 5 states across all 3 sources. Also driven
+    # automatically for subdomain_takeover (see core.evaluate_dangling_subdomain).
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    comments = models.TextField(blank=True, null=True, max_length=300)
     created_at = models.DateTimeField(default=timezone.now)
     source = models.CharField(max_length=30, choices=SOURCE_CHOICES, default=SOURCE_CERTSTREAM_KEYWORD)
+    # Only meaningful for source=subdomain_takeover: 'certstream' (first
+    # discovery) or 'periodic_recheck' (recheck_dangling_subdomains job).
+    trigger = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
+        verbose_name = 'Alert'
+        verbose_name_plural = 'Alerts'
 
 
 class Subscriber(models.Model):
@@ -100,57 +129,11 @@ class Subscriber(models.Model):
     citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     class Meta:
-        verbose_name_plural = 'subscribers'
+        verbose_name = 'Subscriber'
+        verbose_name_plural = 'Subscribers'
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
-
-
-class DanglingSubdomain(models.Model):
-    """
-    Subdomain of a DnsMonitored root domain, tracked for subdomain-takeover
-    (dangling DNS) risk: its CNAME may point to a decommissioned cloud
-    resource that anyone could re-claim.
-    """
-    STATUS_CHOICES = [
-        ('pending', 'Pending check'),
-        ('ok', 'OK'),
-        ('dangling_suspected', 'Dangling suspected'),
-        ('dangling_confirmed', 'Dangling confirmed'),
-        ('resolved', 'Resolved'),
-        ('false_positive', 'False positive'),
-    ]
-
-    subdomain = models.CharField(max_length=255, unique=True)
-    dns_monitored = models.ForeignKey(DnsMonitored, on_delete=models.CASCADE)
-    discovered_at = models.DateTimeField(default=timezone.now)
-    last_checked_at = models.DateTimeField(null=True, blank=True)
-    cname_target = models.CharField(max_length=255, blank=True, null=True)
-    provider = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    http_status_code = models.IntegerField(null=True, blank=True)
-    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='danglingsubdomain')
-
-    class Meta:
-        ordering = ["-discovered_at"]
-        verbose_name = 'Dangling Subdomain'
-        verbose_name_plural = 'Dangling Subdomains'
-
-    def __str__(self):
-        return self.subdomain
-
-
-class DanglingAlert(models.Model):
-    """
-    Triggered when a DanglingSubdomain transitions into a dangling status.
-    """
-    dangling_subdomain = models.ForeignKey(DanglingSubdomain, on_delete=models.CASCADE)
-    status = models.BooleanField(default=True)
-    created_at = models.DateTimeField(default=timezone.now)
-    trigger = models.CharField(max_length=50, default='certstream')
-
-    class Meta:
-        ordering = ["-created_at"]
 
 
 @receiver(post_delete, sender=DnsTwisted)

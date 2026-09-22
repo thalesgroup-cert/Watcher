@@ -111,7 +111,7 @@ const MODULES = [
     },
     {
         key: 'watcher_dns_finder_grid_v2',
-        label: 'Twisted DNS Finder',
+        label: 'DNS Threats Monitored',
         icon: 'saved_search',
         panels: {
             stats:    { label: 'Statistics',       icon: 'bar_chart'   },

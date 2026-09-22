@@ -9,7 +9,7 @@ import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
-import { getTimelineEvents, clearTimelineEvents } from '../../actions/Timeline';
+import { getTimelineEvents, getTimelineEventsMulti, clearTimelineEvents } from '../../actions/Timeline';
 import UserAvatar, { displayName } from '../common/UserAvatar';
 
 
@@ -83,6 +83,9 @@ const FIELD_LABELS = {
     monitored:         'Monitored',
     udrp_status:       'UDRP Status',
     domain_expiry:     'Domain Expiry',
+    // DNS Finder Alert
+    status:            'Status',
+    trigger:           'Trigger',
 };
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/;
@@ -211,21 +214,36 @@ class TimelinePanel extends Component {
     static propTypes = {
         contentType: PropTypes.string.isRequired,
         objectId:    PropTypes.number.isRequired,
+        contentType2: PropTypes.string,
+        objectId2:    PropTypes.number,
         events:      PropTypes.array.isRequired,
         loading:     PropTypes.bool.isRequired,
-        getTimelineEvents:   PropTypes.func.isRequired,
-        clearTimelineEvents: PropTypes.func.isRequired,
+        getTimelineEvents:      PropTypes.func.isRequired,
+        getTimelineEventsMulti: PropTypes.func.isRequired,
+        clearTimelineEvents:    PropTypes.func.isRequired,
     };
 
     state = { sortDesc: true };
 
+    fetchEvents = () => {
+        const { contentType, objectId, contentType2, objectId2 } = this.props;
+        if (contentType2 != null && objectId2 != null) {
+            this.props.getTimelineEventsMulti([
+                { contentType, objectId },
+                { contentType: contentType2, objectId: objectId2 },
+            ]);
+        } else {
+            this.props.getTimelineEvents(contentType, objectId);
+        }
+    };
+
     componentDidMount() {
-        this.props.getTimelineEvents(this.props.contentType, this.props.objectId);
+        this.fetchEvents();
     }
 
     componentDidUpdate(prevProps) {
-        if (prevProps.objectId !== this.props.objectId) {
-            this.props.getTimelineEvents(this.props.contentType, this.props.objectId);
+        if (prevProps.objectId !== this.props.objectId || prevProps.objectId2 !== this.props.objectId2) {
+            this.fetchEvents();
         }
     }
 
@@ -302,4 +320,4 @@ const mapStateToProps = state => ({
     loading: state.timeline.loading,
 });
 
-export default connect(mapStateToProps, { getTimelineEvents, clearTimelineEvents })(TimelinePanel);
+export default connect(mapStateToProps, { getTimelineEvents, getTimelineEventsMulti, clearTimelineEvents })(TimelinePanel);

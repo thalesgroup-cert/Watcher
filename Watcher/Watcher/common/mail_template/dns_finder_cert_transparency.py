@@ -115,7 +115,7 @@ def get_dns_finder_cert_transparency_template(alert):
                     <!-- Header -->
                     <td class="header" colspan="2">
                         <img src=\"""" + str(settings.WATCHER_LOGO) + """ " alt="Threats Watcher Logo">
-                        <h1>DNS Finder: Alert #""" + str(alert.pk) + """</h1>
+                        <h1>DNS Threats Monitored: Alert #""" + str(alert.pk) + """</h1>
                     </td>
                 </tr>
                 <!-- Content -->

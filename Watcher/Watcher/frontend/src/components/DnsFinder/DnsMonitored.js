@@ -122,10 +122,9 @@ export class DnsMonitored extends Component {
         const handleClose = () => this.setState({ showDanglingModal: false, danglingSubdomains: [] });
         const STATUS_BADGES = {
             pending: { label: 'Pending', className: 'bg-secondary' },
-            ok: { label: 'OK', className: 'bg-success' },
-            dangling_suspected: { label: 'Suspected', className: 'bg-warning text-dark' },
-            dangling_confirmed: { label: 'Confirmed', className: 'bg-danger' },
-            resolved: { label: 'Resolved', className: 'bg-info text-dark' },
+            suspected: { label: 'Suspected', className: 'bg-warning text-dark' },
+            confirmed: { label: 'Confirmed', className: 'bg-danger' },
+            resolved: { label: 'Resolved', className: 'bg-success' },
             false_positive: { label: 'False Positive', className: 'bg-dark' },
         };
 
@@ -150,7 +149,6 @@ export class DnsMonitored extends Component {
                                     <th>Subdomain</th>
                                     <th>Provider</th>
                                     <th>CNAME Target</th>
-                                    <th>Status</th>
                                     <th>Last Checked</th>
                                 </tr>
                             </thead>
@@ -159,10 +157,12 @@ export class DnsMonitored extends Component {
                                     const badge = STATUS_BADGES[sub.status] || { label: sub.status, className: 'bg-secondary' };
                                     return (
                                         <tr key={sub.id}>
-                                            <td>{sub.subdomain}</td>
+                                            <td>
+                                                <div>{sub.domain_name}</div>
+                                                <span className={`badge ${badge.className} mt-1`}>{badge.label}</span>
+                                            </td>
                                             <td>{sub.provider || '-'}</td>
                                             <td>{sub.cname_target || '-'}</td>
-                                            <td><span className={`badge ${badge.className}`}>{badge.label}</span></td>
                                             <td>
                                                 <DateWithTooltip date={sub.last_checked_at} includeTime={true} type="default" />
                                             </td>
@@ -417,7 +417,7 @@ export class DnsMonitored extends Component {
                                                                     title="View Dangling Subdomains"
                                                                     onClick={() => this.displayDanglingModal(domain)}
                                                                 >
-                                                                    <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>link_off</i>
+                                                                    <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>link</i>
                                                                 </button>
                                                                 {canManage && (
                                                                     <>

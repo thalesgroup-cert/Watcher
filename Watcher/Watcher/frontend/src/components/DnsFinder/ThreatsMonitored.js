@@ -2,11 +2,11 @@ import React, { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
-    getThreatsMonitored, updateAlertStatus, patchDanglingSubdomain, exportToMISP
+    getThreatsMonitored, updateAlertStatus, exportToMISP, patchDnsTwisted
 } from "../../actions/DnsFinder";
 import { addSite, getSites } from "../../actions/SiteMonitoring";
 import { exportToLegitimateDomains } from '../../actions/Common';
-import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
+import { Button, Modal, Container, Row, Col, Form, OverlayTrigger, Tooltip, SplitButton, Dropdown } from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import ExportModal from '../common/ExportModal';
@@ -18,40 +18,43 @@ const SOURCE_BADGES = {
     subdomain_takeover: { label: 'Subdomain Takeover Detection', className: 'bg-danger' },
 };
 
-const DANGLING_STATUS_BADGES = {
-    pending: { label: 'Pending', className: 'bg-secondary' },
-    ok: { label: 'OK', className: 'bg-success' },
-    dangling_suspected: { label: 'Suspected', className: 'bg-warning text-dark' },
-    dangling_confirmed: { label: 'Confirmed', className: 'bg-danger' },
-    resolved: { label: 'Resolved', className: 'bg-info text-dark' },
-    false_positive: { label: 'False Positive', className: 'bg-dark' },
+const STATUS_BADGES = {
+    pending: { label: 'Pending', variant: 'secondary' },
+    suspected: { label: 'Suspected', variant: 'warning' },
+    confirmed: { label: 'Confirmed', variant: 'danger' },
+    resolved: { label: 'Resolved', variant: 'success' },
+    false_positive: { label: 'False Positive', variant: 'dark' },
+};
+
+const CONTEXT_TAG = {
+    fuzzer:       'bg-primary',
+    issuer:       'bg-info text-dark',
+    san:          'bg-primary',
+    provider:     'bg-dark',
+    cname_target: 'bg-secondary',
+    http_status:  'bg-light text-dark border',
+    last_checked: 'bg-light text-dark border',
 };
 
 export class ThreatsMonitored extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showDisableModal: false,
-            showConfirmModal: false,
-            confirmAction: null,
-            confirmLabel: '',
-            showAddModal: false,
+            showEditModal: false,
+            editForm: {},
             showExportModal: false,
-            showDetailsModal: false,
             showTimelineModal: false,
             timelineId: null,
+            timelineContentType: 'dns_finder.dnstwisted',
+            timelineId2: null,
+            timelineContentType2: 'dns_finder.alert',
             timelineLabel: '',
             selectedItem: null,
             exportDomain: null,
             exportSourceData: null,
             exportMode: 'dnsFinder',
-            domainName: '',
             isLoading: true,
         };
-        this.inputTicketRef = React.createRef();
-        this.ipMonitoringRef = React.createRef();
-        this.webContentMonitoringRef = React.createRef();
-        this.emailMonitoringRef = React.createRef();
     }
 
     static propTypes = {
@@ -59,7 +62,7 @@ export class ThreatsMonitored extends Component {
         sites: PropTypes.array.isRequired,
         getThreatsMonitored: PropTypes.func.isRequired,
         updateAlertStatus: PropTypes.func.isRequired,
-        patchDanglingSubdomain: PropTypes.func.isRequired,
+        patchDnsTwisted: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
         exportToLegitimateDomains: PropTypes.func.isRequired,
         addSite: PropTypes.func.isRequired,
@@ -87,7 +90,7 @@ export class ThreatsMonitored extends Component {
     };
 
     customFilters = (filtered, filters) => {
-        const itemsToFilter = this.props.filteredData || this.props.threatsMonitored;
+        const itemsToFilter = this.props.filteredData ?? this.props.threatsMonitored;
         const { globalFilters = {} } = this.props;
 
         filtered = itemsToFilter || [];
@@ -121,8 +124,10 @@ export class ThreatsMonitored extends Component {
         if (globalFilters.cname_target) {
             filtered = filtered.filter(item => item.technical_details?.cname_target === globalFilters.cname_target);
         }
-        if (globalFilters.dangling_status) {
-            filtered = filtered.filter(item => item.source === 'subdomain_takeover' && item.status_tag === globalFilters.dangling_status);
+        if (globalFilters.status === 'open') {
+            filtered = filtered.filter(item => !['resolved', 'false_positive'].includes(item.status));
+        } else if (globalFilters.status) {
+            filtered = filtered.filter(item => item.status === globalFilters.status);
         }
 
         return filtered;
@@ -141,14 +146,34 @@ export class ThreatsMonitored extends Component {
     };
 
     renderStatusTag = (item) => {
+        const td = item.technical_details || {};
+
         if (this.isTakeover(item)) {
-            const badge = DANGLING_STATUS_BADGES[item.status_tag] || { label: item.status_tag, className: 'bg-secondary' };
-            return <span className={`badge ${badge.className}`}>{badge.label}</span>;
+            return (
+                <Fragment>
+                    {td.provider && <span className={`badge ${CONTEXT_TAG.provider} me-1`}>Provider: {td.provider}</span>}
+                    {td.cname_target && <span className={`badge ${CONTEXT_TAG.cname_target} me-1`}>CNAME: {td.cname_target}</span>}
+                    {td.http_status_code && <span className={`badge ${CONTEXT_TAG.http_status} me-1`}>HTTP: {td.http_status_code}</span>}
+                    {td.last_checked_at && (
+                        <span className={`badge ${CONTEXT_TAG.last_checked} me-1`}>
+                            Checked: <DateWithTooltip date={td.last_checked_at} includeTime={false} type="default" />
+                        </span>
+                    )}
+                </Fragment>
+            );
         }
+
+        if (item.source === 'dnstwist') {
+            return td.fuzzer ? <span className={`badge ${CONTEXT_TAG.fuzzer} me-1`}>Fuzzer: {td.fuzzer}</span> : null;
+        }
+
         return (
-            <span className={`badge ${item.status_tag === 'active' ? 'bg-danger' : 'bg-secondary'}`}>
-                {item.status_tag === 'active' ? 'Active' : 'Archived'}
-            </span>
+            <Fragment>
+                {td.issuer && <span className={`badge ${CONTEXT_TAG.issuer} me-1`}>Issuer: {td.issuer}</span>}
+                {Array.isArray(td.san_list) && td.san_list.length > 0 && (
+                    <span className={`badge ${CONTEXT_TAG.san} me-1`}>SAN: {td.san_list.join(', ')}</span>
+                )}
+            </Fragment>
         );
     };
 
@@ -157,145 +182,210 @@ export class ThreatsMonitored extends Component {
         return <span className={`badge ${badge.className}`}>{badge.label}</span>;
     };
 
-    displayDisableModal = (item) => {
-        this.setState({ showDisableModal: true, selectedItem: item });
-    };
-
-    disableModal = () => {
-        const handleClose = () => this.setState({ showDisableModal: false, selectedItem: null });
-        const item = this.state.selectedItem;
-        if (!item) return null;
-        const isActive = item.status_tag === 'active';
-
-        const onSubmit = e => {
-            e.preventDefault();
-            this.props.updateAlertStatus(item.id, { status: !isActive });
-            handleClose();
-        };
-
+    renderStatusSelect = (item) => {
+        const badge = STATUS_BADGES[item.status] || { label: item.status, variant: 'secondary' };
         return (
-            <Modal show={this.state.showDisableModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Action Requested</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    Are you sure you want to <b><u>{isActive ? 'disable' : 'enable'}</u></b> this alert?
-                </Modal.Body>
-                <Modal.Footer>
-                    <form onSubmit={onSubmit}>
-                        <Button variant="secondary" className="me-2" onClick={handleClose}>Close</Button>
-                        <Button type="submit" variant="warning">Yes, I'm sure</Button>
-                    </form>
-                </Modal.Footer>
-            </Modal>
+            <SplitButton
+                id={`status-dropdown-${item.source}-${item.id}`}
+                title={badge.label}
+                variant={badge.variant}
+                size="sm"
+            >
+                {Object.entries(STATUS_BADGES).map(([value, statusBadge]) => (
+                    <Dropdown.Item
+                        key={value}
+                        active={value === item.status}
+                        onClick={() => this.props.updateAlertStatus(item.id, { status: value })}
+                    >
+                        {statusBadge.label}
+                    </Dropdown.Item>
+                ))}
+            </SplitButton>
         );
     };
 
-    displayConfirmModal = (item, action, label) => {
-        this.setState({ showConfirmModal: true, selectedItem: item, confirmAction: action, confirmLabel: label });
-    };
+    renderComments = (item) => {
+        if (!item.comments || item.comments.length === 0) return '-';
 
-    confirmModal = () => {
-        const handleClose = () => this.setState({ showConfirmModal: false, selectedItem: null });
-        const item = this.state.selectedItem;
-        if (!item) return null;
-
-        const onSubmit = e => {
-            e.preventDefault();
-            this.props.patchDanglingSubdomain(
-                item.technical_details.dangling_subdomain_id, { status: this.state.confirmAction }
+        if (item.comments.length > 50) {
+            return (
+                <OverlayTrigger
+                    placement="left"
+                    delay={{ show: 250, hide: 400 }}
+                    overlay={
+                        <Tooltip id={`tooltip-comment-${item.source}-${item.id}`}>
+                            <div style={{ textAlign: 'left', maxWidth: '400px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                {item.comments}
+                            </div>
+                        </Tooltip>
+                    }
+                >
+                    <div style={{ display: 'inline-flex', alignItems: 'center', cursor: 'help', gap: '6px' }}>
+                        <span style={{
+                            maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden',
+                            textOverflow: 'ellipsis', borderBottom: '1px dotted currentColor'
+                        }}>
+                            {item.comments}
+                        </span>
+                        <i className="material-icons text-info" style={{ fontSize: 16, verticalAlign: 'middle' }}>info</i>
+                    </div>
+                </OverlayTrigger>
             );
-            handleClose();
-        };
+        }
 
-        return (
-            <Modal show={this.state.showConfirmModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Action Requested</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    Are you sure you want to mark <b>{item.domain_name}</b> as <b>{this.state.confirmLabel}</b>?
-                </Modal.Body>
-                <Modal.Footer>
-                    <form onSubmit={onSubmit}>
-                        <Button variant="secondary" className="me-2" onClick={handleClose}>Close</Button>
-                        <Button type="submit" variant="warning">Yes, I'm sure</Button>
-                    </form>
-                </Modal.Footer>
-            </Modal>
-        );
+        return <div style={{ maxWidth: 200 }}>{item.comments}</div>;
     };
 
-    displayAddModal = (item) => {
-        this.setState({ showAddModal: true, selectedItem: item, domainName: item.domain_name });
+    displayEditModal = (item) => {
+        const td = item.technical_details || {};
+        const sourceFields = this.isTakeover(item)
+            ? {
+                cname_target: td.cname_target || '',
+                provider: td.provider || '',
+                http_status_code: td.http_status_code ?? '',
+            }
+            : item.source === 'dnstwist'
+                ? { fuzzer: td.fuzzer || '' }
+                : { issuer: td.issuer || '' };
+
+        this.setState({
+            showEditModal: true, selectedItem: item,
+            editForm: { ...sourceFields, comments: item.comments || '' },
+        });
     };
 
-    addModal = () => {
-        const handleClose = () => this.setState({ showAddModal: false, selectedItem: null });
+    handleEditFieldChange = (field, value) => {
+        this.setState(prev => ({ editForm: { ...prev.editForm, [field]: value } }));
+    };
+
+    editModal = () => {
+        const handleClose = () => this.setState({ showEditModal: false, selectedItem: null, editForm: {} });
         const item = this.state.selectedItem;
+        if (!item) return null;
+        const { editForm } = this.state;
+        const isTakeover = this.isTakeover(item);
 
         const onSubmit = e => {
             e.preventDefault();
-            const domain_name = this.state.domainName;
-            const ticket_id = this.inputTicketRef.current.value;
-            const expiry = this.state.day;
-            const ip_monitoring = this.ipMonitoringRef.current.checked;
-            const content_monitoring = this.webContentMonitoringRef.current.checked;
-            const mail_monitoring = this.emailMonitoringRef.current.checked;
-            const site = expiry
-                ? { domain_name, ticket_id, expiry, ip_monitoring, content_monitoring, mail_monitoring }
-                : { domain_name, ticket_id, ip_monitoring, content_monitoring, mail_monitoring };
-
-            this.props.addSite(site);
+            const technicalPayload = isTakeover
+                ? {
+                    cname_target: editForm.cname_target || null,
+                    provider: editForm.provider || null,
+                    http_status_code: editForm.http_status_code === '' ? null : Number(editForm.http_status_code),
+                }
+                : item.source === 'dnstwist'
+                    ? { fuzzer: editForm.fuzzer }
+                    : { issuer: editForm.issuer };
+            this.props.patchDnsTwisted(item.technical_details.dns_twisted_id, technicalPayload);
+            this.props.updateAlertStatus(item.id, { comments: editForm.comments || '' });
             handleClose();
         };
 
         return (
-            <Modal show={this.state.showAddModal} onHide={handleClose} centered>
+            <Modal show={this.state.showEditModal} onHide={handleClose} centered>
                 <Modal.Header closeButton>
-                    <Modal.Title>Action Requested</Modal.Title>
+                    <Modal.Title>Edit <b>{item.domain_name}</b></Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
-                    <Container>
-                        <Row className="show-grid">
-                            <Col md={{ span: 12 }}>
-                                <Form onSubmit={onSubmit}>
-                                    <Form.Group as={Row}>
-                                        <Form.Label column sm="4">Domain name</Form.Label>
-                                        <Col sm="8">{item?.domain_name}</Col>
-                                        <Form.Label column sm="4">Ticket ID</Form.Label>
-                                        <Col sm="8">
-                                            <Form.Control ref={this.inputTicketRef} size="md" type="text"
-                                                          pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
-                                                          placeholder="230509-200a2" />
-                                        </Col>
-                                        <Form.Label column sm="6">Ip Monitoring</Form.Label>
-                                        <Col sm="6">
-                                            <Form.Check ref={this.ipMonitoringRef} defaultChecked={true} className="mt-2" type="switch" id="threats-ip-monitoring" label="" />
-                                        </Col>
-                                        <Form.Label column sm="6">Web Content Monitoring</Form.Label>
-                                        <Col sm="6">
-                                            <Form.Check ref={this.webContentMonitoringRef} defaultChecked={true} className="mt-2" type="switch" id="threats-content-monitoring" label="" />
-                                        </Col>
-                                        <Form.Label column sm="6">Email Monitoring</Form.Label>
-                                        <Col sm="6">
-                                            <Form.Check ref={this.emailMonitoringRef} defaultChecked={true} className="mt-2" type="switch" id="threats-email-monitoring" label="" />
+                <Form onSubmit={onSubmit}>
+                    <Modal.Body>
+                        <Container>
+                            <Row className="show-grid">
+                                <Col md={{ span: 12 }}>
+                                    <Form.Group as={Row} className="align-items-center mb-2">
+                                        {isTakeover ? (
+                                            <Fragment>
+                                                <Form.Label column sm="4">CNAME Target</Form.Label>
+                                                <Col sm="8">
+                                                    <Form.Control
+                                                        type="text"
+                                                        placeholder="mybucket.s3.amazonaws.com"
+                                                        value={editForm.cname_target}
+                                                        onChange={e => this.handleEditFieldChange('cname_target', e.target.value)}
+                                                    />
+                                                </Col>
+                                                <Form.Label column sm="4" className="mt-2">Provider</Form.Label>
+                                                <Col sm="8" className="mt-2">
+                                                    <Form.Control
+                                                        type="text"
+                                                        placeholder="Amazon S3"
+                                                        value={editForm.provider}
+                                                        onChange={e => this.handleEditFieldChange('provider', e.target.value)}
+                                                    />
+                                                </Col>
+                                                <Form.Label column sm="4" className="mt-2">HTTP Status Code</Form.Label>
+                                                <Col sm="8" className="mt-2">
+                                                    <Form.Control
+                                                        type="number"
+                                                        placeholder="404"
+                                                        value={editForm.http_status_code}
+                                                        onChange={e => this.handleEditFieldChange('http_status_code', e.target.value)}
+                                                    />
+                                                </Col>
+                                            </Fragment>
+                                        ) : item.source === 'dnstwist' ? (
+                                            <Fragment>
+                                                <Form.Label column sm="4">Fuzzer</Form.Label>
+                                                <Col sm="8">
+                                                    <Form.Control
+                                                        type="text"
+                                                        placeholder="homoglyph"
+                                                        value={editForm.fuzzer}
+                                                        onChange={e => this.handleEditFieldChange('fuzzer', e.target.value)}
+                                                    />
+                                                </Col>
+                                            </Fragment>
+                                        ) : (
+                                            <Fragment>
+                                                <Form.Label column sm="4">Issuer</Form.Label>
+                                                <Col sm="8">
+                                                    <Form.Control
+                                                        type="text"
+                                                        placeholder="Let's Encrypt"
+                                                        value={editForm.issuer}
+                                                        onChange={e => this.handleEditFieldChange('issuer', e.target.value)}
+                                                    />
+                                                </Col>
+                                            </Fragment>
+                                        )}
+                                        <Form.Label column sm="4" className="mt-2">Comments</Form.Label>
+                                        <Col sm="8" className="mt-2">
+                                            <Form.Control
+                                                as="textarea"
+                                                rows={3}
+                                                maxLength={300}
+                                                placeholder="Add notes, context, actions taken, or any relevant information about this domain"
+                                                value={editForm.comments}
+                                                style={{ borderColor: 300 - editForm.comments.length < 50 ? '#dc3545' : '' }}
+                                                onChange={e => this.handleEditFieldChange('comments', e.target.value)}
+                                            />
+                                            <div style={{ fontSize: 12, color: '#888', textAlign: 'right' }}>
+                                                {editForm.comments.length}/300
+                                            </div>
                                         </Col>
                                     </Form.Group>
-                                    <Col md={{ span: 5, offset: 8 }}>
-                                        <Button variant="secondary" className="me-2" onClick={handleClose}>Close</Button>
-                                        <Button type="submit" variant="success">Add</Button>
-                                    </Col>
-                                </Form>
-                            </Col>
-                        </Row>
-                    </Container>
-                </Modal.Body>
+                                </Col>
+                            </Row>
+                        </Container>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" className="me-2" onClick={handleClose}>Close</Button>
+                        <Button type="submit" variant="success">Save</Button>
+                    </Modal.Footer>
+                </Form>
             </Modal>
         );
     };
 
     isMonitored = (domainName) => this.props.sites.some(site => site.domain_name === domainName);
+
+    handleWebsiteMonitoringExport = async (site) => {
+        const result = await this.props.addSite(site);
+        const item = this.state.selectedItem;
+        if (item) {
+            await this.props.updateAlertStatus(item.id, { status: 'resolved' });
+        }
+        return result;
+    };
 
     displayExportModal = (item) => {
         const isTakeover = this.isTakeover(item);
@@ -306,14 +396,15 @@ export class ThreatsMonitored extends Component {
             exportMode: isTakeover ? 'subdomainTakeover' : 'dnsFinder',
             selectedItem: item,
             exportDomain: {
-                id: isTakeover ? td?.dangling_subdomain_id : item.id,
+                id: td?.dns_twisted_id,
                 domain_name: item.domain_name,
                 misp_event_uuid: item.misp_event_uuid,
             },
-            exportSourceData: isTakeover ? null : {
+            exportSourceData: {
                 dns_monitored: item.corporate_dns || null,
                 keyword_monitored: item.corporate_keyword || null,
                 fuzzer: td?.fuzzer || null,
+                comments: item.comments || null,
             }
         });
     };
@@ -326,7 +417,7 @@ export class ThreatsMonitored extends Component {
     handleMispExport = async ({ id, event_uuid }) => {
         const item = this.state.selectedItem;
         if (!item) return;
-        await this.props.exportToMISP(id, event_uuid, item.domain_name, this.isTakeover(item) ? 'subdomain_takeover' : undefined);
+        await this.props.exportToMISP(id, event_uuid, item.domain_name);
     };
 
     handleLegitimateDomainExport = async ({ domain_name, comment }) => {
@@ -341,7 +432,7 @@ export class ThreatsMonitored extends Component {
 
     handleDeleteRequest = async (alertId, domainName) => {
         try {
-            await this.props.updateAlertStatus(alertId, { status: false });
+            await this.props.updateAlertStatus(alertId, { status: 'resolved' });
             await new Promise(resolve => setTimeout(resolve, 300));
             await this.props.getThreatsMonitored();
         } catch (err) {
@@ -349,94 +440,17 @@ export class ThreatsMonitored extends Component {
         }
     };
 
-    displayDetailsModal = (item) => {
-        this.setState({ showDetailsModal: true, selectedItem: item });
-    };
-
-    detailsModal = () => {
-        const handleClose = () => this.setState({ showDetailsModal: false, selectedItem: null });
-        const item = this.state.selectedItem;
-        if (!item) return null;
-        const td = item.technical_details || {};
-
-        const renderFields = () => {
-            if (item.source === 'dnstwist') {
-                return (
-                    <Fragment>
-                        <Form.Label column sm="4">Fuzzer</Form.Label>
-                        <Col sm="8" className="mt-2">{td.fuzzer || '-'}</Col>
-                        <Form.Label column sm="4">Corporate DNS</Form.Label>
-                        <Col sm="8" className="mt-2">{td.corporate_dns || '-'}</Col>
-                        <Form.Label column sm="4">Detected At</Form.Label>
-                        <Col sm="8" className="mt-2"><DateWithTooltip date={td.detected_at} includeTime={true} type="created" /></Col>
-                    </Fragment>
-                );
-            }
-            if (item.source === 'certstream_keyword') {
-                return (
-                    <Fragment>
-                        <Form.Label column sm="4">Corporate Keyword</Form.Label>
-                        <Col sm="8" className="mt-2">{td.corporate_keyword || '-'}</Col>
-                        <Form.Label column sm="4">Issuer</Form.Label>
-                        <Col sm="8" className="mt-2">{td.issuer || '-'}</Col>
-                        <Form.Label column sm="4">SAN</Form.Label>
-                        <Col sm="8" className="mt-2">{Array.isArray(td.san_list) && td.san_list.length ? td.san_list.join(', ') : '-'}</Col>
-                        <Form.Label column sm="4">Not Before</Form.Label>
-                        <Col sm="8" className="mt-2"><DateWithTooltip date={td.not_before} includeTime={true} type="created" /></Col>
-                        <Form.Label column sm="4">Not After</Form.Label>
-                        <Col sm="8" className="mt-2"><DateWithTooltip date={td.not_after} includeTime={true} type="expiry" /></Col>
-                        <Form.Label column sm="4">Serial Number</Form.Label>
-                        <Col sm="8" className="mt-2">{td.serial_number || '-'}</Col>
-                        <Form.Label column sm="4">Fingerprint SHA-256</Form.Label>
-                        <Col sm="8" className="mt-2" style={{ wordBreak: 'break-all' }}>{td.fingerprint_sha256 || '-'}</Col>
-                    </Fragment>
-                );
-            }
-            return (
-                <Fragment>
-                    <Form.Label column sm="4">Provider</Form.Label>
-                    <Col sm="8" className="mt-2">{td.provider || '-'}</Col>
-                    <Form.Label column sm="4">CNAME Target</Form.Label>
-                    <Col sm="8" className="mt-2">{td.cname_target || '-'}</Col>
-                    <Form.Label column sm="4">HTTP Status</Form.Label>
-                    <Col sm="8" className="mt-2">{td.http_status_code || '-'}</Col>
-                    <Form.Label column sm="4">Last Checked</Form.Label>
-                    <Col sm="8" className="mt-2"><DateWithTooltip date={td.last_checked_at} includeTime={true} type="default" /></Col>
-                    <Form.Label column sm="4">Corporate DNS</Form.Label>
-                    <Col sm="8" className="mt-2">{td.corporate_dns || '-'}</Col>
-                </Fragment>
-            );
-        };
-
-        return (
-            <Modal show={this.state.showDetailsModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Technical details for <b>{item.domain_name}</b></Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Container>
-                        <Row className="show-grid">
-                            <Col md={12}>
-                                <Form.Group as={Row}>{renderFields()}</Form.Group>
-                                <Col md={{ span: 3, offset: 10 }}>
-                                    <Button variant="secondary" onClick={handleClose}>Close</Button>
-                                </Col>
-                            </Col>
-                        </Row>
-                    </Container>
-                </Modal.Body>
-            </Modal>
-        );
-    };
-
     render() {
         const { globalFilters, filteredData, threatsMonitored } = this.props;
-        const dataToUse = filteredData || threatsMonitored;
-        const { showTimelineModal, timelineId, timelineLabel } = this.state;
+        const dataToUse = filteredData ?? threatsMonitored;
+        const {
+            showTimelineModal, timelineId, timelineContentType,
+            timelineId2, timelineContentType2, timelineLabel
+        } = this.state;
 
         const renderLoadingState = () => (
             <tr>
-                <td colSpan="6" className="text-center py-5">
+                <td colSpan="7" className="text-center py-5">
                     <div className="d-flex flex-column align-items-center">
                         <div className="spinner-border text-primary mb-3" role="status">
                             <span className="visually-hidden">Loading...</span>
@@ -479,16 +493,19 @@ export class ThreatsMonitored extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
-                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
+                                                    <th style={{ cursor: 'pointer', maxWidth: 260 }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name{renderSortIcons('domain_name')}
+                                                    </th>
+                                                    <th style={{ cursor: 'pointer' }} onClick={() => handleSort('status')}>
+                                                        Status{renderSortIcons('status')}
                                                     </th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('source')}>
                                                         Source{renderSortIcons('source')}
                                                     </th>
-                                                    <th>Corporate Keyword</th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('corporate_dns')}>
-                                                        Corporate DNS{renderSortIcons('corporate_dns')}
+                                                        Monitored{renderSortIcons('corporate_dns')}
                                                     </th>
+                                                    <th>Comments</th>
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                                                         Created At{renderSortIcons('created_at')}
                                                     </th>
@@ -497,12 +514,12 @@ export class ThreatsMonitored extends Component {
                                             </thead>
                                             <tbody>
                                                 {this.state.isLoading ? renderLoadingState() : paginatedData.length === 0 ? (
-                                                    <tr><td colSpan="6" className="text-center text-muted py-4">No results found</td></tr>
+                                                    <tr><td colSpan="7" className="text-center text-muted py-4">No results found</td></tr>
                                                 ) : (
                                                     paginatedData.map(item => (
                                                         <tr key={`${item.source}-${item.id}`}>
-                                                            <td>
-                                                                <div>
+                                                            <td style={{ maxWidth: 260 }}>
+                                                                <div style={{ wordBreak: 'break-word' }}>
                                                                     <strong>
                                                                         {this.getMispStatusBadge(item)}
                                                                         {item.domain_name}
@@ -510,63 +527,34 @@ export class ThreatsMonitored extends Component {
                                                                     <div style={{ marginTop: 4 }}>{this.renderStatusTag(item)}</div>
                                                                 </div>
                                                             </td>
+                                                            <td>{this.renderStatusSelect(item)}</td>
                                                             <td>{this.renderSourceBadge(item)}</td>
-                                                            <td>{item.corporate_keyword || '-'}</td>
-                                                            <td>{item.corporate_dns || '-'}</td>
+                                                            <td>{item.corporate_dns || item.corporate_keyword || '-'}</td>
+                                                            <td>{this.renderComments(item)}</td>
                                                             <td><DateWithTooltip date={item.created_at} includeTime={true} type="created" /></td>
                                                             <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
-                                                                <button onClick={() => this.displayDetailsModal(item)} className="btn btn-outline-info btn-sm me-2" title="Technical Details">
-                                                                    <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>info</i>
-                                                                </button>
                                                                 <button onClick={() => this.displayExportModal(item)} className="btn btn-outline-primary btn-sm me-2" title="Export">
                                                                     <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>
                                                                         {this.extractUUID(item.misp_event_uuid).length ? 'cloud_done' : 'cloud_upload'}
                                                                     </i>
                                                                 </button>
-                                                                {!this.isTakeover(item) && (
-                                                                    <Fragment>
-                                                                        <button
-                                                                            onClick={() => this.displayAddModal(item)}
-                                                                            className={`btn btn-sm me-2 ${this.isMonitored(item.domain_name) ? 'btn-success' : 'btn-secondary'}`}
-                                                                            title={this.isMonitored(item.domain_name) ? `${item.domain_name} is monitored` : `Monitor ${item.domain_name}`}
-                                                                            disabled={this.isMonitored(item.domain_name)}
-                                                                        >
-                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>
-                                                                                {this.isMonitored(item.domain_name) ? 'playlist_add_check' : 'playlist_add'}
-                                                                            </i>
-                                                                        </button>
-                                                                        <button onClick={() => this.displayDisableModal(item)} className="btn btn-outline-primary btn-sm me-2">
-                                                                            {item.status_tag === 'active' ? 'Disable' : 'Enable'}
-                                                                        </button>
-                                                                    </Fragment>
-                                                                )}
-                                                                {this.isTakeover(item) && (
-                                                                    <Fragment>
-                                                                        <button className="btn btn-outline-success btn-sm me-2" title="Mark Resolved"
-                                                                                onClick={() => this.displayConfirmModal(item, 'resolved', 'Resolved')}>
-                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>check_circle</i>
-                                                                        </button>
-                                                                        <button className="btn btn-outline-secondary btn-sm me-2" title="Mark False Positive"
-                                                                                onClick={() => this.displayConfirmModal(item, 'false_positive', 'False Positive')}>
-                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>block</i>
-                                                                        </button>
-                                                                        <button className="btn btn-outline-warning btn-sm me-2" title="Re-check"
-                                                                                onClick={() => this.displayConfirmModal(item, 'pending', 'Pending Re-check')}>
-                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>refresh</i>
-                                                                        </button>
-                                                                        <button
-                                                                            className="btn btn-outline-secondary btn-sm"
-                                                                            title="History"
-                                                                            onClick={() => this.setState({
-                                                                                showTimelineModal: true,
-                                                                                timelineId: item.technical_details.dangling_subdomain_id,
-                                                                                timelineLabel: item.domain_name
-                                                                            })}
-                                                                        >
-                                                                            <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>history</i>
-                                                                        </button>
-                                                                    </Fragment>
-                                                                )}
+                                                                <button onClick={() => this.displayEditModal(item)} className="btn btn-outline-warning btn-sm me-2" title="Edit">
+                                                                    <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>edit</i>
+                                                                </button>
+                                                                <button
+                                                                    className="btn btn-outline-secondary btn-sm"
+                                                                    title="Timeline"
+                                                                    onClick={() => this.setState({
+                                                                        showTimelineModal: true,
+                                                                        timelineId: item.technical_details.dns_twisted_id,
+                                                                        timelineContentType: 'dns_finder.dnstwisted',
+                                                                        timelineId2: item.id,
+                                                                        timelineContentType2: 'dns_finder.alert',
+                                                                        timelineLabel: item.domain_name
+                                                                    })}
+                                                                >
+                                                                    <i className="material-icons" style={{ fontSize: 17, lineHeight: 1.8, margin: -2.5 }}>history</i>
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     ))
@@ -581,28 +569,29 @@ export class ThreatsMonitored extends Component {
                     )}
                 </TableManager>
 
-                {this.disableModal()}
-                {this.confirmModal()}
-                {this.addModal()}
-                {this.detailsModal()}
+                {this.editModal()}
 
                 <ExportModal
                     show={this.state.showExportModal}
                     domain={this.state.exportDomain}
                     sourceData={this.state.exportSourceData}
                     alertId={this.state.selectedItem?.id}
+                    alreadyMonitored={this.state.selectedItem ? this.isMonitored(this.state.selectedItem.domain_name) : false}
                     onClose={this.closeExportModal}
                     onMispExport={this.handleMispExport}
                     onLegitimateDomainExport={this.handleLegitimateDomainExport}
+                    onWebsiteMonitoringExport={this.handleWebsiteMonitoringExport}
                     onDeleteRequest={this.handleDeleteRequest}
                     mode={this.state.exportMode}
                 />
 
                 <TimelineModal
                     show={showTimelineModal}
-                    onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
-                    contentType="dns_finder.danglingsubdomain"
+                    onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineId2: null, timelineLabel: '' })}
+                    contentType={timelineContentType}
                     objectId={timelineId}
+                    contentType2={timelineContentType2}
+                    objectId2={timelineId2}
                     label={timelineLabel}
                 />
             </Fragment>
@@ -618,6 +607,6 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
-    getThreatsMonitored, updateAlertStatus, patchDanglingSubdomain, exportToMISP,
+    getThreatsMonitored, updateAlertStatus, exportToMISP, patchDnsTwisted,
     exportToLegitimateDomains, addSite, getSites
 })(ThreatsMonitored);

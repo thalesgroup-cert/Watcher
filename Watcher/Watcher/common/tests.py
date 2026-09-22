@@ -111,11 +111,11 @@ class TakeoverMispObjectTest(TestCase):
 
     def test_create_takeover_objects_includes_expected_attributes(self):
         from common.misp import create_takeover_objects
-        from dns_finder.models import DnsMonitored, DanglingSubdomain
+        from dns_finder.models import DnsMonitored, DnsTwisted
 
         dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-test.com")
-        dangling = DanglingSubdomain.objects.create(
-            subdomain="old.misp-takeover-test.com",
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.misp-takeover-test.com",
             dns_monitored=dns_monitored,
             cname_target="bucket.s3.amazonaws.com",
             provider="Amazon S3",
@@ -132,11 +132,12 @@ class TakeoverMispObjectTest(TestCase):
 
     def test_create_takeover_objects_skips_existing_values(self):
         from common.misp import create_takeover_objects
-        from dns_finder.models import DnsMonitored, DanglingSubdomain
+        from dns_finder.models import DnsMonitored, DnsTwisted
 
         dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-dedup.com")
-        dangling = DanglingSubdomain.objects.create(
-            subdomain="old.misp-takeover-dedup.com", dns_monitored=dns_monitored, provider="Amazon S3"
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.misp-takeover-dedup.com", dns_monitored=dns_monitored,
+            provider="Amazon S3"
         )
 
         objects = create_takeover_objects(
@@ -179,20 +180,19 @@ class NotificationSystemTest(TestCase):
     def test_dns_finder_dangling_notifications(self, mock_email, mock_slack):
         """Test that the dns_finder_dangling app_name dispatches without error."""
         from common.core import send_app_specific_notifications
-        from dns_finder.models import DnsMonitored, DanglingSubdomain, DanglingAlert, Subscriber
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
 
         user = User.objects.create_user("dangling_notify_user", "dangling@test.com", "pass")
         subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
 
         dns_monitored = DnsMonitored.objects.create(domain_name="notify-dangling.com")
-        dangling = DanglingSubdomain.objects.create(
-            subdomain="old.notify-dangling.com",
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.notify-dangling.com",
             dns_monitored=dns_monitored,
-            status='dangling_confirmed',
             provider='Amazon S3',
             cname_target='mybucket.s3.amazonaws.com',
         )
-        alert = DanglingAlert.objects.create(dangling_subdomain=dangling, trigger='certstream')
+        alert = Alert.objects.create(dns_twisted=dangling, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, trigger='certstream')
 
         subscribers = Subscriber.objects.filter(id=subscriber.id)
         context_data = {'alert': alert}

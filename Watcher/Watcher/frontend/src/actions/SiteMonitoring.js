@@ -57,16 +57,18 @@ export const deleteSite = (id, site) => (dispatch, getState) => {
 
 // ADD SITE
 export const addSite = site => (dispatch, getState) => {
-    axios
+    return axios
         .post("/api/site_monitoring/site/", site, tokenConfig(getState))
         .then(res => {
             dispatch(createMessage({add: `${site.domain_name} Monitoring`}));
             dispatch({ type: ADD_SITE, payload: res.data });
             dispatch(getSites());
+            return res.data;
         })
-        .catch(err =>
-            dispatch(returnErrors(err.response.data, err.response.status))
-        );
+        .catch(err => {
+            dispatch(returnErrors(err.response.data, err.response.status));
+            throw err;
+        });
 };
 
 // UPDATE SITE
