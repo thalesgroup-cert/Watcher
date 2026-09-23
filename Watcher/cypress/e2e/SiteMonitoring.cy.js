@@ -655,7 +655,7 @@ describe('Site Monitoring - E2E Test Suite', () => {
       cy.get('.navbar, nav').should('exist');
       cy.get('a:contains("Website Monitoring"), a[href*="website_monitoring"]').should('exist');
       cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist');
-      cy.get('a:contains("Twisted DNS Finder"), a[href*="dns_finder"]').should('exist');
+      cy.get('a:contains("DNS Threats Monitored"), a[href*="dns_finder"]').should('exist');
     });
 
     it('should verify layout structure specific to Site Monitoring', () => {

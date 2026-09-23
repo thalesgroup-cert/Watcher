@@ -795,7 +795,7 @@ There is one by default but consider to change it in the <code class="docutils l
 </ul>
 </details> <br/>
 <details>
-<summary>DNS Finder</summary> <br/>
+<summary>DNS Threats Monitored</summary> <br/>
 <p><code class="docutils literal notranslate"><span class="pre">^api/dns_finder/dns_monitored/$</span></code></p>
 <ul class="simple">
 <li><p><strong>HTTP Method:</strong> GET, POST, PATCH, DELETE</p></li>
@@ -1040,7 +1040,7 @@ There is one by default but consider to change it in the <code class="docutils l
 <li><p><strong>Threats Watcher</strong>: Automatically exports trending cybersecurity threats and buzzwords.</p></li>
 <li><p><strong>Data Leak</strong>: Automatically creates alerts when data leaks are detected via keywords.</p></li>
 <li><p><strong>Website Monitoring</strong>: Automatically creates alerts in TheHive when site changes are detected.</p></li>
-<li><p><strong>DNS Finder</strong>: Automatically exports twisted DNS findings and certificate transparency alerts.</p></li>
+<li><p><strong>DNS Threats Monitored</strong>: Automatically exports twisted DNS findings and certificate transparency alerts.</p></li>
 <li><p><strong>CyberWatch</strong>: Automatically pushes CVE alerts and ransomware victim matches (rule hits) as tagged observables.</p></li>
 </ul>
 </section>
@@ -1077,8 +1077,8 @@ There is one by default but consider to change it in the <code class="docutils l
 <li><p>Click on the <strong>cloud button</strong> next to each domain.</p></li>
 </ul>
 </section>
-<section id="from-dns-finder">
-<h3>From DNS Finder<a class="headerlink" href="#from-dns-finder" title="Link to this heading" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#from-dns-finder'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></h3>
+<section id="from-dns-threats-monitored">
+<h3>From DNS Threats Monitored<a class="headerlink" href="#from-dns-threats-monitored" title="Link to this heading" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#from-dns-threats-monitored'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></h3>
 <ul class="simple">
 <li><p>Go to <strong>/dns_finder</strong> page.</p></li>
 <li><p>View detected DNS alerts.</p></li>
@@ -1839,7 +1839,7 @@ Otherwise, it will create <strong>several unnecessary migration files</strong>.<
 </li>
 <li><a :data-current="activeSection === '#misp-export'" class="reference internal" href="#misp-export">MISP Export</a><ul>
 <li><a :data-current="activeSection === '#from-website-monitoring'" class="reference internal" href="#from-website-monitoring">From Website Monitoring</a></li>
-<li><a :data-current="activeSection === '#from-dns-finder'" class="reference internal" href="#from-dns-finder">From DNS Finder</a></li>
+<li><a :data-current="activeSection === '#from-dns-threats-monitored'" class="reference internal" href="#from-dns-threats-monitored">From DNS Threats Monitored</a></li>
 <li><a :data-current="activeSection === '#misp-export-features'" class="reference internal" href="#misp-export-features">MISP Export Features</a></li>
 <li><a :data-current="activeSection === '#id2'" class="reference internal" href="#id2">Troubleshooting</a></li>
 </ul>

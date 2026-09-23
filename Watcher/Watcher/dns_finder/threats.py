@@ -72,7 +72,7 @@ def serialize_alert(alert, misp_uuid_map=None):
 
 def get_unified_threats(params):
     """
-    Build the chronologically-sorted list of DNS Finder threats across all
+    Build the chronologically-sorted list of DNS Threats Monitored threats across all
     three detection sources, applying the requested filters.
 
     :param params: Query-param-like mapping (request.query_params), all

@@ -285,7 +285,7 @@ export const exportToMISP = (id, event_uuid, domain_name) => (dispatch, getState
         });
 };
 
-// GET DNS FINDER STATISTICS
+// GET DNS Threats Monitored STATISTICS
 export const getDnsFinderStatistics = () => (dispatch, getState) => {
     axios
         .get('/api/dns_finder/dns_monitored/statistics/', tokenConfig(getState))

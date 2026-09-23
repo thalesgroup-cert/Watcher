@@ -124,6 +124,21 @@
 <section id="module-Watcher.dns_finder.core">
 <span id="dns-finder-core-algorithm"></span><h1>DNS Finder - Core Algorithm<a class="headerlink" href="#module-Watcher.dns_finder.core" title="Link to this heading"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></h1>
 <dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.check_dangling_status">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">check_dangling_status</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dns_twisted</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.check_dangling_status" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.check_dangling_status'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Resolve a DnsTwisted row’s CNAME chain, match it against known
+takeover-able provider fingerprints, and confirm via DNS/HTTP.
+Updates the DnsTwisted row’s technical probe fields in place.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dns_twisted</strong> – DnsTwisted Object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The raw probe verdict: ‘ok’, ‘dangling_suspected’, or ‘dangling_confirmed’ (Str).</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py function">
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.check_dnstwist">
 <span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">check_dnstwist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dns_monitored</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.check_dnstwist" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.check_dnstwist'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
 <dd><p>Runs dnstwist.</p>
@@ -140,6 +155,43 @@
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.clean_wildcard_domain">
 <span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">clean_wildcard_domain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.clean_wildcard_domain" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.clean_wildcard_domain'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
 <dd><p>Remove leading <code class="docutils literal notranslate"><span class="pre">*.</span></code> from domain names.</p>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.evaluate_dangling_subdomain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">evaluate_dangling_subdomain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dns_twisted</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.evaluate_dangling_subdomain" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.evaluate_dangling_subdomain'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Runs check_dangling_status and creates/updates the single
+subdomain_takeover Alert for this domain, notifying only if the status
+just transitioned INTO ‘confirmed’ from some other status (avoids
+re-alerting on every periodic recheck of an already-confirmed subdomain).</p>
+<p>‘suspected’ is deliberately silent: it is reached on a transient
+network/DNS error during the HTTP probe, so alerting on it would page the
+SOC on every blip and make a flapping subdomain spam the channels. It is
+still persisted and surfaced in the UI/statistics, and escalating from
+‘suspected’ to ‘confirmed’ does alert.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dns_twisted</strong> – DnsTwisted Object.</p></li>
+<li><p><strong>source</strong> – ‘certstream’ or ‘periodic_recheck’ (Str).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.extract_certificate_metadata">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">extract_certificate_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.extract_certificate_metadata" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.extract_certificate_metadata'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Extract issuer/SAN from a CertStream certificate_update message’s leaf
+certificate and issuing chain. Every field is read defensively - a leaner
+or differently-shaped certstream-server-go payload must never raise here,
+only omit data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>message</strong> – CertStream event (Dict).</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
 </dd></dl>
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.in_dns_monitored">
@@ -168,6 +220,16 @@
 </dl>
 </dd></dl>
 <dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.load_dangling_fingerprints">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">load_dangling_fingerprints</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.load_dangling_fingerprints" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.load_dangling_fingerprints'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Load (and cache) the dangling-DNS provider fingerprint list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[dict]</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py function">
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.main_certificate_transparency">
 <span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">main_certificate_transparency</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.main_certificate_transparency" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.main_certificate_transparency'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
 <dd><p>Launch CertStream scan using internal certstream-server-go.</p>
@@ -176,6 +238,19 @@
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.main_dns_twist">
 <span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">main_dns_twist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.main_dns_twist" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.main_dns_twist'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
 <dd><p>Launch dnstwist algorithm.</p>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.match_fingerprint">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">match_fingerprint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cname_target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.match_fingerprint" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.match_fingerprint'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Find the fingerprint entry whose cname_pattern is contained in cname_target.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cname_target</strong> – Terminal CNAME hostname (Str) or None.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict or None</p>
+</dd>
+</dl>
 </dd></dl>
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.print_callback">
@@ -191,9 +266,36 @@
 </dl>
 </dd></dl>
 <dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.recheck_dangling_subdomains">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">recheck_dangling_subdomains</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.recheck_dangling_subdomains" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.recheck_dangling_subdomains'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Re-check every subdomain_takeover Alert that hasn’t been triaged as
+resolved/false_positive, to catch takeovers that appear long after the
+subdomain was first discovered.</p>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.resolve_cname_chain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">resolve_cname_chain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_hops</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.resolve_cname_chain" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.resolve_cname_chain'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Follow the CNAME chain for a subdomain up to max_hops, returning the
+terminal target hostname, or None if there is no CNAME record.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdomain</strong> – Subdomain to resolve (Str).</p></li>
+<li><p><strong>max_hops</strong> – Maximum CNAME hops to follow (Int).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str or None</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py function">
 <dt class="sig sig-object py" id="Watcher.dns_finder.core.send_dns_finder_notifications">
 <span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">send_dns_finder_notifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alert</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.send_dns_finder_notifications" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.send_dns_finder_notifications'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Sends notifications to Slack, Citadel, TheHive or Email based on DNS Finder.</p>
+<dd><p>Sends notifications to Slack, Citadel, TheHive or Email for a DNS Threats Monitored
+alert, across all three sources. subdomain_takeover routes through the
+dedicated ‘dns_finder_dangling’ templates; dnstwist/certstream_keyword
+share ‘dns_finder’ and pick their template internally from <cite>source</cite>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>alert</strong> – Alert Object.</p>
@@ -208,7 +310,7 @@ If the application is TheHive, individual notifications are sent for each alert.
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> – The keyword or term associated with the dns finder.</p></li>
+<li><p><strong>keyword</strong> – The keyword or term associated with the DNS Threats Monitored.</p></li>
 <li><p><strong>alerts_number</strong> – The total number of alerts in the group.</p></li>
 <li><p><strong>alerts</strong> – The list of individual alerts to be processed and sent to TheHive.</p></li>
 </ul>
@@ -222,7 +324,30 @@ If the application is TheHive, individual notifications are sent for each alert.
 <dt>Launch multiple planning tasks in background:</dt><dd><ul class="simple">
 <li><p>Fire main_dns_twist from Monday to Sunday: every 2 hours.</p></li>
 <li><p>Fire main_certificate_transparency from Monday to Sunday: every hour.</p></li>
+<li><p>Fire recheck_dangling_subdomains from Monday to Sunday: every 6 hours.</p></li>
 </ul>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.dns_finder.core.track_dangling_subdomain">
+<span class="sig-prename descclassname"><span class="pre">Watcher.dns_finder.core.</span></span><span class="sig-name descname"><span class="pre">track_dangling_subdomain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.dns_finder.core.track_dangling_subdomain" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.dns_finder.core.track_dangling_subdomain'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>If domain is a genuine subdomain (not the root itself) of a monitored
+corporate root domain, catalog it for dangling-DNS tracking (a DnsTwisted
+row plus its subdomain_takeover Alert).</p>
+<p>Discovery is catalog-only in real time: nothing is probed here.
+Verification (DNS resolution + HTTP probe, up to ~35s of blocking I/O) is
+left to the periodic recheck_dangling_subdomains job, which already picks
+up ‘pending’ rows. This runs on CertStream’s single-threaded
+message-reader callback, which has no queue: blocking it would make the
+feed drop (not buffer) certificate-transparency events, degrading the
+pre-existing typosquat detection that shares this callback.</p>
+<p>Uses a strict suffix check (rather than in_dns_monitored’s substring
+check, which would also match unrelated domains sharing a substring)
+since correctness matters here: this path writes new DB rows.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>domain</strong> – Domain from a CertStream event (Str).</p>
 </dd>
 </dl>
 </dd></dl>
@@ -247,16 +372,24 @@ If the application is TheHive, individual notifications are sent for each alert.
 </div></div><aside class="hidden text-sm xl:block" id="right-sidebar">
 <div class="sticky top-16 -mt-10 max-h-[calc(100vh-5rem)] h-full overflow-y-auto pt-6 space-y-2"><p class="font-medium">On this page</p>
 <ul>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.check_dangling_status'" class="reference internal" href="#Watcher.dns_finder.core.check_dangling_status"><code class="docutils literal notranslate"><span class="pre">check_dangling_status()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.check_dnstwist'" class="reference internal" href="#Watcher.dns_finder.core.check_dnstwist"><code class="docutils literal notranslate"><span class="pre">check_dnstwist()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.clean_wildcard_domain'" class="reference internal" href="#Watcher.dns_finder.core.clean_wildcard_domain"><code class="docutils literal notranslate"><span class="pre">clean_wildcard_domain()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.evaluate_dangling_subdomain'" class="reference internal" href="#Watcher.dns_finder.core.evaluate_dangling_subdomain"><code class="docutils literal notranslate"><span class="pre">evaluate_dangling_subdomain()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.extract_certificate_metadata'" class="reference internal" href="#Watcher.dns_finder.core.extract_certificate_metadata"><code class="docutils literal notranslate"><span class="pre">extract_certificate_metadata()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.in_dns_monitored'" class="reference internal" href="#Watcher.dns_finder.core.in_dns_monitored"><code class="docutils literal notranslate"><span class="pre">in_dns_monitored()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.is_legitimate_domain'" class="reference internal" href="#Watcher.dns_finder.core.is_legitimate_domain"><code class="docutils literal notranslate"><span class="pre">is_legitimate_domain()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.load_dangling_fingerprints'" class="reference internal" href="#Watcher.dns_finder.core.load_dangling_fingerprints"><code class="docutils literal notranslate"><span class="pre">load_dangling_fingerprints()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.main_certificate_transparency'" class="reference internal" href="#Watcher.dns_finder.core.main_certificate_transparency"><code class="docutils literal notranslate"><span class="pre">main_certificate_transparency()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.main_dns_twist'" class="reference internal" href="#Watcher.dns_finder.core.main_dns_twist"><code class="docutils literal notranslate"><span class="pre">main_dns_twist()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.match_fingerprint'" class="reference internal" href="#Watcher.dns_finder.core.match_fingerprint"><code class="docutils literal notranslate"><span class="pre">match_fingerprint()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.print_callback'" class="reference internal" href="#Watcher.dns_finder.core.print_callback"><code class="docutils literal notranslate"><span class="pre">print_callback()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.recheck_dangling_subdomains'" class="reference internal" href="#Watcher.dns_finder.core.recheck_dangling_subdomains"><code class="docutils literal notranslate"><span class="pre">recheck_dangling_subdomains()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.resolve_cname_chain'" class="reference internal" href="#Watcher.dns_finder.core.resolve_cname_chain"><code class="docutils literal notranslate"><span class="pre">resolve_cname_chain()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.send_dns_finder_notifications'" class="reference internal" href="#Watcher.dns_finder.core.send_dns_finder_notifications"><code class="docutils literal notranslate"><span class="pre">send_dns_finder_notifications()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.send_dns_finder_notifications_group'" class="reference internal" href="#Watcher.dns_finder.core.send_dns_finder_notifications_group"><code class="docutils literal notranslate"><span class="pre">send_dns_finder_notifications_group()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.dns_finder.core.start_scheduler'" class="reference internal" href="#Watcher.dns_finder.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.dns_finder.core.track_dangling_subdomain'" class="reference internal" href="#Watcher.dns_finder.core.track_dangling_subdomain"><code class="docutils literal notranslate"><span class="pre">track_dangling_subdomain()</span></code></a></li>
 </ul>
 </div>
 </aside>

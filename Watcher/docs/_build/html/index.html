@@ -161,6 +161,7 @@
 <li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.create_misp_tags"><code class="docutils literal notranslate"><span class="pre">create_misp_tags()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.create_objects"><code class="docutils literal notranslate"><span class="pre">create_objects()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.create_or_update_objects"><code class="docutils literal notranslate"><span class="pre">create_or_update_objects()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.create_takeover_objects"><code class="docutils literal notranslate"><span class="pre">create_takeover_objects()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.find_domain_object"><code class="docutils literal notranslate"><span class="pre">find_domain_object()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.get_misp_uuid"><code class="docutils literal notranslate"><span class="pre">get_misp_uuid()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/common_misp.html#Watcher.common.misp.update_misp_uuid"><code class="docutils literal notranslate"><span class="pre">update_misp_uuid()</span></code></a></li>
@@ -228,16 +229,24 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/dns_finder_core.html">DNS Finder - Core Algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.check_dangling_status"><code class="docutils literal notranslate"><span class="pre">check_dangling_status()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.check_dnstwist"><code class="docutils literal notranslate"><span class="pre">check_dnstwist()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.clean_wildcard_domain"><code class="docutils literal notranslate"><span class="pre">clean_wildcard_domain()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.evaluate_dangling_subdomain"><code class="docutils literal notranslate"><span class="pre">evaluate_dangling_subdomain()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.extract_certificate_metadata"><code class="docutils literal notranslate"><span class="pre">extract_certificate_metadata()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.in_dns_monitored"><code class="docutils literal notranslate"><span class="pre">in_dns_monitored()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.is_legitimate_domain"><code class="docutils literal notranslate"><span class="pre">is_legitimate_domain()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.load_dangling_fingerprints"><code class="docutils literal notranslate"><span class="pre">load_dangling_fingerprints()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.main_certificate_transparency"><code class="docutils literal notranslate"><span class="pre">main_certificate_transparency()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.main_dns_twist"><code class="docutils literal notranslate"><span class="pre">main_dns_twist()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.match_fingerprint"><code class="docutils literal notranslate"><span class="pre">match_fingerprint()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.print_callback"><code class="docutils literal notranslate"><span class="pre">print_callback()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.recheck_dangling_subdomains"><code class="docutils literal notranslate"><span class="pre">recheck_dangling_subdomains()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.resolve_cname_chain"><code class="docutils literal notranslate"><span class="pre">resolve_cname_chain()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_dns_finder_notifications"><code class="docutils literal notranslate"><span class="pre">send_dns_finder_notifications()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_dns_finder_notifications_group"><code class="docutils literal notranslate"><span class="pre">send_dns_finder_notifications_group()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.start_scheduler"><code class="docutils literal notranslate"><span class="pre">start_scheduler()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="modules/dns_finder_core.html#Watcher.dns_finder.core.track_dangling_subdomain"><code class="docutils literal notranslate"><span class="pre">track_dangling_subdomain()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="modules/cyber_watch_core.html">Cyber Watch - Core Algorithm</a><ul>

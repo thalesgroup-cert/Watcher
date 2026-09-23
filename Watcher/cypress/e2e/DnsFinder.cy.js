@@ -1,4 +1,4 @@
-describe('DNS Finder - E2E Test Suite', () => {
+describe('DNS Threats Monitored - E2E Test Suite', () => {
   const setupIntercepts = () => {
     cy.intercept('GET', '**/api/dns_finder/dns_monitored/**', {
       statusCode: 200,
@@ -236,11 +236,11 @@ describe('DNS Finder - E2E Test Suite', () => {
     // Use the authentication helper
     cy.authenticateWithTestUser();
 
-    // Navigate to DNS Finder
+    // Navigate to DNS Threats Monitored
     cy.visit('/#/dns_finder');
     cy.wait('@getThreatsMonitored', { timeout: 15000 });
 
-    cy.log('Authentication completed and navigated to DNS Finder');
+    cy.log('Authentication completed and navigated to DNS Threats Monitored');
   });
 
   beforeEach(() => {
@@ -260,11 +260,11 @@ describe('DNS Finder - E2E Test Suite', () => {
     // Navigation check
     cy.url().then((currentUrl) => {
       if (!currentUrl.includes('/dns_finder') || currentUrl.includes('about:blank')) {
-        cy.log('Redirecting back to DNS Finder...');
+        cy.log('Redirecting back to DNS Threats Monitored...');
         cy.visit('/#/dns_finder', { failOnStatusCode: false });
         cy.wait(1000);
       } else {
-        cy.log('Staying on DNS Finder page');
+        cy.log('Staying on DNS Threats Monitored page');
       }
     });
 
@@ -275,7 +275,7 @@ describe('DNS Finder - E2E Test Suite', () => {
   });
 
   describe('Page Navigation and Access', () => {
-    it('should be on the correct DNS Finder page', () => {
+    it('should be on the correct DNS Threats Monitored page', () => {
       cy.url().should('include', '#/dns_finder');
       cy.get('body').should('be.visible');
       cy.get('.container-fluid').should('exist');
@@ -951,7 +951,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.get('a:contains("DNS Threats Monitored"), a[href*="dns_finder"]').should('exist');
     });
 
-    it('should verify layout structure specific to DNS Finder', () => {
+    it('should verify layout structure specific to DNS Threats Monitored', () => {
       cy.get('.container-fluid').should('exist');
       cy.get('.row').should('have.length.at.least', 1);
 
@@ -1051,7 +1051,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       });
     });
 
-    it('should verify DNS Finder specific components', () => {
+    it('should verify DNS Threats Monitored specific components', () => {
       cy.get('body').then(($body) => {
         const bodyText = $body.text();
 
@@ -1080,7 +1080,7 @@ describe('DNS Finder - E2E Test Suite', () => {
   });
 
   after(() => {
-    cy.log('Starting DNS Finder cleanup...');
+    cy.log('Starting DNS Threats Monitored cleanup...');
 
     const authData = Cypress.env('authData');
     if (authData && authData.token) {
@@ -1150,6 +1150,6 @@ describe('DNS Finder - E2E Test Suite', () => {
       win.sessionStorage.clear();
     });
 
-    cy.log('DNS Finder cleanup completed');
+    cy.log('DNS Threats Monitored cleanup completed');
   });
 });

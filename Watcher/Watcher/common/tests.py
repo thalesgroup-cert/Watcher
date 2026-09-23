@@ -209,7 +209,7 @@ class NotificationSystemTest(TestCase):
         'certstream_keyword' (Alert.SOURCE_CERTSTREAM_KEYWORD), but common/core.py used to
         branch on the old literal 'print_callback', so this path always fell through to the
         generic "Alert with no specific model defined." fallback body instead of the real
-        DNS Finder cert-transparency HTML template. Exercises the real
+        DNS Threats Monitored cert-transparency HTML template. Exercises the real
         send_dns_finder_notifications -> send_app_specific_notifications path (not a mock of
         the dispatch itself), only mocking the outbound SMTP call.
         """

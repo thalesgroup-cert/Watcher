@@ -230,7 +230,7 @@ class MISPSerializer(serializers.Serializer):
         except serializers.ValidationError:
             raise
         except Exception:
-            logger.exception("Unexpected error in DNS Finder MISP save")
+            logger.exception("Unexpected error in DNS Threats Monitored MISP save")
             raise serializers.ValidationError("An internal error occurred while processing the MISP event.")
 
     @property

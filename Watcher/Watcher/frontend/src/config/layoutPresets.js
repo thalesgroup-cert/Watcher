@@ -69,7 +69,7 @@ const THREATS_PRESETS = [
     },
 ];
 
-//DNS Finder
+//DNS Threats Monitored
 const DNS_PRESETS = [
     {
         id: 'default',

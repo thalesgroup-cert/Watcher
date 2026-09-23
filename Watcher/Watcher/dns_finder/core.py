@@ -243,9 +243,9 @@ def check_dangling_status(dns_twisted):
 
 
 DETECTION_TO_ALERT_STATUS = {
-    'ok': Alert.STATUS_RESOLVED,
-    'dangling_suspected': Alert.STATUS_SUSPECTED,
-    'dangling_confirmed': Alert.STATUS_CONFIRMED,
+    'ok': 'resolved',
+    'dangling_suspected': 'suspected',
+    'dangling_confirmed': 'confirmed',
 }
 
 
@@ -473,7 +473,7 @@ def check_dnstwist(dns_monitored):
 
 def send_dns_finder_notifications(alert):
     """
-    Sends notifications to Slack, Citadel, TheHive or Email for a DNS Finder
+    Sends notifications to Slack, Citadel, TheHive or Email for a DNS Threats Monitored
     alert, across all three sources. subdomain_takeover routes through the
     dedicated 'dns_finder_dangling' templates; dnstwist/certstream_keyword
     share 'dns_finder' and pick their template internally from `source`.
@@ -485,7 +485,7 @@ def send_dns_finder_notifications(alert):
     )
 
     if not subscribers.exists():
-        logger.info("No subscribers for DNS Finder, no message sent.")
+        logger.info("No subscribers for DNS Threats Monitored, no message sent.")
         return
 
     if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
@@ -509,7 +509,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     Sends grouped notifications to Slack, Citadel, TheHive or Email based on dns_finder_group.
     If the application is TheHive, individual notifications are sent for each alert.
 
-    :param keyword: The keyword or term associated with the dns finder.
+    :param keyword: The keyword or term associated with the DNS Threats Monitored.
     :param alerts_number: The total number of alerts in the group.
     :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
@@ -518,7 +518,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     )
 
     if not subscribers.exists():
-        logger.info("No subscribers for DNS Finder group, no message sent.")
+        logger.info("No subscribers for DNS Threats Monitored group, no message sent.")
         return
 
     context_data_group = {

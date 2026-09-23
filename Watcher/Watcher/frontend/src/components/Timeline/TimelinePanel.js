@@ -83,7 +83,7 @@ const FIELD_LABELS = {
     monitored:         'Monitored',
     udrp_status:       'UDRP Status',
     domain_expiry:     'Domain Expiry',
-    // DNS Finder Alert
+    // DNS Threats Monitored Alert
     status:            'Status',
     trigger:           'Trigger',
 };

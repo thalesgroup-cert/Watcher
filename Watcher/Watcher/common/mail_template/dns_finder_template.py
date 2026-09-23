@@ -2,7 +2,7 @@ from django.conf import settings
 
 def get_dns_finder_template(alert):
     """
-    Génère un email HTML pour une alerte DNS Finder.
+    Génère un email HTML pour une alerte DNS Threats Monitored.
 
     :param alert: Objet contenant les informations sur l'alerte.
     :return: Contenu HTML de l'email.

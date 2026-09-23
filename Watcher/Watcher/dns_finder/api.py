@@ -42,7 +42,7 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):
-        """Return statistics for the DNS Finder module."""
+        """Return statistics for the DNS Threats Monitored module."""
         try:
             today = timezone.now().date()
             week_ago = timezone.now() - timedelta(days=7)
@@ -61,7 +61,7 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
                 ).count(),
             }, status=status.HTTP_200_OK)
         except Exception:
-            logger.exception("Error computing DNS Finder statistics")
+            logger.exception("Error computing DNS Threats Monitored statistics")
             return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='dangling_subdomains')

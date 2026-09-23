@@ -81,7 +81,7 @@ export const EXPORT_TO_MISP          = "EXPORT_TO_MISP";
 
 export const GET_SITE_STATISTICS     = "GET_SITE_STATISTICS";
 
-// DNS FINDER
+// DNS Threats Monitored
 export const GET_DNS_MONITORED        = "GET_DNS_MONITORED";
 export const ADD_DNS_MONITORED        = "ADD_DNS_MONITORED";
 export const DELETE_DNS_MONITORED     = "DELETE_DNS_MONITORED";

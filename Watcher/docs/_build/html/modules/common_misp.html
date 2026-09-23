@@ -149,14 +149,30 @@ existing_values: Optional set of (type, value) tuples to check for duplicates</p
 <dl class="py function">
 <dt class="sig sig-object py" id="Watcher.common.misp.create_or_update_objects">
 <span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">create_or_update_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">misp_api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">site</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dry_run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.create_or_update_objects" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.create_or_update_objects'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
-<dd><p>Create or update MISP objects for a given site.</p>
+<dd><p>Create or update MISP objects for a given domain-bearing object (Site,
+LegitimateDomain, or DnsTwisted - including dangling-detection rows).</p>
 <dl class="simple">
 <dt>Args:</dt><dd><p>misp_api: PyMISP API instance
 event: MISP Event object
-site: Site object containing domain data
+site: Domain-bearing object (identified via _get_domain_identifier)
 dry_run: If True, simulate the operation without making changes</p>
 </dd>
 <dt>Returns:</dt><dd><p>tuple: (success, message)</p>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py function">
+<dt class="sig sig-object py" id="Watcher.common.misp.create_takeover_objects">
+<span class="sig-prename descclassname"><span class="pre">Watcher.common.misp.</span></span><span class="sig-name descname"><span class="pre">create_takeover_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dns_twisted</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">existing_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Watcher.common.misp.create_takeover_objects" title="Link to this definition" x-intersect.margin.0%.0%.-70%.0%="activeSection = '#Watcher.common.misp.create_takeover_objects'"><svg height="1em" viewbox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"></path></svg></a></dt>
+<dd><p>Create a MISP object for a subdomain-takeover (dangling DNS) finding.
+Kept separate from create_objects() (Site/LegitimateDomain) since a
+dangling-detection DnsTwisted row carries a different attribute set
+(CNAME target, provider, HTTP status).</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>dns_twisted: DnsTwisted instance with a subdomain_takeover Alert
+existing_values: Optional set of (type, value) tuples to check for duplicates</p>
+</dd>
+<dt>Returns:</dt><dd><p>list: MISP objects ready to be added/updated</p>
 </dd>
 </dl>
 </dd></dl>
@@ -220,6 +236,7 @@ event_uuid: UUID to add (will be added as the latest)</p>
 <li><a :data-current="activeSection === '#Watcher.common.misp.create_misp_tags'" class="reference internal" href="#Watcher.common.misp.create_misp_tags"><code class="docutils literal notranslate"><span class="pre">create_misp_tags()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.common.misp.create_objects'" class="reference internal" href="#Watcher.common.misp.create_objects"><code class="docutils literal notranslate"><span class="pre">create_objects()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.common.misp.create_or_update_objects'" class="reference internal" href="#Watcher.common.misp.create_or_update_objects"><code class="docutils literal notranslate"><span class="pre">create_or_update_objects()</span></code></a></li>
+<li><a :data-current="activeSection === '#Watcher.common.misp.create_takeover_objects'" class="reference internal" href="#Watcher.common.misp.create_takeover_objects"><code class="docutils literal notranslate"><span class="pre">create_takeover_objects()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.common.misp.find_domain_object'" class="reference internal" href="#Watcher.common.misp.find_domain_object"><code class="docutils literal notranslate"><span class="pre">find_domain_object()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.common.misp.get_misp_uuid'" class="reference internal" href="#Watcher.common.misp.get_misp_uuid"><code class="docutils literal notranslate"><span class="pre">get_misp_uuid()</span></code></a></li>
 <li><a :data-current="activeSection === '#Watcher.common.misp.update_misp_uuid'" class="reference internal" href="#Watcher.common.misp.update_misp_uuid"><code class="docutils literal notranslate"><span class="pre">update_misp_uuid()</span></code></a></li>

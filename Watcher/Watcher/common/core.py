@@ -156,7 +156,7 @@ APP_CONFIG_SLACK = {
     },
     'dns_finder': {
         'content_template': (
-            "*[DNS FINDER - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨*\n\n"
+            "*[DNS Threats Monitored - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨*\n\n"
             "Dear team,\n\n"
             "New Twisted DNS found: \n\n"
             "*• Twisted DNS:* {dns_domain_name_sanitized}\n"
@@ -178,7 +178,7 @@ APP_CONFIG_SLACK = {
     },
     'dns_finder_dangling': {
         'content_template': (
-            "*[DNS FINDER - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️*\n\n"
+            "*[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️*\n\n"
             "Dear team,\n\n"
             "A monitored subdomain may be vulnerable to takeover:\n\n"
             "*• Subdomain:* {subdomain}\n"
@@ -333,7 +333,7 @@ APP_CONFIG_CITADEL = {
     },
     'dns_finder': {
         'content_template': (
-            "<p><strong><h4>[DNS FINDER - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨</h4></strong></p>"
+            "<p><strong><h4>[DNS Threats Monitored - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p>New Twisted DNS found:</p>"
             "<ul>"
@@ -357,7 +357,7 @@ APP_CONFIG_CITADEL = {
     },
     'dns_finder_dangling': {
         'content_template': (
-            "<p><strong><h4>[DNS FINDER - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️</h4></strong></p>"
+            "<p><strong><h4>[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p>A monitored subdomain may be vulnerable to takeover:</p>"
             "<ul>"
