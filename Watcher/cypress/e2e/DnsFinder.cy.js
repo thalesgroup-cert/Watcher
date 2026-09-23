@@ -134,10 +134,10 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
       ]
     }).as('getDnsMonitoredDanglingSubdomains');
 
-    cy.intercept('PATCH', '**/api/dns_finder/dns_twisted/**', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), domain_name: "vvatcher.com", ...req.body }
-    })).as('patchDnsTwisted');
+    cy.intercept('PATCH', '**/api/dns_finder/dns_twisted/**', (req) => {
+      const m = req.url.match(/\/dns_twisted\/(\d+)\//);
+      return { statusCode: 200, body: { id: m ? parseInt(m[1]) : null, domain_name: "vvatcher.com", ...req.body } };
+    }).as('patchDnsTwisted');
 
     cy.intercept('GET', '**/api/timeline/events/**', {
       statusCode: 200,
@@ -182,20 +182,20 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
     cy.intercept('DELETE', '**/api/dns_finder/dns_monitored/**', { statusCode: 204 }).as('deleteDnsMonitored');
     cy.intercept('DELETE', '**/api/dns_finder/keyword_monitored/**', { statusCode: 204 }).as('deleteKeywordMonitored');
 
-    cy.intercept('PATCH', '**/api/dns_finder/dns_monitored/**', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), ...req.body }
-    })).as('patchDnsMonitored');
+    cy.intercept('PATCH', '**/api/dns_finder/dns_monitored/**', (req) => {
+      const m = req.url.match(/\/dns_monitored\/(\d+)\//);
+      return { statusCode: 200, body: { id: m ? parseInt(m[1]) : null, ...req.body } };
+    }).as('patchDnsMonitored');
 
-    cy.intercept('PATCH', '**/api/dns_finder/keyword_monitored/**', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), ...req.body }
-    })).as('patchKeywordMonitored');
+    cy.intercept('PATCH', '**/api/dns_finder/keyword_monitored/**', (req) => {
+      const m = req.url.match(/\/keyword_monitored\/(\d+)\//);
+      return { statusCode: 200, body: { id: m ? parseInt(m[1]) : null, ...req.body } };
+    }).as('patchKeywordMonitored');
 
-    cy.intercept('PATCH', '**/api/dns_finder/alert/**', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), ...req.body }
-    })).as('updateAlertStatus');
+    cy.intercept('PATCH', '**/api/dns_finder/alert/**', (req) => {
+      const m = req.url.match(/\/alert\/(\d+)\//);
+      return { statusCode: 200, body: { id: m ? parseInt(m[1]) : null, ...req.body } };
+    }).as('updateAlertStatus');
 
     cy.intercept('POST', '**/api/dns_finder/misp/**', {
       statusCode: 200,
@@ -545,7 +545,11 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
         .contains('table tbody tr', domainName)
         .find('.dropdown-toggle-split')
         .click();
-      cy.contains('.dropdown-item', statusLabel).click();
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', domainName)
+        .find('.dropdown-menu.show')
+        .contains('.dropdown-item', statusLabel)
+        .click();
     };
 
     it('should display the unified threats table in ResizableContainer with all three sources selectable', () => {
@@ -578,11 +582,11 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
       ensureFiltersVisible();
       cy.contains('label', 'Status').parent().find('select').should('have.value', 'open');
       cy.contains('label', 'Status').parent().find('select').select('');
-      cy.wait(300);
+      cy.contains('label', 'Status').parent().find('select').should('have.value', '');
 
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
-          cy.get('tbody').should('contain', 'watcher-threat.com');
+          cy.get('tbody', { timeout: 8000 }).should('contain', 'watcher-threat.com');
         });
       resetFilters();
     });
@@ -698,7 +702,7 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
         cy.contains('label', 'CNAME Target').should('exist');
         cy.contains('label', 'Provider').should('exist');
         cy.contains('label', 'HTTP Status Code').should('exist');
-        cy.contains('label', 'Status').should('not.exist');
+        cy.contains('label', /^Status$/).should('not.exist');
         cy.contains('label', 'Comments').should('exist');
 
         cy.contains('label', 'Provider').next().find('input').clear().type('Google Cloud Storage');
@@ -902,27 +906,35 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
         .contains('table tbody tr', 'vvatcher.com')
         .find('.dropdown-toggle-split')
         .click();
-      cy.contains('.dropdown-item', 'Confirmed').click();
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'vvatcher.com')
+        .find('.dropdown-menu.show')
+        .contains('.dropdown-item', 'Confirmed')
+        .click();
 
       cy.wait('@updateAlertStatus', { timeout: 10000 });
-
       cy.wait(1000);
 
-      // watcher-threat.com is resolved → hidden by 'open' filter; show all statuses first
+      // watcher-threat.com may be hidden by 'open' filter; show all statuses first
       cy.get('body').then($body => {
         if ($body.find('button:contains("Show Filters")').length > 0) {
           cy.contains('button', 'Show Filters').click();
         }
       });
       cy.contains('label', 'Status').parent().find('select').select('');
-      cy.wait(300);
+      cy.contains('label', 'Status').parent().find('select').should('have.value', '');
 
-      // Move the resolved certstream row back to pending
+      // Move the certstream row to pending – wait for the row to be stable before opening dropdown
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .contains('table tbody tr', 'watcher-threat.com')
+        .should('be.visible')
         .find('.dropdown-toggle-split')
         .click();
-      cy.contains('.dropdown-item', 'Pending').click();
+      cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+        .contains('table tbody tr', 'watcher-threat.com')
+        .find('.dropdown-menu.show')
+        .contains('.dropdown-item', 'Pending')
+        .click();
 
       cy.wait('@updateAlertStatus', { timeout: 10000 });
     });

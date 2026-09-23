@@ -95,11 +95,11 @@ export default function(state = initialState, action) {
             return {
                 ...state,
                 alerts: state.alerts.map(alert =>
-                    alert.id === action.payload.id ? action.payload : alert
+                    alert.id === action.payload.id ? { ...alert, ...action.payload } : alert
                 ),
                 threatsMonitored: state.threatsMonitored.map(item =>
                     item.id === action.payload.id
-                        ? { ...item, status: action.payload.status, comments: action.payload.comments }
+                        ? { ...item, ...action.payload }
                         : item
                 )
             };
