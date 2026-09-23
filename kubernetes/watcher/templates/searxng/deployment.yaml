@@ -1,0 +1,58 @@
+{{- if .Values.searxng.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "watcher.searxngHost" . }}
+  labels:
+    {{- include "watcher.labels" . | nindent 4 }}
+    app.kubernetes.io/component: searxng
+spec:
+  replicas: {{ .Values.searxng.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: searxng
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: searxng
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: searxng
+          image: "{{ .Values.searxng.image.repository }}:{{ .Values.searxng.image.tag }}"
+          imagePullPolicy: {{ .Values.searxng.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.searxng.service.port }}
+              protocol: TCP
+          env:
+            - name: SEARXNG_SECRET
+              value: {{ .Values.searxng.secretKey | default (randAlphaNum 32) | quote }}
+            - name: SEARXNG_BASE_URL
+              value: {{ printf "http://%s:%d/" (include "watcher.searxngHost" .) (.Values.searxng.service.port | int) | quote }}
+            {{- range $k, $v := .Values.searxng.extraEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.searxng.service.port }}
+            periodSeconds: 30
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.searxng.service.port }}
+            periodSeconds: 60
+            failureThreshold: 3
+          {{- with .Values.searxng.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

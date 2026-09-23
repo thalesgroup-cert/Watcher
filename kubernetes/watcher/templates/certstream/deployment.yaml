@@ -1,0 +1,47 @@
+{{- if .Values.certstream.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "watcher.certstreamHost" . }}
+  labels:
+    {{- include "watcher.labels" . | nindent 4 }}
+    app.kubernetes.io/component: certstream
+spec:
+  replicas: {{ .Values.certstream.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: certstream
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: certstream
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: certstream
+          image: "{{ .Values.certstream.image.repository }}:{{ .Values.certstream.image.tag }}"
+          imagePullPolicy: {{ .Values.certstream.image.pullPolicy }}
+          ports:
+            - name: ws
+              containerPort: {{ .Values.certstream.service.port }}
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.certstream.service.port }}
+            periodSeconds: 30
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.certstream.service.port }}
+            periodSeconds: 60
+            failureThreshold: 3
+          {{- with .Values.certstream.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

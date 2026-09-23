@@ -554,9 +554,9 @@ describe('DNS Finder - E2E Test Suite', () => {
           cy.get('h4:contains("DNS Threats Monitored")', { timeout: 10000 }).should('exist');
           cy.get('table', { timeout: 10000 }).should('exist');
           cy.get('table thead th').should('contain', 'Domain Name');
+          cy.get('table thead th').should('contain', 'Status');
           cy.get('table thead th').should('contain', 'Source');
-          cy.get('table thead th').should('contain', 'Corporate Keyword');
-          cy.get('table thead th').should('contain', 'Corporate DNS');
+          cy.get('table thead th').should('contain', 'Monitored');
           cy.get('table thead th').should('contain', 'Created At');
         });
 
@@ -685,6 +685,8 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should open the Edit modal for a subdomain takeover row and submit CNAME/Provider/HTTP Status Code/Comments changes', () => {
+      showAllStatuses();
+
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .contains('table tbody tr', 'old.watcher.com')
         .find('button[title="Edit"]')
@@ -705,6 +707,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       });
 
       cy.wait(['@patchDnsTwisted', '@updateAlertStatus'], { timeout: 10000 });
+      resetFilters();
     });
 
     it('should open the Edit modal for a dnstwist row and submit a Fuzzer change', () => {
@@ -762,6 +765,8 @@ describe('DNS Finder - E2E Test Suite', () => {
     });
 
     it('should open the Export destination selector for a subdomain takeover row with only MISP and Website Monitoring', () => {
+      showAllStatuses();
+
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .contains('table tbody tr', 'old.watcher.com')
         .find('button[title="Export"]')
@@ -774,6 +779,7 @@ describe('DNS Finder - E2E Test Suite', () => {
         cy.contains('button', 'Legitimate Domains').should('not.exist');
         cy.get('.btn-close').click();
       });
+      resetFilters();
     });
 
     it('should complete the Website Monitoring export workflow from a dnstwist row', () => {
@@ -839,7 +845,7 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
           cy.get('table tbody tr').each($row => {
-            cy.wrap($row).find('td').eq(1).invoke('text').then(text => {
+            cy.wrap($row).find('td').eq(2).invoke('text').then(text => {
               if (!text.includes('No results found')) {
                 expect(text).to.contain('Subdomain Takeover Detection');
               }
@@ -901,6 +907,15 @@ describe('DNS Finder - E2E Test Suite', () => {
       cy.wait('@updateAlertStatus', { timeout: 10000 });
 
       cy.wait(1000);
+
+      // watcher-threat.com is resolved → hidden by 'open' filter; show all statuses first
+      cy.get('body').then($body => {
+        if ($body.find('button:contains("Show Filters")').length > 0) {
+          cy.contains('button', 'Show Filters').click();
+        }
+      });
+      cy.contains('label', 'Status').parent().find('select').select('');
+      cy.wait(300);
 
       // Move the resolved certstream row back to pending
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')

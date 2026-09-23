@@ -302,10 +302,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'CONN_MAX_AGE': 3600,
-        'NAME': 'db_watcher',
+        'NAME': os.environ.get('DB_NAME', 'db_watcher'),
         'USER': os.environ.get('DB_USER', 'watcher'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
-        'HOST': 'db_watcher',
+        'HOST': os.environ.get('DB_HOST', 'db_watcher'),
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
