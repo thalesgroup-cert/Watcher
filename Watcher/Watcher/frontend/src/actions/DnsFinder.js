@@ -1,7 +1,6 @@
 import axios from 'axios';
 import {
     DNS_GET_ALERTS,
-    DNS_GET_ALERTS_ALL,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
@@ -16,10 +15,14 @@ import {
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
-    GET_DNS_FINDER_STATISTICS
+    GET_DNS_FINDER_STATISTICS,
+    PATCH_DNS_TWISTED,
+    GET_THREATS_MONITORED,
+    GET_THREATS_MONITORED_ALL
 } from './types';
 import { createMessage, returnErrors } from './messages';
 import { tokenConfig } from './auth';
+import { fetchAllPages } from './paginationUtils';
 
 export const getAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
     return axios
@@ -87,6 +90,23 @@ export const updateAlertStatus = (id, status) => (dispatch, getState) => {
         );
 };
 
+export const patchDnsTwisted = (id, data) => (dispatch, getState) => {
+    return axios
+        .patch(`/api/dns_finder/dns_twisted/${id}/`, data, tokenConfig(getState))
+        .then(res => {
+            dispatch(createMessage({ add: `${res.data.domain_name} Updated` }));
+            dispatch({
+                type: PATCH_DNS_TWISTED,
+                payload: res.data
+            });
+            return res.data;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response.data, err.response.status));
+            throw err;
+        });
+};
+
 export const getDnsMonitored = (page = 1, pageSize = 100) => (dispatch, getState) => {
     return axios
         .get(`/api/dns_finder/dns_monitored/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
@@ -102,6 +122,17 @@ export const getDnsMonitored = (page = 1, pageSize = 100) => (dispatch, getState
             });
             return res.data;
         })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
+        });
+};
+
+// GET DANGLING SUBDOMAINS FOR ONE CORPORATE DNS ASSET (on-demand, not stored in Redux)
+export const getDnsMonitoredDanglingSubdomains = (dnsMonitoredId) => (dispatch, getState) => {
+    return axios
+        .get(`/api/dns_finder/dns_monitored/${dnsMonitoredId}/dangling_subdomains/`, tokenConfig(getState))
+        .then(res => res.data)
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
             throw err;
@@ -224,15 +255,15 @@ export const patchKeywordMonitored = (id, keyword_monitored) => (dispatch, getSt
 };
 
 export const exportToMISP = (id, event_uuid, domain_name) => (dispatch, getState) => {
-    const payload = { id, event_uuid };
-    
+    const payload = { id, event_uuid, domain_name };
+
     return axios
         .post('/api/dns_finder/misp/', payload, tokenConfig(getState))
         .then(res => {
             const message = res.data.message || `${domain_name} exported to MISP`;
-            
+
             dispatch(createMessage({ add: message }));
-            
+
             if (res.data.misp_event_uuid) {
                 dispatch({
                     type: EXPORT_TO_MISP,
@@ -243,9 +274,7 @@ export const exportToMISP = (id, event_uuid, domain_name) => (dispatch, getState
                     }
                 });
             }
-            
-            dispatch(getAlerts());
-            
+
             return res.data;
         })
         .catch(err => {
@@ -256,7 +285,7 @@ export const exportToMISP = (id, event_uuid, domain_name) => (dispatch, getState
         });
 };
 
-// GET DNS FINDER STATISTICS
+// GET DNS Threats Monitored STATISTICS
 export const getDnsFinderStatistics = () => (dispatch, getState) => {
     axios
         .get('/api/dns_finder/dns_monitored/statistics/', tokenConfig(getState))
@@ -264,43 +293,72 @@ export const getDnsFinderStatistics = () => (dispatch, getState) => {
             dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: res.data });
         })
         .catch(err => {
-            dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: { totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0 } });
+            dispatch({ type: GET_DNS_FINDER_STATISTICS, payload: {
+                totalAlerts: 0, newToday: 0, newThisWeek: 0, totalDnsMonitored: 0, totalKeywords: 0,
+                totalDanglingSubdomains: 0, totalDanglingConfirmed: 0, totalDanglingSuspected: 0
+            } });
             if (err.response) dispatch(returnErrors(err.response.data, err.response.status));
         });
 };
 
-// GET ALL DNS ALERTS (stats only – no pagination)
-export const getAllDnsAlerts = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/alert/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: DNS_GET_ALERTS_ALL, payload: res.data.results || res.data });
-        })
-        .catch(err => {
-            dispatch(returnErrors(err.response?.data, err.response?.status));
-        });
-};
-
-// GET ALL DNS MONITORED (stats only – no pagination)
+// GET ALL DNS MONITORED (stats only)
 export const getAllDnsMonitored = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/dns_monitored/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_DNS_MONITORED_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/dns_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_DNS_MONITORED_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL KEYWORD MONITORED (stats only – no pagination)
+// GET ALL KEYWORD MONITORED (stats only)
 export const getAllKeywordMonitored = () => (dispatch, getState) => {
-    return axios
-        .get('/api/dns_finder/keyword_monitored/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/dns_finder/keyword_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_KEYWORD_MONITORED_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+export const getAllThreatsMonitored = () => (dispatch, getState) => {
+    return fetchAllPages('/api/dns_finder/threats_monitored/', getState)
+        .then(results => {
+            dispatch({ type: GET_THREATS_MONITORED_ALL, payload: results });
+            return results;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+        });
+};
+
+// GET UNIFIED DNS THREATS MONITORED (dnstwist + certstream_keyword + subdomain_takeover)
+export const getThreatsMonitored = (page = 1, pageSize = 100, filters = {}) => (dispatch, getState) => {
+    const params = new URLSearchParams({ page, page_size: pageSize });
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+    });
+
+    return axios
+        .get(`/api/dns_finder/threats_monitored/?${params.toString()}`, tokenConfig(getState))
+        .then(res => {
+            dispatch({
+                type: GET_THREATS_MONITORED,
+                payload: {
+                    results: res.data.results || res.data,
+                    count: res.data.count || 0,
+                    next: res.data.next || null,
+                    previous: res.data.previous || null
+                }
+            });
+            return res.data;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            throw err;
         });
 };

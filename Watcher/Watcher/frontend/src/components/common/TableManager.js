@@ -118,14 +118,20 @@ class TableManager extends Component {
         this.mounted = true;
         
         const initialFilters = {};
+        let hasNonEmptyDefault = false;
         this.props.filterConfig.forEach(filter => {
-            initialFilters[filter.key] = '';
+            const value = filter.defaultValue !== undefined ? filter.defaultValue : '';
+            initialFilters[filter.key] = value;
+            if (value !== '') hasNonEmptyDefault = true;
         });
-        
+
         this.loadSavedFilters();
-        
+
         this.setState({ filters: initialFilters }, () => {
             this.applyFilters();
+            if (hasNonEmptyDefault && this.props.onFiltersChange) {
+                this.props.onFiltersChange(this.state.filters);
+            }
         });
 
         this._onPrefsReady = () => {
@@ -172,9 +178,12 @@ class TableManager extends Component {
     }
 
     componentDidUpdate(prevProps, prevState) {
-        if (prevProps.data !== this.props.data ||
-            JSON.stringify(prevProps.globalFilters) !== JSON.stringify(this.props.globalFilters)) {
+        const globalFiltersChanged = JSON.stringify(prevProps.globalFilters) !== JSON.stringify(this.props.globalFilters);
+        if (prevProps.data !== this.props.data || globalFiltersChanged) {
             this.applyFilters();
+            if (globalFiltersChanged) {
+                this.setState({ currentPage: 1 });
+            }
             requestAnimationFrame(() => {
                 const best = this._computeAdaptiveItemsPerPage();
                 this.applyAutofit(best);
@@ -426,7 +435,7 @@ class TableManager extends Component {
         if (this.props.onDataFiltered) {
             const cb = this.props.onDataFiltered;
             const result = filtered;
-            setTimeout(() => cb(result), 0);
+            setTimeout(() => cb(result, data), 0);
         }
         
         this.setState({ filteredData: filtered });
@@ -658,9 +667,9 @@ class TableManager extends Component {
     resetToDefault = () => {
         const clearedFilters = {};
         this.props.filterConfig.forEach(filter => {
-            clearedFilters[filter.key] = '';
+            clearedFilters[filter.key] = filter.defaultValue !== undefined ? filter.defaultValue : '';
         });
-        
+
         const currentItemsPerPage = this.state.itemsPerPage;
         const currentShowFilters = this.state.showFilters;
         
@@ -837,7 +846,7 @@ class TableManager extends Component {
     };
 
     renderFilters = () => {
-        const { filterConfig, enableDateFilter = false, dateFields = [] } = this.props;
+        const { filterConfig, enableDateFilter = false, dateFields = [], clearButtonWidth = 2 } = this.props;
         const { filters, showFilters } = this.state;
 
         if (!showFilters) return null;
@@ -877,7 +886,7 @@ class TableManager extends Component {
                         
                         {hasDateFilter && this.renderDateRangeFilter()}
                         
-                        <div className="col-12 col-md-2 text-md-end">
+                        <div className={`col-12 col-md-${clearButtonWidth} text-md-end`}>
                             <Form.Label>&nbsp;</Form.Label>
                             <Button
                                 variant="outline-primary"

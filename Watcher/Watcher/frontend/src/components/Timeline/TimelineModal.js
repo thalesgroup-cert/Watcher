@@ -7,7 +7,7 @@ import UserAvatar, { displayName } from '../common/UserAvatar';
 const WATCHER_AUTO_COLOR = '#546e7a';
 
 
-export function TimelineModal({ show, onHide, contentType, objectId, label }) {
+export function TimelineModal({ show, onHide, contentType, objectId, contentType2, objectId2, label }) {
     return (
         <Modal show={show} onHide={onHide} centered size="lg" scrollable>
             <Modal.Header closeButton>
@@ -17,7 +17,10 @@ export function TimelineModal({ show, onHide, contentType, objectId, label }) {
             </Modal.Header>
             <Modal.Body>
                 {objectId != null && (
-                    <TimelinePanel contentType={contentType} objectId={objectId} />
+                    <TimelinePanel
+                        contentType={contentType} objectId={objectId}
+                        contentType2={contentType2} objectId2={objectId2}
+                    />
                 )}
             </Modal.Body>
         </Modal>
@@ -29,6 +32,8 @@ TimelineModal.propTypes = {
     onHide:      PropTypes.func.isRequired,
     contentType: PropTypes.string.isRequired,
     objectId:    PropTypes.number,
+    contentType2: PropTypes.string,
+    objectId2:    PropTypes.number,
     label:       PropTypes.string,
 };
 

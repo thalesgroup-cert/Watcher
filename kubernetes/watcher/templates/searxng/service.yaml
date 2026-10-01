@@ -1,0 +1,19 @@
+{{- if .Values.searxng.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "watcher.searxngHost" . }}
+  labels:
+    {{- include "watcher.labels" . | nindent 4 }}
+    app.kubernetes.io/component: searxng
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: searxng
+  ports:
+    - name: http
+      port: {{ .Values.searxng.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

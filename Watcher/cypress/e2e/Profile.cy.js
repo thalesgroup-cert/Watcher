@@ -5,7 +5,7 @@ describe('Profile Page - E2E Test Suite', () => {
     'Cyber Watch',
     'Data Leak',
     'Website Monitoring',
-    'Twisted DNS Finder',
+    'DNS Threats Monitored',
   ];
 
   const setupIntercepts = () => {

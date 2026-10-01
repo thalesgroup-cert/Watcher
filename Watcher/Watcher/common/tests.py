@@ -106,6 +106,49 @@ class MISPIntegrationTest(TestCase):
         self.assertEqual(result, [])
 
 
+class TakeoverMispObjectTest(TestCase):
+    """Test the dedicated MISP object builder for subdomain-takeover findings."""
+
+    def test_create_takeover_objects_includes_expected_attributes(self):
+        from common.misp import create_takeover_objects
+        from dns_finder.models import DnsMonitored, DnsTwisted
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-test.com")
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.misp-takeover-test.com",
+            dns_monitored=dns_monitored,
+            cname_target="bucket.s3.amazonaws.com",
+            provider="Amazon S3",
+            http_status_code=404,
+        )
+
+        objects = create_takeover_objects(dangling)
+
+        self.assertEqual(len(objects), 1)
+        values = {(attr.type, attr.value) for attr in objects[0].attributes}
+        self.assertIn(('domain', 'old.misp-takeover-test.com'), values)
+        self.assertIn(('hostname', 'bucket.s3.amazonaws.com'), values)
+        self.assertIn(('text', 'Amazon S3'), values)
+
+    def test_create_takeover_objects_skips_existing_values(self):
+        from common.misp import create_takeover_objects
+        from dns_finder.models import DnsMonitored, DnsTwisted
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-dedup.com")
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.misp-takeover-dedup.com", dns_monitored=dns_monitored,
+            provider="Amazon S3"
+        )
+
+        objects = create_takeover_objects(
+            dangling, existing_values={('domain', 'old.misp-takeover-dedup.com')}
+        )
+
+        values = {(attr.type, attr.value) for attr in objects[0].attributes}
+        self.assertNotIn(('domain', 'old.misp-takeover-dedup.com'), values)
+        self.assertIn(('text', 'Amazon S3'), values)
+
+
 class NotificationSystemTest(TestCase):
     """Test notification system components."""
     
@@ -131,6 +174,131 @@ class NotificationSystemTest(TestCase):
             print(f"Notification test failed: {e}")
         
         self.assertTrue(test_passed)
+
+    @patch('common.core.send_slack_message')
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_dangling_notifications(self, mock_email, mock_slack):
+        """Test that the dns_finder_dangling app_name dispatches without error."""
+        from common.core import send_app_specific_notifications
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dangling_notify_user", "dangling@test.com", "pass")
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-dangling.com")
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.notify-dangling.com",
+            dns_monitored=dns_monitored,
+            provider='Amazon S3',
+            cname_target='mybucket.s3.amazonaws.com',
+        )
+        alert = Alert.objects.create(dns_twisted=dangling, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, trigger='certstream')
+
+        subscribers = Subscriber.objects.filter(id=subscriber.id)
+        context_data = {'alert': alert}
+
+        send_app_specific_notifications('dns_finder_dangling', context_data, subscribers)
+
+        self.assertTrue(mock_slack.called)
+        self.assertTrue(mock_email.called)
+
+    @patch('common.core.send_thehive_alert')
+    @patch('common.core.send_slack_message')
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_dangling_notifications_reflect_takeover_status(self, mock_email, mock_slack, mock_thehive):
+        """Every channel states whether the takeover is confirmed or only suspected,
+        and TheHive files a suspected one below a confirmed one."""
+        from common.core import send_app_specific_notifications, APP_CONFIG_THEHIVE
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dangling_status_user", "dangling_status@test.com", "pass")
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True, thehive=True)
+        subscribers = Subscriber.objects.filter(id=subscriber.id)
+        dns_monitored = DnsMonitored.objects.create(domain_name="status-dangling.com")
+
+        cases = [
+            (Alert.STATUS_SUSPECTED, 'Suspected', 1),
+            (Alert.STATUS_CONFIRMED, 'Confirmed', APP_CONFIG_THEHIVE['dns_finder_dangling']['severity']),
+        ]
+        for status, label, severity in cases:
+            with self.subTest(status=status):
+                mock_email.reset_mock()
+                mock_slack.reset_mock()
+                mock_thehive.reset_mock()
+                dangling = DnsTwisted.objects.create(
+                    domain_name=f"{status}.status-dangling.com", dns_monitored=dns_monitored,
+                )
+                alert = Alert.objects.create(
+                    dns_twisted=dangling, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=status,
+                )
+
+                send_app_specific_notifications('dns_finder_dangling', {'alert': alert}, subscribers)
+
+                self.assertIn(f"{label} Subdomain Takeover", mock_slack.call_args[0][0])
+                self.assertIn(f"({label})", mock_email.call_args[0][0])
+                self.assertIn(f"{label} -", mock_email.call_args[0][1])
+                thehive_kwargs = mock_thehive.call_args.kwargs
+                self.assertTrue(thehive_kwargs['title'].startswith(f"{label} Subdomain Takeover"))
+                self.assertEqual(thehive_kwargs['severity'], severity)
+
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_notifications_certstream_keyword_source_uses_real_template(self, mock_email):
+        """
+        Regression test for the source-branch bug: Alert.source is now written as
+        'certstream_keyword' (Alert.SOURCE_CERTSTREAM_KEYWORD), but common/core.py used to
+        branch on the old literal 'print_callback', so this path always fell through to the
+        generic "Alert with no specific model defined." fallback body instead of the real
+        DNS Threats Monitored cert-transparency HTML template. Exercises the real
+        send_dns_finder_notifications -> send_app_specific_notifications path (not a mock of
+        the dispatch itself), only mocking the outbound SMTP call.
+        """
+        from dns_finder.core import send_dns_finder_notifications
+        from dns_finder.models import DnsMonitored, KeywordMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("certstream_notify_user", "certstream_notify@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-certstream.com")
+        keyword = KeywordMonitored.objects.create(name="notify-keyword")
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="evil.notify-certstream.com",
+            dns_monitored=dns_monitored,
+            keyword_monitored=keyword,
+        )
+        alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_CERTSTREAM_KEYWORD)
+
+        send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_email.called)
+        email_body = mock_email.call_args[0][1]
+        self.assertNotEqual(email_body, "Alert with no specific model defined.")
+        self.assertIn("evil.notify-certstream.com", email_body)
+
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_notifications_dnstwist_source_uses_real_template(self, mock_email):
+        """
+        Same regression as above, for the 'dnstwist' (Alert.SOURCE_DNSTWIST) source value,
+        which common/core.py used to compare against the old literal 'check_dnstwist'.
+        """
+        from dns_finder.core import send_dns_finder_notifications
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dnstwist_notify_user", "dnstwist_notify@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-dnstwist.com")
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="notify-dnstw1st.com",
+            dns_monitored=dns_monitored,
+        )
+        alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_DNSTWIST)
+
+        send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_email.called)
+        email_body = mock_email.call_args[0][1]
+        self.assertNotEqual(email_body, "Alert with no specific model defined.")
+        self.assertIn("notify-dnstw1st.com", email_body)
 
 
 class SecurityTest(TestCase):
