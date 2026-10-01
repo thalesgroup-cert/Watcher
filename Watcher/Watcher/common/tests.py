@@ -202,6 +202,45 @@ class NotificationSystemTest(TestCase):
         self.assertTrue(mock_slack.called)
         self.assertTrue(mock_email.called)
 
+    @patch('common.core.send_thehive_alert')
+    @patch('common.core.send_slack_message')
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_dangling_notifications_reflect_takeover_status(self, mock_email, mock_slack, mock_thehive):
+        """Every channel states whether the takeover is confirmed or only suspected,
+        and TheHive files a suspected one below a confirmed one."""
+        from common.core import send_app_specific_notifications, APP_CONFIG_THEHIVE
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dangling_status_user", "dangling_status@test.com", "pass")
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True, thehive=True)
+        subscribers = Subscriber.objects.filter(id=subscriber.id)
+        dns_monitored = DnsMonitored.objects.create(domain_name="status-dangling.com")
+
+        cases = [
+            (Alert.STATUS_SUSPECTED, 'Suspected', 1),
+            (Alert.STATUS_CONFIRMED, 'Confirmed', APP_CONFIG_THEHIVE['dns_finder_dangling']['severity']),
+        ]
+        for status, label, severity in cases:
+            with self.subTest(status=status):
+                mock_email.reset_mock()
+                mock_slack.reset_mock()
+                mock_thehive.reset_mock()
+                dangling = DnsTwisted.objects.create(
+                    domain_name=f"{status}.status-dangling.com", dns_monitored=dns_monitored,
+                )
+                alert = Alert.objects.create(
+                    dns_twisted=dangling, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=status,
+                )
+
+                send_app_specific_notifications('dns_finder_dangling', {'alert': alert}, subscribers)
+
+                self.assertIn(f"{label} Subdomain Takeover", mock_slack.call_args[0][0])
+                self.assertIn(f"({label})", mock_email.call_args[0][0])
+                self.assertIn(f"{label} -", mock_email.call_args[0][1])
+                thehive_kwargs = mock_thehive.call_args.kwargs
+                self.assertTrue(thehive_kwargs['title'].startswith(f"{label} Subdomain Takeover"))
+                self.assertEqual(thehive_kwargs['severity'], severity)
+
     @patch('common.core.send_email_notifications')
     def test_dns_finder_notifications_certstream_keyword_source_uses_real_template(self, mock_email):
         """

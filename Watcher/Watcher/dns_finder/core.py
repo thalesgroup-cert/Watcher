@@ -252,15 +252,15 @@ DETECTION_TO_ALERT_STATUS = {
 def evaluate_dangling_subdomain(dns_twisted, source):
     """
     Runs check_dangling_status and creates/updates the single
-    subdomain_takeover Alert for this domain, notifying only if the status
-    just transitioned INTO 'confirmed' from some other status (avoids
-    re-alerting on every periodic recheck of an already-confirmed subdomain).
+    subdomain_takeover Alert for this domain, notifying when the status
+    transitions INTO 'confirmed' from some other status, or on the first
+    verdict ('pending' -> 'suspected').
 
-    'suspected' is deliberately silent: it is reached on a transient
-    network/DNS error during the HTTP probe, so alerting on it would page the
-    SOC on every blip and make a flapping subdomain spam the channels. It is
-    still persisted and surfaced in the UI/statistics, and escalating from
-    'suspected' to 'confirmed' does alert.
+    'suspected' (provider fingerprint matched but the HTTP probe failed) must
+    reach the channels too: teams triaging only from TheHive never open the
+    Watcher UI. It notifies once, from 'pending' only, so a flapping subdomain
+    or a confirmed one hitting a transient probe error does not re-page.
+    Escalating from 'suspected' to 'confirmed' notifies again.
 
     :param dns_twisted: DnsTwisted Object.
     :param source: 'certstream' or 'periodic_recheck' (Str).
@@ -279,7 +279,8 @@ def evaluate_dangling_subdomain(dns_twisted, source):
         alert.status = new_status
 
     newly_confirmed = new_status == Alert.STATUS_CONFIRMED and previous_status != Alert.STATUS_CONFIRMED
-    if newly_confirmed:
+    newly_suspected = new_status == Alert.STATUS_SUSPECTED and previous_status == Alert.STATUS_PENDING
+    if newly_confirmed or newly_suspected:
         send_dns_finder_notifications(alert)
 
 

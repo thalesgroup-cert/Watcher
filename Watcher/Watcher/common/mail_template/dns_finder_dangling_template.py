@@ -1,7 +1,10 @@
 from django.conf import settings
 
 def get_dns_finder_dangling_template(alert):
+    from common.core import DANGLING_STATUS_DETAILS
+
     dns_twisted = alert.dns_twisted
+    takeover_status = 'Suspected' if alert.status == 'suspected' else 'Confirmed'
     body = """\
     <html>
         <head>
@@ -125,6 +128,7 @@ def get_dns_finder_dangling_template(alert):
                         <p>Dear team,</p>
                         <p>A monitored subdomain may be vulnerable to takeover:</p>
                         <div class="word-list">
+                            <p><strong>Status:</strong> """ + DANGLING_STATUS_DETAILS[takeover_status] + """</p>
                             <p><strong>Subdomain:</strong> """ + str(dns_twisted.domain_name) + """</p>
                             <p><strong>Corporate DNS:</strong> """ + str(dns_twisted.dns_monitored) + """</p>
                             <p><strong>CNAME Target:</strong> """ + str(dns_twisted.cname_target or 'N/A') + """</p>

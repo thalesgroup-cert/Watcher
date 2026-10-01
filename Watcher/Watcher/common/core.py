@@ -85,6 +85,12 @@ def generate_ref():
 
 SUBJECT_TAG_SITE_MONITORING = getattr(settings, 'SUBJECT_TAG_SITE_MONITORING', '')
 
+# Dangling DNS verdict wording shared by every channel
+DANGLING_STATUS_DETAILS = {
+    'Confirmed': "Confirmed - takeover verified (NXDOMAIN or provider signature found)",
+    'Suspected': "Suspected - vulnerable provider matched, HTTP verification inconclusive",
+}
+
 # Configuration for Slack
 APP_CONFIG_SLACK = {
     'threats_watcher': {
@@ -178,9 +184,10 @@ APP_CONFIG_SLACK = {
     },
     'dns_finder_dangling': {
         'content_template': (
-            "*[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️*\n\n"
+            "*[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ {takeover_status} Subdomain Takeover: {subdomain} ⚠️*\n\n"
             "Dear team,\n\n"
             "A monitored subdomain may be vulnerable to takeover:\n\n"
+            "*• Status:* {takeover_status_detail}\n"
             "*• Subdomain:* {subdomain}\n"
             "*• Corporate DNS:* {parent_domain}\n"
             "*• CNAME Target:* {cname_target}\n"
@@ -357,10 +364,11 @@ APP_CONFIG_CITADEL = {
     },
     'dns_finder_dangling': {
         'content_template': (
-            "<p><strong><h4>[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ Possible Subdomain Takeover: {subdomain} ⚠️</h4></strong></p>"
+            "<p><strong><h4>[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ {takeover_status} Subdomain Takeover: {subdomain} ⚠️</h4></strong></p>"
             "<p>Dear team,</p>"
             "<p>A monitored subdomain may be vulnerable to takeover:</p>"
             "<ul>"
+            "<li><strong>Status:</strong> {takeover_status_detail}</li>"
             "<li><strong>Subdomain:</strong> {subdomain}</li>"
             "<li><strong>Corporate DNS:</strong> {parent_domain}</li>"
             "<li><strong>CNAME Target:</strong> {cname_target}</li>"
@@ -528,10 +536,11 @@ APP_CONFIG_THEHIVE = {
         'pap': 1,
     },
     'dns_finder_dangling': {
-        'title': "Possible Subdomain Takeover - {subdomain}",
+        'title': "{takeover_status} Subdomain Takeover - {subdomain}",
         'description_template': (
             "**Alert:**\n"
             "**Possible subdomain takeover detected:**\n"
+            "*Status:* {takeover_status_detail}\n"
             "*Subdomain:* {subdomain}\n"
             "*Corporate DNS:* {parent_domain}\n"
             "*CNAME Target:* {cname_target}\n"
@@ -646,7 +655,7 @@ APP_CONFIG_EMAIL = {
         'template_func': get_dns_finder_group_template,
     },
     'dns_finder_dangling': {
-        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored - Dangling Subdomain",
+        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored - Dangling Subdomain ({takeover_status})",
         'template_func': get_dns_finder_dangling_template,
     },
     'cyber_watch_new_cve': {
@@ -871,6 +880,8 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
         if subscribers.filter(**subscribers_filter).exists():
             content = content_template.format(**kwargs)
             send_func(content)
+
+    thehive_severity = app_config_thehive['severity']
 
     try:
         common_data = {}
@@ -1199,15 +1210,21 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 return
 
             dns_twisted = alert.dns_twisted
+            takeover_status = 'Suspected' if alert.status == 'suspected' else 'Confirmed'
             common_data = {
                 'alert': alert,
                 'subdomain': dns_twisted.domain_name,
                 'parent_domain': dns_twisted.dns_monitored.domain_name if dns_twisted.dns_monitored else 'N/A',
                 'cname_target': dns_twisted.cname_target or 'N/A',
                 'provider': dns_twisted.provider or 'Unknown',
+                'takeover_status': takeover_status,
+                'takeover_status_detail': DANGLING_STATUS_DETAILS[takeover_status],
                 'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
                 'app_name': 'dns_finder_dangling'
             }
+            # An unverified (suspected) takeover is filed below a proven one
+            if takeover_status == 'Suspected':
+                thehive_severity = 1
             email_body = get_dns_finder_dangling_template(alert)
 
 
@@ -1258,7 +1275,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     send_func=lambda content: send_thehive_alert(
                         title=formatted_title,
                         description=content,
-                        severity=app_config_thehive['severity'],
+                        severity=thehive_severity,
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
                         tags=_thehive_cfg['tags'],
@@ -1274,7 +1291,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     send_thehive_alert(
                         title=formatted_title,
                         description=app_config_thehive['description_template'].format(**common_data),
-                        severity=app_config_thehive['severity'],
+                        severity=thehive_severity,
                         tlp=app_config_thehive['tlp'],
                         pap=app_config_thehive['pap'],
                         tags=_thehive_cfg['tags'],

@@ -578,6 +578,28 @@ class DanglingDnsRealtimeTest(TestCase):
 
     @patch('dns_finder.core.check_dangling_status')
     @patch('dns_finder.core.send_dns_finder_notifications')
+    def test_evaluate_notifies_on_first_suspected_verdict(self, mock_notify, mock_check):
+        """A pending subdomain whose first check is inconclusive must still
+        reach the channels: teams triaging only from TheHive never open the UI."""
+        from dns_finder.core import evaluate_dangling_subdomain
+
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="first-suspected.realtime-test.com", dns_monitored=self.dns_monitored,
+        )
+        alert = Alert.objects.create(
+            dns_twisted=dns_twisted, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=Alert.STATUS_PENDING
+        )
+        mock_check.return_value = 'dangling_suspected'
+
+        evaluate_dangling_subdomain(dns_twisted, source='periodic_recheck')
+
+        alert.refresh_from_db()
+        self.assertEqual(alert.status, Alert.STATUS_SUSPECTED)
+        mock_notify.assert_called_once()
+        self.assertEqual(mock_notify.call_args[0][0].status, Alert.STATUS_SUSPECTED)
+
+    @patch('dns_finder.core.check_dangling_status')
+    @patch('dns_finder.core.send_dns_finder_notifications')
     def test_evaluate_no_notification_on_repeated_suspected(self, mock_notify, mock_check):
         """A flapping subdomain re-entering 'suspected' must not re-page."""
         from dns_finder.core import evaluate_dangling_subdomain
