@@ -33,10 +33,7 @@ RUN npm install
 #################################################
 FROM python:3.12-slim-bookworm AS backend-builder
 
-ENV http_proxy=${HTTP_PROXY} \
-    https_proxy=${HTTPS_PROXY} \
-    no_proxy=${NO_PROXY} \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /build
@@ -83,10 +80,7 @@ LABEL title='Watcher' \
         documentation='https://thalesgroup-cert.github.io/Watcher/' \
         source='https://github.com/thalesgroup-cert/Watcher'
 
-ENV http_proxy=${HTTP_PROXY} \
-    https_proxy=${HTTPS_PROXY} \
-    no_proxy=${NO_PROXY} \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
