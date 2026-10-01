@@ -1,8 +1,7 @@
 import React, {Component, Fragment} from 'react';
 import { connect } from 'react-redux';
-import { getAlerts, getDnsMonitored, getKeywordMonitored } from "../../actions/DnsFinder";
-import Alerts from "./Alerts";
-import ArchivedAlerts from "./ArchivedAlerts";
+import { getThreatsMonitored, getDnsMonitored, getKeywordMonitored } from "../../actions/DnsFinder";
+import ThreatsMonitored from "./ThreatsMonitored";
 import DnsMonitored from "./DnsMonitored";
 import KeywordMonitored from "./KeywordMonitored";
 import TableManager from '../common/TableManager';
@@ -12,43 +11,26 @@ import { LAYOUT_PRESETS } from '../../config/layoutPresets';
 
 const DEFAULT_LAYOUT = [
     { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
-    { i: 'alerts',   x: 0, y: 8,  w: 7,  h: 11, minW: 4, minH: 5 },
-    { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
-    { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
-    { i: 'keywords', x: 7, y: 19, w: 5,  h: 11, minW: 3, minH: 5 },
+    { i: 'threats',  x: 0, y: 8,  w: 12, h: 11, minW: 6, minH: 6 },
+    { i: 'dns',      x: 0, y: 22, w: 6,  h: 11, minW: 3, minH: 5 },
+    { i: 'keywords', x: 6, y: 22, w: 6,  h: 11, minW: 3, minH: 5 },
 ];
 
-const DEFAULT_ACTIVE = ['stats', 'alerts', 'dns', 'archived', 'keywords'];
+const DEFAULT_ACTIVE = ['stats', 'threats', 'dns', 'keywords'];
 
-const FILTER_CONFIG = [
-    {
-        key: 'search',
-        type: 'search',
-        label: 'Search',
-        placeholder: 'Search domains, keywords, fuzzer, ID...',
-        width: 3
-    },
-    {
-        key: 'domain',
-        type: 'select',
-        label: 'DNS Monitored',
-        width: 2,
-        options: []
-    },
-    {
-        key: 'keyword',
-        type: 'select',
-        label: 'Keyword Monitored',
-        width: 2,
-        options: []
-    },
-    {
-        key: 'fuzzer',
-        type: 'select',
-        label: 'Fuzzer',
-        width: 1,
-        options: []
-    }
+const SOURCE_OPTIONS = [
+    { value: 'dnstwist', label: 'Dnstwist Algorithm' },
+    { value: 'certstream_keyword', label: 'Certificate Transparency Stream' },
+    { value: 'subdomain_takeover', label: 'Subdomain Takeover Detection' },
+];
+
+const STATUS_OPTIONS = [
+    { value: 'open', label: 'Open (not resolved)' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'suspected', label: 'Suspected' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'resolved', label: 'Resolved' },
+    { value: 'false_positive', label: 'False Positive' },
 ];
 
 class Dashboard extends Component {
@@ -57,11 +39,16 @@ class Dashboard extends Component {
         this.state = {
             globalFilters: {
                 search: '',
-                domain: '',
-                keyword: '',
-                fuzzer: ''
+                source: '',
+                corporate_dns: '',
+                status: 'open',
+                fuzzer: '',
+                corporate_keyword: '',
+                provider: '',
+                cname_target: ''
             },
-            filteredAlerts: [],
+            filteredThreats: [],
+            filteredThreatsSource: null,
             isLoadingInBackground: false,
             allDataLoaded: false
         };
@@ -80,8 +67,8 @@ class Dashboard extends Component {
 
     loadInitialData = async () => {
         try {
-            await this.props.getAlerts(1, 100);
-            
+            await this.props.getThreatsMonitored(1, 100);
+
             await Promise.all([
                 this.props.getDnsMonitored(1, 100),
                 this.props.getKeywordMonitored(1, 100)
@@ -95,173 +82,193 @@ class Dashboard extends Component {
     };
 
     loadRemainingDataInBackground = async () => {
-        const { alertsNext, dnsMonitoredNext, keywordMonitoredNext } = this.props;
-        
-        if (!alertsNext && !dnsMonitoredNext && !keywordMonitoredNext) {
+        const { threatsMonitoredNext, dnsMonitoredNext, keywordMonitoredNext } = this.props;
+
+        if (!threatsMonitoredNext && !dnsMonitoredNext && !keywordMonitoredNext) {
             return;
         }
 
         this.setState({ isLoadingInBackground: true });
 
         try {
-            // Load all remaining alerts pages
-            if (alertsNext) {
+            if (threatsMonitoredNext) {
                 let currentPage = 2;
                 let hasMore = true;
-
                 while (hasMore) {
                     try {
-                        const response = await this.props.getAlerts(currentPage, 100);
+                        const response = await this.props.getThreatsMonitored(currentPage, 100);
                         hasMore = response?.next !== null;
                         currentPage++;
-
-                        if (hasMore) {
-                            await new Promise(resolve => setTimeout(resolve, 300));
-                        }
+                        if (hasMore) await new Promise(resolve => setTimeout(resolve, 300));
                     } catch (error) {
                         hasMore = false;
                     }
                 }
             }
 
-            // Load remaining DNS Monitored pages
             if (dnsMonitoredNext) {
                 let currentPage = 2;
                 let hasMore = true;
-
                 while (hasMore) {
                     try {
                         const response = await this.props.getDnsMonitored(currentPage, 100);
                         hasMore = response?.next !== null;
                         currentPage++;
-
-                        if (hasMore) {
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                        }
+                        if (hasMore) await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
                         hasMore = false;
                     }
                 }
             }
-            
-            // Load remaining Keywords Monitored pages
+
             if (keywordMonitoredNext) {
                 let currentPage = 2;
                 let hasMore = true;
-
                 while (hasMore) {
                     try {
                         const response = await this.props.getKeywordMonitored(currentPage, 100);
                         hasMore = response?.next !== null;
                         currentPage++;
-
-                        if (hasMore) {
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                        }
+                        if (hasMore) await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
                         hasMore = false;
                     }
                 }
             }
 
-            this.setState({ 
-                allDataLoaded: true,
-                isLoadingInBackground: false
-            });
-
+            this.setState({ allDataLoaded: true, isLoadingInBackground: false });
         } catch (error) {
-            this.setState({ 
-                isLoadingInBackground: false 
-            });
+            this.setState({ isLoadingInBackground: false });
         }
     };
 
-
     getFilterConfig = () => {
-        const { alerts, dnsMonitored, keywordMonitored } = this.props;
+        const { dnsMonitored, threatsMonitored } = this.props;
+        const { globalFilters } = this.state;
         const uniqueDomains = [...new Set((dnsMonitored || []).map(d => d.domain_name).filter(Boolean))].sort();
-        const uniqueKeywords = [...new Set((keywordMonitored || []).map(k => k.name).filter(Boolean))].sort();
-        const uniqueFuzzers = [...new Set((alerts || []).map(a => a.dns_twisted?.fuzzer).filter(Boolean))].sort();
+        const hasDynamicFilter = Boolean(globalFilters.source);
+        const searchWidth = hasDynamicFilter ? 2 : 3;
 
-        return FILTER_CONFIG.map(filter => {
-            if (filter.key === 'domain') {
-                return {
-                    ...filter,
-                    options: uniqueDomains.map(domain => ({
-                        value: domain,
-                        label: domain
-                    }))
-                };
+        const base = [
+            {
+                key: 'search',
+                type: 'search',
+                label: 'Search',
+                placeholder: 'Search domains, keywords, providers...',
+                width: searchWidth
+            },
+            {
+                key: 'source',
+                type: 'select',
+                label: 'Source',
+                width: 2,
+                options: SOURCE_OPTIONS
+            },
+            {
+                key: 'corporate_dns',
+                type: 'select',
+                label: 'Corporate DNS',
+                width: 2,
+                options: uniqueDomains.map(domain => ({ value: domain, label: domain }))
+            },
+            {
+                key: 'status',
+                type: 'select',
+                label: 'Status',
+                width: 2,
+                defaultValue: 'open',
+                options: STATUS_OPTIONS
             }
-            if (filter.key === 'keyword') {
-                return {
-                    ...filter,
-                    options: uniqueKeywords.map(keyword => ({
-                        value: keyword,
-                        label: keyword
-                    }))
-                };
-            }
-            if (filter.key === 'fuzzer') {
-                return {
-                    ...filter,
-                    options: uniqueFuzzers.map(fuzzer => ({
-                        value: fuzzer,
-                        label: fuzzer
-                    }))
-                };
-            }
-            return filter;
-        });
+        ];
+
+        if (globalFilters.source === 'dnstwist') {
+            const uniqueFuzzers = [...new Set(
+                (threatsMonitored || [])
+                    .filter(t => t.source === 'dnstwist')
+                    .map(t => t.technical_details?.fuzzer)
+                    .filter(Boolean)
+            )].sort();
+            base.push({ key: 'fuzzer', type: 'select', label: 'Fuzzer', width: 2, options: uniqueFuzzers.map(f => ({ value: f, label: f })) });
+        }
+
+        if (globalFilters.source === 'certstream_keyword') {
+            const uniqueKeywords = [...new Set(
+                (threatsMonitored || [])
+                    .filter(t => t.source === 'certstream_keyword')
+                    .map(t => t.corporate_keyword)
+                    .filter(Boolean)
+            )].sort();
+            base.push({ key: 'corporate_keyword', type: 'select', label: 'Corporate Keyword', width: 2, options: uniqueKeywords.map(k => ({ value: k, label: k })) });
+        }
+
+        if (globalFilters.source === 'subdomain_takeover') {
+            const uniqueProviders = [...new Set(
+                (threatsMonitored || [])
+                    .filter(t => t.source === 'subdomain_takeover')
+                    .map(t => t.technical_details?.provider)
+                    .filter(Boolean)
+            )].sort();
+            base.push({ key: 'provider', type: 'select', label: 'Provider', width: 2, options: uniqueProviders.map(p => ({ value: p, label: p })) });
+        }
+
+        return base;
     };
 
     handleFilterChange = (filters) => {
         this.setState({
             globalFilters: {
                 search: filters.search || '',
-                domain: filters.domain || '',
-                keyword: filters.keyword || '',
-                fuzzer: filters.fuzzer || ''
+                source: filters.source || '',
+                corporate_dns: filters.corporate_dns || '',
+                status: filters.status || '',
+                fuzzer: filters.fuzzer || '',
+                corporate_keyword: filters.corporate_keyword || '',
+                provider: filters.provider || '',
+                cname_target: filters.cname_target || ''
             }
         });
     };
 
-    onDataFiltered = (filteredData) => {
-        this.setState({ filteredAlerts: filteredData });
+    onDataFiltered = (filteredData, sourceData) => {
+        this.setState({ filteredThreats: filteredData, filteredThreatsSource: sourceData });
     };
 
     buildPanels() {
-        const { globalFilters, filteredAlerts } = this.state;
-        const { alerts } = this.props;
+        const { globalFilters, filteredThreats, filteredThreatsSource } = this.state;
+        const { threatsMonitored } = this.props;
         const filterConfig = this.getFilterConfig();
-        const dataToPass = filteredAlerts.length > 0 ? filteredAlerts : alerts;
+        const hasActiveFilters = Object.values(globalFilters).some(val => val !== '');
+        const filteredThreatsIsFresh = filteredThreatsSource === threatsMonitored;
+        const dataToPass = (hasActiveFilters && filteredThreatsIsFresh) ? filteredThreats : null;
+        const hasDynamicFilter = Boolean(globalFilters.source);
 
         return {
             stats: {
                 label: 'Statistics',
                 icon: 'bar_chart',
-                tooltip: 'Overview of DNS alerts, monitored domains, and keyword patterns',
+                tooltip: 'Overview of DNS threats across all three detection sources',
                 children: (
                     <div style={{ padding: '12px 16px', height: '100%', overflowY: 'auto' }}>
                         <DnsFinderStats />
                     </div>
                 ),
             },
-            alerts: {
-                label: 'DNS Alerts',
-                icon: 'notifications',
-                tooltip: 'Suspicious domain registrations detected via certificate transparency logs',
+            threats: {
+                label: 'DNS Threats Monitored',
+                icon: 'link',
+                tooltip: 'Dnstwist, Certificate Transparency Stream and Subdomain Takeover detections, unified',
                 children: (
                     <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <TableManager
-                            data={alerts}
+                            data={threatsMonitored}
                             filterConfig={filterConfig}
                             onFiltersChange={this.handleFilterChange}
                             onDataFiltered={this.onDataFiltered}
                             enableDateFilter={true}
                             dateFields={['created_at']}
-                            dateFilterWidth={2}
-                            searchFields={['dns_twisted.domain_name', 'dns_twisted.keyword_monitored.name', 'dns_twisted.dns_monitored.domain_name', 'dns_twisted.fuzzer', 'id']}
+                            dateFilterWidth={hasDynamicFilter ? 1 : 2}
+                            clearButtonWidth={1}
+                            searchFields={['domain_name', 'corporate_dns', 'corporate_keyword']}
                             defaultSort="created_at"
                             moduleKey="dnsFinder"
                         >
@@ -273,32 +280,22 @@ class Dashboard extends Component {
                                 </Fragment>
                             )}
                         </TableManager>
-                        <Alerts globalFilters={globalFilters} filteredData={dataToPass} />
+                        <ThreatsMonitored globalFilters={globalFilters} filteredData={dataToPass} />
                     </div>
                 ),
             },
             dns: {
-                label: 'DNS Monitored',
+                label: 'Corporate DNS Assets Monitored',
                 icon: 'dns',
-                tooltip: 'List of domains being watched for typosquatting and phishing variants',
+                tooltip: 'Corporate domains watched for typosquatting, phishing variants, and subdomain takeover',
                 children: (
                     <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <DnsMonitored globalFilters={globalFilters} filteredData={dataToPass} />
-                    </div>
-                ),
-            },
-            archived: {
-                label: 'Archived Alerts',
-                icon: 'archive',
-                tooltip: 'Resolved or dismissed DNS alerts kept for audit and reference',
-                children: (
-                    <div style={{ padding: '12px 16px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <ArchivedAlerts globalFilters={globalFilters} filteredData={dataToPass} />
+                        <DnsMonitored globalFilters={globalFilters} />
                     </div>
                 ),
             },
             keywords: {
-                label: 'Keyword Monitored',
+                label: 'Corporate Keywords Monitored',
                 icon: 'search',
                 tooltip: 'Keywords used to detect suspicious domain registrations in CertStream',
                 children: (
@@ -317,8 +314,8 @@ class Dashboard extends Component {
                     panels={this.buildPanels()}
                     defaultLayout={DEFAULT_LAYOUT}
                     defaultActive={DEFAULT_ACTIVE}
-                    storageKey="watcher_dns_finder_grid"
-                    layoutPresets={LAYOUT_PRESETS['watcher_dns_finder_grid']}
+                    storageKey="watcher_dns_finder_grid_v2"
+                    layoutPresets={LAYOUT_PRESETS['watcher_dns_finder_grid_v2']}
                 />
             </Fragment>
         );
@@ -326,13 +323,13 @@ class Dashboard extends Component {
 }
 
 const mapStateToProps = state => ({
-    alerts: state.DnsFinder.alerts || [],
-    alertsCount: state.DnsFinder.alertsCount || 0,
-    alertsNext: state.DnsFinder.alertsNext || null,
+    threatsMonitored: state.DnsFinder.threatsMonitored || [],
+    threatsMonitoredCount: state.DnsFinder.threatsMonitoredCount || 0,
+    threatsMonitoredNext: state.DnsFinder.threatsMonitoredNext || null,
     dnsMonitored: state.DnsFinder.dnsMonitored || [],
     dnsMonitoredNext: state.DnsFinder.dnsMonitoredNext || null,
     keywordMonitored: state.DnsFinder.keywordMonitored || [],
     keywordMonitoredNext: state.DnsFinder.keywordMonitoredNext || null
 });
 
-export default connect(mapStateToProps, {getAlerts, getDnsMonitored, getKeywordMonitored})(Dashboard);
+export default connect(mapStateToProps, {getThreatsMonitored, getDnsMonitored, getKeywordMonitored})(Dashboard);

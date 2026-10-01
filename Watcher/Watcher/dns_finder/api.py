@@ -3,6 +3,7 @@ from .models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored
 
 logger = logging.getLogger('watcher.dns_finder')
 from rest_framework import viewsets, permissions, status
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -11,6 +12,7 @@ from django.utils import timezone
 from datetime import timedelta
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, \
     MISPSerializer, KeywordMonitoredSerializer
+from .threats import get_unified_threats
 
 
 # Pagination
@@ -40,7 +42,7 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='statistics')
     def get_statistics(self, request):
-        """Return statistics for the DNS Finder module."""
+        """Return statistics for the DNS Threats Monitored module."""
         try:
             today = timezone.now().date()
             week_ago = timezone.now() - timedelta(days=7)
@@ -50,10 +52,28 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
                 'newThisWeek':      Alert.objects.filter(created_at__gte=week_ago).count(),
                 'totalDnsMonitored': DnsMonitored.objects.count(),
                 'totalKeywords':    KeywordMonitored.objects.count(),
+                'totalDanglingSubdomains': Alert.objects.filter(source=Alert.SOURCE_SUBDOMAIN_TAKEOVER).count(),
+                'totalDanglingConfirmed':  Alert.objects.filter(
+                    source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=Alert.STATUS_CONFIRMED
+                ).count(),
+                'totalDanglingSuspected':  Alert.objects.filter(
+                    source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=Alert.STATUS_SUSPECTED
+                ).count(),
             }, status=status.HTTP_200_OK)
         except Exception:
-            logger.exception("Error computing DNS Finder statistics")
+            logger.exception("Error computing DNS Threats Monitored statistics")
             return Response({'error': 'An internal error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='dangling_subdomains')
+    def get_dangling_subdomains(self, request, pk=None):
+        """Return every dangling-subdomain-detection DnsTwisted row tracked
+        for this Corporate DNS asset (rows with a subdomain_takeover Alert)."""
+        dns_monitored = self.get_object()
+        subdomains = DnsTwisted.objects.filter(
+            dns_monitored=dns_monitored, alert__source=Alert.SOURCE_SUBDOMAIN_TAKEOVER
+        ).order_by('-created_at')
+        serializer = DnsTwistedSerializer(subdomains, many=True)
+        return Response(serializer.data)
 
 
 # KeywordMonitored Viewset
@@ -125,3 +145,14 @@ class MISPViewSet(viewsets.ModelViewSet):
         ExportPermission
     ]
     serializer_class = MISPSerializer
+
+
+# Unified DNS Threats Monitored view (all 3 sources via a single Alert queryset)
+class ThreatsMonitoredView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        items = get_unified_threats(request.query_params)
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(items, request, view=self)
+        return paginator.get_paginated_response(page)

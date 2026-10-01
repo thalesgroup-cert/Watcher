@@ -10,7 +10,7 @@ from site_monitoring.core import monitoring_init
 import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
 from pymisp import PyMISP, MISPEvent
-from common.misp import create_misp_tags, create_or_update_objects, get_misp_uuid, update_misp_uuid
+from common.misp import create_misp_tags, create_or_update_objects, get_misp_uuid, update_misp_uuid, _get_domain_identifier
 
 import urllib3
 import tldextract
@@ -78,10 +78,15 @@ class DnsTwistedSerializer(serializers.ModelSerializer):
     dns_monitored = DnsMonitoredSerializer(read_only=True)
     keyword_monitored = KeywordMonitoredSerializer(read_only=True)
     misp_event_uuid = serializers.SerializerMethodField()
-    
+    status = serializers.SerializerMethodField()
+
     def get_misp_event_uuid(self, obj):
         return get_misp_uuid(obj.domain_name)
-    
+
+    def get_status(self, obj):
+        alert = obj.alert_set.filter(source=Alert.SOURCE_SUBDOMAIN_TAKEOVER).first()
+        return alert.status if alert else None
+
     class Meta:
         model = DnsTwisted
         fields = '__all__'
@@ -119,9 +124,9 @@ class MISPSerializer(serializers.Serializer):
         """
         Retrieve the target domain object from the appropriate database model.
 
-        Routes the query to either the LegitimateDomain/Site model or the 
-        DnsTwisted model based on the 'fuzzer' context. Prioritizes resolution 
-        by domain_name with a fallback to the primary key (obj_id).
+        Routes to LegitimateDomain/Site when fuzzer='legitimate_domain',
+        otherwise to DnsTwisted. Prioritizes resolution by domain_name with a
+        fallback to the primary key (obj_id).
 
         Args:
             obj_id (int): The primary key of the object (fallback lookup).
@@ -152,9 +157,9 @@ class MISPSerializer(serializers.Serializer):
 
         try:
             target_obj = self._get_target_obj(dns_id, domain_name, fuzzer)
-            
+
             data['id'] = target_obj.id
-            
+
         except ObjectDoesNotExist:
             raise serializers.ValidationError({"id": f"Domain not found in the database: {domain_name or dns_id}"})
 
@@ -176,40 +181,41 @@ class MISPSerializer(serializers.Serializer):
             fuzzer = self.validated_data.get('fuzzer')
             event_uuid = self.validated_data.get('event_uuid')
             target_obj = self._get_target_obj(dns_id, domain_name, fuzzer)
+            domain_identifier = _get_domain_identifier(target_obj)
 
             if not event_uuid:
-                known_uuids = get_misp_uuid(target_obj.domain_name)
+                known_uuids = get_misp_uuid(domain_identifier)
                 if known_uuids and len(known_uuids) > 0:
-                    event_uuid = known_uuids[-1] 
-            
+                    event_uuid = known_uuids[-1]
+
             if event_uuid:
                 event = self.misp_api.get_event(event_uuid)
                 success, message = create_or_update_objects(
-                    self.misp_api, 
-                    event, 
-                    target_obj 
+                    self.misp_api,
+                    event,
+                    target_obj
                 )
-                
+
                 if success:
-                    update_misp_uuid(target_obj.domain_name, event_uuid)
-                    
+                    update_misp_uuid(domain_identifier, event_uuid)
+
             else:
                 event = MISPEvent()
                 event.distribution = 0
                 event.threat_level_id = 2
                 event.analysis = 0
-                event.info = f"Suspicious domain name {target_obj.domain_name}"
+                event.info = f"Suspicious domain name {domain_identifier}"
                 event.tags = create_misp_tags(self.misp_api)
 
                 event = self.misp_api.add_event(event, pythonify=True)
                 success, message = create_or_update_objects(
                     self.misp_api,
                     {'Event': {'id': event.id, 'uuid': event.uuid}},
-                    target_obj 
+                    target_obj
                 )
 
                 if success:
-                    update_misp_uuid(target_obj.domain_name, event.uuid)
+                    update_misp_uuid(domain_identifier, event.uuid)
 
             if not success:
                 raise serializers.ValidationError(message)
@@ -217,14 +223,14 @@ class MISPSerializer(serializers.Serializer):
             self._message = message
             return {
                 "message": message,
-                "misp_event_uuid": get_misp_uuid(target_obj.domain_name),
+                "misp_event_uuid": get_misp_uuid(domain_identifier),
                 "status": "success"
             }
 
         except serializers.ValidationError:
             raise
         except Exception:
-            logger.exception("Unexpected error in DNS Finder MISP save")
+            logger.exception("Unexpected error in DNS Threats Monitored MISP save")
             raise serializers.ValidationError("An internal error occurred while processing the MISP event.")
 
     @property
@@ -232,11 +238,12 @@ class MISPSerializer(serializers.Serializer):
         dns_id = self.validated_data['id']
         domain_name = self.validated_data.get('domain_name')
         fuzzer = self.validated_data.get('fuzzer')
-        
+
         target_obj = self._get_target_obj(dns_id, domain_name, fuzzer)
-        
+        domain_identifier = _get_domain_identifier(target_obj)
+
         return {
             'id': dns_id,
-            'misp_event_uuid': get_misp_uuid(target_obj.domain_name),
+            'misp_event_uuid': get_misp_uuid(domain_identifier),
             'message': self._message
         }

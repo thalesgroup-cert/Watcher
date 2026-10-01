@@ -5,54 +5,20 @@ from import_export.admin import ImportExportModelAdmin, ExportMixin
 from common.misp import get_misp_uuid
 
 
-def custom_titled_filter(title):
-    class Wrapper(admin.FieldListFilter):
-        def __new__(cls, *args, **kwargs):
-            instance = admin.FieldListFilter.create(*args, **kwargs)
-            instance.title = title
-            return instance
-
-    return Wrapper
-
-
 class AlertResource(resources.ModelResource):
     class Meta:
         model = Alert
 
 
 @admin.register(Alert)
-class Alert(ExportMixin, admin.ModelAdmin):
-    list_display = ['id', 'dns_twisted', 'status', 'created_at']
-    list_filter = ('created_at', ('status', custom_titled_filter('Active Status')))
-    search_fields = ['id', 'dns_twisted__domain_name']  
+class AlertAdmin(ExportMixin, admin.ModelAdmin):
+    list_display = ['id', 'dns_twisted', 'source', 'trigger', 'status', 'created_at']
+    list_filter = ('created_at', 'source', 'status')
+    search_fields = ['id', 'dns_twisted__domain_name']
     resource_class = AlertResource
 
     def has_add_permission(self, request):
         return False
-
-    def make_disable(self, request, queryset):
-        rows_updated = queryset.update(status=False)
-
-        if rows_updated == 1:
-            message_bit = "1 alert was"
-        else:
-            message_bit = "%s alerts were" % rows_updated
-        self.message_user(request, "%s successfully marked as disable." % message_bit)
-
-    make_disable.short_description = "Disable selected alerts"
-
-    def make_enable(self, request, queryset):
-        rows_updated = queryset.update(status=True)
-
-        if rows_updated == 1:
-            message_bit = "1 alert was"
-        else:
-            message_bit = "%s alerts were" % rows_updated
-        self.message_user(request, "%s successfully marked as enable." % message_bit)
-
-    make_enable.short_description = "Enable selected alerts"
-
-    actions = [make_disable, make_enable]
 
 
 class DnsMonitoredResource(resources.ModelResource):
@@ -72,7 +38,7 @@ class DnsTwistedResource(resources.ModelResource):
 
 
 @admin.register(KeywordMonitored)
-class KeywordMonitored(ImportExportModelAdmin):
+class KeywordMonitoredAdmin(ImportExportModelAdmin):
     list_display = ['name', 'created_at']
     list_filter = ['created_at']
     search_fields = ['name']
@@ -80,7 +46,7 @@ class KeywordMonitored(ImportExportModelAdmin):
 
 
 @admin.register(DnsMonitored)
-class DnsMonitored(ImportExportModelAdmin):
+class DnsMonitoredAdmin(ImportExportModelAdmin):
     list_display = ['domain_name', 'created_at']
     list_filter = ['created_at']
     search_fields = ['domain_name']
@@ -88,21 +54,24 @@ class DnsMonitored(ImportExportModelAdmin):
 
 
 @admin.register(DnsTwisted)
-class DnsTwisted(ExportMixin, admin.ModelAdmin):
-    list_display = ['domain_name', 'fuzzer', 'dns_monitored', 'keyword_monitored', 'display_misp_uuid', 'created_at']
-    list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer']
+class DnsTwistedAdmin(ExportMixin, admin.ModelAdmin):
+    list_display = [
+        'domain_name', 'fuzzer', 'provider',
+        'dns_monitored', 'keyword_monitored', 'display_misp_uuid', 'created_at',
+    ]
+    list_filter = ['created_at', 'dns_monitored', 'keyword_monitored', 'fuzzer', 'provider']
     search_fields = ['domain_name']
     readonly_fields = ['display_misp_uuid']
     resource_class = DnsTwistedResource
 
     def has_add_permission(self, request):
         return False
-    
+
     def display_misp_uuid(self, obj):
         uuid = get_misp_uuid(obj.domain_name)
         if not uuid:
             return "-"
-        
+
         if len(uuid) == 1:
             return uuid[0]
         else:
@@ -110,14 +79,24 @@ class DnsTwisted(ExportMixin, admin.ModelAdmin):
 
     display_misp_uuid.short_description = "MISP Event UUID"
 
+    def mark_recheck(self, request, queryset):
+        rows_updated = Alert.objects.filter(
+            dns_twisted__in=queryset, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER
+        ).update(status=Alert.STATUS_PENDING)
+        self.message_user(request, "%s domain(s) marked for re-check." % rows_updated)
+
+    mark_recheck.short_description = "Mark selected domains for re-check"
+
+    actions = [mark_recheck]
+
 
 @admin.register(Subscriber)
-class Subscriber(admin.ModelAdmin):
+class SubscriberAdmin(admin.ModelAdmin):
     list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
-    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    list_filter = ('email', 'thehive', 'slack', 'citadel')
     search_fields = ('user_rec__username',)
     fieldsets = (
-        (None, { 
+        (None, {
             'fields': ('user_rec', 'created_at')
         }),
         ('Notification Channels', {

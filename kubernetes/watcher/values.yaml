@@ -1,0 +1,188 @@
+## Global
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+## Watcher (Django app + React frontend via whitenoise)
+watcher:
+  image:
+    repository: ghcr.io/thalesgroup-cert/watcher
+    tag: ""            # defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources: {}
+  service:
+    port: 9002
+
+## SearxNG — metasearch engine used by data_leak
+searxng:
+  enabled: true
+  image:
+    repository: searxng/searxng
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources: {}
+  service:
+    port: 8080
+  ## Secret key for SearxNG's HMAC signing (required, generate with: openssl rand -hex 32)
+  secretKey: ""
+  ## Extra env vars to pass to the SearxNG container
+  extraEnv: {}
+
+## CertStream — Certificate Transparency WebSocket stream
+certstream:
+  enabled: true
+  image:
+    repository: 0rickyy0/certstream-server-go
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources: {}
+  service:
+    port: 8080
+
+## Bitnami MySQL subchart — https://github.com/bitnami/charts/tree/main/bitnami/mysql
+mysql:
+  enabled: true
+  architecture: standalone
+  auth:
+    database: db_watcher
+    username: watcher
+    password: ""        # required — set a strong password
+    rootPassword: ""    # required — set a strong root password
+  image:
+    tag: "8.0"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+## Optional TLS bundle (certfile + keyfile + rootCA) — used by Watcher for HTTPS client connections
+## Set each field to the base64-encoded PEM content, or leave empty to skip.
+tlsBundle:
+  certfile: ""
+  keyfile: ""
+  rootcafile: ""
+
+## Django core settings
+django:
+  ## DJANGO_SECRET_KEY — auto-generated and stable across upgrades if left empty
+  secretKey: ""
+  ## CONNECTORS_ENCRYPTION_KEY — Fernet key for connector credential storage; auto-generated if empty
+  connectorsEncryptionKey: ""
+  debug: "False"
+  ## ALLOWED_HOSTS — comma-separated list appended to the default [0.0.0.0, 127.0.0.1, localhost]
+  ## Set at minimum to the ingress hostname.
+  allowedHosts: ""
+  ## CSRF_TRUSTED_ORIGINS — single hostname (scheme is added automatically, e.g. "watcher.example.com")
+  csrfTrustedOrigins: ""
+
+## Timezone (TZ env var)
+tz: "Europe/Paris"
+
+## Log level (TRACE_LEVEL)
+traceLevel: "INFO"
+
+## Authentication
+auth:
+  ## LOGIN_MODE: form_only | sso_only | both
+  loginMode: "form_only"
+  ldap:
+    serverUri: ""
+    bindDn: ""
+    bindPassword: ""
+    baseDn: ""
+    filter: "(uid=%(user)s)"
+    verifySsl: "False"
+  oidc:
+    companyName: ""
+    clientId: ""
+    clientSecret: ""
+    authorizationEndpoint: ""
+    tokenEndpoint: ""
+    userEndpoint: ""
+    jwksEndpoint: ""
+    issuer: ""
+    createUser: "True"
+
+## Email / SMTP
+smtp:
+  server: ""
+  port: 25
+  useTLS: ""
+  useSSL: ""
+  user: ""
+  password: ""
+  from: ""
+  subjectTagSiteMonitoring: "INCIDENT"
+  emailClassification: "Internal"
+
+## UI / branding
+ui:
+  watcherUrl: ""
+  watcherLogo: ""
+  githubLogo: ""
+  helpButtonLabel: "API Docs"
+  helpButtonUrl: "/api/docs/"
+
+## HTTP proxy (passed to requests inside the app)
+proxy:
+  httpProxy: ""
+  httpsProxy: ""
+  noProxy: ""
+
+## Connector: TheHive
+thehive:
+  url: ""
+  verifySsl: ""
+  key: ""
+  customField: "watcher-id"
+  emailSender: "watcher@watcher.com"
+  tags: "Watcher,Impersonation,Malicious Domain,Typosquatting"
+
+## Connector: MISP
+misp:
+  url: ""
+  verifySsl: ""
+  key: ""
+  ticketingUrl: ""
+  tags: "Watcher,Impersonation,Malicious Domain,Typosquatting,tlp:amber"
+
+## Connector: Slack
+slack:
+  apiToken: ""
+  channel: ""
+
+## Connector: Citadel
+citadel:
+  apiToken: ""
+  roomId: ""
+  url: ""
+
+## Threat intelligence feed overrides (all have working public defaults)
+cyberWatch:
+  cveApiUrl: ""
+  ransomwareGroupsUrl: ""
+  ransomwareVictimsUrl: ""
+  ransomlookGroupsUrl: ""
+  ransomlookRecentUrl: ""
+  ransomlookActorsUrl: ""
+
+## Weekly summary / breaking news
+weeklyNews:
+  summaryDay: "Monday"
+  summaryHour: "09:30"
+  breakingNewsThreshold: 15
+
+## Ingress
+ingress:
+  enabled: true
+  className: ""
+  host: ""       # e.g. watcher.example.com
+  annotations: {}
+  tls:
+    secretName: ""  # leave empty to disable TLS on the ingress
+
+## Extra arbitrary env vars injected into the Watcher container (escape hatch)
+extraEnv: {}

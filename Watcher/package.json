@@ -19,7 +19,7 @@
     "@babel/preset-env": "8.0.2",
     "@babel/preset-react": "8.0.1",
     "babel-loader": "10.1.1",
-    "cypress": "^14.5.4",
+    "cypress": "^15.19.0",
     "webpack": "5.105.4",
     "webpack-cli": "5.1.4"
   },

@@ -330,7 +330,7 @@ THEME_CHOICES = [
 MODULE_LAYOUT_LABELS = {
     'watcher_threats_grid':            'Threats Watcher',
     'watcher_dataleak_grid':           'Data Leak',
-    'watcher_dns_finder_grid':         'DNS Finder',
+    'watcher_dns_finder_grid_v2':      'DNS Threats Monitored',
     'watcher_site_monitoring_grid':    'Site Monitoring',
     'watcher_cyber_watch_grid':        'Cyber Watch',
     'watcher_legitimate_domains_grid': 'Legitimate Domains',

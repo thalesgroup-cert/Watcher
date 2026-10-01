@@ -116,7 +116,7 @@ class LegitimateDomainViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='misp')
     def export_to_misp(self, request):
         """
-        Export legitimate domain to MISP using DNS Finder's logic.
+        Export legitimate domain to MISP using DNS Threats Monitored's logic.
         """
         from dns_finder.api import MISPViewSet
         from dns_finder.serializers import MISPSerializer

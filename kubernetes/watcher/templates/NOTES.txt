@@ -1,0 +1,41 @@
+Watcher has been deployed!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Access:
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host | default "<ingress.host not set>" }}/
+{{- else }}
+  kubectl port-forward svc/{{ include "watcher.fullname" . }} 9002:{{ .Values.watcher.service.port }}
+  Then open: http://localhost:9002/
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Next steps:
+
+1. Create a superuser:
+
+  kubectl exec -n {{ .Release.Namespace }} \
+    deploy/{{ include "watcher.fullname" . }} \
+    -- python manage.py createsuperuser
+
+2. Seed RSS sources and banned words (one-time):
+
+  kubectl exec -n {{ .Release.Namespace }} \
+    deploy/{{ include "watcher.fullname" . }} \
+    -- python manage.py populate_db
+
+3. Check logs:
+
+  kubectl logs -n {{ .Release.Namespace }} \
+    deploy/{{ include "watcher.fullname" . }} -f
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Notes:
+- DB migrations ran automatically as a post-install hook.
+- DJANGO_SECRET_KEY and CONNECTORS_ENCRYPTION_KEY are stable
+  across upgrades (looked up from the existing Secret).
+- Set mysql.auth.password and mysql.auth.rootPassword in a
+  sealed values file — never commit credentials to git.

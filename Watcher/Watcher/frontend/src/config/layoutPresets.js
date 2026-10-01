@@ -69,57 +69,54 @@ const THREATS_PRESETS = [
     },
 ];
 
-//DNS Finder
+//DNS Threats Monitored
 const DNS_PRESETS = [
     {
         id: 'default',
         name: 'Standard',
-        description: 'Full view: stats, DNS alerts, monitored domains, archived and keywords.',
+        description: 'Full view: stats, unified DNS threats, corporate assets and keywords.',
         icon: 'dashboard',
         layout: [
             { i: 'stats',    x: 0, y: 0,  w: 12, h: 8,  minW: 6, minH: 3 },
-            { i: 'alerts',   x: 0, y: 8,  w: 7,  h: 11, minW: 4, minH: 5 },
-            { i: 'dns',      x: 7, y: 8,  w: 5,  h: 11, minW: 3, minH: 5 },
-            { i: 'archived', x: 0, y: 19, w: 7,  h: 11, minW: 4, minH: 5 },
-            { i: 'keywords', x: 7, y: 19, w: 5,  h: 11, minW: 3, minH: 5 },
+            { i: 'threats',  x: 0, y: 8,  w: 12, h: 14, minW: 6, minH: 6 },
+            { i: 'dns',      x: 0, y: 22, w: 6,  h: 11, minW: 3, minH: 5 },
+            { i: 'keywords', x: 6, y: 22, w: 6,  h: 11, minW: 3, minH: 5 },
         ],
-        active: ['stats', 'alerts', 'dns', 'archived', 'keywords'],
+        active: ['stats', 'threats', 'dns', 'keywords'],
     },
     {
         id: 'triage',
-        name: 'Alert Triage',
-        description: 'Rapid alert review: stats, live alerts and monitored DNS - no archives.',
+        name: 'Threat Triage',
+        description: 'Rapid threat review: stats and the full unified threats table - no asset/keyword panels.',
         icon: 'warning',
         layout: [
-            { i: 'stats',  x: 0, y: 0,  w: 12, h: 6,  minW: 6, minH: 3 },
-            { i: 'alerts', x: 0, y: 6,  w: 12, h: 16, minW: 4, minH: 5 },
-            { i: 'dns',    x: 0, y: 22, w: 12, h: 12, minW: 3, minH: 5 },
+            { i: 'stats',    x: 0, y: 0,  w: 12, h: 6,  minW: 6, minH: 3 },
+            { i: 'threats',  x: 0, y: 6,  w: 12, h: 22, minW: 6, minH: 6 },
         ],
-        active: ['stats', 'alerts', 'dns'],
+        active: ['stats', 'threats'],
     },
     {
         id: 'management',
-        name: 'Domain Management',
-        description: 'Keyword and domain configuration with archived review.',
+        name: 'Asset Management',
+        description: 'Corporate DNS assets and keyword configuration side by side.',
         icon: 'find_in_page',
         layout: [
             { i: 'stats',    x: 0, y: 0,  w: 12, h: 6,  minW: 6, minH: 3 },
             { i: 'keywords', x: 0, y: 6,  w: 5,  h: 14, minW: 3, minH: 5 },
             { i: 'dns',      x: 5, y: 6,  w: 7,  h: 14, minW: 3, minH: 5 },
-            { i: 'archived', x: 0, y: 20, w: 12, h: 12, minW: 4, minH: 5 },
         ],
-        active: ['stats', 'keywords', 'dns', 'archived'],
+        active: ['stats', 'keywords', 'dns'],
     },
     {
         id: 'minimal',
         name: 'Minimal',
-        description: 'Stats and live alerts only - stripped down.',
+        description: 'Stats and threats table only - stripped down.',
         icon: 'crop_free',
         layout: [
-            { i: 'stats',  x: 0, y: 0, w: 12, h: 8,  minW: 6, minH: 3 },
-            { i: 'alerts', x: 0, y: 8, w: 12, h: 16, minW: 4, minH: 5 },
+            { i: 'stats',   x: 0, y: 0, w: 12, h: 8,  minW: 6, minH: 3 },
+            { i: 'threats', x: 0, y: 8, w: 12, h: 16, minW: 6, minH: 6 },
         ],
-        active: ['stats', 'alerts'],
+        active: ['stats', 'threats'],
     },
 ];
 
@@ -304,7 +301,7 @@ const LEGIT_PRESETS = [
 
 export const LAYOUT_PRESETS = {
     'watcher_threats_grid':          THREATS_PRESETS,
-    'watcher_dns_finder_grid':       DNS_PRESETS,
+    'watcher_dns_finder_grid_v2':    DNS_PRESETS,
     'watcher_site_monitoring_grid':  SITE_PRESETS,
     'watcher_dataleak_grid':         DATALEAK_PRESETS,
     'watcher_cyber_watch_grid':      CYBERWATCH_PRESETS,
