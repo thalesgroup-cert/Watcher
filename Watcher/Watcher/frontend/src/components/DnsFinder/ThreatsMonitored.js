@@ -261,7 +261,7 @@ export class ThreatsMonitored extends Component {
     editModal = () => {
         const handleClose = () => this.setState({ showEditModal: false, selectedItem: null, editForm: {} });
         const item = this.state.selectedItem;
-        if (!item) return null;
+        if (!item || !this.state.showEditModal) return null;
         const { editForm } = this.state;
         const isTakeover = this.isTakeover(item);
 

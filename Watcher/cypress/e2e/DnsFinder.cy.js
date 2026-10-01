@@ -1,4 +1,10 @@
 describe('DNS Threats Monitored - E2E Test Suite', () => {
+  const setThreatsItemsPerPage = (value) => {
+    cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
+      .contains('small', 'Items per page:').parent().find('select')
+      .select(value);
+  };
+
   const setupIntercepts = () => {
     cy.intercept('GET', '**/api/dns_finder/dns_monitored/**', {
       statusCode: 200,
@@ -537,6 +543,7 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
       cy.contains('label', 'Status').parent().find('select').select('open');
       ensureFiltersHidden();
     };
+    beforeEach(() => setThreatsItemsPerPage('10'));
 
     // The per-row Status control is a SplitButton: the small caret button
     // opens the dropdown, then the target status is a .dropdown-item link.
@@ -923,11 +930,12 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
       });
       cy.contains('label', 'Status').parent().find('select').select('');
       cy.contains('label', 'Status').parent().find('select').should('have.value', '');
+      setThreatsItemsPerPage('10');
+      cy.wait(500);
 
-      // Move the certstream row to pending – wait for the row to be stable before opening dropdown
+      // Move the certstream row to pending
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .contains('table tbody tr', 'watcher-threat.com')
-        .should('be.visible')
         .find('.dropdown-toggle-split')
         .click();
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
