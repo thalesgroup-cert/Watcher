@@ -2,7 +2,7 @@ services:
 
   certstream:
     container_name: certstream
-    image: 0rickyy0/certstream-server-go:latest
+    image: 0rickyy0/certstream-server-go:${CERTSTREAM_VERSION:-v1.8.2}
     restart: always
     networks:
       default:

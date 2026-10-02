@@ -86,9 +86,10 @@ export const patchSite = (id, patchedSite) => (dispatch, getState) => {
 };
 
 // GET ALERTS
-export const getSiteAlerts = (page = 1, pageSize = 100) => (dispatch, getState) => {
+export const getSiteAlerts = (page = 1, pageSize = 100, siteId = null) => (dispatch, getState) => {
+    const siteFilter = siteId ? `&site=${siteId}` : '';
     return axios
-        .get(`/api/site_monitoring/alert/?page=${page}&page_size=${pageSize}`, tokenConfig(getState))
+        .get(`/api/site_monitoring/alert/?page=${page}&page_size=${pageSize}${siteFilter}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_SITE_ALERTS,

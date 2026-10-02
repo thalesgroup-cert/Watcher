@@ -1,3 +1,4 @@
+import json
 import os
 from unittest.mock import patch, MagicMock
 from django.test import TestCase, TransactionTestCase
@@ -287,3 +288,118 @@ class KeywordLastEventFieldTest(APITestCase):
         if last_event is not None:
             self.assertIn('action', last_event)
             self.assertIn('username', last_event)
+
+class FakeResponse:
+    """The parts of requests.Response that data_leak reads."""
+
+    def __init__(self, status_code=200, payload=None, text=None, content=b""):
+        self.status_code = status_code
+        self._payload = payload
+        self.text = text if text is not None else (json.dumps(payload) if payload is not None else "")
+        self.content = content
+
+    def json(self):
+        if self._payload is None:
+            raise json.JSONDecodeError("Expecting value", self.text, 0)
+        return self._payload
+
+
+class CheckSearxTest(TestCase):
+    """check_searx against the answers a SearxNG instance really gives."""
+
+    SEARX_URL = {'url': 'http://searxng:8080/'}
+
+    def setUp(self):
+        self.keyword = Keyword.objects.create(name="acme-corp")
+
+    def _check(self, response):
+        from data_leak.core import check_searx
+
+        with patch('data_leak.core.get_searxng_config', return_value=self.SEARX_URL), \
+                patch('data_leak.core.requests.get', return_value=response) as mock_get:
+            return check_searx(self.keyword), mock_get
+
+    def test_urls_are_returned_once_each(self):
+        response = FakeResponse(payload={'results': [
+            {'url': 'https://a.example/x'}, {'url': 'https://a.example/x'}, {'url': 'https://b.example/y'},
+        ]})
+
+        urls, _ = self._check(response)
+
+        self.assertEqual(urls, ['https://a.example/x', 'https://b.example/y'])
+
+    def test_refused_json_format_is_reported_with_its_fix(self):
+        """SearxNG answers 403 to format=json unless search.formats lists json; the job used to
+        log a bare "Expecting value: line 1 column 1" for every keyword, forever."""
+        from data_leak.core import SearxError
+
+        forbidden = FakeResponse(status_code=403, text="<!doctype html><title>403 Forbidden</title>")
+
+        with self.assertRaises(SearxError) as caught:
+            self._check(forbidden)
+
+        self.assertIn("HTTP 403", str(caught.exception))
+        self.assertIn("json", str(caught.exception))
+
+    def test_answer_without_results_is_an_error_not_a_crash(self):
+        from data_leak.core import SearxError
+
+        with self.assertRaises(SearxError):
+            self._check(FakeResponse(payload={'error': 'engine failure'}))
+
+    def test_query_never_waits_forever(self):
+        """requests has no default timeout: one unanswered call held a scheduler thread for good."""
+        _, mock_get = self._check(FakeResponse(payload={'results': []}))
+
+        self.assertIsNotNone(mock_get.call_args.kwargs.get('timeout'))
+
+
+class CheckKeywordsFailureReportTest(TestCase):
+
+    def test_failures_are_reported_once_per_run_and_the_run_goes_on(self):
+        """One log line per failed keyword (55 keywords every 5 minutes) buried everything else
+        in a 5 MB rotating log file."""
+        from data_leak.core import check_keywords, SearxError
+
+        broken = Keyword.objects.create(name="broken-kw")
+        fine = Keyword.objects.create(name="fine-kw")
+
+        with patch('data_leak.core.check_searx', side_effect=[SearxError("HTTP 403"), []]) as mock_searx, \
+                patch('data_leak.core.check_pastebin', return_value={}) as mock_pastebin, \
+                self.assertLogs('watcher.data_leak', level='ERROR') as logs:
+            check_keywords([broken, fine])
+
+        self.assertEqual(mock_searx.call_count, 2)
+        mock_pastebin.assert_called_once()
+        self.assertEqual(len(logs.records), 1)
+        self.assertIn("1/2", logs.records[0].getMessage())
+        self.assertIn("HTTP 403", logs.records[0].getMessage())
+
+
+class CheckPastebinRequestsTest(TestCase):
+
+    def test_paste_headers_are_sent_as_headers_and_every_call_has_a_timeout(self):
+        """requests.get(url, headers) passes the dict as *params*: Referer and User-Agent were
+        never sent, they ended up in the query string."""
+        from data_leak.core import check_pastebin
+
+        calls = []
+
+        def fake_get(url, *args, **kwargs):
+            calls.append((url, args, kwargs))
+            if 'api_scraping' in url:
+                return FakeResponse(text='[{"key": "abc"}]', payload=[{
+                    'key': 'abc',
+                    'scrape_url': 'https://scrape.pastebin.com/api_scrape_item.php?i=abc',
+                    'full_url': 'https://pastebin.com/abc',
+                }])
+            return FakeResponse(content=b"nothing to see here")
+
+        keyword = Keyword.objects.create(name="acme-corp")
+        with patch('data_leak.core.requests.get', side_effect=fake_get):
+            check_pastebin([keyword])
+
+        paste_call = [c for c in calls if 'api_scrape_item' in c[0]][0]
+        self.assertEqual(paste_call[1], ())
+        self.assertIn('Referer', paste_call[2]['headers'])
+        self.assertTrue(all(kwargs.get('timeout') for _, _, kwargs in calls), calls)

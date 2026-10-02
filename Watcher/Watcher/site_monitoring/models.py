@@ -46,6 +46,11 @@ class Site(models.Model):
     legal_team = models.BooleanField(default=False)
     blocking_request = models.BooleanField(default=False)
     
+    # /16 networks this site's addresses were seen in, with the date they were last seen
+    # ({"54.157.0.0/16": "2026-10-02T13:16:02"}): an address pool that rotates between networks
+    # already seen is not a change of hosting (see core.known_networks).
+    network_history = models.JSONField(default=dict, blank=True, editable=False)
+
     created_at = models.DateTimeField(default=timezone.now)
     expiry = models.DateTimeField(blank=True, null=True)  # End of monitoring
     domain_expiry = models.DateField(blank=True, null=True)  # Domain expiration date

@@ -1,6 +1,14 @@
+import base64
+import hashlib
+import json
 import os
+import re
+import socket
+import sys
+import threading
+import time
 from unittest.mock import patch, MagicMock
-from django.test import TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -367,6 +375,178 @@ class CoreTest(TestCase):
         twisted = DnsTwisted.objects.get(domain_name="cert-capture-test-evil.com")
         self.assertEqual(twisted.issuer, "Let's Encrypt")
         self.assertEqual(twisted.san_list, ['cert-capture-test-evil.com'])
+
+
+class PrintCallbackCertificateTest(TestCase):
+    """How print_callback reads the certificate events of the CertStream feed."""
+
+    @staticmethod
+    def _message(common_name, all_domains=None):
+        subject = {} if common_name is None else {'CN': common_name}
+        leaf_cert = {'subject': subject}
+        if all_domains is not None:
+            leaf_cert['all_domains'] = all_domains
+        return {'data': {'leaf_cert': leaf_cert}}
+
+    def test_keyword_matches_whatever_the_case_of_the_keyword(self):
+        """CN values are lowercase: a keyword typed with capitals never matched."""
+        from dns_finder.core import print_callback
+
+        KeywordMonitored.objects.create(name="Acme-Corp")
+
+        print_callback(self._message("acme-corp-login.example.com"), None)
+
+        alert = Alert.objects.get(dns_twisted__domain_name="acme-corp-login.example.com")
+        self.assertEqual(alert.source, Alert.SOURCE_CERTSTREAM_KEYWORD)
+
+    def test_certificate_without_cn_is_matched_through_its_san_list(self):
+        """Roughly 4% of the stream has no subject CN: those certificates were invisible."""
+        from dns_finder.core import print_callback
+
+        KeywordMonitored.objects.create(name="sancorp")
+
+        print_callback(self._message(None, ["unrelated.example.org", "login-sancorp.example.com"]), None)
+
+        self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="login-sancorp.example.com").exists())
+        self.assertFalse(DnsTwisted.objects.filter(domain_name="unrelated.example.org").exists())
+
+    def test_certificate_with_a_cn_is_not_matched_on_its_other_san_names(self):
+        """Multi-tenant certificates list hundreds of customers: only the CN decides."""
+        from dns_finder.core import print_callback
+
+        KeywordMonitored.objects.create(name="tenantcorp")
+
+        print_callback(self._message("shared-host.example.net", ["shared-host.example.net", "tenantcorp.example.com"]), None)
+
+        self.assertFalse(DnsTwisted.objects.filter(domain_name__contains="tenantcorp").exists())
+
+    def test_certificate_without_any_domain_is_ignored(self):
+        from dns_finder.core import print_callback
+
+        KeywordMonitored.objects.create(name="anything")
+
+        print_callback(self._message(None), None)
+
+        self.assertEqual(DnsTwisted.objects.count(), 0)
+
+    def test_null_cn_is_not_turned_into_the_domain_none(self):
+        from dns_finder.core import print_callback
+
+        KeywordMonitored.objects.create(name="No")
+
+        print_callback(self._message(None, ["safe.example.com"]), None)
+
+        self.assertFalse(DnsTwisted.objects.filter(domain_name__iexact="none").exists())
+
+
+class PrintCallbackDatabaseRecoveryTest(TransactionTestCase):
+    """The CertStream reader is a long-lived thread outside any request."""
+
+    def test_reader_thread_recovers_after_mysql_drops_its_connection(self):
+        """Django only discards a dead connection when told to: without that, every later
+        certificate failed with the same OperationalError until the process restarted."""
+        import MySQLdb
+        from django.db import connection
+        from django.db.utils import OperationalError
+        from dns_finder.core import print_callback
+
+        KeywordMonitored.objects.create(name="recover-kw")
+        message = {'data': {'leaf_cert': {'subject': {'CN': 'recover-kw-evil.example.com'}}}}
+
+        connection.ensure_connection()
+        victim = connection.connection.thread_id()
+        killer = MySQLdb.connect(**connection.get_connection_params())
+        try:
+            killer.cursor().execute(f"KILL {victim}")  # what a db_watcher restart or wait_timeout does
+        finally:
+            killer.close()
+
+        with self.assertRaises(OperationalError):
+            print_callback(message, None)  # the message that hits the dead connection is lost...
+        print_callback(message, None)      # ...the next one must go through
+
+        self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="recover-kw-evil.example.com").exists())
+
+
+class MonitoredListsCacheTest(TestCase):
+    """print_callback runs for every certificate of the feed (hundreds a second): reading the
+    monitored domains and keywords from MySQL, and building a model instance for each row, cost
+    ~3 ms per certificate - about 300 certificates a second at best, below the feed's rate."""
+
+    @staticmethod
+    def _message(common_name):
+        return {'data': {'leaf_cert': {'subject': {'CN': common_name}}}}
+
+    def setUp(self):
+        from dns_finder import core
+
+        core.invalidate_monitored_cache()  # rows of other tests were rolled back without a signal
+
+    def test_non_matching_certificates_cost_no_database_query(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from dns_finder.core import print_callback
+
+        DnsMonitored.objects.create(domain_name="corp-asset.example")
+        KeywordMonitored.objects.create(name="corp-keyword")
+        message = self._message("unrelated.example.org")
+        print_callback(message, None)  # loads the lists
+
+        with CaptureQueriesContext(connection) as queries:
+            for _ in range(50):
+                print_callback(message, None)
+
+        self.assertEqual(len(queries), 0, [query['sql'][:80] for query in queries.captured_queries[:3]])
+
+    def test_new_keyword_matches_the_very_next_certificate(self):
+        from dns_finder.core import print_callback
+
+        print_callback(self._message("warm-up.example.org"), None)  # caches the lists without the keyword
+        KeywordMonitored.objects.create(name="fresh-kw")
+
+        print_callback(self._message("fresh-kw-evil.example.com"), None)
+
+        self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="fresh-kw-evil.example.com").exists())
+
+    def test_deleted_keyword_stops_matching_at_once(self):
+        from dns_finder.core import print_callback
+
+        keyword = KeywordMonitored.objects.create(name="gone-kw")
+        print_callback(self._message("warm-gone-kw-up.example.org"), None)  # caches the lists with it
+        keyword.delete()
+        DnsTwisted.objects.all().delete()
+
+        print_callback(self._message("gone-kw-evil.example.com"), None)
+
+        self.assertFalse(DnsTwisted.objects.filter(domain_name="gone-kw-evil.example.com").exists())
+
+    def test_new_monitored_domain_tracks_its_subdomains_at_once(self):
+        from dns_finder.core import print_callback
+
+        print_callback(self._message("warm-up.example.org"), None)
+        DnsMonitored.objects.create(domain_name="newroot.example")
+
+        with patch('dns_finder.core.evaluate_dangling_subdomain'):
+            print_callback(self._message("old.newroot.example"), None)
+
+        self.assertTrue(DnsTwisted.objects.filter(domain_name="old.newroot.example").exists())
+
+    def test_changes_made_by_another_process_are_picked_up_after_the_ttl(self):
+        from dns_finder import core
+        from dns_finder.core import print_callback
+
+        print_callback(self._message("warm-up.example.org"), None)
+        # bulk_create sends no signal, like a write made by another process
+        KeywordMonitored.objects.bulk_create([KeywordMonitored(name="elsewhere-kw")])
+        message = self._message("elsewhere-kw-evil.example.com")
+
+        print_callback(message, None)
+        self.assertFalse(Alert.objects.filter(dns_twisted__domain_name="elsewhere-kw-evil.example.com").exists())
+
+        later = time.monotonic() + core.MONITORED_CACHE_TTL + 1
+        with patch('dns_finder.core.time.monotonic', return_value=later):
+            print_callback(message, None)
+        self.assertTrue(Alert.objects.filter(dns_twisted__domain_name="elsewhere-kw-evil.example.com").exists())
 
 
 class DanglingDnsDetectionTest(TestCase):
@@ -1360,3 +1540,367 @@ class PerformanceTest(TestCase):
 
         self.assertLess(duration, 2.0)
         self.assertEqual(DnsMonitored.objects.filter(domain_name__startswith="perf-").count(), 10)
+
+
+_WS_GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+
+def _stop_listening(listener):
+    """Close a listening socket and wake the thread blocked in accept() (close() alone does not)."""
+    try:
+        listener.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+    listener.close()
+
+
+class _FakeCertstreamServer:
+    """Minimal RFC 6455 server standing in for certstream-server-go.
+
+    Every accepted client is sent ``frames`` certificate_update messages, then the
+    connection is either closed after ``hold`` seconds (``close_after_send``) or kept
+    open and silent.
+    """
+
+    MESSAGE = json.dumps({
+        "message_type": "certificate_update",
+        "data": {"leaf_cert": {"subject": {"CN": "ws-test.example.com"}}},
+    }).encode()
+
+    def __init__(self, frames=0, close_after_send=False, hold=0):
+        assert len(self.MESSAGE) < 126  # the frame header below holds the length on one byte
+        self.frames = frames
+        self.close_after_send = close_after_send
+        self.hold = hold
+        self.connections = 0
+        self.pings = 0
+        self._closed = False
+        self._clients = []
+        self._listener = socket.socket()
+        self._listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._listener.bind(("127.0.0.1", 0))
+        self._listener.listen(32)
+        self.port = self._listener.getsockname()[1]
+        threading.Thread(target=self._accept_loop, daemon=True).start()
+
+    def _accept_loop(self):
+        while not self._closed:
+            try:
+                client, _ = self._listener.accept()
+            except OSError:
+                return
+            self._clients.append(client)
+            threading.Thread(target=self._serve, args=(client,), daemon=True).start()
+
+    def _serve(self, client):
+        try:
+            request = b""
+            while b"\r\n\r\n" not in request:
+                chunk = client.recv(4096)
+                if not chunk:
+                    return
+                request += chunk
+            key = re.search(rb"Sec-WebSocket-Key: *(\S+)", request, re.I).group(1)
+            accept = base64.b64encode(hashlib.sha1(key + _WS_GUID).digest())
+            client.sendall(
+                b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+                b"Connection: Upgrade\r\nSec-WebSocket-Accept: " + accept + b"\r\n\r\n"
+            )
+            self.connections += 1
+            for _ in range(self.frames):
+                client.sendall(b"\x81" + bytes([len(self.MESSAGE)]) + self.MESSAGE)
+            if self.close_after_send:
+                time.sleep(self.hold)
+                client.sendall(b"\x88\x00")
+                return
+            while True:  # silent, but answers ping and close frames like a real server
+                data = client.recv(4096)
+                if not data:
+                    return
+                opcode = data[0] & 0x0F
+                if opcode == 0x9:
+                    self.pings += 1
+                    client.sendall(b"\x8a\x00")
+                elif opcode == 0x8:
+                    client.sendall(b"\x88\x00")
+                    return
+        except OSError:
+            pass
+        finally:
+            client.close()
+
+    def close(self):
+        self._closed = True
+        _stop_listening(self._listener)
+        for client in self._clients:
+            try:
+                client.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+
+
+class _RecordingProxy:
+    """A corporate proxy that refuses everything; counts the clients that reach it."""
+
+    def __init__(self):
+        self.connections = 0
+        self._listener = socket.socket()
+        self._listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._listener.bind(("127.0.0.1", 0))
+        self._listener.listen(32)
+        self.port = self._listener.getsockname()[1]
+        threading.Thread(target=self._accept_loop, daemon=True).start()
+
+    def _accept_loop(self):
+        while True:
+            try:
+                client, _ = self._listener.accept()
+            except OSError:
+                return
+            self.connections += 1
+            try:
+                client.recv(4096)
+                client.sendall(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            except OSError:
+                pass
+            finally:
+                client.close()
+
+    def close(self):
+        _stop_listening(self._listener)
+
+
+class CertStreamClientTest(SimpleTestCase):
+    """certstream_client against a real local WebSocket server."""
+
+    def setUp(self):
+        env = patch.dict(os.environ)
+        env.start()
+        self.addCleanup(env.stop)
+        for name in ("http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"):
+            os.environ.pop(name, None)
+
+    def _server(self, **kwargs):
+        server = _FakeCertstreamServer(**kwargs)
+        self.addCleanup(server.close)
+        return server
+
+    def _start_client(self, server, callback=None, **kwargs):
+        from dns_finder.certstream_client import CertStreamClient
+
+        kwargs.setdefault("reconnect_delay", 0.05)
+        client = CertStreamClient(url=f"ws://127.0.0.1:{server.port}/", callback=callback, **kwargs)
+        thread = threading.Thread(target=client._connect, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 2)
+        self.addCleanup(client.stop)
+        return client, thread
+
+    @staticmethod
+    def _wait_for(predicate, timeout=5.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.02)
+        return bool(predicate())
+
+    def test_client_reconnects_after_the_server_drops_it_and_keeps_delivering(self):
+        server = self._server(frames=2, close_after_send=True)
+        received = []
+        self._start_client(server, callback=lambda message, context: received.append(message))
+
+        self.assertTrue(self._wait_for(lambda: len(received) >= 4), f"only {len(received)} messages received")
+        self.assertGreaterEqual(server.connections, 2)
+
+    def test_reconnect_loop_does_not_grow_the_call_stack(self):
+        """Reconnecting from inside on_close nested one more run_forever per drop and the
+        listener died silently after ~140 reconnections (Python's recursion limit)."""
+        from dns_finder import certstream_client
+
+        cycles = 2000
+        depths = []
+        holder = {}
+
+        class FakeWebSocketApp:
+            def __init__(self, url, **callbacks):
+                self.on_close = callbacks["on_close"]
+
+            def run_forever(self, **kwargs):
+                depth, frame = 0, sys._getframe()
+                while frame:
+                    depth, frame = depth + 1, frame.f_back
+                depths.append(depth)
+                if len(depths) >= cycles:
+                    holder["client"].stop()
+                # websocket-client invokes on_close from inside run_forever
+                self.on_close(self, 1006, "connection lost")
+                return True
+
+            def close(self, **kwargs):
+                pass
+
+        client = certstream_client.CertStreamClient(url="ws://127.0.0.1:9/", reconnect_delay=0, ping_interval=0)
+        holder["client"] = client
+        with patch.object(certstream_client.websocket, "WebSocketApp", FakeWebSocketApp), \
+                self.assertLogs("watcher.dns_finder", level="INFO"):
+            client._connect()
+
+        self.assertEqual(len(depths), cycles)
+        self.assertLessEqual(max(depths) - min(depths), 2)
+
+    def test_stop_interrupts_the_wait_before_reconnecting(self):
+        server = self._server(frames=0, close_after_send=True)
+        client, thread = self._start_client(server, reconnect_delay=30)
+        self.assertTrue(self._wait_for(lambda: server.connections >= 1))
+        time.sleep(0.3)  # let the client enter its reconnect wait
+
+        started = time.monotonic()
+        client.stop()
+        thread.join(5)
+
+        self.assertFalse(thread.is_alive(), "client thread still sleeping in its reconnect delay")
+        self.assertLess(time.monotonic() - started, 3)
+
+    def test_internal_url_connects_directly_even_when_a_proxy_is_configured(self):
+        """The compose file sets lowercase http_proxy and no_proxy="${NO_PROXY},searxng,db_watcher";
+        websocket-client reads the lowercase no_proxy first and ignores the uppercase NO_PROXY the
+        client used to patch, so the 'internal' CertStream host was sent to the corporate proxy."""
+        proxy = _RecordingProxy()
+        self.addCleanup(proxy.close)
+        proxy_url = f"http://127.0.0.1:{proxy.port}"
+        os.environ.update({
+            "http_proxy": proxy_url, "HTTP_PROXY": proxy_url,
+            "https_proxy": proxy_url, "HTTPS_PROXY": proxy_url,
+            "no_proxy": "localhost,searxng,db_watcher", "NO_PROXY": "localhost",
+        })
+        server = self._server(frames=1)
+        received = []
+
+        self._start_client(server, callback=lambda message, context: received.append(message))
+
+        self.assertTrue(self._wait_for(lambda: received), "the client never reached the server directly")
+        self.assertEqual(proxy.connections, 0)
+
+    def test_silent_connection_is_dropped_and_reestablished(self):
+        server = self._server(frames=0)  # accepts, then never sends anything
+        self._start_client(server, idle_timeout=0.5)
+
+        self.assertTrue(
+            self._wait_for(lambda: server.connections >= 2, timeout=6),
+            "a connection that stopped delivering certificates was never reset",
+        )
+
+    def test_client_reports_how_many_certificates_it_received(self):
+        server = self._server(frames=3)
+        with self.assertLogs("watcher.dns_finder", level="INFO") as logs:
+            self._start_client(server, callback=lambda message, context: None, stats_interval=0.3, idle_timeout=0)
+
+            def reported():
+                found = (re.search(r"CertStream stats: (\d+) certificates", line) for line in list(logs.output))
+                return [int(match.group(1)) for match in found if match]
+
+            self.assertTrue(self._wait_for(lambda: 3 in reported()), f"log lines: {logs.output}")
+
+    def test_idle_connection_is_kept_alive_with_pings(self):
+        """The hand-rolled ping thread called WebSocketApp.ping(), which does not exist: the
+        AttributeError was swallowed at DEBUG level and no keepalive was ever sent."""
+        server = self._server(frames=0)
+        self._start_client(server, ping_interval=0.3)
+
+        self.assertTrue(self._wait_for(lambda: server.pings >= 2, timeout=4), f"pings seen by the server: {server.pings}")
+
+    def test_stop_ends_every_thread_the_client_started(self):
+        baseline = threading.active_count()
+        # held open long enough for a per-connection helper thread to start its first sleep
+        server = self._server(frames=1, close_after_send=True, hold=0.15)
+        client, thread = self._start_client(server, callback=lambda message, context: None)
+        self.assertTrue(self._wait_for(lambda: server.connections >= 8, timeout=10))
+
+        client.stop()
+        thread.join(5)
+        server.close()
+
+        self.assertTrue(
+            self._wait_for(lambda: threading.active_count() <= baseline, timeout=3),
+            f"leaked threads: {[t.name for t in threading.enumerate()]}",
+        )
+
+
+class DnsFinderSchedulerTest(SimpleTestCase):
+
+    def test_certificate_transparency_listener_is_a_singleton(self):
+        """main_certificate_transparency never returns while the stream is up: a second
+        instance, started by the next hourly tick, would open a duplicate stream and every
+        certificate would be processed twice (racing on DnsTwisted's unique domain_name)."""
+        from dns_finder.core import start_scheduler
+
+        jobs = {}
+
+        class RecordingScheduler:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def add_job(self, func, trigger, **kwargs):
+                jobs[kwargs['id']] = kwargs
+
+            def start(self):
+                pass
+
+        with patch('dns_finder.core.BackgroundScheduler', RecordingScheduler):
+            start_scheduler()
+
+        self.assertEqual(jobs['main_certificate_transparency']['max_instances'], 1)
+
+
+class CertStreamProxyRoutingTest(SimpleTestCase):
+    """Which CertStream hosts are contacted directly and which go through the proxy."""
+
+    def setUp(self):
+        env = patch.dict(os.environ)
+        env.start()
+        self.addCleanup(env.stop)
+        for name in ("http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"):
+            os.environ.pop(name, None)
+
+    @staticmethod
+    def _client(url="ws://placeholder:8080/"):
+        from dns_finder.certstream_client import CertStreamClient
+
+        return CertStreamClient(url=url, callback=None)
+
+    def test_internal_hosts_are_recognised(self):
+        client = self._client()
+        for url in (
+            "ws://certstream:8080", "ws://watcher-certstream:8080/", "ws://localhost:8080",
+            "ws://127.0.0.1:8080", "ws://10.10.10.7:8080", "ws://172.20.0.5:8080", "ws://192.168.1.10:8080",
+        ):
+            with self.subTest(url=url):
+                self.assertTrue(client.is_internal_url(url))
+
+    def test_public_hosts_are_not_taken_for_internal_ones(self):
+        """The check was a string prefix test: the public service certstream.calidog.io (the
+        default CERT_STREAM_URL) and any name starting with 10. or 192.168. were 'internal'."""
+        client = self._client()
+        for url in (
+            "wss://certstream.calidog.io", "ws://10.example.com", "ws://192.168.example.com",
+            "ws://localhostile.com", "wss://172.example.org", "ws://8.8.8.8:8080",
+        ):
+            with self.subTest(url=url):
+                self.assertFalse(client.is_internal_url(url))
+
+    def test_host_listed_in_no_proxy_is_internal(self):
+        os.environ["NO_PROXY"] = "certstream.corp.example"
+
+        self.assertTrue(self._client().is_internal_url("wss://certstream.corp.example"))
+
+    def test_public_certstream_service_still_goes_through_the_proxy(self):
+        """Marking it 'internal' made the client add it to no_proxy: the corporate proxy was bypassed
+        for a public host."""
+        from websocket._url import get_proxy_info
+
+        os.environ.update({"http_proxy": "http://proxy.corp.example:3128", "https_proxy": "http://proxy.corp.example:3128"})
+
+        self._client("wss://certstream.calidog.io")
+
+        self.assertEqual(get_proxy_info("certstream.calidog.io", True), ("proxy.corp.example", 3128, None))

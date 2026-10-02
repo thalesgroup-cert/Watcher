@@ -93,6 +93,9 @@ class AlertViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         qs = Alert.objects.select_related('site').order_by('-created_at', '-id')
+        site = self.request.query_params.get('site')
+        if site is not None:
+            qs = qs.filter(site_id=site) if site.isdigit() else qs.none()
         return qs
 
 

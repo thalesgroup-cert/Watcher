@@ -1080,7 +1080,7 @@ To update Watcher image please follow the instructions below:
     docker rmi ghcr.io/thalesgroup-cert/watcher:latest
     docker rmi mysql:8.0.40
     docker rmi searxng/searxng:latest
-    docker rmi 0rickyy0/certstream-server-go:latest
+    docker rmi 0rickyy0/certstream-server-go:v1.8.2
   ```
 - Pull the newer docker images:
 

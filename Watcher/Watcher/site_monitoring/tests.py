@@ -357,6 +357,34 @@ class APITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data['status'])
 
+    def test_alerts_can_be_filtered_by_site(self):
+        """The 'Alerts for <site>' dialog only ever saw the 100 newest alerts of all sites,
+        so a site whose last alert was a few hours old showed none."""
+        other = Site.objects.create(domain_name="other-site.com", rtir=2)
+        Alert.objects.create(site=other, type="Other site alert")
+
+        response = self.client.get(f'/api/site_monitoring/alert/?site={self.site.pk}')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([alert['id'] for alert in response.data['results']], [self.alert.pk])
+
+    def test_alert_filter_ignores_a_malformed_site_id(self):
+        response = self.client.get('/api/site_monitoring/alert/?site=not-a-number')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'], [])
+
+    def test_network_history_is_neither_exposed_nor_overwritten_by_the_api(self):
+        history = {"98.83.0.0/16": "2026-10-01T10:00:00"}
+        Site.objects.filter(pk=self.site.pk).update(network_history=history)
+
+        response = self.client.get(f'/api/site_monitoring/site/{self.site.pk}/')
+        self.client.patch(f'/api/site_monitoring/site/{self.site.pk}/', {'registrar': 'Another Registrar'})
+        self.site.refresh_from_db()
+
+        self.assertNotIn('network_history', response.data)
+        self.assertEqual(self.site.network_history, history)
+
     @patch('site_monitoring.serializers.PyMISP')
     def test_misp_export(self, mock_pymisp):
         """Test MISP export functionality."""
@@ -498,3 +526,297 @@ class SiteLastEventFieldTest(APITestCase):
         if last_event is not None:
             self.assertIn('action', last_event)
             self.assertIn('username', last_event)
+
+class FakeResolver:
+    """dns.resolver.Resolver stand-in answering from a {(name, rdtype): [records]} table."""
+
+    def __init__(self, answers):
+        self.answers = answers
+        self.timeout = None
+        self.lifetime = None
+
+    def resolve(self, name, rdtype):
+        import dns.resolver
+
+        if (name, rdtype) not in self.answers:
+            raise dns.resolver.NXDOMAIN()
+        answer = self.answers[(name, rdtype)]
+        if isinstance(answer, Exception):
+            raise answer
+        return list(answer)
+
+
+class CheckMailTest(TestCase):
+    """check_mail on the 'mail.<site>' A record, which is often a round-robin pool."""
+
+    DOMAIN = "mail-pool.test"
+
+    def _check(self, site, mail_ips):
+        import dns.resolver
+        from site_monitoring.core import check_mail
+
+        answers = {} if mail_ips is None else {("mail." + self.DOMAIN, "A"): mail_ips}
+        with patch('site_monitoring.core.resolver.Resolver', return_value=FakeResolver(answers)):
+            alert = check_mail(site, 0)
+        site.refresh_from_db()
+        return alert
+
+    def _site(self, mail_a_record_ip):
+        return Site.objects.create(
+            domain_name=self.DOMAIN, mail_A_record_ip=mail_a_record_ip, MX_records=[], mail_monitoring=True,
+        )
+
+    def test_rotating_answers_of_the_same_pool_raise_no_alert(self):
+        """check_mail compared the *first* answer, whose order rotates, with the stored IP:
+        a pool spread over several /16 networks alerted every 3 hours, for ever."""
+        site = self._site("54.157.108.158")
+
+        alert = self._check(site, ["100.28.104.175", "54.157.108.158", "98.83.184.133"])
+
+        self.assertEqual(alert, 0)
+        self.assertEqual(site.mail_A_record_ip, "54.157.108.158")
+
+    def test_a_record_moving_to_another_network_raises_one_alert(self):
+        site = self._site("54.157.108.158")
+
+        alert = self._check(site, ["3.126.5.188", "3.71.139.153"])
+
+        self.assertEqual(alert, 8)
+        self.assertIn(site.mail_A_record_ip, ["3.126.5.188", "3.71.139.153"])
+
+    def test_first_resolution_stores_an_ip_and_alerts(self):
+        site = self._site(None)
+
+        alert = self._check(site, ["3.126.5.188"])
+
+        self.assertEqual(alert, 8)
+        self.assertEqual(site.mail_A_record_ip, "3.126.5.188")
+
+    def test_record_that_disappears_alerts_once(self):
+        site = self._site("54.157.108.158")
+
+        first = self._check(site, None)
+        second = self._check(site, None)
+
+        self.assertEqual(first, 8)
+        self.assertEqual(second, 0)
+        self.assertIsNone(site.mail_A_record_ip)
+
+
+def _address(ip):
+    """One socket.getaddrinfo() entry, as the standard library returns it."""
+    import socket
+
+    return (socket.AF_INET, socket.SOCK_STREAM, 6, '', (ip, 0))
+
+
+class FakeWebResponse:
+    """The parts of requests.Response that check_content reads."""
+
+    def __init__(self, text, status_code=200):
+        self.text = text
+        self.status_code = status_code
+        self.headers = {}
+
+
+def _page(seed, words=400):
+    """Deterministic page of 'words' pseudo-random words: long and varied enough to be fingerprinted."""
+    import random
+
+    rng = random.Random(seed)
+    return " ".join("".join(rng.choices("abcdefghijklmnopqrstuvwxyz", k=rng.randint(3, 9))) for _ in range(words))
+
+
+class MonitoringCheckResilienceTest(TransactionTestCase):
+    """monitoring_check walks every site in a fixed order (-rtir): the sites after a failing one
+    were never checked again, run after run. (TransactionTestCase: monitoring_check closes
+    old connections, which a TestCase transaction would not survive.)"""
+
+    def test_a_failing_site_does_not_stop_the_remaining_sites(self):
+        import requests
+        from site_monitoring import core
+
+        Site.objects.create(domain_name="failing.test", rtir=20)  # processed first
+        healthy = Site.objects.create(domain_name="healthy.test", rtir=10)
+        real_check_mail = core.check_mail
+
+        def flaky_check_mail(site, alert):
+            if site.domain_name == "failing.test":
+                raise RuntimeError("boom")
+            return real_check_mail(site, alert)
+
+        with patch('site_monitoring.core.requests.get', side_effect=requests.exceptions.ConnectionError), \
+                patch('site_monitoring.core.socket.getaddrinfo', return_value=[_address('203.0.113.7')]), \
+                patch('site_monitoring.core.resolver.Resolver', return_value=FakeResolver({})), \
+                patch('site_monitoring.core.check_mail', side_effect=flaky_check_mail), \
+                self.assertLogs('watcher.site_monitoring', level='ERROR') as logs:
+            core.monitoring_check()
+
+        healthy.refresh_from_db()
+        self.assertEqual(healthy.ip, '203.0.113.7')
+        self.assertTrue(any("failing.test" in line and "boom" in line for line in logs.output), logs.output)
+
+
+class CheckIpResilienceTest(TestCase):
+
+    def test_a_domain_that_cannot_be_encoded_is_treated_as_unresolvable(self):
+        """getaddrinfo raises UnicodeError, not gaierror, for an empty or over-long DNS label:
+        check_ip only caught gaierror, so such a site raised out of the whole monitoring run."""
+        from site_monitoring.core import check_ip
+
+        site = Site.objects.create(domain_name="bad..label.test", ip_monitoring=True)
+
+        self.assertEqual(check_ip(site, 0), (0, "", ""))
+
+
+class ContentHashTest(TestCase):
+    """TLSH returns the string 'TNULL' for a page too short or too uniform to fingerprint."""
+
+    def _check(self, site, text):
+        from site_monitoring.core import check_content
+
+        with patch('site_monitoring.core.requests.get', return_value=FakeWebResponse(text)):
+            result = check_content(site, 0, None)
+        site.refresh_from_db()
+        return result
+
+    def test_page_too_short_to_fingerprint_stores_no_hash(self):
+        site = Site.objects.create(domain_name="parked.test", content_monitoring=True)
+
+        self._check(site, "Coming soon")
+
+        self.assertIsNone(site.content_fuzzy_hash)
+
+    def test_hash_stored_by_an_older_version_does_not_break_the_check(self):
+        site = Site.objects.create(domain_name="legacy-hash.test", content_monitoring=True, content_fuzzy_hash="TNULL")
+
+        alert, score = self._check(site, _page(1))
+
+        self.assertEqual((alert, score), (0, 0))
+        self.assertTrue(site.content_fuzzy_hash.startswith("T1"), site.content_fuzzy_hash)
+
+    def test_page_that_became_too_short_keeps_the_stored_hash_and_raises_nothing(self):
+        site = Site.objects.create(domain_name="blanked.test", content_monitoring=True)
+        self._check(site, _page(1))
+        stored = site.content_fuzzy_hash
+
+        alert, _ = self._check(site, "gone")
+
+        self.assertEqual(alert, 0)
+        self.assertEqual(site.content_fuzzy_hash, stored)
+
+    def test_a_completely_different_page_is_still_reported(self):
+        site = Site.objects.create(domain_name="rewritten.test", content_monitoring=True)
+        self._check(site, _page(1))
+
+        alert, score = self._check(site, _page(2))
+
+        self.assertEqual(alert, 4)
+        self.assertGreater(score, 160)
+
+
+class CheckIpPoolTest(TestCase):
+    """<site> resolving to a rotating pool of addresses spread over several /16 networks: the
+    first two addresses of the (sorted) answer changed from one run to the next, and each change
+    was an 'IP address changes detected' alert, up to one every 3 hours for ever."""
+
+    def _check(self, site, ips):
+        from site_monitoring.core import check_ip
+
+        with patch('site_monitoring.core.socket.getaddrinfo', return_value=[_address(ip) for ip in ips]):
+            alert = check_ip(site, 0)[0]
+        site.refresh_from_db()
+        return alert
+
+    def test_pool_rotating_between_networks_already_seen_raises_no_alert(self):
+        site = Site.objects.create(domain_name="pool.test", ip="3.126.5.188", ip_second="3.71.139.153")
+
+        first = self._check(site, ["3.126.5.188", "98.83.184.133", "100.28.104.175"])
+        second = self._check(site, ["3.71.139.153", "98.83.184.133", "100.28.104.175"])
+        third = self._check(site, ["3.126.5.188", "3.71.139.153", "100.28.104.175"])
+
+        self.assertNotEqual(first, 0)  # 98.83 and 100.28 are new networks for this site
+        self.assertEqual((second, third), (0, 0))
+        self.assertEqual(site.ip, "3.71.139.153")  # the stored addresses still follow the answer
+
+    def test_the_networks_a_site_was_seen_in_are_remembered(self):
+        site = Site.objects.create(domain_name="memory.test", ip="3.126.5.188", ip_second="3.71.139.153")
+
+        self._check(site, ["3.126.5.188", "98.83.184.133", "100.28.104.175"])
+
+        self.assertEqual(sorted(site.network_history), ["100.28.0.0/16", "3.126.0.0/16", "3.71.0.0/16", "98.83.0.0/16"])
+
+    def test_a_genuinely_new_network_raises_an_alert(self):
+        site = Site.objects.create(domain_name="moved.test", ip="3.126.5.188")
+
+        self.assertEqual(self._check(site, ["203.0.113.7"]), 1)
+
+    def test_first_resolution_raises_an_alert(self):
+        site = Site.objects.create(domain_name="new-site.test")
+
+        self.assertNotEqual(self._check(site, ["203.0.113.7"]), 0)
+
+    def test_networks_seen_long_ago_are_forgotten(self):
+        long_ago = (timezone.now() - timedelta(days=40)).isoformat(timespec='seconds')
+        site = Site.objects.create(
+            domain_name="forgotten.test", ip="3.126.5.188", network_history={"98.83.0.0/16": long_ago},
+        )
+
+        self.assertEqual(self._check(site, ["98.83.184.133"]), 1)
+
+    def test_content_change_is_kept_when_the_ip_part_is_ignored(self):
+        site = Site.objects.create(domain_name="both.test", ip="3.126.5.188")
+        self._check(site, ["3.126.5.188", "98.83.184.133"])  # 98.83 becomes a known network
+
+        from site_monitoring.core import check_ip
+
+        with patch('site_monitoring.core.socket.getaddrinfo', return_value=[_address("98.83.184.133")]):
+            alert = check_ip(site, 4)[0]  # 4: check_content found the page changed
+
+        self.assertEqual(alert, 4)
+
+    def test_sites_monitored_before_the_upgrade_are_not_flooded_with_alerts(self):
+        """No history yet: the addresses already stored on the site count as known networks."""
+        site = Site.objects.create(domain_name="upgraded.test", ip="3.126.5.188")  # ip_second not set yet
+
+        self.assertEqual(self._check(site, ["3.126.5.188", "3.126.200.1"]), 0)
+
+
+class CheckMailPoolTest(TestCase):
+    DOMAIN = "mail-pool.test"
+
+    def _check(self, site, answers):
+        from site_monitoring.core import check_mail
+
+        with patch('site_monitoring.core.resolver.Resolver', return_value=FakeResolver(answers)):
+            alert = check_mail(site, 0)
+        site.refresh_from_db()
+        return alert
+
+    def test_mail_pool_rotating_between_networks_already_seen_raises_no_alert(self):
+        """Comparing the stored IP with the answer is not enough for a pool spread over many
+        networks: the stored one is often absent from a 3-address answer."""
+        site = Site.objects.create(domain_name=self.DOMAIN, mail_A_record_ip="54.157.108.158", MX_records=[])
+        records = ("mail." + self.DOMAIN, "A")
+
+        first = self._check(site, {records: ["3.126.5.188", "3.71.139.153"]})
+        second = self._check(site, {records: ["3.126.5.188", "54.157.108.158"]})
+
+        self.assertEqual(first, 8)  # 3.126 and 3.71 are new networks
+        self.assertEqual(second, 0)
+
+    def test_dns_timeout_is_not_a_change_of_the_records(self):
+        """A timeout says nothing about the records: it cleared them (one alert), and the next
+        answer brought them back (a second alert)."""
+        import dns.exception
+
+        site = Site.objects.create(
+            domain_name=self.DOMAIN, mail_A_record_ip="54.157.108.158", MX_records=["10 mx.mail-pool.test."],
+        )
+        timeout = dns.exception.Timeout()
+
+        alert = self._check(site, {("mail." + self.DOMAIN, "A"): timeout, (self.DOMAIN, "MX"): timeout})
+
+        self.assertEqual(alert, 0)
+        self.assertEqual(site.mail_A_record_ip, "54.157.108.158")
+        self.assertEqual(site.MX_records, ["10 mx.mail-pool.test."])
