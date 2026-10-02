@@ -35,7 +35,7 @@ certstream:
   enabled: true
   image:
     repository: 0rickyy0/certstream-server-go
-    tag: "latest"
+    tag: "v1.8.2"
     pullPolicy: IfNotPresent
   replicas: 1
   resources: {}

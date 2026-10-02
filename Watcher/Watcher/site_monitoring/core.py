@@ -17,7 +17,7 @@ import requests
 import socket
 import ipaddress
 from dns import resolver
-from dns.exception import DNSException
+from dns.exception import DNSException, Timeout as DNSTimeout
 import shadow_useragent
 from common.core import send_app_specific_notifications
 from django.db.models import Q
@@ -320,31 +320,36 @@ def monitoring_check():
     sites = Site.objects.all()
 
     for site in sites:
-        alert = 0
-        new_ip = ""
-        new_ip_second = ""
+        # One site that fails must not stop the ones after it: the order is fixed (-rtir), so
+        # they would never be checked again.
+        try:
+            alert = 0
+            new_ip = ""
+            new_ip_second = ""
 
-        if site.expiry is None or (site.expiry - timezone.now()) > timedelta(days=0):
+            if site.expiry is None or (site.expiry - timezone.now()) > timedelta(days=0):
 
-            logger.info(f"Monitoring: {site.domain_name}")
+                logger.info(f"Monitoring: {site.domain_name}")
 
-            result = check_content(site, alert, shadow_useragent)
-            alert = result[0]
-            score = result[1]
+                result = check_content(site, alert, shadow_useragent)
+                alert = result[0]
+                score = result[1]
 
-            results = check_ip(site, alert)
-            alert = results[0]
-            new_ip = results[1]
-            new_ip_second = results[2]
+                results = check_ip(site, alert)
+                alert = results[0]
+                new_ip = results[1]
+                new_ip_second = results[2]
 
-            alert = check_mail(site, alert)
+                alert = check_mail(site, alert)
 
-            create_alert(alert, site, new_ip, new_ip_second, score)
+                create_alert(alert, site, new_ip, new_ip_second, score)
 
-            Site.objects.filter(pk=site.pk).update(monitored=True)
+                Site.objects.filter(pk=site.pk).update(monitored=True)
 
-        else:
-            Site.objects.filter(pk=site.pk).update(monitored=False)
+            else:
+                Site.objects.filter(pk=site.pk).update(monitored=False)
+        except Exception as e:
+            logger.error(f"Monitoring failed for {site.domain_name}: {e}")
 
 
 def _handle_banner_change(site, response):
@@ -410,7 +415,7 @@ def check_content(site, alert, ua):
                     alert = result[0]
                     score = result[1]
                 else:
-                    fuzzy_hash = tlsh.hash(bytes(response.text, 'utf-8'))
+                    fuzzy_hash = content_fingerprint(response)
                     Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash, web_status=200)
         else:
             logger.warning(f"Status code: {response.status_code}")
@@ -427,7 +432,7 @@ def check_content(site, alert, ua):
                         alert = result[0]
                         score = result[1]
                     else:
-                        fuzzy_hash = tlsh.hash(bytes(response.text, 'utf-8'))
+                        fuzzy_hash = content_fingerprint(response)
                         Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash, web_status=200)
             else:
                 logger.warning(f"Status code: {response.status_code}")
@@ -437,6 +442,19 @@ def check_content(site, alert, ua):
             logger.warning(f"{site.domain_name} is unreachable.")
 
     return alert, score
+
+
+def content_fingerprint(response):
+    """
+    TLSH hash of a page.
+
+    :param response: Http response.
+    :return: The hash, or None when the page is too short or too uniform to fingerprint
+        (tlsh.hash returns the string 'TNULL' for those, which is not a hash).
+    :rtype: str or None
+    """
+    fuzzy_hash = tlsh.hash(bytes(response.text, 'utf-8'))
+    return None if fuzzy_hash == 'TNULL' else fuzzy_hash
 
 
 def tlsh_score(response, site, alert):
@@ -449,12 +467,72 @@ def tlsh_score(response, site, alert):
     :return: alert, score
     :rtype: int, int
     """
-    fuzzy_hash = tlsh.hash(bytes(response.text, 'utf-8'))
-    score = tlsh.diffxlen(site.content_fuzzy_hash, fuzzy_hash)
+    fuzzy_hash = content_fingerprint(response)
+    if fuzzy_hash is None:
+        return alert, 0  # nothing to compare: keep the stored hash
+    try:
+        score = tlsh.diffxlen(site.content_fuzzy_hash, fuzzy_hash)
+    except ValueError:
+        # The stored value is not a TLSH hash (older versions stored 'TNULL' for short pages): replace it.
+        Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash)
+        return alert, 0
     if score > 160:
         alert += 4
         Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash)
     return alert, score
+
+
+# How long a /16 network stays known after the site was last seen in it.
+KNOWN_NETWORKS_MEMORY = timedelta(days=30)
+
+
+def _network(ip):
+    return ipaddress.ip_network(ip + "/16", strict=False)
+
+
+def _seen_since(seen, cutoff):
+    try:
+        return datetime.fromisoformat(seen) >= cutoff
+    except (TypeError, ValueError):
+        return False
+
+
+def known_networks(site, stored_ips):
+    """
+    /16 networks a site was seen in during the last KNOWN_NETWORKS_MEMORY, plus those of the
+    addresses stored on it. A rotating pool of addresses is a change of hosting only when it
+    brings a network the site was never seen in.
+
+    :param site: Site Object.
+    :param stored_ips: IP addresses stored on the site (Iterable of Str or None).
+    :rtype: set
+    """
+    cutoff = timezone.now() - KNOWN_NETWORKS_MEMORY
+    known = {ipaddress.ip_network(network) for network, seen in (site.network_history or {}).items()
+             if _seen_since(seen, cutoff)}
+    known.update(_network(ip) for ip in stored_ips if ip)
+    return known
+
+
+def remember_networks(site, networks):
+    """
+    Record in Site.network_history the networks the site was seen in (dates refreshed once a day
+    at most) and forget the ones not seen for KNOWN_NETWORKS_MEMORY.
+
+    :param site: Site Object.
+    :param networks: Networks the site was seen in (Iterable of ip_network).
+    """
+    now = timezone.now()
+    cutoff = now - KNOWN_NETWORKS_MEMORY
+    previous = site.network_history or {}
+    history = {network: seen for network, seen in previous.items() if _seen_since(seen, cutoff)}
+    for network in networks:
+        seen = history.get(str(network))
+        if seen is None or not _seen_since(seen, now - timedelta(days=1)):
+            history[str(network)] = now.isoformat(timespec='seconds')
+    if history != previous:
+        site.network_history = history
+        Site.objects.filter(pk=site.pk).update(network_history=history)
 
 
 def check_ip(site, alert):
@@ -473,25 +551,36 @@ def check_ip(site, alert):
         # DNS QUERY to get IP
         results = socket.getaddrinfo(site.domain_name, 0, proto=socket.IPPROTO_TCP, family=socket.AF_INET)
         addrs = sorted(results, key=lambda item: socket.inet_aton(item[4][0]))
+        answer_networks = {_network(addr[4][0]) for addr in addrs}
+        known = known_networks(site, (site.ip, site.ip_second))
 
         if site.ip_monitoring:
+            ip_alert = 0
             # Check if the first ip is in the same subnet
             if len(addrs) >= 1 and (site.ip and ipaddress.ip_address(addrs[0][4][0]) not in ipaddress.ip_network(
                     site.ip + "/16", strict=False)) or site.ip is None:
-                alert += 1
+                ip_alert += 1
 
             if len(addrs) >= 2:
                 # Check if the second ip is in the same subnet
                 if (site.ip_second and ipaddress.ip_address(addrs[1][4][0]) not in ipaddress.ip_network(
                         site.ip_second + "/16", strict=False)) or site.ip_second is None:
-                    alert += 2
+                    ip_alert += 2
             elif site.ip_second:
-                alert += 2
+                ip_alert += 2
                 new_ip_second = None
                 Site.objects.filter(pk=site.pk).update(ip_second=new_ip_second)
 
             if len(addrs) == 3:
                 logger.info(f"Found third ip ({addrs[2][4][0]}) for => {site.domain_name}")
+
+            # A rotating pool changes the first two addresses at every answer: only a network the
+            # site was never seen in is a change (the content bit of alert is left untouched).
+            if answer_networks <= known:
+                ip_alert = 0
+            alert += ip_alert
+
+        remember_networks(site, known | answer_networks)
 
         # Even if the new first/second ip are in the same subnet we change it in database
         if len(addrs) >= 1:
@@ -504,7 +593,8 @@ def check_ip(site, alert):
         else:
             Site.objects.filter(pk=site.pk).update(ip_second=None)
 
-    except socket.gaierror:
+    except (socket.gaierror, UnicodeError):
+        # UnicodeError: getaddrinfo cannot encode an empty or over-long DNS label
         pass
 
     return alert, new_ip, new_ip_second
@@ -541,17 +631,29 @@ def check_mail(site, alert):
             if is_mx:
                 alert_mx = True
                 Site.objects.filter(pk=site.pk).update(MX_records=mx_records_list)
+    except DNSTimeout:
+        pass  # a timeout says nothing about the records
     except(resolver.NoAnswer, resolver.NXDOMAIN, resolver.NoNameservers, DNSException):
         if Site.objects.get(pk=site.pk).MX_records != []:
             Site.objects.filter(pk=site.pk).update(MX_records=[])
             alert_mx = True
 
     try:
-        mail_ip = str(resolv.resolve('mail.' + site.domain_name, 'A')[0])
-        if site.mail_A_record_ip is None or ipaddress.ip_address(mail_ip) not in ipaddress.ip_network(
-                site.mail_A_record_ip + "/16", strict=False):
-            alert_a_ip = True
-        Site.objects.filter(pk=site.pk).update(mail_A_record_ip=mail_ip)
+        # The answer holds a few addresses of a pool spread over many networks: a change only
+        # counts when it brings a network this site was never seen in.
+        mail_ips = sorted({str(record) for record in resolv.resolve('mail.' + site.domain_name, 'A')},
+                          key=ipaddress.ip_address)
+        mail_networks = {_network(ip) for ip in mail_ips}
+        known = known_networks(site, (site.ip, site.ip_second, site.mail_A_record_ip))
+        mail_ip = site.mail_A_record_ip
+        if mail_ip is None or _network(mail_ip) not in mail_networks:
+            alert_a_ip = not mail_networks <= known
+            mail_ip = mail_ips[0]
+        if mail_ip != site.mail_A_record_ip:
+            Site.objects.filter(pk=site.pk).update(mail_A_record_ip=mail_ip)
+        remember_networks(site, known | mail_networks)
+    except DNSTimeout:
+        pass  # a timeout says nothing about the records
     except(resolver.NoAnswer, resolver.NXDOMAIN, resolver.NoNameservers, DNSException):
         if Site.objects.get(pk=site.pk).mail_A_record_ip != None:
             Site.objects.filter(pk=site.pk).update(mail_A_record_ip=None)

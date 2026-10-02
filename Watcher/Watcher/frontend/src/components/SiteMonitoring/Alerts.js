@@ -40,13 +40,21 @@ export class Alerts extends Component {
         auth: PropTypes.object.isRequired
     };
 
+    loadSiteAlerts = () => {
+        const { site } = this.props;
+        if (site) {
+            this.props.getSiteAlerts(1, 500, site.id);
+        }
+    };
+
     componentDidMount() {
-        this.props.getSiteAlerts();
+        this.loadSiteAlerts();
     }
 
     componentDidUpdate(prevProps) {
-        if (this.props.show && !prevProps.show) {
-            this.props.getSiteAlerts();
+        const siteChanged = this.props.site?.id !== prevProps.site?.id;
+        if (this.props.show && (!prevProps.show || siteChanged)) {
+            this.loadSiteAlerts();
         }
     }
 

@@ -10,7 +10,8 @@ import dns.resolver
 import dns.exception
 import requests
 from django.utils import timezone
-from django.db import close_old_connections
+from django.db import close_old_connections, InterfaceError, OperationalError
+from django.db.models.signals import post_delete, post_save
 from connectors.core import get_certstream_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
@@ -25,6 +26,40 @@ from django.db.models import Q
 # Configure logger
 logger = logging.getLogger('watcher.dns_finder')
 
+MONITORED_CACHE_TTL = 30
+_monitored_cache = {'expires': 0.0, 'roots': (), 'keywords': (), 'generation': 0}
+
+
+def invalidate_monitored_cache(**kwargs):
+    """Forget the cached monitored domains and keywords (also used as a signal receiver)."""
+    _monitored_cache['generation'] += 1
+    _monitored_cache['expires'] = 0.0
+
+
+def get_monitored():
+    """
+    Monitored corporate domains and keywords, cached for MONITORED_CACHE_TTL seconds.
+
+    :return: ((id, domain_name), ...) and ((id, name), ...) (Tuple of tuples).
+    """
+    cache = _monitored_cache
+    now = time.monotonic()
+    if now >= cache['expires']:
+        generation = cache['generation']
+        cache['roots'] = tuple(DnsMonitored.objects.values_list('id', 'domain_name'))
+        cache['keywords'] = tuple(KeywordMonitored.objects.values_list('id', 'name'))
+        if cache['generation'] == generation:  # not invalidated while it was being read
+            cache['expires'] = now + MONITORED_CACHE_TTL
+    return cache['roots'], cache['keywords']
+
+
+for _model in (DnsMonitored, KeywordMonitored):
+    post_save.connect(
+        invalidate_monitored_cache, sender=_model, dispatch_uid=f'invalidate_monitored_{_model.__name__}_save')
+    post_delete.connect(
+        invalidate_monitored_cache, sender=_model, dispatch_uid=f'invalidate_monitored_{_model.__name__}_delete')
+
+
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
@@ -38,7 +73,7 @@ def start_scheduler():
                       replace_existing=True)
     scheduler.add_job(main_certificate_transparency, 'cron', day_of_week='mon-sun', hour='*/1',
                       id='main_certificate_transparency',
-                      max_instances=2,
+                      max_instances=1,
                       replace_existing=True)
     scheduler.add_job(recheck_dangling_subdomains, 'cron', day_of_week='mon-sun', hour='*/6',
                       id='recheck_dangling_subdomains',
@@ -308,11 +343,11 @@ def track_dangling_subdomain(domain):
         logger.warning(f"Skipping invalid hostname from CertStream: {domain}")
         return
 
-    for dns_monitored in DnsMonitored.objects.all():
-        if domain != dns_monitored.domain_name and domain.endswith('.' + dns_monitored.domain_name):
+    for dns_monitored_id, dns_monitored_name in get_monitored()[0]:
+        if domain != dns_monitored_name and domain.endswith('.' + dns_monitored_name):
             # domain_name is shared across all 3 sources - may already exist.
             dns_twisted, _ = DnsTwisted.objects.get_or_create(
-                domain_name=domain, defaults={'dns_monitored': dns_monitored}
+                domain_name=domain, defaults={'dns_monitored_id': dns_monitored_id}
             )
             Alert.objects.get_or_create(
                 dns_twisted=dns_twisted, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER,
@@ -344,6 +379,25 @@ def recheck_dangling_subdomains():
     logger.info("Dangling DNS re-check completed")
 
 
+def certificate_domains(message):
+    """
+    Domains a CertStream certificate_update is about: the subject CN or, for the
+    certificates that have none (CAs may omit it), their SAN list. Lowercased, without
+    the leading ``*.``.
+
+    A certificate with a CN is judged on its CN only: multi-tenant certificates list
+    hundreds of unrelated SAN names.
+
+    :param message: CertStream event (Dict).
+    :rtype: list[str]
+    """
+    leaf_cert = (message.get('data') or {}).get('leaf_cert') or {}
+    common_name = (leaf_cert.get('subject') or {}).get('CN')
+    names = [common_name] if common_name else (leaf_cert.get('all_domains') or [])
+    domains = (clean_wildcard_domain(str(name).strip()).lower() for name in names if name)
+    return list(dict.fromkeys(domain for domain in domains if domain))
+
+
 def print_callback(message, context):
     """
     Runs CertStream scan.
@@ -351,16 +405,34 @@ def print_callback(message, context):
     :param message: event from CertStream.
     :param context: parameter from CertStream.
     """
-    domain = str(message['data']['leaf_cert']['subject']['CN'])
-    domain = clean_wildcard_domain(domain)
+    try:
+        domains = certificate_domains(message)
+        keywords = get_monitored()[1] if domains else ()
+        for domain in domains:
+            scan_certificate_domain(message, domain, keywords)
+    except (OperationalError, InterfaceError):
+        try:
+            close_old_connections()
+        except Exception:
+            pass 
+        raise
 
+
+def scan_certificate_domain(message, domain, keywords):
+    """
+    Check one domain of a certificate against the monitored keywords and alert on a match.
+
+    :param message: event from CertStream (Dict).
+    :param domain: Domain to check (Str).
+    :param keywords: Monitored keywords, as (id, name) tuples (see get_monitored).
+    """
     try:
         track_dangling_subdomain(domain)
     except Exception as e:
         logger.error(f"Dangling DNS tracking failed for {domain}: {str(e)}")
 
-    for keyword_monitored in KeywordMonitored.objects.all():
-        if keyword_monitored.name in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
+    for keyword_id, keyword_name in keywords:
+        if keyword_name.lower() in domain and not DnsTwisted.objects.filter(domain_name=domain) and \
                 not in_dns_monitored(domain):
 
             # Check if domain is legitimate before creating alert
@@ -368,10 +440,10 @@ def print_callback(message, context):
                 logger.info(f"Skipping alert for {domain} - domain is in Legitimate Domains")
                 continue
 
-            logger.info(f"Keyword {keyword_monitored.name} detected in: {domain}")
+            logger.info(f"Keyword {keyword_name} detected in: {domain}")
             cert_metadata = extract_certificate_metadata(message)
             dns_twisted = DnsTwisted.objects.create(
-                domain_name=domain, keyword_monitored=keyword_monitored, **cert_metadata
+                domain_name=domain, keyword_monitored_id=keyword_id, **cert_metadata
             )
             alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_CERTSTREAM_KEYWORD)
             send_dns_finder_notifications(alert)
