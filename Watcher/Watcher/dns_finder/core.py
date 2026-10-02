@@ -11,7 +11,6 @@ import dns.exception
 import requests
 from django.utils import timezone
 from django.db import close_old_connections, InterfaceError, OperationalError
-from django.db.models.signals import post_delete, post_save
 from connectors.core import get_certstream_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
@@ -51,13 +50,6 @@ def get_monitored():
         if cache['generation'] == generation:  # not invalidated while it was being read
             cache['expires'] = now + MONITORED_CACHE_TTL
     return cache['roots'], cache['keywords']
-
-
-for _model in (DnsMonitored, KeywordMonitored):
-    post_save.connect(
-        invalidate_monitored_cache, sender=_model, dispatch_uid=f'invalidate_monitored_{_model.__name__}_save')
-    post_delete.connect(
-        invalidate_monitored_cache, sender=_model, dispatch_uid=f'invalidate_monitored_{_model.__name__}_delete')
 
 
 def start_scheduler():

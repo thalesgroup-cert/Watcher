@@ -1,6 +1,8 @@
 import os
+import re
+import types
 from unittest.mock import patch, MagicMock
-from django.test import TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
@@ -545,3 +547,28 @@ class PendingActionResolutionTest(APITestCase):
             event_exists,
             "Expected a ACTION_CANCELLED TimelineEvent with object_id=site.pk after rejection"
         )
+
+
+class DocumentedModulesImportTest(SimpleTestCase):
+    """docs/build_the_docs.sh comments out the `from .models` / `from common` / `from connectors`
+    lines of the apps so that Sphinx can import their modules without Django's app registry:
+    module-level code must not use the names those lines bind (a signal registered at import time
+    on a model broke the documentation build with a NameError)."""
+
+    MODULES = (
+        "common/core.py", "common/misp.py", "cyber_watch/core.py", "data_leak/core.py",
+        "dns_finder/core.py", "site_monitoring/core.py", "threats_watcher/core.py",
+    )
+    COMMENTED_OUT = re.compile(r'^[ \t]*from (\.models|common|site_monitoring\.models|connectors)')
+
+    def test_documented_modules_import_without_their_models(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for relative_path in self.MODULES:
+            with self.subTest(module=relative_path):
+                path = os.path.join(base_dir, relative_path)
+                with open(path) as source_file:
+                    lines = source_file.read().splitlines(keepends=True)
+                source = "".join("#" + line if self.COMMENTED_OUT.match(line) else line for line in lines)
+                module = types.ModuleType(relative_path)
+                module.__package__ = relative_path.split("/")[0]
+                exec(compile(source, path, "exec"), module.__dict__)

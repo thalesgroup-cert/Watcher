@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.fields import GenericRelation
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 class DnsMonitored(models.Model):
@@ -144,3 +144,10 @@ def handle_dns_twisted_deletion(sender, instance, **kwargs):
     """
     from common.models import MISPEventUuidLink
     MISPEventUuidLink.check_and_delete_unused_domain(instance.domain_name)
+
+
+@receiver([post_save, post_delete], sender=DnsMonitored)
+@receiver([post_save, post_delete], sender=KeywordMonitored)
+def invalidate_monitored_cache_on_change(sender, **kwargs):
+    from .core import invalidate_monitored_cache
+    invalidate_monitored_cache()

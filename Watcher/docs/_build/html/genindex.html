@@ -23,9 +23,9 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030711" />
   
-  <title>Index | Watcher 3.6.0 documentation</title>
-  <meta property="og:title" content="Index | Watcher 3.6.0 documentation" />
-  <meta name="twitter:title" content="Index | Watcher 3.6.0 documentation" />
+  <title>Index | Watcher 3.6.1 documentation</title>
+  <meta property="og:title" content="Index | Watcher 3.6.1 documentation" />
+  <meta name="twitter:title" content="Index | Watcher 3.6.1 documentation" />
   <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8d216cef" />
   <link rel="stylesheet" type="text/css" href="_static/theme.css?v=d6d7c91b" />
   <link rel="icon" href="_static/Watcher-favicon.ico" />
@@ -53,7 +53,7 @@
     </a><header class="sticky top-0 z-40 w-full border-b shadow-xs border-border bg-background/90 backdrop-blur"><div class="container flex items-center h-14">
     <div class="hidden mr-4 md:flex">
       <a href="index.html" class="flex items-center mr-6">
-        <img height="24" width="24" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">Watcher 3.6.0 documentation</span>
+        <img height="24" width="24" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="hidden font-bold sm:inline-block text-clip whitespace-nowrap">Watcher 3.6.1 documentation</span>
       </a></div><button
       class="inline-flex items-center justify-center h-10 px-0 py-2 mr-2 text-base font-medium transition-colors rounded-md hover:text-accent-foreground hover:bg-transparent md:hidden"
       type="button" @click="showSidebar = true">
@@ -117,7 +117,7 @@
   :aria-hidden="!showSidebar" :class="{ 'translate-x-0': showSidebar }">
 
     <a href="index.html" class="justify-start text-sm md:!hidden bg-background">
-      <img height="16" width="16" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="font-bold text-clip whitespace-nowrap">Watcher 3.6.0 documentation</span>
+      <img height="16" width="16" class="mr-2 dark:invert" src="_static/Watcher-logo-documentation.png" alt="Logo" /><span class="font-bold text-clip whitespace-nowrap">Watcher 3.6.1 documentation</span>
     </a>
 
     <div class="relative overflow-hidden md:overflow-auto my-4 md:my-0">
@@ -155,7 +155,7 @@
      class="flex items-center mb-4 space-x-1 text-sm text-muted-foreground">
   <a class="overflow-hidden text-ellipsis whitespace-nowrap hover:text-foreground"
      href="index.html">
-    <span class="hidden md:inline">Watcher 3.6.0 documentation</span>
+    <span class="hidden md:inline">Watcher 3.6.1 documentation</span>
     <svg xmlns="http://www.w3.org/2000/svg"
          height="18"
          width="18"
@@ -178,6 +178,8 @@
   <h2 id="C">C</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.certificate_domains">certificate_domains() (in module Watcher.dns_finder.core)</a>
+</li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.check_content">check_content() (in module Watcher.site_monitoring.core)</a>
 </li>
       <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.check_dangling_status">check_dangling_status() (in module Watcher.dns_finder.core)</a>
@@ -207,6 +209,8 @@
 </li>
       </ul></li>
       <li><a href="modules/common_core.html#Watcher.common.core.collect_observables">collect_observables() (in module Watcher.common.core)</a>
+</li>
+      <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.content_fingerprint">content_fingerprint() (in module Watcher.site_monitoring.core)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.create_alert">create_alert() (in module Watcher.site_monitoring.core)</a>
 </li>
@@ -271,9 +275,11 @@
 </li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_confidence_score">get_confidence_score() (in module Watcher.threats_watcher.core)</a>
 </li>
+      <li><a href="modules/common_misp.html#Watcher.common.misp.get_misp_uuid">get_misp_uuid() (in module Watcher.common.misp)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
-      <li><a href="modules/common_misp.html#Watcher.common.misp.get_misp_uuid">get_misp_uuid() (in module Watcher.common.misp)</a>
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.get_monitored">get_monitored() (in module Watcher.dns_finder.core)</a>
 </li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.get_normalized_domain">get_normalized_domain() (in module Watcher.threats_watcher.core)</a>
 </li>
@@ -290,7 +296,18 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.invalidate_monitored_cache">invalidate_monitored_cache() (in module Watcher.dns_finder.core)</a>
+</li>
       <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.is_legitimate_domain">is_legitimate_domain() (in module Watcher.dns_finder.core)</a>
+</li>
+  </ul></td>
+  </tr>
+      </table>
+  
+  <h2 id="K">K</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.known_networks">known_networks() (in module Watcher.site_monitoring.core)</a>
 </li>
   </ul></td>
   </tr>
@@ -373,6 +390,8 @@
 </li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.reliability_score">reliability_score() (in module Watcher.threats_watcher.core)</a>
 </li>
+      <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.remember_networks">remember_networks() (in module Watcher.site_monitoring.core)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.remove_banned_words">remove_banned_words() (in module Watcher.threats_watcher.core)</a>
@@ -388,6 +407,10 @@
   <h2 id="S">S</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.scan_certificate_domain">scan_certificate_domain() (in module Watcher.dns_finder.core)</a>
+</li>
+      <li><a href="modules/data_leak_core.html#Watcher.data_leak.core.SearxError">SearxError</a>
+</li>
       <li><a href="modules/common_core.html#Watcher.common.core.send_app_specific_notifications">send_app_specific_notifications() (in module Watcher.common.core)</a>
 </li>
       <li><a href="modules/common_core.html#Watcher.common.core.send_app_specific_notifications_group">send_app_specific_notifications_group() (in module Watcher.common.core)</a>
@@ -402,10 +425,10 @@
 </li>
       <li><a href="modules/dns_finder_core.html#Watcher.dns_finder.core.send_dns_finder_notifications_group">send_dns_finder_notifications_group() (in module Watcher.dns_finder.core)</a>
 </li>
-      <li><a href="modules/common_core.html#Watcher.common.core.send_only_thehive_notifications">send_only_thehive_notifications() (in module Watcher.common.core)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul style="margin-left:0;list-style-type:none">
+      <li><a href="modules/common_core.html#Watcher.common.core.send_only_thehive_notifications">send_only_thehive_notifications() (in module Watcher.common.core)</a>
+</li>
       <li><a href="modules/threats_watcher_core.html#Watcher.threats_watcher.core.send_threats_watcher_notifications">send_threats_watcher_notifications() (in module Watcher.threats_watcher.core)</a>
 </li>
       <li><a href="modules/site_monitoring_core.html#Watcher.site_monitoring.core.send_website_monitoring_notifications">send_website_monitoring_notifications() (in module Watcher.site_monitoring.core)</a>
@@ -527,7 +550,7 @@
 </div></div>
 <aside id="right-sidebar" class="hidden text-sm xl:block">
 <div class="sticky top-16 -mt-10 max-h-[calc(var(--vh)-4rem)] overflow-y-auto pt-6 space-y-2">
-<a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#C">C</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#E">E</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#F">F</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#G">G</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#I">I</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#L">L</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#M">M</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#P">P</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#R">R</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#S">S</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#T">T</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#U">U</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#W">W</a>
+<a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#C">C</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#E">E</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#F">F</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#G">G</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#I">I</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#K">K</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#L">L</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#M">M</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#P">P</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#R">R</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#S">S</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#T">T</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#U">U</a><a class="pt-2 block text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-offset-[-1px]" href="#W">W</a>
 </div>
 </aside>
           </main>
@@ -558,7 +581,7 @@
   Back to top
 </button>
     
-    <script src="_static/documentation_options.js?v=5349f462"></script>
+    <script src="_static/documentation_options.js?v=f731707b"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script defer="defer" src="_static/theme.js?v=5db23cf8"></script>
