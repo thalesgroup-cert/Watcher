@@ -65,8 +65,7 @@ Extend Watcher's capabilities with powerful integrations and management tools:
 - **TheHive Full Synchronization** - Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/README.html#thehive-export)
 - **MISP Integration** - Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
 - **SSO / OpenID Connect** - Federated login via any OIDC provider (Keycloak, Azure AD, etc.) with PKCE and Knox token issuance. Configurable per-instance via `.env`
-- **Bulk Add ("One item per line")** - The add forms for legitimate domains, suspicious domains, corporate DNS/keywords, search patterns, banned words, and monitored keywords accept many values at once: enable the *One item per line* toggle, paste one value per line, and every other field is applied to all of them. A *Preview* button shows what would happen without saving anything. Domains are normalised (lowercase, scheme/path/port removed, defanged `hxxps://example[.]com` restored); existing or invalid values never block the batch, and a per-item summary (created / skipped / error) is shown afterwards.
-- **Bulk Actions on existing rows** - Tick rows in any table (domains, keywords, alerts...) to change several fields on all of them at once, delete them, or, for suspicious domains, export them to Legitimate Domains (the exported sites are removed from Website Monitoring) or to MISP (one event per site). Every item goes through the same validation and permissions as a single edit, and lists and statistics refresh without reloading the page. Limits are set with `BULK_CREATE_MAX_ITEMS` and `BULK_ACTION_MAX_ITEMS` (default `200` each). API: `POST <endpoint>/bulk_create/`, `bulk_update/` and `bulk_delete/`.
+- **Bulk Add & Bulk Actions** - Add many items at once with the *One item per line* toggle (with a no-write Preview and a per-item created / skipped / error summary), or tick rows in any table to edit, delete or export them (to Legitimate Domains or MISP) in one go
 - **Flexible Authentication** - Support for LDAP, local, and SSO/OIDC authentication systems
 - **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, and more) from one place, with encrypted credential storage and per-connector health checks.
 - **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions
@@ -214,9 +213,47 @@ Get Watcher up and running in just **10 minutes** using Docker. **Detailed instr
 
 ## Platform Architecture
 
-<p align="center">
-    <img alt="Platform Architecture" src="/Watcher/static/Platform-architecture.png">
-</p>
+```mermaid
+flowchart LR
+    subgraph SRC["External sources"]
+        RSS["RSS / CERT advisories"]
+        CVE["CVE & ransomware feeds"]
+        CT["Certificate Transparency"]
+        WEB["Paste sites & code registries"]
+        RSS ~~~ CVE ~~~ CT ~~~ WEB
+    end
+
+    subgraph HOST["Host server (Docker)"]
+        TRAEFIK["Traefik<br/>TLS reverse proxy"]
+        subgraph WATCHER["Watcher (Django)"]
+            UI["React UI / Django admin"]
+            API["Django REST API"]
+            JOBS["Scheduled jobs (APScheduler)<br/>Threats · CyberWatch · DNS Threats<br/>Data Leak · Website Monitoring"]
+            CONN["Connectors"]
+        end
+        CERTSTREAM["CertStream"]
+        SEARX["SearXNG"]
+        DB[("MySQL")]
+    end
+
+    subgraph OUT["Outputs"]
+        HIVE["TheHive"]
+        MISP["MISP"]
+        CHAT["Slack / Citadel"]
+        MAIL["Email (SMTP)"]
+    end
+
+    ANALYST(["Analyst"]) --> TRAEFIK --> UI
+    UI <--> API
+    API <--> DB
+    JOBS <--> DB
+    RSS & CVE --> JOBS
+    CT --> CERTSTREAM --> JOBS
+    WEB --> SEARX --> JOBS
+    JOBS --> CONN
+    API --> CONN
+    CONN --> HIVE & MISP & CHAT & MAIL
+```
 
 Watcher's modular architecture ensures scalability, reliability, and easy integration with your existing security stack.
 
