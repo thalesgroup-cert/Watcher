@@ -6,7 +6,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 .highlight .hll { background-color: #ffffcc }
 .highlight { background: #ffffff; }
 .highlight .c { font-style: italic } /* Comment */
-.highlight .err { border: 1px solid #FF0000 } /* Error */
+.highlight .err { border: 1px solid #F00 } /* Error */
 .highlight .k { font-weight: bold } /* Keyword */
 .highlight .ch { font-style: italic } /* Comment.Hashbang */
 .highlight .cm { font-style: italic } /* Comment.Multiline */
