@@ -3,6 +3,9 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import { getDnsMonitored, deleteDnsMonitored, addDnsMonitored, patchDnsMonitored, getDnsMonitoredDanglingSubdomains } from "../../actions/DnsFinder";
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
+import BulkTextField from "../common/BulkTextField";
+import { bulkCreate } from "../../actions/Bulk";
+import { DNS_MONITORED_BULK } from '../../actions/DnsFinder';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
@@ -33,6 +36,7 @@ export class DnsMonitored extends Component {
         getDnsMonitored: PropTypes.func.isRequired,
         deleteDnsMonitored: PropTypes.func.isRequired,
         addDnsMonitored: PropTypes.func.isRequired,
+        bulkCreate: PropTypes.func.isRequired,
         patchDnsMonitored: PropTypes.func.isRequired,
         getDnsMonitoredDanglingSubdomains: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
@@ -258,6 +262,17 @@ export class DnsMonitored extends Component {
         const onSubmit = e => {
             e.preventDefault();
             const domain_name = this.inputRef.current.value;
+            if (this.inputRef.current.isBulk()) {
+                const dryRun = this.inputRef.current.consumePreview();
+                this.props.bulkCreate({
+                    target: DNS_MONITORED_BULK,
+                    values: domain_name,
+                    dryRun,
+                    label: 'Add corporate domains'
+                });
+                if (!dryRun) handleClose();
+                return;
+            }
             const dns_monitored = { domain_name };
             this.props.addDnsMonitored(dns_monitored);
             this.setState({
@@ -281,16 +296,13 @@ export class DnsMonitored extends Component {
                                             Domain name
                                         </Form.Label>
                                         <Col sm={8}>
-                                            <Form.Control 
-                                                required 
-                                                ref={this.inputRef} 
-                                                type="text"
-                                                pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(?:\.[a-zA-Z]{2,})*$"
+                                            <BulkTextField
+                                                ref={this.inputRef}
                                                 placeholder="example.com"
                                             />
                                         </Col>
                                     </Form.Group>
-                                    
+
                                     <div className="d-flex justify-content-end gap-2 modal-buttons-group">
                                         <Button variant="secondary" onClick={handleClose}>
                                             Close
@@ -359,6 +371,10 @@ export class DnsMonitored extends Component {
                     defaultSort="created_at"
                     globalFilters={globalFilters}
                     moduleKey="dnsFinder_domains"
+                    bulkActions={canManage ? {
+                        target: DNS_MONITORED_BULK,
+                        label: 'corporate domains'
+                    } : undefined}
                 >
                     {({
                         paginatedData,
@@ -367,10 +383,14 @@ export class DnsMonitored extends Component {
                         handleSort,
                         renderSortIcons,
                         getTableContainerStyle,
-                        theadRef
+                        theadRef,
+                        renderSelectAll,
+                        renderSelectRow,
+                        renderBulkBar
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
+                            {renderBulkBar()}
 
                             <div className="row">
                                 <div className="col-lg-12">
@@ -378,6 +398,7 @@ export class DnsMonitored extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name{renderSortIcons('domain_name')}
                                                     </th>
@@ -393,13 +414,14 @@ export class DnsMonitored extends Component {
                                                     renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="4" className="text-center text-muted py-4">
+                                                        <td colSpan="5" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(domain => (
                                                         <tr key={domain.id}>
+                                                            {canManage && <td>{renderSelectRow(domain)}</td>}
                                                             <td><h5>{domain.domain_name}</h5></td>
                                                             <td>
                                                                 <DateWithTooltip 
@@ -487,6 +509,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getDnsMonitored,
     deleteDnsMonitored,
     addDnsMonitored,

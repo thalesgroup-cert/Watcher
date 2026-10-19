@@ -7,6 +7,12 @@ export const PROFILE_ERROR     = "PROFILE_ERROR";
 // CONFIG
 export const CONFIG_LOADED = "CONFIG_LOADED";
 
+// BULK CREATE
+export const BULK_CREATE_RESULT = "BULK_CREATE_RESULT";
+export const CLEAR_BULK_RESULT  = "CLEAR_BULK_RESULT";
+export const BULK_START         = "BULK_START";
+export const BULK_END           = "BULK_END";
+
 // COMMON
 export const GET_ERRORS      = "GET_ERRORS";
 export const CREATE_MESSAGE  = "CREATE_MESSAGE";

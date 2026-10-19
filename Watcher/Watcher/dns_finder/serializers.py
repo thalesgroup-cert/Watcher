@@ -10,6 +10,7 @@ from site_monitoring.core import monitoring_init
 import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
 from pymisp import PyMISP, MISPEvent
+from common.bulk import normalize_domain_data
 from common.misp import create_misp_tags, create_or_update_objects, get_misp_uuid, update_misp_uuid, _get_domain_identifier
 
 import urllib3
@@ -57,6 +58,9 @@ class DnsMonitoredSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("The domain name is not valid")
 
         return value
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(normalize_domain_data(data))
 
     class Meta:
         model = DnsMonitored

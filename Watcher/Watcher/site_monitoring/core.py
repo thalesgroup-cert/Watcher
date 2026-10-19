@@ -67,6 +67,22 @@ def start_scheduler():
     scheduler.start()
 
 
+# A site is "initializing" until monitoring_init has finished its first check. The window keeps a site whose
+# check crashed (it would stay unmonitored forever) from being reported as initializing for ever.
+SITE_INIT_WINDOW = timedelta(hours=6)
+
+
+def sites_initializing():
+    """
+    Sites whose first monitoring check (monitoring_init) is not finished yet.
+
+    :return: Queryset of Site.
+    """
+    now = timezone.now()
+    return Site.objects.filter(monitored=False, created_at__gte=now - SITE_INIT_WINDOW).filter(
+        Q(expiry__isnull=True) | Q(expiry__gt=now))
+
+
 def monitoring_init(site):
     """
     Init the monitoring for a specific website.

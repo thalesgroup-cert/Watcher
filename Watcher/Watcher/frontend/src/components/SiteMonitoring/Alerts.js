@@ -5,6 +5,7 @@ import { getSiteAlerts, updateSiteAlertStatus } from "../../actions/SiteMonitori
 import { Button, Modal, Container, Row, Col, Form, Tabs, Tab, Badge } from 'react-bootstrap';
 
 import TableManager from '../common/TableManager';
+import { SITE_ALERT_BULK } from '../../actions/SiteMonitoring';
 
 const ALERT_TYPE_BADGES = {
     'Web content': 'info',
@@ -410,6 +411,11 @@ export class Alerts extends Component {
     
 
     renderAlertsTable = (alerts, isActive) => {
+        const { isAuthenticated, user } = this.props.auth || {};
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('site_monitoring.change_alert')));
+        const statusOptions = isActive
+            ? [{ value: false, label: 'Disabled' }, { value: true, label: 'Active' }]
+            : [{ value: true, label: 'Active' }, { value: false, label: 'Disabled' }];
         return (
             <TableManager
                 data={alerts}
@@ -418,6 +424,13 @@ export class Alerts extends Component {
                 dateFields={['created_at']}
                 defaultSort="created_at"
                 itemsPerPage={10}
+                bulkActions={canManage ? {
+                    target: SITE_ALERT_BULK,
+                    label: 'website monitoring alerts',
+                    refresh: this.loadSiteAlerts,
+                    canDelete: false,
+                    updateFields: [{ field: 'status', label: 'Status', type: 'select', options: statusOptions }]
+                } : undefined}
             >
                 {({
                     paginatedData,
@@ -425,15 +438,20 @@ export class Alerts extends Component {
                     renderPagination,
                     handleSort,
                     renderSortIcons,
-                    theadRef
+                    theadRef,
+                    renderSelectAll,
+                    renderSelectRow,
+                    renderBulkBar
                 }) => (
                     <Fragment>
                         {renderItemsInfo()}
+                        {renderBulkBar()}
 
                         <div style={{ maxHeight: '400px', overflowX: 'auto' }}>
                             <table className="table table-striped table-hover">
                                 <thead ref={theadRef}>
                                     <tr style={{ fontSize: "16px" }}>
+                                        {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                         <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
                                             ID{renderSortIcons('id')}
                                         </th>
@@ -450,6 +468,7 @@ export class Alerts extends Component {
                                     {paginatedData.map(alert => {
                                         return (
                                             <tr key={alert.id}>
+                                                {canManage && <td>{renderSelectRow(alert)}</td>}
                                                 <td><strong>#{alert.id}</strong></td>
                                                 <td>
                                                     <Badge variant={getAlertTypeBadge(alert.type)} className="me-1" style={{ fontSize: '14px' }}>
@@ -476,7 +495,7 @@ export class Alerts extends Component {
                                     })}
                                     {paginatedData.length === 0 && (
                                         <tr>
-                                            <td colSpan="4" className="text-center text-muted py-3">
+                                            <td colSpan="5" className="text-center text-muted py-3">
                                                 No results found
                                             </td>
                                         </tr>

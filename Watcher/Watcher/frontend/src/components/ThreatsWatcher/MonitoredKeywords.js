@@ -8,6 +8,10 @@ import {
     patchMonitoredKeyword
 } from '../../actions/leads';
 import { Button, Modal, Form } from 'react-bootstrap';
+import BulkTextField from '../common/BulkTextField';
+import LevelSelector from '../common/LevelSelector';
+import { bulkCreate } from '../../actions/Bulk';
+import { MONITORED_KEYWORD_BULK } from '../../actions/leads';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
@@ -65,6 +69,7 @@ function parsePostUrls(posturls = []) {
 export class MonitoredKeywords extends Component {
     constructor(props) {
         super(props);
+        this.addRef = React.createRef();
         this.state = {
             // Add modal
             showAddModal:    false,
@@ -103,6 +108,7 @@ export class MonitoredKeywords extends Component {
         monitoredKeywords: PropTypes.array.isRequired,
         getMonitoredKeywords: PropTypes.func.isRequired,
         addMonitoredKeyword: PropTypes.func.isRequired,
+        bulkCreate: PropTypes.func.isRequired,
         deleteMonitoredKeyword: PropTypes.func.isRequired,
         patchMonitoredKeyword: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired
@@ -131,7 +137,19 @@ export class MonitoredKeywords extends Component {
         const { addName, addLevel } = this.state;
         const name = addName.trim();
         if (!name) return;
-        this.props.addMonitoredKeyword({ name, level: addLevel });
+        if (this.addRef.current && this.addRef.current.isBulk()) {
+            const dryRun = this.addRef.current.consumePreview();
+            this.props.bulkCreate({
+                target: MONITORED_KEYWORD_BULK,
+                values: name,
+                shared: { level: addLevel },
+                dryRun,
+                label: 'Add monitored keywords'
+            });
+            if (dryRun) return;
+        } else {
+            this.props.addMonitoredKeyword({ name, level: addLevel });
+        }
         this.setState({ addName: '', addLevel: 'warm', showAddModal: false });
     };
 
@@ -230,13 +248,10 @@ export class MonitoredKeywords extends Component {
                     <form id="add-mk-form" onSubmit={this.handleAdd}>
                         <Form.Group className="mb-3">
                             <Form.Label><strong>Keyword</strong></Form.Label>
-                            <Form.Control
-                                type="text"
+                            <BulkTextField
+                                ref={this.addRef}
                                 placeholder='company, company.com...'
-                                value={addName}
                                 onChange={e => this.setState({ addName: e.target.value })}
-                                autoFocus
-                                required
                             />
                         </Form.Group>
                         {this.renderLevelSelector(addLevel, v => this.setState({ addLevel: v }))}
@@ -492,6 +507,16 @@ export class MonitoredKeywords extends Component {
                                 defaultSort="occurrences"
                                 customFilters={this.customFilters}
                                 moduleKey="threatsWatcher_monitoredKeywords"
+                                bulkActions={canManage ? {
+                                    target: MONITORED_KEYWORD_BULK,
+                                    label: 'monitored keywords',
+                                    updateFields: [{
+                                        field: 'level',
+                                        label: 'Alert level',
+                                        initial: 'warm',
+                                        render: ({ value, onChange }) => <LevelSelector value={value} onChange={onChange} />
+                                    }]
+                                } : undefined}
                             >
                                 {({
                                     paginatedData,
@@ -503,18 +528,23 @@ export class MonitoredKeywords extends Component {
                                     renderFilterControls,
                                     renderSaveModal,
                                     getTableContainerStyle,
-                                    theadRef
+                                    theadRef,
+                                    renderSelectAll,
+                                    renderSelectRow,
+                                    renderBulkBar
                                 }) => (
                                     <Fragment>
                                         {renderFilterControls()}
                                         {renderFilters()}
                                         {renderItemsInfo()}
+                                        {renderBulkBar()}
                                         <div className="row">
                                             <div className="col-lg-12">
                                                 <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                                     <table className="table table-striped table-hover mb-0">
                                                         <thead ref={theadRef}>
                                                             <tr>
+                                                                {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                                 <th role="button" onClick={() => handleSort('name')}>
                                                                     Keyword {renderSortIcons('name')}
                                                                 </th>
@@ -534,7 +564,7 @@ export class MonitoredKeywords extends Component {
                                                         <tbody>
                                                             {paginatedData.length === 0 ? (
                                                                 <tr>
-                                                                    <td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">
+                                                                    <td colSpan={canManage ? 7 : 5} className="text-center text-muted py-4">
                                                                         No monitored keywords found.
                                                                     </td>
                                                                 </tr>
@@ -546,6 +576,7 @@ export class MonitoredKeywords extends Component {
                                                                         onClick={() => this.openSourcesModal(mk)}
                                                                         title="Click to see detected sources"
                                                                     >
+                                                                        {canManage && <td className="align-middle">{renderSelectRow(mk)}</td>}
                                                                         <td className="align-middle">
                                                                             <span className="fw-semibold">{mk.name}</span>
                                                                         </td>
@@ -635,6 +666,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getMonitoredKeywords,
     addMonitoredKeyword,
     deleteMonitoredKeyword,

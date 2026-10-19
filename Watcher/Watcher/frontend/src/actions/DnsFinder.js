@@ -362,3 +362,22 @@ export const getThreatsMonitored = (page = 1, pageSize = 100, filters = {}) => (
             throw err;
         });
 };
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+export const DNS_MONITORED_BULK = {
+    endpoint: "/api/dns_finder/dns_monitored/",
+    removedType: DELETE_DNS_MONITORED,
+    refresh: [getDnsMonitored, getAllDnsMonitored, getDnsFinderStatistics],
+};
+
+export const KEYWORD_MONITORED_BULK = {
+    endpoint: "/api/dns_finder/keyword_monitored/",
+    removedType: DELETE_KEYWORD_MONITORED,
+    refresh: [getKeywordMonitored, getAllKeywordMonitored, getDnsFinderStatistics],
+};
+
+export const DNS_ALERT_BULK = {
+    endpoint: "/api/dns_finder/alert/",
+    refresh: [getThreatsMonitored, getAllThreatsMonitored, getDnsFinderStatistics],
+};

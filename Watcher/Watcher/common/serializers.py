@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .bulk import normalize_domain_data
 from .models import LegitimateDomain, PendingAction
 
 # Legitimate Domain Serializer
@@ -64,6 +65,7 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
         return value
 
     def to_internal_value(self, data):
+        data = normalize_domain_data(data)
         # Convert "" to None for date fields
         if data.get("expiry") == "":
             data["expiry"] = None

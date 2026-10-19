@@ -157,3 +157,16 @@ export const getAllDataLeakKeywords = () => (dispatch, getState) => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+export const DATALEAK_KEYWORD_BULK = {
+    endpoint: "/api/data_leak/keyword/",
+    removedType: DATALEAK_DELETE_KEYWORD,
+    refresh: [getKeyWords, getAllDataLeakKeywords, getDataLeakStatistics],
+};
+
+export const DATALEAK_ALERT_BULK = {
+    endpoint: "/api/data_leak/alert/",
+    refresh: [getAlerts, getAllDataLeakAlerts, getDataLeakStatistics],
+};

@@ -24,6 +24,9 @@ const parseDate = (str) => {
     return new Date(parsed);
 };
 
+import BulkTextField from "../common/BulkTextField";
+import { bulkCreate } from "../../actions/Bulk";
+import { LEGITIMATE_DOMAIN_BULK } from '../../actions/LegitimateDomain';
 import {
     getLegitimateDomains,
     addLegitimateDomain,
@@ -93,6 +96,7 @@ class LegitimateDomains extends Component {
         domains: PropTypes.array.isRequired,
         getLegitimateDomains: PropTypes.func.isRequired,
         addLegitimateDomain: PropTypes.func.isRequired,
+        bulkCreate: PropTypes.func.isRequired,
         patchLegitimateDomain: PropTypes.func.isRequired,
         deleteLegitimateDomain: PropTypes.func.isRequired,
         getLegitimateDomainStatistics: PropTypes.func.isRequired,
@@ -580,6 +584,19 @@ class LegitimateDomains extends Component {
                 repurchased: this.addRefs.repurchased.current.checked,
                 comments: this.addRefs.comments.current.value
             };
+            if (this.addRefs.domain_name.current.isBulk()) {
+                const {domain_name, ...shared} = domain;
+                const dryRun = this.addRefs.domain_name.current.consumePreview();
+                this.props.bulkCreate({
+                    target: LEGITIMATE_DOMAIN_BULK,
+                    values: domain_name,
+                    shared,
+                    dryRun,
+                    label: 'Add legitimate domains'
+                });
+                if (!dryRun) handleClose();
+                return;
+            }
             this.props.addLegitimateDomain(domain);
             setTimeout(() => this.props.getLegitimateDomainStatistics(), 500);
             handleClose();
@@ -598,13 +615,9 @@ class LegitimateDomains extends Component {
                                     <Form.Group as={Row} className="mb-3">
                                         <Form.Label column sm="4">Domain Name</Form.Label>
                                         <Col sm="8">
-                                            <Form.Control 
-                                                required 
-                                                ref={this.addRefs.domain_name} 
-                                                size="md"
-                                                type="text"
-                                                pattern="^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*(\.[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)*$"
-                                                placeholder="example.com" 
+                                            <BulkTextField
+                                                ref={this.addRefs.domain_name}
+                                                placeholder="example.com"
                                             />
                                         </Col>
                                     </Form.Group>
@@ -819,6 +832,10 @@ class LegitimateDomains extends Component {
                     dateFilterWidth={3}
                     moduleKey="legitimateDomains_list"
                     itemsPerPage={5}
+                    bulkActions={canManage ? {
+                        target: LEGITIMATE_DOMAIN_BULK,
+                        label: 'legitimate domains'
+                    } : undefined}
                 >
                     {({
                         paginatedData,
@@ -830,13 +847,17 @@ class LegitimateDomains extends Component {
                         renderFilterControls,
                         renderSaveModal,
                         getTableContainerStyle,
-                        theadRef
+                        theadRef,
+                        renderSelectAll,
+                        renderSelectRow,
+                        renderBulkBar
                     }) => {
                         return (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
+                            {renderBulkBar()}
 
                             <div className="row">
                                 <div className="col-lg-12">
@@ -844,6 +865,7 @@ class LegitimateDomains extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name
                                                         {renderSortIcons('domain_name')}
@@ -896,13 +918,14 @@ class LegitimateDomains extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={canManage ? "11" : isAuthenticated ? "10" : "7"} className="text-center text-muted py-4">
+                                                        <td colSpan={canManage ? "12" : isAuthenticated ? "10" : "7"} className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(domain => (
                                                         <tr key={domain.id}>
+                                                            {canManage && <td>{renderSelectRow(domain)}</td>}
                                                             <td>
                                                                 <h6 className="mb-0">{domain.domain_name || '-'}</h6>
                                                             </td>
@@ -1095,6 +1118,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getLegitimateDomains,
     addLegitimateDomain,
     patchLegitimateDomain,

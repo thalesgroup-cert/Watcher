@@ -3,6 +3,9 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import { getKeywordMonitored, deleteKeywordMonitored, addKeywordMonitored, patchKeywordMonitored } from "../../actions/DnsFinder";
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
+import BulkTextField from "../common/BulkTextField";
+import { bulkCreate } from "../../actions/Bulk";
+import { KEYWORD_MONITORED_BULK } from '../../actions/DnsFinder';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
@@ -30,6 +33,7 @@ export class KeywordMonitored extends Component {
         getKeywordMonitored: PropTypes.func.isRequired,
         deleteKeywordMonitored: PropTypes.func.isRequired,
         addKeywordMonitored: PropTypes.func.isRequired,
+        bulkCreate: PropTypes.func.isRequired,
         patchKeywordMonitored: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         globalFilters: PropTypes.object
@@ -183,6 +187,17 @@ export class KeywordMonitored extends Component {
         const onSubmit = e => {
             e.preventDefault();
             const name = this.inputRef.current.value;
+            if (this.inputRef.current.isBulk()) {
+                const dryRun = this.inputRef.current.consumePreview();
+                this.props.bulkCreate({
+                    target: KEYWORD_MONITORED_BULK,
+                    values: name,
+                    dryRun,
+                    label: 'Add corporate keywords'
+                });
+                if (!dryRun) handleClose();
+                return;
+            }
             const keyword_monitored = { name };
             this.props.addKeywordMonitored(keyword_monitored);
             this.setState({
@@ -206,15 +221,13 @@ export class KeywordMonitored extends Component {
                                             Keyword
                                         </Form.Label>
                                         <Col sm={8}>
-                                            <Form.Control 
-                                                required 
+                                            <BulkTextField
                                                 ref={this.inputRef}
-                                                type="text"
                                                 placeholder="company, company.com..."
                                             />
                                         </Col>
                                     </Form.Group>
-                                    
+
                                     <div className="d-flex justify-content-end gap-2 modal-buttons-group">
                                         <Button variant="secondary" onClick={handleClose}>
                                             Close
@@ -283,6 +296,10 @@ export class KeywordMonitored extends Component {
                     defaultSort="created_at"
                     globalFilters={globalFilters}
                     moduleKey="dnsFinder_keywords"
+                    bulkActions={canManage ? {
+                        target: KEYWORD_MONITORED_BULK,
+                        label: 'corporate keywords'
+                    } : undefined}
                 >
                     {({
                         paginatedData,
@@ -291,10 +308,14 @@ export class KeywordMonitored extends Component {
                         handleSort,
                         renderSortIcons,
                         getTableContainerStyle,
-                        theadRef
+                        theadRef,
+                        renderSelectAll,
+                        renderSelectRow,
+                        renderBulkBar
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
+                            {renderBulkBar()}
 
                             <div className="row">
                                 <div className="col-lg-12">
@@ -302,6 +323,7 @@ export class KeywordMonitored extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                                                         Name{renderSortIcons('name')}
                                                     </th>
@@ -317,13 +339,14 @@ export class KeywordMonitored extends Component {
                                                     renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="4" className="text-center text-muted py-4">
+                                                        <td colSpan="5" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(keyword => (
                                                         <tr key={keyword.id}>
+                                                            {canManage && <td>{renderSelectRow(keyword)}</td>}
                                                             <td><h5>{keyword.name}</h5></td>
                                                             <td>
                                                                 <DateWithTooltip 
@@ -401,6 +424,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getKeywordMonitored,
     deleteKeywordMonitored,
     addKeywordMonitored,

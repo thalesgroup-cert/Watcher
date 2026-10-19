@@ -403,3 +403,43 @@ class CheckPastebinRequestsTest(TestCase):
         self.assertEqual(paste_call[1], ())
         self.assertIn('Referer', paste_call[2]['headers'])
         self.assertTrue(all(kwargs.get('timeout') for _, _, kwargs in calls), calls)
+
+
+class DataLeakBulkTest(APITestCase):
+    """Bulk create / delete on /api/data_leak/ (common.bulk mixins)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='leak_bulk_admin', password='testpass123')
+        self._login(self.admin)
+
+    def _login(self, user):
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _post(self, url, body):
+        return self.client.post(url, body, format='json')
+
+    def test_keywords_are_created(self):
+        response = self._post('/api/data_leak/keyword/bulk_create/', {'values': 'altair.com\nAltair Dynamics', 'shared': {}})
+        self.assertEqual(response.data['created'], 2, response.data)
+        self.assertTrue(Keyword.objects.filter(name='Altair Dynamics').exists())
+
+    def test_invalid_regex_is_reported_per_item(self):
+        response = self._post('/api/data_leak/keyword/bulk_create/', {'values': 'valid.*\n(unclosed', 'shared': {'is_regex': True}})
+        self.assertEqual({r['value']: r['status'] for r in response.data['results']},
+                         {'valid.*': 'created', '(unclosed': 'error'})
+
+    def test_bulk_create_needs_the_add_permission(self):
+        self._login(User.objects.create_user(username='leak_reader', password='testpass123'))
+        response = self._post('/api/data_leak/keyword/bulk_create/', {'values': 'x', 'shared': {}})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+        self.assertIn(self._post('/api/data_leak/keyword/bulk_create/', {'values': 'x'}).status_code,
+                      (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    def test_bulk_delete_keywords(self):
+        a = Keyword.objects.create(name='del-a')
+        b = Keyword.objects.create(name='del-b')
+        response = self._post('/api/data_leak/keyword/bulk_delete/', {'ids': [a.pk, b.pk, 999999]})
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1), response.data)
+        self.assertFalse(Keyword.objects.filter(pk__in=[a.pk, b.pk]).exists())

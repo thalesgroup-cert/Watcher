@@ -211,3 +211,11 @@ export const getAllLegitimateDomains = () => (dispatch, getState) => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+export const LEGITIMATE_DOMAIN_BULK = {
+    endpoint: "/api/common/legitimate_domains/",
+    removedType: DELETE_LEGITIMATE_DOMAIN,
+    refresh: [getLegitimateDomains, getAllLegitimateDomains, getLegitimateDomainStatistics],
+};

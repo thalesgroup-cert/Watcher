@@ -14,6 +14,7 @@ import WorldMap from "./WorldMap";
 import pendingActions from "./PendingActions";
 import timeline from "./Timeline";
 import connectors from "./Connectors";
+import bulk from "./Bulk";
 
 export default combineReducers({
     config,
@@ -27,6 +28,7 @@ export default combineReducers({
     pendingActions,
     timeline,
     connectors,
+    bulk,
     errors,
     messages,
     auth,

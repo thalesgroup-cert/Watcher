@@ -3,6 +3,9 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { getBannedWords, addBannedWord, deleteBannedWord, patchBannedWord } from '../../actions/leads';
 import { Button, Modal, Form } from 'react-bootstrap';
+import BulkTextField from '../common/BulkTextField';
+import { bulkCreate } from '../../actions/Bulk';
+import { BANNED_WORD_BULK } from '../../actions/leads';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
@@ -14,6 +17,7 @@ const FILTER_CONFIG = [
 class BannedWordsPanel extends Component {
     constructor(props) {
         super(props);
+        this.addRef = React.createRef();
         this.state = {
             showHelp:          false,
             showAddModal:      false,
@@ -34,6 +38,7 @@ class BannedWordsPanel extends Component {
         bannedWords:     PropTypes.array.isRequired,
         getBannedWords:  PropTypes.func.isRequired,
         addBannedWord:   PropTypes.func.isRequired,
+        bulkCreate:      PropTypes.func.isRequired,
         deleteBannedWord: PropTypes.func.isRequired,
         patchBannedWord: PropTypes.func.isRequired,
         auth:            PropTypes.object.isRequired,
@@ -47,7 +52,18 @@ class BannedWordsPanel extends Component {
         e.preventDefault();
         const name = this.state.addName.trim();
         if (!name) return;
-        this.props.addBannedWord({ name });
+        if (this.addRef.current && this.addRef.current.isBulk()) {
+            const dryRun = this.addRef.current.consumePreview();
+            this.props.bulkCreate({
+                target: BANNED_WORD_BULK,
+                values: name,
+                dryRun,
+                label: 'Add banned words'
+            });
+            if (dryRun) return;
+        } else {
+            this.props.addBannedWord({ name });
+        }
         this.setState({ addName: '', showAddModal: false });
     };
 
@@ -129,17 +145,24 @@ class BannedWordsPanel extends Component {
                     defaultSort="created_at"
                     enableDateFilter={true}
                     moduleKey="cyberWatch_bannedWords"
+                    bulkActions={canManage ? {
+                        target: BANNED_WORD_BULK,
+                        label: 'banned words'
+                    } : undefined}
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef,
+                        renderSelectAll, renderSelectRow, renderBulkBar }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
+                            {renderBulkBar()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
                                     <thead ref={theadRef}>
                                         <tr>
+                                            {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                             <th role="button" onClick={() => handleSort('name')}>Word {renderSortIcons('name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('created_at')}>Added {renderSortIcons('created_at')}</th>
                                             <LastEventHeader />
@@ -148,9 +171,10 @@ class BannedWordsPanel extends Component {
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={canManage ? 4 : 3} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 5 : 3} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(bw => (
                                             <tr key={bw.id}>
+                                                {canManage && <td className="align-middle">{renderSelectRow(bw)}</td>}
                                                 <td className="align-middle fw-semibold">{bw.name}</td>
                                                 <td className="text-center align-middle">
                                                     {bw.created_at
@@ -189,12 +213,10 @@ class BannedWordsPanel extends Component {
                         <form id="banned-add-form" onSubmit={this.handleAdd}>
                             <Form.Group className="mb-3">
                                 <Form.Label><strong>Word</strong></Form.Label>
-                                <Form.Control
-                                    type="text"
+                                <BulkTextField
+                                    ref={this.addRef}
                                     placeholder="Enter word to ban..."
-                                    value={addName}
                                     onChange={e => this.setState({ addName: e.target.value })}
-                                    autoFocus required
                                 />
                             </Form.Group>
                         </form>
@@ -260,6 +282,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getBannedWords,
     addBannedWord,
     deleteBannedWord,

@@ -855,11 +855,16 @@ describe('DNS Threats Monitored - E2E Test Suite', () => {
 
       cy.contains('.card-header', 'DNS Threats Monitored').closest('.card.h-100.shadow-sm')
         .within(() => {
-          cy.get('table tbody tr').each($row => {
-            cy.wrap($row).find('td').eq(2).invoke('text').then(text => {
-              if (!text.includes('No results found')) {
-                expect(text).to.contain('Subdomain Takeover Detection');
-              }
+          // The Source column moves when the bulk-selection checkbox column is shown: find it by its header.
+          cy.get('table thead th').then($ths => {
+            const sourceIndex = [...$ths].findIndex(th => th.textContent.trim().startsWith('Source'));
+            expect(sourceIndex).to.be.greaterThan(-1);
+            cy.get('table tbody tr').each($row => {
+              cy.wrap($row).find('td').eq(sourceIndex).invoke('text').then(text => {
+                if (!text.includes('No results found')) {
+                  expect(text).to.contain('Subdomain Takeover Detection');
+                }
+              });
             });
           });
         });

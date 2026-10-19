@@ -5,6 +5,7 @@ import {getAlerts, updateAlertStatus} from "../../actions/DataLeak";
 import {Button, Modal, InputGroup, FormControl, Form} from 'react-bootstrap';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
+import { DATALEAK_ALERT_BULK } from '../../actions/DataLeak';
 
 export class ArchivedAlerts extends Component {
     constructor(props) {
@@ -192,6 +193,8 @@ export class ArchivedAlerts extends Component {
     render() {
         const { globalFilters, filteredData } = this.props;
         const dataToUse = filteredData || this.props.alerts;
+        const { isAuthenticated, user } = this.props.auth || {};
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('data_leak.change_alert')));
 
         return (
             <Fragment>
@@ -212,6 +215,17 @@ export class ArchivedAlerts extends Component {
                     defaultSort="created_at"
                     globalFilters={globalFilters}
                     moduleKey="dataLeak_archived"
+                    bulkActions={canManage ? {
+                        target: DATALEAK_ALERT_BULK,
+                        label: 'archived data leak alerts',
+                        canDelete: false,
+                        updateFields: [{
+                            field: 'status',
+                            label: 'Status',
+                            type: 'select',
+                            options: [{ value: true, label: 'Active' }, { value: false, label: 'Archived' }]
+                        }]
+                    } : undefined}
                 >
                     {({
                         paginatedData,
@@ -220,10 +234,14 @@ export class ArchivedAlerts extends Component {
                         handleSort,
                         renderSortIcons,
                         getTableContainerStyle,
-                        theadRef
+                        theadRef,
+                        renderSelectAll,
+                        renderSelectRow,
+                        renderBulkBar
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
+                            {renderBulkBar()}
 
                             <div className="row">
                                 <div className="col-lg-12">
@@ -231,6 +249,7 @@ export class ArchivedAlerts extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
                                                         ID{renderSortIcons('id')}
                                                     </th>
@@ -282,6 +301,7 @@ export class ArchivedAlerts extends Component {
                                                         
                                                         return (
                                                             <tr key={alert.id}>
+                                                                {canManage && <td>{renderSelectRow(alert)}</td>}
                                                                 <td><h5>#{alert.id}</h5></td>
                                                                 <td>{alert.keyword?.name || '-'}</td>
                                                                 <td>{domainName}</td>
