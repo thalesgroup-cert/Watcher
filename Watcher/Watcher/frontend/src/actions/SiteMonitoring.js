@@ -64,6 +64,7 @@ export const addSite = site => (dispatch, getState) => {
             dispatch(createMessage({add: `${site.domain_name} Monitoring`}));
             dispatch({ type: ADD_SITE, payload: res.data });
             dispatch(getSites());
+            dispatch(watchSiteInit(true));
             return res.data;
         })
         .catch(err => {
@@ -211,21 +212,52 @@ export const getAllSiteAlerts = () => (dispatch, getState) => {
         });
 };
 
+// GET SITE INIT PROGRESS: number of new sites whose first check is not finished yet
+export const getSiteInitProgress = () => (dispatch, getState) => {
+    return axios
+        .get('/api/site_monitoring/site/init_progress/', tokenConfig(getState))
+        .then(res => {
+            return res.data.pending;
+        })
+        .catch(err => {
+            dispatch(returnErrors(err.response?.data, err.response?.status));
+            return 0;
+        });
+};
+
+// New sites are checked in the background, one after the other: reload the rows and the statistics every few
+// seconds until none is left, so they fill in without a page refresh. Only one watcher runs at a time.
+const SITE_INIT_POLL_MS = 5000;
+let siteInitWatching = false;
+
+export const watchSiteInit = (justCreated = false) => dispatch => {
+    if (siteInitWatching) return;
+    siteInitWatching = true;
+    let sawPending = justCreated;
+    const tick = () => dispatch(getSiteInitProgress()).then(pending => {
+        if (pending > 0) sawPending = true;
+        if (sawPending) {
+            dispatch(getSites());
+            dispatch(getSiteStatistics());
+        }
+        if (pending > 0) {
+            setTimeout(tick, SITE_INIT_POLL_MS);
+        } else {
+            siteInitWatching = false;
+        }
+    });
+    tick();
+};
+
 // Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
 // store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
-// A new site is checked in the background (status, IP, mail...): reload its row while that happens
-const SITE_INIT_RELOADS_MS = [4000, 10000, 25000];
-
 export const SITE_BULK = {
     endpoint: "/api/site_monitoring/site/",
     removedType: DELETE_SITE,
     refresh: [getSites, getAllSites, getAllSiteAlerts, getSiteStatistics],
     // exporting to Legitimate Domains also changes that module
     extraRefresh: {bulk_export_legitimate: LEGITIMATE_DOMAIN_BULK.refresh},
-    afterCreate: dispatch => SITE_INIT_RELOADS_MS.forEach(delay => setTimeout(() => {
-        dispatch(getSites());
-        dispatch(getSiteStatistics());
-    }, delay)),
+    afterCreate: dispatch => dispatch(watchSiteInit(true)),
 };
 
 export const SITE_ALERT_BULK = {

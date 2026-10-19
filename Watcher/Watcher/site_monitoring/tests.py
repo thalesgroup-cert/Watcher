@@ -977,3 +977,35 @@ class SiteBulkTest(APITestCase):
         (site,) = self._sites('misp-perm.com')
         self._login(User.objects.create_user(username='misp_no_perm', password='testpass123'))
         self.assertEqual(self._post('bulk_export_misp', {'ids': [site.pk]}).status_code, status.HTTP_403_FORBIDDEN)
+
+
+class SiteInitProgressTest(APITestCase):
+    """New sites are checked in the background: the API says which ones are not finished yet."""
+
+    URL = '/api/site_monitoring/site/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='init_admin', password='testpass123')
+        _, token = AuthToken.objects.create(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_pending_counts_only_sites_whose_first_check_is_not_finished(self):
+        Site.objects.create(domain_name='checking-a.com', monitored=False)
+        Site.objects.create(domain_name='checking-b.com', monitored=False)
+        Site.objects.create(domain_name='done.com', monitored=True)
+        response = self.client.get(self.URL + 'init_progress/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data, {'pending': 2})
+
+    def test_expired_and_old_sites_are_not_reported_as_initializing(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        Site.objects.create(domain_name='expired.com', monitored=False, expiry=timezone.now() - timedelta(days=1))
+        old = Site.objects.create(domain_name='crashed.com', monitored=False)
+        Site.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(hours=7))
+        self.assertEqual(self.client.get(self.URL + 'init_progress/').data, {'pending': 0})
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.credentials()
+        self.assertIn(self.client.get(self.URL + 'init_progress/').status_code,
+                      (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))

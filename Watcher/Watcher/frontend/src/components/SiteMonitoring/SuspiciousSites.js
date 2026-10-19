@@ -1,7 +1,7 @@
 import React, { Component, Fragment, createRef } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { getSites, deleteSite, addSite, patchSite, exportToMISP, getSiteStatistics } from "../../actions/SiteMonitoring";
+import { getSites, deleteSite, addSite, patchSite, exportToMISP, getSiteStatistics, watchSiteInit } from "../../actions/SiteMonitoring";
 import { exportToLegitimateDomains } from '../../actions/Common';
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
 import BulkTextField from "../common/BulkTextField";
@@ -89,6 +89,11 @@ export class SuspiciousSites extends Component {
         this.blockingRequestRef = createRef();
     }
 
+    componentDidMount() {
+        // follow the first check of the sites that are still being initialized (also after a page refresh)
+        this.props.watchSiteInit();
+    }
+
     static propTypes = {
         sites: PropTypes.array.isRequired,
         getSites: PropTypes.func.isRequired,
@@ -98,6 +103,7 @@ export class SuspiciousSites extends Component {
         patchSite: PropTypes.func.isRequired,
         exportToMISP: PropTypes.func.isRequired,
         getSiteStatistics: PropTypes.func.isRequired,
+        watchSiteInit: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         error: PropTypes.object.isRequired,
         globalFilters: PropTypes.object,
@@ -1583,4 +1589,5 @@ export default connect(mapStateToProps, {
     exportToMISP,
     exportToLegitimateDomains,
     getSiteStatistics,
+    watchSiteInit,
 })(SuspiciousSites);

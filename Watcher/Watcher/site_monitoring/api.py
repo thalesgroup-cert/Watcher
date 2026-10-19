@@ -11,7 +11,7 @@ from django.db.models import Prefetch
 import threading
 from common.bulk import BulkActionMixin, BulkCreateMixin, BulkModelPermission, BulkSkip, normalize_domain
 from common.misp import get_misp_uuid
-from .core import monitoring_init
+from .core import monitoring_init, sites_initializing
 from .serializers import SiteSerializer, AlertSerializer, MISPSerializer
 
 
@@ -42,6 +42,14 @@ class SiteViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
         if self.action == 'bulk_export_misp':
             return [ExportPermission()]
         return super().get_permissions()
+
+    @action(detail=False, methods=['get'], url_path='init_progress')
+    def init_progress(self, request):
+        """
+        Number of sites whose first monitoring check is not finished yet (new sites are checked in the background,
+        one after the other).
+        """
+        return Response({'pending': sites_initializing().count()})
 
     @action(detail=False, methods=['post'], url_path='bulk_export_legitimate')
     def bulk_export_legitimate(self, request):
