@@ -820,3 +820,160 @@ class CheckMailPoolTest(TestCase):
         self.assertEqual(alert, 0)
         self.assertEqual(site.mail_A_record_ip, "54.157.108.158")
         self.assertEqual(site.MX_records, ["10 mx.mail-pool.test."])
+
+
+class SiteBulkTest(APITestCase):
+    """Bulk create / update / delete / export on /api/site_monitoring/ (common.bulk mixins)."""
+
+    SITE_URL = '/api/site_monitoring/site/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='site_bulk_admin', password='testpass123')
+        self._login(self.admin)
+        patcher = patch('site_monitoring.api.monitoring_init')
+        self.mock_monitoring_init = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _login(self, user):
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _sites(self, *names):
+        return [Site.objects.create(domain_name=n, legitimacy=2) for n in names]
+
+    def _post(self, action, body):
+        return self.client.post(self.SITE_URL + action + '/', body, format='json')
+
+    # ---- bulk create
+    def test_bulk_create_creates_the_sites_with_the_shared_fields(self):
+        with patch('threading.Thread'):
+            response = self._post('bulk_create', {'values': 'bulk-a.com\nbulk-b.com', 'shared': {'legitimacy': 4}})
+        self.assertEqual(response.data['created'], 2, response.data)
+        self.assertEqual(Site.objects.filter(domain_name__in=['bulk-a.com', 'bulk-b.com'], legitimacy=4).count(), 2)
+
+    def test_bulk_create_refuses_a_domain_that_is_already_a_legitimate_domain(self):
+        from common.models import LegitimateDomain
+        LegitimateDomain.objects.create(domain_name='legit.com')
+        with patch('threading.Thread'):
+            response = self._post('bulk_create', {'values': 'legit.com\nsuspicious.com', 'shared': {'legitimacy': 2}})
+        self.assertEqual({r['value']: r['status'] for r in response.data['results']},
+                         {'legit.com': 'error', 'suspicious.com': 'created'})
+
+    def test_bulk_create_starts_a_single_sequential_monitoring_thread(self):
+        with patch('threading.Thread') as thread_cls:
+            response = self._post('bulk_create', {'values': 'site-a.com\nsite-b.com\nsite-c.com'})
+        self.assertEqual(response.data['created'], 3)
+        self.assertEqual(thread_cls.call_count, 1)
+        thread_cls.call_args.kwargs['target']()  # run the deferred worker synchronously
+        self.assertEqual(self.mock_monitoring_init.call_count, 3)
+
+    def test_single_create_still_starts_its_own_monitoring_thread_and_normalizes_the_domain(self):
+        with patch('threading.Thread') as thread_cls:
+            response = self.client.post(self.SITE_URL, {'domain_name': 'HTTP://Site-Single.com:8080/'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['domain_name'], 'site-single.com')
+        self.assertEqual(thread_cls.call_count, 1)
+
+    def test_bulk_create_needs_the_add_permission(self):
+        self._login(User.objects.create_user(username='site_reader', password='testpass123'))
+        self.assertEqual(self._post('bulk_create', {'values': 'x.com'}).status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+        self.assertIn(self._post('bulk_create', {'values': 'x.com'}).status_code,
+                      (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    # ---- bulk delete / update
+    def test_bulk_delete_removes_every_selected_row_and_reports_missing_ids(self):
+        a, b = self._sites('del-a.com', 'del-b.com')
+        response = self._post('bulk_delete', {'ids': [a.pk, b.pk, 999999]})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1))
+        self.assertFalse(Site.objects.filter(pk__in=[a.pk, b.pk]).exists())
+
+    def test_bulk_update_changes_several_whitelisted_fields_at_once(self):
+        a, b = self._sites('upd-a.com', 'upd-b.com')
+        response = self._post('bulk_update', {'ids': [a.pk, b.pk], 'changes': {'legitimacy': 5, 'takedown_request': True}})
+        self.assertEqual(response.data['succeeded'], 2, response.data)
+        for site in Site.objects.filter(pk__in=[a.pk, b.pk]):
+            self.assertEqual((site.legitimacy, site.takedown_request), (5, True))
+
+    def test_bulk_update_rejects_fields_outside_the_whitelist(self):
+        (a,) = self._sites('upd-forbidden.com')
+        response = self._post('bulk_update', {'ids': [a.pk], 'changes': {'domain_name': 'other.com'}})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        a.refresh_from_db()
+        self.assertEqual(a.domain_name, 'upd-forbidden.com')
+
+    def test_bulk_update_reports_validation_errors_per_row(self):
+        a, b = self._sites('upd-val-a.com', 'upd-val-b.com')
+        response = self._post('bulk_update', {'ids': [a.pk, b.pk], 'changes': {'legitimacy': 99}})
+        self.assertEqual((response.data['succeeded'], response.data['errors']), (0, 2))
+
+    def test_bulk_update_alert_status(self):
+        (site,) = self._sites('alert-site.com')
+        alerts = [Alert.objects.create(site=site, type='x') for _ in range(2)]
+        response = self.client.post('/api/site_monitoring/alert/bulk_update/',
+                                    {'ids': [a.pk for a in alerts], 'changes': {'status': False}}, format='json')
+        self.assertEqual(response.data['succeeded'], 2, response.data)
+        self.assertFalse(Alert.objects.filter(status=True).exists())
+
+    def test_bulk_update_and_delete_need_the_change_and_delete_permissions(self):
+        from django.contrib.auth.models import Permission
+        (site,) = self._sites('perm.com')
+        user = User.objects.create_user(username='site_no_perm', password='testpass123')
+        self._login(user)
+        self.assertEqual(self._post('bulk_delete', {'ids': [site.pk]}).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self._post('bulk_update', {'ids': [site.pk], 'changes': {'legitimacy': 3}}).status_code,
+                         status.HTTP_403_FORBIDDEN)
+        user.user_permissions.add(Permission.objects.get(codename='delete_site'))
+        self._login(User.objects.get(pk=user.pk))
+        self.assertEqual(self._post('bulk_delete', {'ids': [site.pk]}).data['succeeded'], 1)
+
+    # ---- exports
+    def test_bulk_export_to_legitimate_domains_removes_the_exported_sites(self):
+        from common.models import LegitimateDomain
+        a, b, c = self._sites('exp-a.com', 'exp-b.com', 'exp-c.com')
+        LegitimateDomain.objects.create(domain_name='exp-b.com')
+        response = self._post('bulk_export_legitimate', {'ids': [a.pk, b.pk, c.pk], 'comment': 'bulk export'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1))
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='exp-a.com').comments, 'bulk export')
+        # exported sites are removed from Website Monitoring, the skipped one is kept
+        self.assertFalse(Site.objects.filter(pk__in=[a.pk, c.pk]).exists())
+        self.assertTrue(Site.objects.filter(pk=b.pk).exists())
+        self.assertIn('removed from Website Monitoring', response.data['results'][0]['reason'])
+
+    def test_bulk_export_to_legitimate_domains_needs_the_delete_site_permission(self):
+        from django.contrib.auth.models import Permission
+        (site,) = self._sites('exp-perm.com')
+        user = User.objects.create_user(username='exp_no_delete', password='testpass123')
+        self._login(user)
+        self.assertEqual(self._post('bulk_export_legitimate', {'ids': [site.pk]}).status_code, status.HTTP_403_FORBIDDEN)
+        user.user_permissions.add(Permission.objects.get(codename='delete_site'))
+        self._login(User.objects.get(pk=user.pk))
+        self.assertEqual(self._post('bulk_export_legitimate', {'ids': [site.pk]}).data['succeeded'], 1)
+        self.assertFalse(Site.objects.filter(pk=site.pk).exists())
+
+    def test_bulk_export_to_misp_creates_one_event_per_site_or_updates_the_latest(self):
+        a, b = self._sites('misp-a.com', 'misp-b.com')
+        calls = []
+
+        class FakeMISPSerializer:
+            def __init__(self, data):
+                self.data_in = data
+
+            def is_valid(self, raise_exception=False):
+                return True
+
+            def save(self):
+                calls.append(self.data_in)
+
+        with patch('site_monitoring.api.MISPSerializer', FakeMISPSerializer), \
+                patch('site_monitoring.api.get_misp_uuid', side_effect=lambda d: ['uuid-old', 'uuid-latest'] if d == 'misp-b.com' else []):
+            response = self._post('bulk_export_misp', {'ids': [a.pk, b.pk]})
+        self.assertEqual(response.data['succeeded'], 2, response.data)
+        self.assertEqual(calls, [{'id': a.pk}, {'id': b.pk, 'event_uuid': 'uuid-latest'}])
+
+    def test_bulk_export_to_misp_needs_the_add_site_permission(self):
+        (site,) = self._sites('misp-perm.com')
+        self._login(User.objects.create_user(username='misp_no_perm', password='testpass123'))
+        self.assertEqual(self._post('bulk_export_misp', {'ids': [site.pk]}).status_code, status.HTTP_403_FORBIDDEN)

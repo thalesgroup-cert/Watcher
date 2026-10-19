@@ -4,6 +4,10 @@ import PropTypes from 'prop-types';
 import { getSites, deleteSite, addSite, patchSite, exportToMISP, getSiteStatistics } from "../../actions/SiteMonitoring";
 import { exportToLegitimateDomains } from '../../actions/Common';
 import { Button, Modal, Container, Row, Col, Form } from 'react-bootstrap';
+import BulkTextField from "../common/BulkTextField";
+import BulkSiteExportModal from "./BulkSiteExportModal";
+import { bulkCreate } from "../../actions/Bulk";
+import { SITE_BULK } from '../../actions/SiteMonitoring';
 import DayPickerInput from 'react-day-picker/DayPickerInput';
 import DateShortcuts from '../common/DateShortcuts';
 import TableManager from '../common/TableManager';
@@ -43,6 +47,7 @@ export class SuspiciousSites extends Component {
             showEditModal: false,
             showAddModal: false,
             showExportModal: false,
+            bulkExport: null,
             showDetailsModal: false,
             id: 0,
             domainName: "",
@@ -87,6 +92,7 @@ export class SuspiciousSites extends Component {
     static propTypes = {
         sites: PropTypes.array.isRequired,
         getSites: PropTypes.func.isRequired,
+        bulkCreate: PropTypes.func.isRequired,
         deleteSite: PropTypes.func.isRequired,
         addSite: PropTypes.func.isRequired,
         patchSite: PropTypes.func.isRequired,
@@ -880,11 +886,26 @@ export class SuspiciousSites extends Component {
                 blocking_request: this.blockingRequestRef.current.checked
             };
     
+            if (this.inputDomainRef.current.isBulk()) {
+                const {domain_name, ...shared} = body;
+                const dryRun = this.inputDomainRef.current.consumePreview();
+                this.props.bulkCreate({
+                    target: SITE_BULK,
+                    values: domain_name,
+                    shared,
+                    dryRun,
+                    label: 'Add suspicious domains'
+                });
+                this.setState({ addLoading: false });
+                if (!dryRun) handleClose();
+                return;
+            }
+
             this.props.addSite(body);
             setTimeout(() => this.props.getSiteStatistics(), 500);
             handleClose();
         };
-    
+
         const handleLegitimacyChange = (e) => {
             const selectedValue = parseInt(e.target.value);
             this.setState({ legitimacy: selectedValue });
@@ -910,10 +931,8 @@ export class SuspiciousSites extends Component {
                                 <Col md={6}>
                                     <Form.Group>
                                         <Form.Label>Domain Name <span className="text-danger">*</span></Form.Label>
-                                        <Form.Control
-                                            required
+                                        <BulkTextField
                                             ref={this.inputDomainRef}
-                                            type="text"
                                             placeholder="example.com"
                                         />
                                     </Form.Group>
@@ -1261,6 +1280,33 @@ export class SuspiciousSites extends Component {
                     onDataFiltered={this.onDataFiltered}
                     moduleKey="sitemonitoring_websitesmonitored"
                     skipFiltering={!!filteredData}
+                    bulkActions={canManage ? {
+                        target: SITE_BULK,
+                        label: 'suspicious domains',
+                        updateFields: [
+                            {
+                                field: 'legitimacy',
+                                label: 'Legitimacy',
+                                type: 'select',
+                                options: Object.entries(LEGITIMACY_LABELS).map(([value, { label }]) => ({ value: Number(value), label }))
+                            },
+                            { field: 'takedown_request', label: 'Takedown Request', type: 'bool', help: 'Takedown request submitted' },
+                            { field: 'legal_team', label: 'Legal Team', type: 'bool', help: 'Legal team involvement' },
+                            { field: 'blocking_request', label: 'Blocking Request', type: 'bool', help: 'Domain blocking requested' }
+                        ],
+                        extraActions: [
+                            {
+                                key: 'legitimate',
+                                label: 'Export to Legitimate Domains',
+                                onClick: (ids, done) => this.setState({ bulkExport: { mode: 'legitimate', ids, done } })
+                            },
+                            {
+                                key: 'misp',
+                                label: 'Export to MISP',
+                                onClick: (ids, done) => this.setState({ bulkExport: { mode: 'misp', ids, done } })
+                            }
+                        ]
+                    } : undefined}
                 >
                     {({
                         paginatedData,
@@ -1269,10 +1315,14 @@ export class SuspiciousSites extends Component {
                         handleSort,
                         renderSortIcons,
                         getTableContainerStyle,
-                        theadRef
+                        theadRef,
+                        renderSelectAll,
+                        renderSelectRow,
+                        renderBulkBar
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
+                            {renderBulkBar()}
 
                             <div className="row">
                                 <div className="col-lg-12">
@@ -1280,6 +1330,7 @@ export class SuspiciousSites extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name{renderSortIcons('domain_name')}
                                                     </th>
@@ -1319,18 +1370,19 @@ export class SuspiciousSites extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="14" className="text-center text-muted py-4">
+                                                        <td colSpan="15" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(site => (
-                                                        <tr 
+                                                        <tr
                                                             key={site.id}
                                                             style={{ cursor: 'pointer' }}
                                                             onClick={() => this.displayAlerts(site)}
                                                             title="Click to view alerts for this domain"
                                                         >
+                                                            {canManage && <td>{renderSelectRow(site)}</td>}
                                                             <td>
                                                                 <div>
                                                                     <strong>{site.domain_name}</strong>
@@ -1493,6 +1545,14 @@ export class SuspiciousSites extends Component {
                     site={this.state.selectedSiteForAlerts}
                 />
 
+                <BulkSiteExportModal
+                    show={!!this.state.bulkExport}
+                    mode={this.state.bulkExport ? this.state.bulkExport.mode : undefined}
+                    ids={this.state.bulkExport ? this.state.bulkExport.ids : []}
+                    onDone={this.state.bulkExport ? this.state.bulkExport.done : undefined}
+                    onClose={() => this.setState({ bulkExport: null })}
+                />
+
                 <TimelineModal
                     show={showTimelineModal}
                     onHide={() => this.setState({ showTimelineModal: false, timelineId: null, timelineLabel: '' })}
@@ -1515,6 +1575,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getSites,
     deleteSite,
     addSite,

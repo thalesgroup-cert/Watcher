@@ -21,6 +21,7 @@ import CyberWatchDashboard from './CyberWatch/Dashboard';
 import ConnectorsDashboard from './Connectors/Dashboard';
 import NotFound from './common/NotFound';
 import AlertTemplate from "./common/AlertTemplate";
+import BulkResultModal from "./common/BulkResultModal";
 
 import PrivateRoute from "./common/PrivateRoute";
 import Profile from "./accounts/Profile";
@@ -116,6 +117,7 @@ class App extends Component {
                             <Fragment>
                                 <Header/>
                                 <Alerts/>
+                                <BulkResultModal/>
                                 <div className="container-fluid">
                                     <Switch>
                                         <Route exact path="/" component={Dashboard}/>

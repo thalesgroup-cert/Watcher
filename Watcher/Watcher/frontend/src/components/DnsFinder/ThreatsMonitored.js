@@ -11,6 +11,7 @@ import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import ExportModal from '../common/ExportModal';
 import { TimelineModal } from '../Timeline/TimelineModal';
+import { DNS_ALERT_BULK } from '../../actions/DnsFinder';
 
 const SOURCE_BADGES = {
     dnstwist: { label: 'Dnstwist Algorithm', className: 'bg-primary' },
@@ -443,6 +444,8 @@ export class ThreatsMonitored extends Component {
     render() {
         const { globalFilters, filteredData, threatsMonitored } = this.props;
         const dataToUse = filteredData ?? threatsMonitored;
+        const { isAuthenticated, user } = this.props.auth || {};
+        const canManage = isAuthenticated && !!user && (user.is_superuser || user.is_staff || (Array.isArray(user.permissions) && user.permissions.includes('dns_finder.change_alert')));
         const {
             showTimelineModal, timelineId, timelineContentType,
             timelineId2, timelineContentType2, timelineLabel
@@ -480,19 +483,32 @@ export class ThreatsMonitored extends Component {
                     defaultSort="created_at"
                     globalFilters={globalFilters}
                     moduleKey="dnsFinder_threats"
+                    bulkActions={canManage ? {
+                        target: DNS_ALERT_BULK,
+                        label: 'DNS threats',
+                        canDelete: false,
+                        updateFields: [{
+                            field: 'status',
+                            label: 'Status',
+                            type: 'select',
+                            options: Object.entries(STATUS_BADGES).map(([value, { label }]) => ({ value, label }))
+                        }]
+                    } : undefined}
                 >
                     {({
                         paginatedData, renderItemsInfo, renderPagination, handleSort, renderSortIcons,
-                        getTableContainerStyle, theadRef
+                        getTableContainerStyle, theadRef, renderSelectAll, renderSelectRow, renderBulkBar
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
+                            {renderBulkBar()}
                             <div className="row">
                                 <div className="col-lg-12">
                                     <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer', maxWidth: 260 }} onClick={() => handleSort('domain_name')}>
                                                         Domain Name{renderSortIcons('domain_name')}
                                                     </th>
@@ -514,10 +530,11 @@ export class ThreatsMonitored extends Component {
                                             </thead>
                                             <tbody>
                                                 {this.state.isLoading ? renderLoadingState() : paginatedData.length === 0 ? (
-                                                    <tr><td colSpan="7" className="text-center text-muted py-4">No results found</td></tr>
+                                                    <tr><td colSpan="8" className="text-center text-muted py-4">No results found</td></tr>
                                                 ) : (
                                                     paginatedData.map(item => (
                                                         <tr key={`${item.source}-${item.id}`}>
+                                                            {canManage && <td>{renderSelectRow(item)}</td>}
                                                             <td style={{ maxWidth: 260 }}>
                                                                 <div style={{ wordBreak: 'break-word' }}>
                                                                     <strong>

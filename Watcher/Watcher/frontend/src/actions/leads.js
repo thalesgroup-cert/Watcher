@@ -202,3 +202,17 @@ export const patchBannedWord = (id, data) => (dispatch, getState) => {
             dispatch(returnErrors(err.response?.data, err.response?.status))
         );
 };
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+export const BANNED_WORD_BULK = {
+    endpoint: "/api/threats_watcher/bannedword/",
+    removedType: DELETE_BANNED_WORD,
+    refresh: [getBannedWords, getThreatsWatcherStatistics],
+};
+
+export const MONITORED_KEYWORD_BULK = {
+    endpoint: "/api/threats_watcher/monitored-keywords/",
+    removedType: DELETE_MONITORED_KEYWORD,
+    refresh: [getMonitoredKeywords, getThreatsWatcherStatistics],
+};

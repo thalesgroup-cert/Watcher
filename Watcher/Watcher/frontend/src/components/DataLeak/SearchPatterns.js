@@ -3,6 +3,9 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 import {getKeyWords, deleteKeyWord, addKeyWord, patchKeyWord} from "../../actions/DataLeak";
 import {Button, Modal, Container, Row, Col, Form, Badge, Alert, Accordion, Card} from 'react-bootstrap';
+import BulkTextField from "../common/BulkTextField";
+import {bulkCreate} from "../../actions/Bulk";
+import { DATALEAK_KEYWORD_BULK } from '../../actions/DataLeak';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
@@ -82,6 +85,7 @@ export class KeyWords extends Component {
         getKeyWords: PropTypes.func.isRequired,
         deleteKeyWord: PropTypes.func.isRequired,
         addKeyWord: PropTypes.func.isRequired,
+        bulkCreate: PropTypes.func.isRequired,
         patchKeyWord: PropTypes.func.isRequired,
         auth: PropTypes.object.isRequired,
         globalFilters: PropTypes.object
@@ -97,8 +101,17 @@ export class KeyWords extends Component {
         }
     }
 
+    // In "One item per line" mode every line is validated by the backend, not as a single regex.
+    handleBulkModeChange = (bulk) => {
+        if (bulk) {
+            this.setState({ regexValid: null, regexError: "", testMatches: [] });
+        } else {
+            this.validateRegex(this.inputRef.current?.value || "", this.isRegexRef.current?.checked || false);
+        }
+    };
+
     validateRegex = (pattern, isRegexEnabled) => {
-        if (!pattern || pattern.trim() === '' || !isRegexEnabled) {
+        if (!pattern || pattern.trim() === '' || !isRegexEnabled || this.inputRef.current?.isBulk?.()) {
             this.setState({ 
                 regexValid: null, 
                 regexError: "",
@@ -441,11 +454,27 @@ export class KeyWords extends Component {
             e.preventDefault();
             const name = this.inputRef.current.value;
             const is_regex = this.isRegexRef.current.checked;
-            
+
+            if (this.inputRef.current.isBulk()) {
+                const dryRun = this.inputRef.current.consumePreview();
+                this.props.bulkCreate({
+                    target: DATALEAK_KEYWORD_BULK,
+                    values: name,
+                    shared: { is_regex },
+                    dryRun,
+                    label: 'Add search patterns'
+                });
+                if (!dryRun) {
+                    this.setState({ word: "", is_regex: false });
+                    handleClose();
+                }
+                return;
+            }
+
             if (is_regex && !this.validateRegex(name, is_regex)) {
                 return;
             }
-            
+
             const keyword = { name, is_regex };
             this.props.addKeyWord(keyword);
             this.setState({ word: "", is_regex: false });
@@ -470,12 +499,11 @@ export class KeyWords extends Component {
                                     <strong>Pattern</strong>
                                     {is_regex && <Badge bg="info" className="ms-2">Regex Enabled</Badge>}
                                 </Form.Label>
-                                <Form.Control
-                                    required
+                                <BulkTextField
                                     ref={this.inputRef}
-                                    type="text"
                                     placeholder="leak, data leak, .*@company\.com"
                                     onChange={this.handlePatternChange}
+                                    onModeChange={this.handleBulkModeChange}
                                     isValid={is_regex && regexValid === true}
                                     isInvalid={is_regex && regexValid === false}
                                     style={{ fontFamily: 'monospace' }}
@@ -637,6 +665,10 @@ export class KeyWords extends Component {
                     defaultSort="created_at"
                     globalFilters={globalFilters}
                     moduleKey="dataLeak_keywords"
+                    bulkActions={canManage ? {
+                        target: DATALEAK_KEYWORD_BULK,
+                        label: 'search patterns'
+                    } : undefined}
                 >
                     {({
                         paginatedData,
@@ -645,10 +677,14 @@ export class KeyWords extends Component {
                         handleSort,
                         renderSortIcons,
                         getTableContainerStyle,
-                        theadRef
+                        theadRef,
+                        renderSelectAll,
+                        renderSelectRow,
+                        renderBulkBar
                     }) => (
                         <Fragment>
                             {renderItemsInfo()}
+                            {renderBulkBar()}
 
                             <div className="row">
                                 <div className="col-lg-12">
@@ -656,6 +692,7 @@ export class KeyWords extends Component {
                                         <table className="table table-striped table-hover">
                                             <thead ref={theadRef}>
                                                 <tr>
+                                                    {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                                     <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                                                         Name{renderSortIcons('name')}
                                                     </th>
@@ -674,13 +711,14 @@ export class KeyWords extends Component {
                                                     this.renderLoadingState()
                                                 ) : paginatedData.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="5" className="text-center text-muted py-4">
+                                                        <td colSpan="6" className="text-center text-muted py-4">
                                                             No results found
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     paginatedData.map(keyword => (
                                                         <tr key={keyword.id}>
+                                                            {canManage && <td>{renderSelectRow(keyword)}</td>}
                                                             <td><h5>{keyword.name}</h5></td>
                                                             <td>
                                                                 {keyword.is_regex ? (
@@ -758,4 +796,4 @@ const mapStateToProps = state => ({
     auth: state.auth
 });
 
-export default connect(mapStateToProps, {getKeyWords, deleteKeyWord, addKeyWord, patchKeyWord})(KeyWords);
+export default connect(mapStateToProps, {bulkCreate, getKeyWords, deleteKeyWord, addKeyWord, patchKeyWord})(KeyWords);

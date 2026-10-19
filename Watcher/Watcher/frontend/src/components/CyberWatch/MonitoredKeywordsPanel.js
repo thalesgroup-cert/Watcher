@@ -8,6 +8,10 @@ import {
     patchMonitoredKeyword
 } from '../../actions/leads';
 import { Button, Modal, Form } from 'react-bootstrap';
+import BulkTextField from '../common/BulkTextField';
+import LevelSelector from '../common/LevelSelector';
+import { bulkCreate } from '../../actions/Bulk';
+import { MONITORED_KEYWORD_BULK } from '../../actions/leads';
 import TableManager from '../common/TableManager';
 import DateWithTooltip from '../common/DateWithTooltip';
 import { TimelineModal, LastEventCell, LastEventHeader } from '../Timeline/TimelineModal';
@@ -48,6 +52,7 @@ function parsePostUrls(posturls = []) {
 class MonitoredKeywordsPanel extends Component {
     constructor(props) {
         super(props);
+        this.addRef = React.createRef();
         this.state = {
             showAddModal:      false,
             addName:           '',
@@ -73,6 +78,7 @@ class MonitoredKeywordsPanel extends Component {
         monitoredKeywords:      PropTypes.array.isRequired,
         getMonitoredKeywords:   PropTypes.func.isRequired,
         addMonitoredKeyword:    PropTypes.func.isRequired,
+        bulkCreate:             PropTypes.func.isRequired,
         deleteMonitoredKeyword: PropTypes.func.isRequired,
         patchMonitoredKeyword:  PropTypes.func.isRequired,
         auth:                   PropTypes.object.isRequired,
@@ -91,7 +97,19 @@ class MonitoredKeywordsPanel extends Component {
         e.preventDefault();
         const name = this.state.addName.trim();
         if (!name) return;
-        this.props.addMonitoredKeyword({ name, level: this.state.addLevel });
+        if (this.addRef.current && this.addRef.current.isBulk()) {
+            const dryRun = this.addRef.current.consumePreview();
+            this.props.bulkCreate({
+                target: MONITORED_KEYWORD_BULK,
+                values: name,
+                shared: { level: this.state.addLevel },
+                dryRun,
+                label: 'Add monitored keywords'
+            });
+            if (dryRun) return;
+        } else {
+            this.props.addMonitoredKeyword({ name, level: this.state.addLevel });
+        }
         this.setState({ addName: '', addLevel: 'warm', showAddModal: false });
     };
 
@@ -213,17 +231,30 @@ class MonitoredKeywordsPanel extends Component {
                     defaultSort="occurrences"
                     customFilters={this.customFilters}
                     moduleKey="cyberWatch_monitoredKeywords"
+                    bulkActions={canManage ? {
+                        target: MONITORED_KEYWORD_BULK,
+                        label: 'monitored keywords',
+                        updateFields: [{
+                            field: 'level',
+                            label: 'Alert level',
+                            initial: 'warm',
+                            render: ({ value, onChange }) => <LevelSelector value={value} onChange={onChange} />
+                        }]
+                    } : undefined}
                 >
                     {({ paginatedData, handleSort, renderSortIcons, renderFilters, renderPagination,
-                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef }) => (
+                        renderItemsInfo, renderFilterControls, renderSaveModal, getTableContainerStyle, theadRef,
+                        renderSelectAll, renderSelectRow, renderBulkBar }) => (
                         <Fragment>
                             {renderFilterControls()}
                             {renderFilters()}
                             {renderItemsInfo()}
+                            {renderBulkBar()}
                             <div style={{ ...getTableContainerStyle(), overflowX: 'auto' }}>
                                 <table className="table table-striped table-hover mb-0">
                                     <thead ref={theadRef}>
                                         <tr>
+                                            {canManage && <th style={{ width: 32 }}>{renderSelectAll()}</th>}
                                             <th role="button" onClick={() => handleSort('name')}>Keyword {renderSortIcons('name')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('level')}>Level {renderSortIcons('level')}</th>
                                             <th className="text-center" role="button" onClick={() => handleSort('occurrences')}>Occurrences {renderSortIcons('occurrences')}</th>
@@ -234,9 +265,10 @@ class MonitoredKeywordsPanel extends Component {
                                     </thead>
                                     <tbody>
                                         {paginatedData.length === 0 ? (
-                                            <tr><td colSpan={canManage ? 6 : 5} className="text-center text-muted py-4">No results found</td></tr>
+                                            <tr><td colSpan={canManage ? 7 : 5} className="text-center text-muted py-4">No results found</td></tr>
                                         ) : paginatedData.map(mk => (
                                             <tr key={mk.id} style={{ cursor: 'pointer' }} onClick={() => this.openSourcesModal(mk)} title="Click to see detected sources">
+                                                {canManage && <td className="align-middle">{renderSelectRow(mk)}</td>}
                                                 <td className="align-middle fw-semibold">{mk.name}</td>
                                                 <td className="text-center align-middle">{this.renderLevelFlames(mk.level)}</td>
                                                 <td className="text-center align-middle"><span className="badge bg-secondary">{mk.occurrences}</span></td>
@@ -276,12 +308,10 @@ class MonitoredKeywordsPanel extends Component {
                         <form id="panel-add-mk-form" onSubmit={this.handleAdd}>
                             <Form.Group className="mb-3">
                                 <Form.Label><strong>Keyword</strong></Form.Label>
-                                <Form.Control
-                                    type="text"
+                                <BulkTextField
+                                    ref={this.addRef}
                                     placeholder='company, company.com...'
-                                    value={addName}
                                     onChange={e => this.setState({ addName: e.target.value })}
-                                    autoFocus required
                                 />
                             </Form.Group>
                             {this.renderLevelSelector(addLevel, v => this.setState({ addLevel: v }))}
@@ -420,6 +450,7 @@ const mapStateToProps = state => ({
 });
 
 export default connect(mapStateToProps, {
+    bulkCreate,
     getMonitoredKeywords,
     addMonitoredKeyword,
     deleteMonitoredKeyword,

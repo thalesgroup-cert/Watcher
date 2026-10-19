@@ -1904,3 +1904,86 @@ class CertStreamProxyRoutingTest(SimpleTestCase):
         self._client("wss://certstream.calidog.io")
 
         self.assertEqual(get_proxy_info("certstream.calidog.io", True), ("proxy.corp.example", 3128, None))
+
+
+class DnsBulkCreateTest(APITestCase):
+    """Bulk create on /api/dns_finder/ (common.bulk.BulkCreateMixin)."""
+
+    DNS_URL = '/api/dns_finder/dns_monitored/bulk_create/'
+    KEYWORD_URL = '/api/dns_finder/keyword_monitored/bulk_create/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='dns_bulk_admin', password='testpass123')
+        self._login(self.admin)
+
+    def _login(self, user):
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _post(self, url, values, shared=None):
+        return self.client.post(url, {'values': values, 'shared': shared or {}}, format='json')
+
+    def test_mixed_batch_reports_each_item_without_blocking_the_others(self):
+        DnsMonitored.objects.create(domain_name='exists.com')
+        response = self._post(self.DNS_URL, 'good.com\nexists.com\nnotadomain\nGOOD.com')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        # "GOOD.com" is normalized to "good.com", so it is the batch duplicate of the first line
+        self.assertEqual(
+            [(r['value'], r['status']) for r in response.data['results']],
+            [('good.com', 'created'), ('exists.com', 'skipped'), ('notadomain', 'error'), ('good.com', 'skipped')],
+        )
+        reasons = {r['reason'] for r in response.data['results']}
+        self.assertIn('Already exists', reasons)
+        self.assertIn('Duplicate in batch', reasons)
+        self.assertEqual((response.data['created'], response.data['skipped'], response.data['errors']), (1, 2, 1))
+        self.assertTrue(DnsMonitored.objects.filter(domain_name='good.com').exists())
+
+    def test_single_create_applies_the_same_normalization(self):
+        with patch('threading.Thread'):
+            response = self.client.post('/api/dns_finder/dns_monitored/',
+                                        {'domain_name': 'dns-single[.]com.'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['domain_name'], 'dns-single.com')
+
+    def test_keyword_batch_creates_every_line(self):
+        response = self._post(self.KEYWORD_URL, 'Altair Dynamics\naltair')
+        self.assertEqual(response.data['created'], 2, response.data)
+        self.assertEqual(KeywordMonitored.objects.count(), 2)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.credentials()
+        for url in (self.DNS_URL, self.KEYWORD_URL):
+            with self.subTest(url=url):
+                self.assertIn(self._post(url, 'x.com').status_code,
+                              (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    def test_user_without_add_permission_is_rejected_like_a_single_create(self):
+        self._login(User.objects.create_user(username='dns_reader', password='testpass123'))
+        for url in (self.DNS_URL, self.KEYWORD_URL):
+            with self.subTest(url=url):
+                self.assertEqual(self._post(url, 'x.com').status_code, status.HTTP_403_FORBIDDEN)
+
+
+class DnsBulkActionTest(APITestCase):
+    """Bulk delete on /api/dns_finder/ (common.bulk.BulkActionMixin)."""
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='dns_action_admin', password='testpass123')
+        _, token = AuthToken.objects.create(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_bulk_delete_dns_monitored(self):
+        a = DnsMonitored.objects.create(domain_name='del-a.com')
+        b = DnsMonitored.objects.create(domain_name='del-b.com')
+        response = self.client.post('/api/dns_finder/dns_monitored/bulk_delete/',
+                                    {'ids': [a.pk, b.pk, 999999]}, format='json')
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1), response.data)
+        self.assertEqual(DnsMonitored.objects.count(), 0)
+
+    def test_bulk_delete_needs_the_delete_permission(self):
+        a = DnsMonitored.objects.create(domain_name='perm.com')
+        _, token = AuthToken.objects.create(User.objects.create_user(username='dns_nodel', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        response = self.client.post('/api/dns_finder/dns_monitored/bulk_delete/', {'ids': [a.pk]}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(DnsMonitored.objects.filter(pk=a.pk).exists())

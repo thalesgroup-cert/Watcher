@@ -572,3 +572,157 @@ class DocumentedModulesImportTest(SimpleTestCase):
                 module = types.ModuleType(relative_path)
                 module.__package__ = relative_path.split("/")[0]
                 exec(compile(source, path, "exec"), module.__dict__)
+
+
+class NormalizeDomainTest(SimpleTestCase):
+    """common.bulk.normalize_domain: what a pasted domain is turned into."""
+
+    def test_scheme_path_port_case_and_trailing_dot_are_removed(self):
+        from common.bulk import normalize_domain
+        self.assertEqual(normalize_domain('  HTTPS://Example.COM:8443/login?x=1#top  '), 'example.com')
+        self.assertEqual(normalize_domain('other.org.'), 'other.org')
+
+    def test_defanged_domains_are_restored(self):
+        from common.bulk import normalize_domain
+        self.assertEqual(normalize_domain('hxxps://evil[.]example[.]com/login'), 'evil.example.com')
+        self.assertEqual(normalize_domain('foo(.)org'), 'foo.org')
+        self.assertEqual(normalize_domain('bar{.}net'), 'bar.net')
+        self.assertEqual(normalize_domain('HXXP[://]baz[.]io'), 'baz.io')
+
+
+class BulkCreateTest(APITestCase):
+    """POST /api/common/legitimate_domains/bulk_create/ ("One item per line" forms), provided by common.bulk.BulkCreateMixin."""
+
+    URL = '/api/common/legitimate_domains/bulk_create/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='bulk_admin', password='testpass123')
+        self._login(self.admin)
+
+    def _login(self, user):
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _post(self, values, shared=None):
+        return self.client.post(self.URL, {'values': values, 'shared': shared or {}}, format='json')
+
+    @staticmethod
+    def _statuses(response):
+        return {r['value']: r['status'] for r in response.data['results']}
+
+    def test_valid_batch_applies_shared_fields_to_every_item(self):
+        response = self._post('one.com\ntwo.com\nthree.com',
+                              {'ticket_id': 'T-1', 'contact': 'soc@example.com', 'comments': 'bulk'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['total'], response.data['created']), (3, 3))
+        domains = LegitimateDomain.objects.filter(domain_name__in=['one.com', 'two.com', 'three.com'])
+        self.assertEqual(domains.count(), 3)
+        for domain in domains:
+            self.assertEqual((domain.ticket_id, domain.contact, domain.comments), ('T-1', 'soc@example.com', 'bulk'))
+        self.assertTrue(all(r['id'] for r in response.data['results']))
+
+    def test_mixed_batch_reports_each_item_without_blocking_the_others(self):
+        LegitimateDomain.objects.create(domain_name='exists.com')
+        response = self._post('good.com\nexists.com\nfoo\nGOOD.com')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        # "GOOD.com" is normalized to "good.com", so it is the batch duplicate of the first line
+        self.assertEqual(
+            [(r['value'], r['status']) for r in response.data['results']],
+            [('good.com', 'created'), ('exists.com', 'skipped'), ('foo', 'error'), ('good.com', 'skipped')],
+        )
+        reasons = {r['reason'] for r in response.data['results']}
+        self.assertIn('Already exists', reasons)
+        self.assertIn('Duplicate in batch', reasons)
+        self.assertEqual((response.data['created'], response.data['skipped'], response.data['errors']), (1, 2, 1))
+        self.assertTrue(LegitimateDomain.objects.filter(domain_name='good.com').exists())
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='foo').exists())
+
+    def test_lines_are_trimmed_empty_lines_ignored_and_domains_normalized(self):
+        response = self._post('  HTTPS://Example.COM/login?x=1  \n\n   \r\nother.org.\n')
+        self.assertEqual(response.data['total'], 2)
+        self.assertEqual(self._statuses(response), {'example.com': 'created', 'other.org': 'created'})
+
+    def test_defanged_domains_are_restored(self):
+        response = self._post('hxxps://evil[.]example[.]com/login\nfoo(.)org')
+        self.assertEqual(self._statuses(response), {'evil.example.com': 'created', 'foo.org': 'created'})
+
+    def test_single_create_applies_the_same_normalization(self):
+        response = self.client.post('/api/common/legitimate_domains/',
+                                    {'domain_name': 'hxxps://Single[.]Example[.]com/x'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['domain_name'], 'single.example.com')
+
+    def test_dry_run_reports_without_writing_anything(self):
+        LegitimateDomain.objects.create(domain_name='old.com')
+        response = self.client.post(self.URL, {'values': 'new.com\nold.com\nfoo', 'dry_run': True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data['dry_run'])
+        self.assertEqual(self._statuses(response), {'new.com': 'created', 'old.com': 'skipped', 'foo': 'error'})
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='new.com').exists())
+
+    def test_accepts_a_list_of_values(self):
+        self.assertEqual(self._post(['list-a.com', 'list-b.com']).data['created'], 2)
+
+    def test_limit_exceeded_is_rejected_and_creates_nothing(self):
+        with self.settings(BULK_CREATE_MAX_ITEMS=3):
+            response = self._post('a.com\nb.com\nc.com\nd.com')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='a.com').exists())
+
+    def test_empty_input_is_rejected(self):
+        self.assertEqual(self._post(' \n \n').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(self.URL, {'shared': {}}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.credentials()
+        self.assertIn(self._post('x.com').status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    def test_any_authenticated_user_can_bulk_create_like_a_single_create(self):
+        self._login(User.objects.create_user(username='bulk_reader', password='testpass123'))
+        self.assertEqual(self._post('reader.com').data['created'], 1)
+
+
+class BulkActionTest(APITestCase):
+    """POST /api/common/legitimate_domains/bulk_update/ and bulk_delete/ (common.bulk.BulkActionMixin)."""
+
+    URL = '/api/common/legitimate_domains/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='action_admin', password='testpass123')
+        _, token = AuthToken.objects.create(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_bulk_delete_removes_every_selected_row_and_reports_missing_ids(self):
+        a = LegitimateDomain.objects.create(domain_name='del-a.com')
+        b = LegitimateDomain.objects.create(domain_name='del-b.com')
+        response = self.client.post(self.URL + 'bulk_delete/', {'ids': [a.pk, b.pk, 999999]}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1))
+        self.assertFalse(LegitimateDomain.objects.filter(pk__in=[a.pk, b.pk]).exists())
+
+    def test_only_authentication_is_required_like_a_single_delete(self):
+        domain = LegitimateDomain.objects.create(domain_name='plain-user.com')
+        _, token = AuthToken.objects.create(User.objects.create_user(username='plain', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        response = self.client.post(self.URL + 'bulk_delete/', {'ids': [domain.pk]}, format='json')
+        self.assertEqual(response.data['succeeded'], 1, response.data)
+
+    def test_no_field_can_be_changed_in_bulk(self):
+        domain = LegitimateDomain.objects.create(domain_name='keep.com')
+        response = self.client.post(self.URL + 'bulk_update/',
+                                    {'ids': [domain.pk], 'changes': {'domain_name': 'other.com'}}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        domain.refresh_from_db()
+        self.assertEqual(domain.domain_name, 'keep.com')
+
+    def test_invalid_ids_and_limit(self):
+        url = self.URL + 'bulk_delete/'
+        self.assertEqual(self.client.post(url, {'ids': []}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(url, {'ids': ['x']}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+        with self.settings(BULK_ACTION_MAX_ITEMS=2):
+            self.assertEqual(self.client.post(url, {'ids': [1, 2, 3]}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthenticated_requests_are_rejected(self):
+        self.client.credentials()
+        response = self.client.post(self.URL + 'bulk_delete/', {'ids': [1]}, format='json')
+        self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))

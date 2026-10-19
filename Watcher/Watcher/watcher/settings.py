@@ -116,6 +116,11 @@ GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
 WATCHER_HELP_BUTTON_LABEL = os.environ.get('WATCHER_HELP_BUTTON_LABEL', 'API Docs')
 WATCHER_HELP_BUTTON_URL   = os.environ.get('WATCHER_HELP_BUTTON_URL',   '/api/docs/')
 
+# Maximum number of lines accepted by a single bulk-create request ("One item per line" forms)
+BULK_CREATE_MAX_ITEMS = int(os.environ.get('BULK_CREATE_MAX_ITEMS', 200))
+# Maximum number of selected rows accepted by a bulk update / delete / export request
+BULK_ACTION_MAX_ITEMS = int(os.environ.get('BULK_ACTION_MAX_ITEMS', 200))
+
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')

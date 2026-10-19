@@ -65,6 +65,8 @@ Extend Watcher's capabilities with powerful integrations and management tools:
 - **TheHive Full Synchronization** - Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/README.html#thehive-export)
 - **MISP Integration** - Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
 - **SSO / OpenID Connect** - Federated login via any OIDC provider (Keycloak, Azure AD, etc.) with PKCE and Knox token issuance. Configurable per-instance via `.env`
+- **Bulk Add ("One item per line")** - The add forms for legitimate domains, suspicious domains, corporate DNS/keywords, search patterns, banned words, and monitored keywords accept many values at once: enable the *One item per line* toggle, paste one value per line, and every other field is applied to all of them. A *Preview* button shows what would happen without saving anything. Domains are normalised (lowercase, scheme/path/port removed, defanged `hxxps://example[.]com` restored); existing or invalid values never block the batch, and a per-item summary (created / skipped / error) is shown afterwards.
+- **Bulk Actions on existing rows** - Tick rows in any table (domains, keywords, alerts...) to change several fields on all of them at once, delete them, or, for suspicious domains, export them to Legitimate Domains (the exported sites are removed from Website Monitoring) or to MISP (one event per site). Every item goes through the same validation and permissions as a single edit, and lists and statistics refresh without reloading the page. Limits are set with `BULK_CREATE_MAX_ITEMS` and `BULK_ACTION_MAX_ITEMS` (default `200` each). API: `POST <endpoint>/bulk_create/`, `bulk_update/` and `bulk_delete/`.
 - **Flexible Authentication** - Support for LDAP, local, and SSO/OIDC authentication systems
 - **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, and more) from one place, with encrypted credential storage and per-connector health checks.
 - **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions
@@ -94,6 +96,15 @@ Watcher leverages open source tools and libraries:
 
 ## App Preview
 
+All the screenshots below use fictional data (a made-up company, "Altair Dynamics").
+
+### Overview
+<p align="center">
+    <img alt="Watcher overview" src="/Watcher/static/watcher-overview.gif" width="90%">
+</p>
+
+A tour of the platform: the AI weekly report and breaking news, the threat dashboard, legitimate and suspicious domains, DNS threats, data leaks and Cyber Watch.
+
 ### Threat Detection
 <p align="center">
     <img alt="Threats Watcher" src="/Watcher/static/threats-watcher.gif" width="90%">
@@ -114,6 +125,8 @@ Watcher leverages open source tools and libraries:
     <img alt="Legitimate Domain" src="/Watcher/static/legitimate-domain.gif" width="90%">
 </p>
 
+Add several domains in one go with the *One item per line* toggle: defanged links are restored, a *Preview* shows the result before anything is saved, and the summary lists every domain as created, skipped or in error.
+
 ### Data Leak Detection
 <p align="center">
     <img alt="Data Leak Detection" src="/Watcher/static/data-leak-detection.gif" width="90%">
@@ -123,6 +136,36 @@ Watcher leverages open source tools and libraries:
 <p align="center">
     <img alt="Suspicious domain names monitoring" src="/Watcher/static/suspicious-domain-names-monitoring.gif" width="90%">
 </p>
+
+Select several domains and change legitimacy, takedown, legal and blocking flags together.
+
+### Bulk actions and exports
+<p align="center">
+    <img alt="Bulk actions" src="/Watcher/static/bulk-actions.gif" width="90%">
+</p>
+
+False positives can be exported to Legitimate Domains in bulk: the exported sites disappear from Website Monitoring and appear in the legitimate list, with no page refresh.
+
+### Cyber Watch
+<p align="center">
+    <img alt="Cyber Watch" src="/Watcher/static/cyber-watch.gif" width="90%">
+</p>
+
+Watch rules, monitored keywords and RSS sources, with the CVE and ransomware matches they produce.
+
+### History of every change
+<p align="center">
+    <img alt="Timeline history" src="/Watcher/static/timeline-history.gif" width="90%">
+</p>
+
+Every create, update and delete is recorded with its author, so you can see who changed what and when.
+
+### Customisable dashboards
+<p align="center">
+    <img alt="Dashboard layout" src="/Watcher/static/dashboard-layout.gif" width="90%">
+</p>
+
+Show, hide, move and resize panels: the layout is saved in your profile.
 
 ### Theme Previews
 

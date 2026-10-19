@@ -7,6 +7,7 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Prefetch
+from .bulk import BulkActionMixin, BulkCreateMixin, normalize_domain, validate_domain
 from .models import LegitimateDomain, PendingAction
 from .serializers import LegitimateDomainSerializer, PendingActionSerializer
 
@@ -21,10 +22,13 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 # LegitimateDomain Viewset
-class LegitimateDomainViewSet(viewsets.ModelViewSet):
+class LegitimateDomainViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
     """
     API endpoint for viewing and editing company legitimate domains.
     """
+    bulk_field = 'domain_name'
+    bulk_normalizer = staticmethod(normalize_domain)
+    bulk_validator = staticmethod(validate_domain)
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     serializer_class = LegitimateDomainSerializer
     pagination_class = StandardResultsSetPagination

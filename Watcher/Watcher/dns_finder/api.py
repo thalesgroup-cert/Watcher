@@ -13,6 +13,7 @@ from datetime import timedelta
 from .serializers import AlertSerializer, DnsMonitoredSerializer, DnsTwistedSerializer, \
     MISPSerializer, KeywordMonitoredSerializer
 from .threats import get_unified_threats
+from common.bulk import BulkActionMixin, BulkCreateMixin, normalize_domain
 
 
 # Pagination
@@ -23,7 +24,9 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 # DnsMonitored Viewset
-class DnsMonitoredViewSet(viewsets.ModelViewSet):
+class DnsMonitoredViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
+    bulk_field = 'domain_name'
+    bulk_normalizer = staticmethod(normalize_domain)
     permission_classes = [
         permissions.DjangoModelPermissions
     ]
@@ -77,7 +80,8 @@ class DnsMonitoredViewSet(viewsets.ModelViewSet):
 
 
 # KeywordMonitored Viewset
-class KeywordMonitoredViewSet(viewsets.ModelViewSet):
+class KeywordMonitoredViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
+    bulk_field = 'name'
     permission_classes = [
         permissions.DjangoModelPermissions
     ]
@@ -111,7 +115,12 @@ class DnsTwistedViewSet(viewsets.ModelViewSet):
 
 
 # Alert Viewset
-class AlertViewSet(viewsets.ModelViewSet):
+class AlertViewSet(BulkActionMixin, viewsets.ModelViewSet):
+    bulk_update_fields = ('status',)
+
+    def bulk_label(self, obj):
+        return obj.dns_twisted.domain_name
+
     permission_classes = [
         permissions.DjangoModelPermissions
     ]    

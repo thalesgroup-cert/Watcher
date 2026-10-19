@@ -15,6 +15,7 @@ import {
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
 import {fetchAllPages} from "./paginationUtils";
+import {LEGITIMATE_DOMAIN_BULK} from "./LegitimateDomain";
 
 
 // GET SITES
@@ -208,4 +209,26 @@ export const getAllSiteAlerts = () => (dispatch, getState) => {
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
+};
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+// A new site is checked in the background (status, IP, mail...): reload its row while that happens
+const SITE_INIT_RELOADS_MS = [4000, 10000, 25000];
+
+export const SITE_BULK = {
+    endpoint: "/api/site_monitoring/site/",
+    removedType: DELETE_SITE,
+    refresh: [getSites, getAllSites, getAllSiteAlerts, getSiteStatistics],
+    // exporting to Legitimate Domains also changes that module
+    extraRefresh: {bulk_export_legitimate: LEGITIMATE_DOMAIN_BULK.refresh},
+    afterCreate: dispatch => SITE_INIT_RELOADS_MS.forEach(delay => setTimeout(() => {
+        dispatch(getSites());
+        dispatch(getSiteStatistics());
+    }, delay)),
+};
+
+export const SITE_ALERT_BULK = {
+    endpoint: "/api/site_monitoring/alert/",
+    refresh: [getAllSiteAlerts, getSiteStatistics],
 };
