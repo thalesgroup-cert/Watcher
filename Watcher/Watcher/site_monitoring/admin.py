@@ -65,7 +65,7 @@ class SiteResource(resources.ModelResource):
         model = Site
         exclude = (
         'misp_event_uuid', 'monitored', 'content_monitoring', 'content_fuzzy_hash', 'mail_monitoring',
-        'ip_monitoring')
+        'ip_monitoring', 'network_history')
 
 
 @admin.register(Site)

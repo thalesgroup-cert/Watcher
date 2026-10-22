@@ -8,6 +8,8 @@ from django.utils import timezone
 from django.db.models import Prefetch
 from datetime import timedelta
 from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword, WatcherConfiguration
+from common.bulk import BulkActionMixin, BulkCreateMixin
+from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword
 from .serializers import SourceSerializer, TrendyWordSerializer, BannedWordSerializer, SummarySerializer, MonitoredKeywordSerializer
 from .core import generate_trendy_word_summary
 
@@ -103,7 +105,8 @@ class TrendyWordViewSet(viewsets.ModelViewSet):
 
 
 # BannedWord Viewset
-class BannedWordViewSet(viewsets.ModelViewSet):
+class BannedWordViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
+    bulk_field = 'name'
     permission_classes = [permissions.DjangoModelPermissions]
     serializer_class = BannedWordSerializer
 
@@ -111,7 +114,9 @@ class BannedWordViewSet(viewsets.ModelViewSet):
         return BannedWord.objects.all().prefetch_related(_timeline_prefetch())
 
 
-class MonitoredKeywordViewSet(viewsets.ModelViewSet):
+class MonitoredKeywordViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
+    bulk_field = 'name'
+    bulk_update_fields = ('level',)
     permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
     serializer_class = MonitoredKeywordSerializer
 

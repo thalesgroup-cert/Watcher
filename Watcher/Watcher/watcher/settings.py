@@ -116,6 +116,11 @@ GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
 WATCHER_HELP_BUTTON_LABEL = os.environ.get('WATCHER_HELP_BUTTON_LABEL', 'API Docs')
 WATCHER_HELP_BUTTON_URL   = os.environ.get('WATCHER_HELP_BUTTON_URL',   '/api/docs/')
 
+# Maximum number of lines accepted by a single bulk-create request ("One item per line" forms)
+BULK_CREATE_MAX_ITEMS = int(os.environ.get('BULK_CREATE_MAX_ITEMS', 200))
+# Maximum number of selected rows accepted by a bulk update / delete / export request
+BULK_ACTION_MAX_ITEMS = int(os.environ.get('BULK_ACTION_MAX_ITEMS', 200))
+
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
@@ -341,10 +346,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'CONN_MAX_AGE': 3600,
-        'NAME': 'db_watcher',
+        'NAME': os.environ.get('DB_NAME', 'db_watcher'),
         'USER': os.environ.get('DB_USER', 'watcher'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
-        'HOST': 'db_watcher',
+        'HOST': os.environ.get('DB_HOST', 'db_watcher'),
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",

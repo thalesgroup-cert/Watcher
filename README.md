@@ -65,6 +65,7 @@ Extend Watcher's capabilities with powerful integrations and management tools:
 - **TheHive Full Synchronization** - Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/README.html#thehive-export)
 - **MISP Integration** - Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
 - **SSO / OpenID Connect** - Federated login via any OIDC provider (Keycloak, Azure AD, etc.) with PKCE and Knox token issuance. Configurable per-instance via `.env`
+- **Bulk Add & Bulk Actions** - Add many items at once with the *One item per line* toggle (with a no-write Preview and a per-item created / skipped / error summary), or tick rows in any table to edit, delete or export them (to Legitimate Domains or MISP) in one go
 - **Flexible Authentication** - Support for LDAP, local, and SSO/OIDC authentication systems
 - **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, and more) from one place, with encrypted credential storage and per-connector health checks.
 - **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions
@@ -94,6 +95,15 @@ Watcher leverages open source tools and libraries:
 
 ## App Preview
 
+All the screenshots below use fictional data (a made-up company, "Altair Dynamics").
+
+### Overview
+<p align="center">
+    <img alt="Watcher overview" src="/Watcher/static/watcher-overview.gif" width="90%">
+</p>
+
+A tour of the platform: the AI weekly report and breaking news, the threat dashboard, legitimate and suspicious domains, DNS threats, data leaks and Cyber Watch.
+
 ### Threat Detection
 <p align="center">
     <img alt="Threats Watcher" src="/Watcher/static/threats-watcher.gif" width="90%">
@@ -114,6 +124,8 @@ Watcher leverages open source tools and libraries:
     <img alt="Legitimate Domain" src="/Watcher/static/legitimate-domain.gif" width="90%">
 </p>
 
+Add several domains in one go with the *One item per line* toggle: defanged links are restored, a *Preview* shows the result before anything is saved, and the summary lists every domain as created, skipped or in error.
+
 ### Data Leak Detection
 <p align="center">
     <img alt="Data Leak Detection" src="/Watcher/static/data-leak-detection.gif" width="90%">
@@ -123,6 +135,36 @@ Watcher leverages open source tools and libraries:
 <p align="center">
     <img alt="Suspicious domain names monitoring" src="/Watcher/static/suspicious-domain-names-monitoring.gif" width="90%">
 </p>
+
+Select several domains and change legitimacy, takedown, legal and blocking flags together.
+
+### Bulk actions and exports
+<p align="center">
+    <img alt="Bulk actions" src="/Watcher/static/bulk-actions.gif" width="90%">
+</p>
+
+False positives can be exported to Legitimate Domains in bulk: the exported sites disappear from Website Monitoring and appear in the legitimate list, with no page refresh.
+
+### Cyber Watch
+<p align="center">
+    <img alt="Cyber Watch" src="/Watcher/static/cyber-watch.gif" width="90%">
+</p>
+
+Watch rules, monitored keywords and RSS sources, with the CVE and ransomware matches they produce.
+
+### History of every change
+<p align="center">
+    <img alt="Timeline history" src="/Watcher/static/timeline-history.gif" width="90%">
+</p>
+
+Every create, update and delete is recorded with its author, so you can see who changed what and when.
+
+### Customisable dashboards
+<p align="center">
+    <img alt="Dashboard layout" src="/Watcher/static/dashboard-layout.gif" width="90%">
+</p>
+
+Show, hide, move and resize panels: the layout is saved in your profile.
 
 ### Theme Previews
 
@@ -171,9 +213,47 @@ Get Watcher up and running in just **10 minutes** using Docker. **Detailed instr
 
 ## Platform Architecture
 
-<p align="center">
-    <img alt="Platform Architecture" src="/Watcher/static/Platform-architecture.png">
-</p>
+```mermaid
+flowchart LR
+    subgraph SRC["External sources"]
+        RSS["RSS / CERT advisories"]
+        CVE["CVE & ransomware feeds"]
+        CT["Certificate Transparency"]
+        WEB["Paste sites & code registries"]
+        RSS ~~~ CVE ~~~ CT ~~~ WEB
+    end
+
+    subgraph HOST["Host server (Docker)"]
+        TRAEFIK["Traefik<br/>TLS reverse proxy"]
+        subgraph WATCHER["Watcher (Django)"]
+            UI["React UI / Django admin"]
+            API["Django REST API"]
+            JOBS["Scheduled jobs (APScheduler)<br/>Threats · CyberWatch · DNS Threats<br/>Data Leak · Website Monitoring"]
+            CONN["Connectors"]
+        end
+        CERTSTREAM["CertStream"]
+        SEARX["SearXNG"]
+        DB[("MySQL")]
+    end
+
+    subgraph OUT["Outputs"]
+        HIVE["TheHive"]
+        MISP["MISP"]
+        CHAT["Slack / Citadel"]
+        MAIL["Email (SMTP)"]
+    end
+
+    ANALYST(["Analyst"]) --> TRAEFIK --> UI
+    UI <--> API
+    API <--> DB
+    JOBS <--> DB
+    RSS & CVE --> JOBS
+    CT --> CERTSTREAM --> JOBS
+    WEB --> SEARX --> JOBS
+    JOBS --> CONN
+    API --> CONN
+    CONN --> HIVE & MISP & CHAT & MAIL
+```
 
 Watcher's modular architecture ensures scalability, reliability, and easy integration with your existing security stack.
 

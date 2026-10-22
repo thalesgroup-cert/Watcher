@@ -123,8 +123,8 @@ def get_dns_finder_group_template(dns_monitored, alerts_number):
                 <tr>
                     <!-- Header -->
                     <td class="header" colspan="2">
-                        <img src="{settings.WATCHER_LOGO}" alt="DNS Finder Logo">
-                        <h1>DNS Finder Group Alerts</h1>
+                        <img src="{settings.WATCHER_LOGO}" alt="DNS Threats Monitored Logo">
+                        <h1>DNS Threats Monitored Group Alerts</h1>
                     </td>
                 </tr>
                 <!-- Content -->

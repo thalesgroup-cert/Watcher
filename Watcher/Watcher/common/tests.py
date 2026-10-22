@@ -1,6 +1,8 @@
 import os
+import re
+import types
 from unittest.mock import patch, MagicMock
-from django.test import TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
@@ -106,6 +108,49 @@ class MISPIntegrationTest(TestCase):
         self.assertEqual(result, [])
 
 
+class TakeoverMispObjectTest(TestCase):
+    """Test the dedicated MISP object builder for subdomain-takeover findings."""
+
+    def test_create_takeover_objects_includes_expected_attributes(self):
+        from common.misp import create_takeover_objects
+        from dns_finder.models import DnsMonitored, DnsTwisted
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-test.com")
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.misp-takeover-test.com",
+            dns_monitored=dns_monitored,
+            cname_target="bucket.s3.amazonaws.com",
+            provider="Amazon S3",
+            http_status_code=404,
+        )
+
+        objects = create_takeover_objects(dangling)
+
+        self.assertEqual(len(objects), 1)
+        values = {(attr.type, attr.value) for attr in objects[0].attributes}
+        self.assertIn(('domain', 'old.misp-takeover-test.com'), values)
+        self.assertIn(('hostname', 'bucket.s3.amazonaws.com'), values)
+        self.assertIn(('text', 'Amazon S3'), values)
+
+    def test_create_takeover_objects_skips_existing_values(self):
+        from common.misp import create_takeover_objects
+        from dns_finder.models import DnsMonitored, DnsTwisted
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="misp-takeover-dedup.com")
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.misp-takeover-dedup.com", dns_monitored=dns_monitored,
+            provider="Amazon S3"
+        )
+
+        objects = create_takeover_objects(
+            dangling, existing_values={('domain', 'old.misp-takeover-dedup.com')}
+        )
+
+        values = {(attr.type, attr.value) for attr in objects[0].attributes}
+        self.assertNotIn(('domain', 'old.misp-takeover-dedup.com'), values)
+        self.assertIn(('text', 'Amazon S3'), values)
+
+
 class NotificationSystemTest(TestCase):
     """Test notification system components."""
     
@@ -131,6 +176,131 @@ class NotificationSystemTest(TestCase):
             print(f"Notification test failed: {e}")
         
         self.assertTrue(test_passed)
+
+    @patch('common.core.send_slack_message')
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_dangling_notifications(self, mock_email, mock_slack):
+        """Test that the dns_finder_dangling app_name dispatches without error."""
+        from common.core import send_app_specific_notifications
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dangling_notify_user", "dangling@test.com", "pass")
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-dangling.com")
+        dangling = DnsTwisted.objects.create(
+            domain_name="old.notify-dangling.com",
+            dns_monitored=dns_monitored,
+            provider='Amazon S3',
+            cname_target='mybucket.s3.amazonaws.com',
+        )
+        alert = Alert.objects.create(dns_twisted=dangling, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, trigger='certstream')
+
+        subscribers = Subscriber.objects.filter(id=subscriber.id)
+        context_data = {'alert': alert}
+
+        send_app_specific_notifications('dns_finder_dangling', context_data, subscribers)
+
+        self.assertTrue(mock_slack.called)
+        self.assertTrue(mock_email.called)
+
+    @patch('common.core.send_thehive_alert')
+    @patch('common.core.send_slack_message')
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_dangling_notifications_reflect_takeover_status(self, mock_email, mock_slack, mock_thehive):
+        """Every channel states whether the takeover is confirmed or only suspected,
+        and TheHive files a suspected one below a confirmed one."""
+        from common.core import send_app_specific_notifications, APP_CONFIG_THEHIVE
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dangling_status_user", "dangling_status@test.com", "pass")
+        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True, thehive=True)
+        subscribers = Subscriber.objects.filter(id=subscriber.id)
+        dns_monitored = DnsMonitored.objects.create(domain_name="status-dangling.com")
+
+        cases = [
+            (Alert.STATUS_SUSPECTED, 'Suspected', 1),
+            (Alert.STATUS_CONFIRMED, 'Confirmed', APP_CONFIG_THEHIVE['dns_finder_dangling']['severity']),
+        ]
+        for status, label, severity in cases:
+            with self.subTest(status=status):
+                mock_email.reset_mock()
+                mock_slack.reset_mock()
+                mock_thehive.reset_mock()
+                dangling = DnsTwisted.objects.create(
+                    domain_name=f"{status}.status-dangling.com", dns_monitored=dns_monitored,
+                )
+                alert = Alert.objects.create(
+                    dns_twisted=dangling, source=Alert.SOURCE_SUBDOMAIN_TAKEOVER, status=status,
+                )
+
+                send_app_specific_notifications('dns_finder_dangling', {'alert': alert}, subscribers)
+
+                self.assertIn(f"{label} Subdomain Takeover", mock_slack.call_args[0][0])
+                self.assertIn(f"({label})", mock_email.call_args[0][0])
+                self.assertIn(f"{label} -", mock_email.call_args[0][1])
+                thehive_kwargs = mock_thehive.call_args.kwargs
+                self.assertTrue(thehive_kwargs['title'].startswith(f"{label} Subdomain Takeover"))
+                self.assertEqual(thehive_kwargs['severity'], severity)
+
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_notifications_certstream_keyword_source_uses_real_template(self, mock_email):
+        """
+        Regression test for the source-branch bug: Alert.source is now written as
+        'certstream_keyword' (Alert.SOURCE_CERTSTREAM_KEYWORD), but common/core.py used to
+        branch on the old literal 'print_callback', so this path always fell through to the
+        generic "Alert with no specific model defined." fallback body instead of the real
+        DNS Threats Monitored cert-transparency HTML template. Exercises the real
+        send_dns_finder_notifications -> send_app_specific_notifications path (not a mock of
+        the dispatch itself), only mocking the outbound SMTP call.
+        """
+        from dns_finder.core import send_dns_finder_notifications
+        from dns_finder.models import DnsMonitored, KeywordMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("certstream_notify_user", "certstream_notify@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-certstream.com")
+        keyword = KeywordMonitored.objects.create(name="notify-keyword")
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="evil.notify-certstream.com",
+            dns_monitored=dns_monitored,
+            keyword_monitored=keyword,
+        )
+        alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_CERTSTREAM_KEYWORD)
+
+        send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_email.called)
+        email_body = mock_email.call_args[0][1]
+        self.assertNotEqual(email_body, "Alert with no specific model defined.")
+        self.assertIn("evil.notify-certstream.com", email_body)
+
+    @patch('common.core.send_email_notifications')
+    def test_dns_finder_notifications_dnstwist_source_uses_real_template(self, mock_email):
+        """
+        Same regression as above, for the 'dnstwist' (Alert.SOURCE_DNSTWIST) source value,
+        which common/core.py used to compare against the old literal 'check_dnstwist'.
+        """
+        from dns_finder.core import send_dns_finder_notifications
+        from dns_finder.models import DnsMonitored, DnsTwisted, Alert, Subscriber
+
+        user = User.objects.create_user("dnstwist_notify_user", "dnstwist_notify@test.com", "pass")
+        Subscriber.objects.create(user_rec=user, email=True)
+
+        dns_monitored = DnsMonitored.objects.create(domain_name="notify-dnstwist.com")
+        dns_twisted = DnsTwisted.objects.create(
+            domain_name="notify-dnstw1st.com",
+            dns_monitored=dns_monitored,
+        )
+        alert = Alert.objects.create(dns_twisted=dns_twisted, source=Alert.SOURCE_DNSTWIST)
+
+        send_dns_finder_notifications(alert)
+
+        self.assertTrue(mock_email.called)
+        email_body = mock_email.call_args[0][1]
+        self.assertNotEqual(email_body, "Alert with no specific model defined.")
+        self.assertIn("notify-dnstw1st.com", email_body)
 
 
 class SecurityTest(TestCase):
@@ -377,6 +547,51 @@ class PendingActionResolutionTest(APITestCase):
             event_exists,
             "Expected a ACTION_CANCELLED TimelineEvent with object_id=site.pk after rejection"
         )
+
+class BulkActionTest(APITestCase):
+    """POST /api/common/legitimate_domains/bulk_update/ and bulk_delete/ (common.bulk.BulkActionMixin)."""
+
+    URL = '/api/common/legitimate_domains/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='action_admin', password='testpass123')
+        _, token = AuthToken.objects.create(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_bulk_delete_removes_every_selected_row_and_reports_missing_ids(self):
+        a = LegitimateDomain.objects.create(domain_name='del-a.com')
+        b = LegitimateDomain.objects.create(domain_name='del-b.com')
+        response = self.client.post(self.URL + 'bulk_delete/', {'ids': [a.pk, b.pk, 999999]}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1))
+        self.assertFalse(LegitimateDomain.objects.filter(pk__in=[a.pk, b.pk]).exists())
+
+    def test_only_authentication_is_required_like_a_single_delete(self):
+        domain = LegitimateDomain.objects.create(domain_name='plain-user.com')
+        _, token = AuthToken.objects.create(User.objects.create_user(username='plain', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        response = self.client.post(self.URL + 'bulk_delete/', {'ids': [domain.pk]}, format='json')
+        self.assertEqual(response.data['succeeded'], 1, response.data)
+
+    def test_no_field_can_be_changed_in_bulk(self):
+        domain = LegitimateDomain.objects.create(domain_name='keep.com')
+        response = self.client.post(self.URL + 'bulk_update/',
+                                    {'ids': [domain.pk], 'changes': {'domain_name': 'other.com'}}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        domain.refresh_from_db()
+        self.assertEqual(domain.domain_name, 'keep.com')
+
+    def test_invalid_ids_and_limit(self):
+        url = self.URL + 'bulk_delete/'
+        self.assertEqual(self.client.post(url, {'ids': []}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(url, {'ids': ['x']}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+        with self.settings(BULK_ACTION_MAX_ITEMS=2):
+            self.assertEqual(self.client.post(url, {'ids': [1, 2, 3]}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthenticated_requests_are_rejected(self):
+        self.client.credentials()
+        response = self.client.post(self.URL + 'bulk_delete/', {'ids': [1]}, format='json')
+        self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
 
 CLUSTER_SUMMARY_HTML = (
@@ -694,3 +909,136 @@ class SendSlackMessageTest(TestCase):
         with self.assertLogs('watcher.common', level='WARNING'):
             self._send()
         mock_post.assert_not_called()
+class DocumentedModulesImportTest(SimpleTestCase):
+    """docs/build_the_docs.sh comments out the `from .models` / `from common` / `from connectors`
+    lines of the apps so that Sphinx can import their modules without Django's app registry:
+    module-level code must not use the names those lines bind (a signal registered at import time
+    on a model broke the documentation build with a NameError)."""
+
+    MODULES = (
+        "common/core.py", "common/misp.py", "cyber_watch/core.py", "data_leak/core.py",
+        "dns_finder/core.py", "site_monitoring/core.py", "threats_watcher/core.py",
+    )
+    COMMENTED_OUT = re.compile(r'^[ \t]*from (\.models|common|site_monitoring\.models|connectors)')
+
+    def test_documented_modules_import_without_their_models(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for relative_path in self.MODULES:
+            with self.subTest(module=relative_path):
+                path = os.path.join(base_dir, relative_path)
+                with open(path) as source_file:
+                    lines = source_file.read().splitlines(keepends=True)
+                source = "".join("#" + line if self.COMMENTED_OUT.match(line) else line for line in lines)
+                module = types.ModuleType(relative_path)
+                module.__package__ = relative_path.split("/")[0]
+                exec(compile(source, path, "exec"), module.__dict__)
+
+
+class NormalizeDomainTest(SimpleTestCase):
+    """common.bulk.normalize_domain: what a pasted domain is turned into."""
+
+    def test_scheme_path_port_case_and_trailing_dot_are_removed(self):
+        from common.bulk import normalize_domain
+        self.assertEqual(normalize_domain('  HTTPS://Example.COM:8443/login?x=1#top  '), 'example.com')
+        self.assertEqual(normalize_domain('other.org.'), 'other.org')
+
+    def test_defanged_domains_are_restored(self):
+        from common.bulk import normalize_domain
+        self.assertEqual(normalize_domain('hxxps://evil[.]example[.]com/login'), 'evil.example.com')
+        self.assertEqual(normalize_domain('foo(.)org'), 'foo.org')
+        self.assertEqual(normalize_domain('bar{.}net'), 'bar.net')
+        self.assertEqual(normalize_domain('HXXP[://]baz[.]io'), 'baz.io')
+
+
+class BulkCreateTest(APITestCase):
+    """POST /api/common/legitimate_domains/bulk_create/ ("One item per line" forms), provided by common.bulk.BulkCreateMixin."""
+
+    URL = '/api/common/legitimate_domains/bulk_create/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='bulk_admin', password='testpass123')
+        self._login(self.admin)
+
+    def _login(self, user):
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _post(self, values, shared=None):
+        return self.client.post(self.URL, {'values': values, 'shared': shared or {}}, format='json')
+
+    @staticmethod
+    def _statuses(response):
+        return {r['value']: r['status'] for r in response.data['results']}
+
+    def test_valid_batch_applies_shared_fields_to_every_item(self):
+        response = self._post('one.com\ntwo.com\nthree.com',
+                              {'ticket_id': 'T-1', 'contact': 'soc@example.com', 'comments': 'bulk'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['total'], response.data['created']), (3, 3))
+        domains = LegitimateDomain.objects.filter(domain_name__in=['one.com', 'two.com', 'three.com'])
+        self.assertEqual(domains.count(), 3)
+        for domain in domains:
+            self.assertEqual((domain.ticket_id, domain.contact, domain.comments), ('T-1', 'soc@example.com', 'bulk'))
+        self.assertTrue(all(r['id'] for r in response.data['results']))
+
+    def test_mixed_batch_reports_each_item_without_blocking_the_others(self):
+        LegitimateDomain.objects.create(domain_name='exists.com')
+        response = self._post('good.com\nexists.com\nfoo\nGOOD.com')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        # "GOOD.com" is normalized to "good.com", so it is the batch duplicate of the first line
+        self.assertEqual(
+            [(r['value'], r['status']) for r in response.data['results']],
+            [('good.com', 'created'), ('exists.com', 'skipped'), ('foo', 'error'), ('good.com', 'skipped')],
+        )
+        reasons = {r['reason'] for r in response.data['results']}
+        self.assertIn('Already exists', reasons)
+        self.assertIn('Duplicate in batch', reasons)
+        self.assertEqual((response.data['created'], response.data['skipped'], response.data['errors']), (1, 2, 1))
+        self.assertTrue(LegitimateDomain.objects.filter(domain_name='good.com').exists())
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='foo').exists())
+
+    def test_lines_are_trimmed_empty_lines_ignored_and_domains_normalized(self):
+        response = self._post('  HTTPS://Example.COM/login?x=1  \n\n   \r\nother.org.\n')
+        self.assertEqual(response.data['total'], 2)
+        self.assertEqual(self._statuses(response), {'example.com': 'created', 'other.org': 'created'})
+
+    def test_defanged_domains_are_restored(self):
+        response = self._post('hxxps://evil[.]example[.]com/login\nfoo(.)org')
+        self.assertEqual(self._statuses(response), {'evil.example.com': 'created', 'foo.org': 'created'})
+
+    def test_single_create_applies_the_same_normalization(self):
+        response = self.client.post('/api/common/legitimate_domains/',
+                                    {'domain_name': 'hxxps://Single[.]Example[.]com/x'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['domain_name'], 'single.example.com')
+
+    def test_dry_run_reports_without_writing_anything(self):
+        LegitimateDomain.objects.create(domain_name='old.com')
+        response = self.client.post(self.URL, {'values': 'new.com\nold.com\nfoo', 'dry_run': True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data['dry_run'])
+        self.assertEqual(self._statuses(response), {'new.com': 'created', 'old.com': 'skipped', 'foo': 'error'})
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='new.com').exists())
+
+    def test_accepts_a_list_of_values(self):
+        self.assertEqual(self._post(['list-a.com', 'list-b.com']).data['created'], 2)
+
+    def test_limit_exceeded_is_rejected_and_creates_nothing(self):
+        with self.settings(BULK_CREATE_MAX_ITEMS=3):
+            response = self._post('a.com\nb.com\nc.com\nd.com')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='a.com').exists())
+
+    def test_empty_input_is_rejected(self):
+        self.assertEqual(self._post(' \n \n').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(self.URL, {'shared': {}}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.credentials()
+        self.assertIn(self._post('x.com').status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    def test_any_authenticated_user_can_bulk_create_like_a_single_create(self):
+        self._login(User.objects.create_user(username='bulk_reader', password='testpass123'))
+        self.assertEqual(self._post('reader.com').data['created'], 1)
+
+

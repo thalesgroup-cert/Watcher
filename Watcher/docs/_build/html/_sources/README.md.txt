@@ -610,7 +610,7 @@ Below, you will find our 6 modules with their API functions:
 
 <details>
 
-<summary>DNS Finder</summary> <br>
+<summary>DNS Threats Monitored</summary> <br>
 
 `^api/dns_finder/dns_monitored/$`
 - **HTTP Method:** GET, POST, PATCH, DELETE
@@ -795,7 +795,7 @@ Watcher provides automatic integration with [TheHive](https://strangebee.com/the
 - **Threats Watcher**: Automatically exports trending cybersecurity threats and buzzwords.
 - **Data Leak**: Automatically creates alerts when data leaks are detected via keywords.
 - **Website Monitoring**: Automatically creates alerts in TheHive when site changes are detected.
-- **DNS Finder**: Automatically exports twisted DNS findings and certificate transparency alerts.
+- **DNS Threats Monitored**: Automatically exports twisted DNS findings and certificate transparency alerts.
 - **CyberWatch**: Automatically pushes CVE alerts and ransomware victim matches (rule hits) as tagged observables.
 
 ### TheHive Integration Features
@@ -831,7 +831,7 @@ You can export monitored domains to [MISP](https://www.misp-project.org/) from t
 - Add new domains to monitored list.
 - Click on the **cloud button** next to each domain.
 
-### From DNS Finder
+### From DNS Threats Monitored
 - Go to **/dns_finder** page.
 - View detected DNS alerts.
 - Click on the **cloud button** next to each DNS finding.
@@ -1080,7 +1080,7 @@ To update Watcher image please follow the instructions below:
     docker rmi ghcr.io/thalesgroup-cert/watcher:latest
     docker rmi mysql:8.0.40
     docker rmi searxng/searxng:latest
-    docker rmi 0rickyy0/certstream-server-go:latest
+    docker rmi 0rickyy0/certstream-server-go:v1.8.2
   ```
 - Pull the newer docker images:
 

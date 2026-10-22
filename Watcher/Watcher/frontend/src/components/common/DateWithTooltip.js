@@ -66,7 +66,7 @@ const DateWithTooltip = ({
         } else if (type === 'created') {
             prefix = 'Created';
         } else {
-            prefix = timeDiff.isPast ? '' : 'In';
+            prefix = timeDiff.isPast ? 'Ago' : 'In';
         }
 
         const parts = [

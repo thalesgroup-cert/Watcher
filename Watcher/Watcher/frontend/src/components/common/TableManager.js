@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { Form, Button, Modal, Container, Row, Col } from 'react-bootstrap';
 import preferencesService from '../../services/preferencesService';
+import BulkActionBar from './BulkActionBar';
 
 export const renderSortIcons = (field, sortBy, sortDirection) => {
     const active = sortBy === field;
@@ -106,7 +107,8 @@ class TableManager extends Component {
             // The user's chosen page size when not on auto-fit. `itemsPerPage` is always
             // exactly this value in manual mode - it is never auto-adjusted. Only the
             // scroll area (see getTableContainerStyle) adapts to the panel's live size.
-            manualItemsPerPage: savedAutofitEnabled ? null : savedItemsPerPage
+            manualItemsPerPage: savedAutofitEnabled ? null : savedItemsPerPage,
+            selectedIds: []
         };
         this.containerRef = React.createRef();
         this.theadRef = React.createRef();
@@ -118,14 +120,20 @@ class TableManager extends Component {
         this.mounted = true;
         
         const initialFilters = {};
+        let hasNonEmptyDefault = false;
         this.props.filterConfig.forEach(filter => {
-            initialFilters[filter.key] = '';
+            const value = filter.defaultValue !== undefined ? filter.defaultValue : '';
+            initialFilters[filter.key] = value;
+            if (value !== '') hasNonEmptyDefault = true;
         });
-        
+
         this.loadSavedFilters();
-        
+
         this.setState({ filters: initialFilters }, () => {
             this.applyFilters();
+            if (hasNonEmptyDefault && this.props.onFiltersChange) {
+                this.props.onFiltersChange(this.state.filters);
+            }
         });
 
         this._onPrefsReady = () => {
@@ -172,9 +180,13 @@ class TableManager extends Component {
     }
 
     componentDidUpdate(prevProps, prevState) {
-        if (prevProps.data !== this.props.data ||
-            JSON.stringify(prevProps.globalFilters) !== JSON.stringify(this.props.globalFilters)) {
+        const globalFiltersChanged = JSON.stringify(prevProps.globalFilters) !== JSON.stringify(this.props.globalFilters);
+        if (prevProps.data !== this.props.data || globalFiltersChanged) {
+            this.pruneSelection();
             this.applyFilters();
+            if (globalFiltersChanged) {
+                this.setState({ currentPage: 1 });
+            }
             requestAnimationFrame(() => {
                 const best = this._computeAdaptiveItemsPerPage();
                 this.applyAutofit(best);
@@ -189,6 +201,87 @@ class TableManager extends Component {
             }, 0);
         }
     }
+
+    // ----- Row selection for bulk actions (enabled by the `bulkActions` prop) -----
+
+    // Drop selected rows that no longer exist after the list was refreshed
+    pruneSelection = () => {
+        const { selectedIds } = this.state;
+        if (!selectedIds.length) return;
+        const existing = new Set((this.props.data || []).map(item => item.id));
+        const kept = selectedIds.filter(id => existing.has(id));
+        if (kept.length !== selectedIds.length) this.setState({ selectedIds: kept });
+    };
+
+    clearSelection = () => this.setState({ selectedIds: [] });
+
+    selectAllFiltered = () => this.setState({ selectedIds: (this.state.filteredData || []).map(item => item.id) });
+
+    toggleRow = item => this.setState(({ selectedIds }) => ({
+        selectedIds: selectedIds.includes(item.id) ? selectedIds.filter(id => id !== item.id) : [...selectedIds, item.id]
+    }));
+
+    toggleSelectPage = () => this.setState(({ selectedIds }) => {
+        const pageIds = this.getPaginatedData().map(item => item.id);
+        const allSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+        return {
+            selectedIds: allSelected
+                ? selectedIds.filter(id => !pageIds.includes(id))
+                : [...new Set([...selectedIds, ...pageIds])]
+        };
+    });
+
+    isPageFullySelected = () => {
+        const pageIds = this.getPaginatedData().map(item => item.id);
+        return pageIds.length > 0 && pageIds.every(id => this.state.selectedIds.includes(id));
+    };
+
+    // Header checkbox: selects / unselects the rows of the current page
+    renderSelectAll = () => {
+        if (!this.props.bulkActions) return null;
+        const pageIds = this.getPaginatedData().map(item => item.id);
+        const selectedOnPage = pageIds.filter(id => this.state.selectedIds.includes(id)).length;
+        return (
+            <input
+                type="checkbox"
+                className="form-check-input"
+                aria-label="Select all rows of this page"
+                checked={pageIds.length > 0 && selectedOnPage === pageIds.length}
+                ref={el => { if (el) el.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length; }}
+                onChange={this.toggleSelectPage}
+                onClick={e => e.stopPropagation()}
+            />
+        );
+    };
+
+    renderSelectRow = item => {
+        if (!this.props.bulkActions) return null;
+        return (
+            <input
+                type="checkbox"
+                className="form-check-input"
+                aria-label="Select row"
+                checked={this.state.selectedIds.includes(item.id)}
+                onChange={() => this.toggleRow(item)}
+                onClick={e => e.stopPropagation()}
+            />
+        );
+    };
+
+    // Bar with the bulk actions, shown above the table once rows are selected
+    renderBulkBar = () => {
+        if (!this.props.bulkActions) return null;
+        return (
+            <BulkActionBar
+                config={this.props.bulkActions}
+                selectedIds={this.state.selectedIds}
+                filteredCount={(this.state.filteredData || []).length}
+                pageAllSelected={this.isPageFullySelected()}
+                onSelectAllFiltered={this.selectAllFiltered}
+                onClear={this.clearSelection}
+            />
+        );
+    };
 
     loadGlobalFilterVisibility = () => {
         try {
@@ -426,7 +519,7 @@ class TableManager extends Component {
         if (this.props.onDataFiltered) {
             const cb = this.props.onDataFiltered;
             const result = filtered;
-            setTimeout(() => cb(result), 0);
+            setTimeout(() => cb(result, data), 0);
         }
         
         this.setState({ filteredData: filtered });
@@ -658,9 +751,9 @@ class TableManager extends Component {
     resetToDefault = () => {
         const clearedFilters = {};
         this.props.filterConfig.forEach(filter => {
-            clearedFilters[filter.key] = '';
+            clearedFilters[filter.key] = filter.defaultValue !== undefined ? filter.defaultValue : '';
         });
-        
+
         const currentItemsPerPage = this.state.itemsPerPage;
         const currentShowFilters = this.state.showFilters;
         
@@ -837,7 +930,7 @@ class TableManager extends Component {
     };
 
     renderFilters = () => {
-        const { filterConfig, enableDateFilter = false, dateFields = [] } = this.props;
+        const { filterConfig, enableDateFilter = false, dateFields = [], clearButtonWidth = 2 } = this.props;
         const { filters, showFilters } = this.state;
 
         if (!showFilters) return null;
@@ -877,7 +970,7 @@ class TableManager extends Component {
                         
                         {hasDateFilter && this.renderDateRangeFilter()}
                         
-                        <div className="col-12 col-md-2 text-md-end">
+                        <div className={`col-12 col-md-${clearButtonWidth} text-md-end`}>
                             <Form.Label>&nbsp;</Form.Label>
                             <Button
                                 variant="outline-primary"
@@ -1051,7 +1144,10 @@ class TableManager extends Component {
             renderFilterControls: this.renderFilterControls,
             renderSaveModal: this.renderSaveModal,
             getTableContainerStyle: this.getTableContainerStyle,
-            theadRef: this.theadRef
+            theadRef: this.theadRef,
+            renderSelectAll: this.renderSelectAll,
+            renderSelectRow: this.renderSelectRow,
+            renderBulkBar: this.renderBulkBar
         };
 
         return children(renderProps);

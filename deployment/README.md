@@ -114,6 +114,18 @@ self-signed `rootcafile.pem`, so the mount above is always valid and
 `update-ca-certificates` simply merges it with the public CAs on every
 start.
 
+### Proxy settings and the CertStream / SearxNG services
+
+- Set `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` in `deployment/.env`. That file is
+  loaded **last**, so it wins over `${WATCHER_PATH}/.env` on every key they share, and it
+  is the one the compose file reads for `${NO_PROXY}`.
+- The `watcher` container always bypasses the proxy for `searxng`, `db_watcher` and
+  `certstream`: there is no need to list them in `NO_PROXY`.
+- **SearxNG settings.** `SEARX_PATH` must be the directory that directly contains
+  `settings.yml` (`../Searx/searx`). If it is not, SearxNG generates its own default
+  `settings.yml`, which only allows the HTML format: it answers HTTP 403 to the JSON API
+  that Data Leak uses, and no leak is ever found.
+
 See [issue #316](https://github.com/thalesgroup-cert/Watcher/issues/316) for
 the original bug report and root cause.
 

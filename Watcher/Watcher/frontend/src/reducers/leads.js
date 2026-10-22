@@ -27,7 +27,7 @@ export default function (state = initialState, action) {
         case GET_LEADS:
             return {
                 ...state,
-                leads: action.payload
+                leads: action.payload.results || action.payload
             };
         case DELETE_LEAD:
             return {

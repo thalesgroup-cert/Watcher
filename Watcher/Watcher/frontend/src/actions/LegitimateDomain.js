@@ -11,6 +11,7 @@ import {
 } from "./types";
 import { createMessage, returnErrors } from "./messages";
 import { tokenConfig } from "./auth";
+import { fetchAllPages } from "./paginationUtils";
 
 // GET LEGITIMATE DOMAINS
 export const getLegitimateDomains = (page = 1, pageSize = 100) => (dispatch, getState) => {
@@ -199,14 +200,22 @@ export const getLegitimateDomainStatistics = () => (dispatch, getState) => {
             });
         });
 };
-// GET ALL LEGITIMATE DOMAINS (stats only – no pagination)
+// GET ALL LEGITIMATE DOMAINS (stats only)
 export const getAllLegitimateDomains = () => (dispatch, getState) => {
-    return axios
-        .get('/api/common/legitimate_domains/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: GET_LEGITIMATE_DOMAINS_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/common/legitimate_domains/', getState)
+        .then(results => {
+            dispatch({ type: GET_LEGITIMATE_DOMAINS_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
+};
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+export const LEGITIMATE_DOMAIN_BULK = {
+    endpoint: "/api/common/legitimate_domains/",
+    removedType: DELETE_LEGITIMATE_DOMAIN,
+    refresh: [getLegitimateDomains, getAllLegitimateDomains, getLegitimateDomainStatistics],
 };

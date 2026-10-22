@@ -196,7 +196,7 @@ const PAGE_TITLES = {
     '/cyber_watch':        'Cyber Watch - Watcher',
     '/data_leak':          'Data Leak - Watcher',
     '/website_monitoring': 'Website Monitoring - Watcher',
-    '/dns_finder':         'Twisted DNS Finder - Watcher',
+    '/dns_finder':         'DNS Threats Monitored - Watcher',
     '/login':              'Login - Watcher',
     '/password_change':    'Password Change - Watcher',
     '/profile':             'My Profile - Watcher',
@@ -334,7 +334,7 @@ export class Header extends Component {
                                     replace
                                     className={({ isActive }) => `nav-link ${isActive ? 'text-white fw-bold' : ''}`}
                                 >
-                                    Twisted DNS Finder
+                                    DNS Threats Monitored
                                 </NavLink>
                             </li>
                         </ul>

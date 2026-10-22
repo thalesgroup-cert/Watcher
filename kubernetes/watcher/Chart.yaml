@@ -1,0 +1,18 @@
+apiVersion: v2
+name: watcher
+description: Thales CERT Watcher — AI-powered cybersecurity threat detection and monitoring platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/thalesgroup-cert/watcher
+sources:
+  - https://github.com/thalesgroup-cert/watcher
+maintainers:
+  - name: Thales Group CERT
+    url: https://github.com/thalesgroup-cert
+
+dependencies:
+  - name: mysql
+    version: "12.x.x"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: mysql.enabled

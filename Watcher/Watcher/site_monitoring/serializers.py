@@ -7,11 +7,11 @@ import requests
 from rest_framework.exceptions import NotFound, AuthenticationFailed
 from connectors.core import get_misp_config
 
-from dns_finder.models import DnsTwisted
 from .core import monitoring_init
 from .models import Alert, Site
 
 from pymisp import PyMISP, MISPEvent
+from common.bulk import normalize_domain_data
 from common.misp import create_misp_tags, create_or_update_objects, get_misp_uuid, update_misp_uuid
 
 import urllib3
@@ -80,6 +80,7 @@ class SiteSerializer(serializers.ModelSerializer):
         return value
 
     def to_internal_value(self, data):
+        data = normalize_domain_data(data)
         # Convert "" to None for date fields
         if data.get("expiry") == "":
             data["expiry"] = None
@@ -93,13 +94,14 @@ class SiteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         site = super().create(validated_data)
-        thread = threading.Thread(target=monitoring_init, args=(site,))
-        thread.start()
+        if not self.context.get('defer_monitoring_init'):
+            thread = threading.Thread(target=monitoring_init, args=(site,))
+            thread.start()
         return site
 
     class Meta:
         model = Site
-        fields = '__all__'
+        exclude = ('network_history',)
 
 
 # Alert Serializer

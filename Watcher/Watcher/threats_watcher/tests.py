@@ -854,3 +854,51 @@ class WeeklySummaryNotifyFlagTest(TestCase):
         from threats_watcher.summary_manager import generate_weekly_summary
         generate_weekly_summary()
         mock_send.assert_called_once()
+
+
+class ThreatsWatcherBulkTest(APITestCase):
+    """Bulk create / delete on /api/threats_watcher/ (common.bulk mixins)."""
+
+    BANNED_URL = '/api/threats_watcher/bannedword/'
+    KEYWORD_URL = '/api/threats_watcher/monitored-keywords/'
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(username='threats_bulk_admin', password='testpass123')
+        self._login(self.admin)
+
+    def _login(self, user):
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _post(self, url, body):
+        return self.client.post(url, body, format='json')
+
+    def test_keywords_are_not_lowercased(self):
+        response = self._post(self.BANNED_URL + 'bulk_create/', {'values': 'LockBit\nCobalt Strike', 'shared': {}})
+        self.assertEqual(response.data['created'], 2, response.data)
+        self.assertTrue(BannedWord.objects.filter(name='LockBit').exists())
+
+    def test_monitored_keywords_batch_creates_every_line(self):
+        response = self._post(self.KEYWORD_URL + 'bulk_create/', {'values': 'CVE-2024-3400\nPAN-OS', 'shared': {}})
+        self.assertEqual(response.data['created'], 2, response.data)
+
+    def test_user_without_add_permission_is_rejected_like_a_single_create(self):
+        self._login(User.objects.create_user(username='threats_reader', password='testpass123'))
+        self.assertEqual(self._post(self.BANNED_URL + 'bulk_create/', {'values': 'x'}).status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+        self.assertIn(self._post(self.BANNED_URL + 'bulk_create/', {'values': 'x'}).status_code,
+                      (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+    def test_user_with_add_permission_can_bulk_create(self):
+        from django.contrib.auth.models import Permission
+        user = User.objects.create_user(username='threats_adder', password='testpass123')
+        user.user_permissions.add(Permission.objects.get(codename='add_bannedword'))
+        self._login(user)
+        self.assertEqual(self._post(self.BANNED_URL + 'bulk_create/', {'values': 'allowed'}).data['created'], 1)
+
+    def test_bulk_delete_banned_words(self):
+        a = BannedWord.objects.create(name='del-a')
+        b = BannedWord.objects.create(name='del-b')
+        response = self._post(self.BANNED_URL + 'bulk_delete/', {'ids': [a.pk, b.pk, 999999]})
+        self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1), response.data)
+        self.assertFalse(BannedWord.objects.filter(pk__in=[a.pk, b.pk]).exists())

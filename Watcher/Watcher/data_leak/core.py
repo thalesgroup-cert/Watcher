@@ -10,7 +10,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from connectors.core import get_searxng_config
 from django.db.models.functions import Length
-from json.decoder import JSONDecodeError
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
@@ -18,6 +17,14 @@ from django.db.models import Q
 
 # Configure logger
 logger = logging.getLogger('watcher.data_leak')
+
+
+SEARX_TIMEOUT = (5, 60)
+PASTEBIN_TIMEOUT = (5, 30)
+
+
+class SearxError(Exception):
+    """SearxNG could not answer a query: unreachable, refused, or not valid JSON."""
 
 def start_scheduler():
     """
@@ -102,6 +109,7 @@ def check_searx(keyword):
     :param keyword: Keyword stored in database.
     :return: Matched urls.
     :rtype: list
+    :raises SearxError: SearxNG could not answer; check_keywords reports it once per run.
     """
     hits = []
     urls = []
@@ -125,37 +133,40 @@ def check_searx(keyword):
 
     # send the request off to searx
     try:
-        response = requests.get(get_searxng_config()['url'], params=params)
+        response = requests.get(get_searxng_config()['url'], params=params, timeout=SEARX_TIMEOUT)
     except requests.exceptions.ProxyError as e:
         detail = re.search(r'(\d{3}\s+\w[\w ]*)', str(e))
         code_str = f" [{detail.group(1).strip()}]" if detail else ""
-        logger.error("SearxNG unreachable through proxy%s (keyword: %s)", code_str, search_term)
-        return hits
-    except requests.exceptions.ConnectionError:
-        logger.error("SearxNG connection failed (keyword: %s)", search_term)
-        return hits
-    except requests.exceptions.Timeout:
-        logger.error("SearxNG request timed out (keyword: %s)", search_term)
-        return hits
+        raise SearxError(f"SearxNG unreachable through proxy{code_str}") from e
+    except requests.exceptions.ConnectionError as e:
+        raise SearxError("SearxNG connection failed") from e
+    except requests.exceptions.Timeout as e:
+        raise SearxError("SearxNG request timed out") from e
     except requests.exceptions.RequestException as e:
-        logger.error("SearxNG request error for '%s': %s", search_term, type(e).__name__)
-        return hits
+        raise SearxError(f"SearxNG request error: {type(e).__name__}") from e
+
+    if response.status_code != 200:
+        hint = ""
+        if response.status_code == 403:
+            hint = " - the JSON format is refused: list 'json' under search.formats in SearxNG's settings.yml"
+        raise SearxError(f"SearxNG answered HTTP {response.status_code}{hint}")
 
     try:
         results = response.json()
-        # if we have results we want to check them against our stored URLs
-        if len(results['results']):
+    except ValueError as e:
+        raise SearxError(f"SearxNG did not answer JSON ({e})") from e
+    if not isinstance(results, dict) or 'results' not in results:
+        raise SearxError("SearxNG answer has no 'results' field")
 
-            for result in results['results']:
+    # if we have results we want to check them against our stored URLs
+    if len(results['results']):
 
-                if result['url'] not in urls:
-                    urls.append(result['url'])
+        for result in results['results']:
 
-            hits = check_urls(keyword, urls)
-    except JSONDecodeError as e:
-        # no JSON returned
-        logger.error(str(e))
-        return hits
+            if result['url'] not in urls:
+                urls.append(result['url'])
+
+        hits = check_urls(keyword, urls)
 
     return hits
 
@@ -176,7 +187,7 @@ def check_pastebin(keywords):
 
     # Fetch the Pastebin API
     try:
-        response = requests.get("https://scrape.pastebin.com/api_scraping.php?limit=250")
+        response = requests.get("https://scrape.pastebin.com/api_scraping.php?limit=250", timeout=PASTEBIN_TIMEOUT)
     except requests.exceptions.RequestException as e:
         logger.error(str(e))
         return paste_hits
@@ -206,7 +217,7 @@ def check_pastebin(keywords):
                             'User-Agent': 'Chrome/75.0.3770.142'
                         }
 
-                        paste_response = requests.get(paste['scrape_url'], headers)
+                        paste_response = requests.get(paste['scrape_url'], headers=headers, timeout=PASTEBIN_TIMEOUT)
                         paste_body_lower = paste_response.content.lower()
 
                         keyword_hits = []
@@ -255,9 +266,14 @@ def check_keywords(keywords):
     :param keywords: Keywords stored in database.
     """
     # use the list of keywords and check each against searx
+    failures = []
     for keyword in keywords:
         # query searx for the keyword
-        results = check_searx(keyword)
+        try:
+            results = check_searx(keyword)
+        except SearxError as e:
+            failures.append(str(e))
+            continue
 
         if len(results):
             for result in results:
@@ -269,6 +285,9 @@ def check_keywords(keywords):
             # if there is too many alerts, we send a group email
             if len(results) >= 6:
                 send_data_leak_notifications_group(keyword, len(results), results)
+
+    if failures:
+        logger.error(f"SearxNG failed for {len(failures)}/{len(keywords)} keywords: {failures[0]}")
 
     # now we check Pastebin for new pastes
     result = check_pastebin(keywords)

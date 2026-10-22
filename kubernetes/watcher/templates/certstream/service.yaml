@@ -1,0 +1,19 @@
+{{- if .Values.certstream.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "watcher.certstreamHost" . }}
+  labels:
+    {{- include "watcher.labels" . | nindent 4 }}
+    app.kubernetes.io/component: certstream
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: certstream
+  ports:
+    - name: ws
+      port: {{ .Values.certstream.service.port }}
+      targetPort: ws
+      protocol: TCP
+{{- end }}

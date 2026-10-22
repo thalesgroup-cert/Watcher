@@ -1,6 +1,5 @@
 import {
     DNS_GET_ALERTS,
-    DNS_GET_ALERTS_ALL,
     DELETE_ALERT,
     ADD_ALERT,
     UPDATE_ALERT_STATUS,
@@ -15,7 +14,10 @@ import {
     ADD_KEYWORD_MONITORED,
     PATCH_KEYWORD_MONITORED,
     EXPORT_TO_MISP,
-    GET_DNS_FINDER_STATISTICS
+    GET_DNS_FINDER_STATISTICS,
+    PATCH_DNS_TWISTED,
+    GET_THREATS_MONITORED,
+    GET_THREATS_MONITORED_ALL
 } from '../actions/types';
 
 const initialState = {
@@ -32,16 +34,20 @@ const initialState = {
     keywordMonitoredNext: null,
     keywordMonitoredPrevious: null,
     // Stats-only: all items loaded at once
-    allAlerts: [],
     allDnsMonitored: [],
     allKeywordMonitored: [],
+    allThreatsMonitored: [],
     statistics: {
         totalAlerts: 0,
         newToday: 0,
         newThisWeek: 0,
         totalDnsMonitored: 0,
         totalKeywords: 0,
-    }
+    },
+    threatsMonitored: [],
+    threatsMonitoredCount: 0,
+    threatsMonitoredNext: null,
+    threatsMonitoredPrevious: null,
 };
 
 export default function(state = initialState, action) {
@@ -89,7 +95,33 @@ export default function(state = initialState, action) {
             return {
                 ...state,
                 alerts: state.alerts.map(alert =>
-                    alert.id === action.payload.id ? action.payload : alert
+                    alert.id === action.payload.id ? { ...alert, ...action.payload } : alert
+                ),
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.id === action.payload.id
+                        ? { ...item, ...action.payload }
+                        : item
+                )
+            };
+
+        case PATCH_DNS_TWISTED:
+            return {
+                ...state,
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.technical_details?.dns_twisted_id === action.payload.id
+                        ? {
+                            ...item,
+                            technical_details: {
+                                ...item.technical_details,
+                                fuzzer: action.payload.fuzzer,
+                                issuer: action.payload.issuer,
+                                provider: action.payload.provider,
+                                cname_target: action.payload.cname_target,
+                                http_status_code: action.payload.http_status_code,
+                                last_checked_at: action.payload.last_checked_at,
+                            }
+                        }
+                        : item
                 )
             };
 
@@ -160,7 +192,16 @@ export default function(state = initialState, action) {
             };
 
         case EXPORT_TO_MISP:
-            return state;
+            // action.payload.id is technical_details.dns_twisted_id, uniformly
+            // across all 3 sources - see ThreatsMonitored.displayExportModal.
+            return {
+                ...state,
+                threatsMonitored: state.threatsMonitored.map(item =>
+                    item.technical_details?.dns_twisted_id === action.payload.id
+                        ? { ...item, misp_event_uuid: action.payload.misp_event_uuid }
+                        : item
+                )
+            };
 
         case GET_DNS_FINDER_STATISTICS:
             return {
@@ -168,14 +209,40 @@ export default function(state = initialState, action) {
                 statistics: action.payload
             };
 
-        case DNS_GET_ALERTS_ALL:
-            return { ...state, allAlerts: Array.isArray(action.payload) ? action.payload : [] };
+        case GET_THREATS_MONITORED_ALL:
+            return { ...state, allThreatsMonitored: Array.isArray(action.payload) ? action.payload : [] };
 
         case GET_DNS_MONITORED_ALL:
             return { ...state, allDnsMonitored: Array.isArray(action.payload) ? action.payload : [] };
 
         case GET_KEYWORD_MONITORED_ALL:
             return { ...state, allKeywordMonitored: Array.isArray(action.payload) ? action.payload : [] };
+
+        case GET_THREATS_MONITORED: {
+            const newResults = action.payload.results || action.payload;
+
+            if (!action.payload.results) {
+                return {
+                    ...state,
+                    threatsMonitored: newResults,
+                    threatsMonitoredCount: newResults.length,
+                    threatsMonitoredNext: null,
+                    threatsMonitoredPrevious: null
+                };
+            }
+
+            const threatKey = (item) => `${item.source}:${item.id}`;
+            const existingKeys = new Set(state.threatsMonitored.map(threatKey));
+            const uniqueNewItems = newResults.filter(item => !existingKeys.has(threatKey(item)));
+
+            return {
+                ...state,
+                threatsMonitored: [...state.threatsMonitored, ...uniqueNewItems],
+                threatsMonitoredCount: action.payload.count || state.threatsMonitoredCount,
+                threatsMonitoredNext: action.payload.next || null,
+                threatsMonitoredPrevious: action.payload.previous || null
+            };
+        }
 
         default:
             return state;

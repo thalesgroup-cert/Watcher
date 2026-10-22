@@ -9,6 +9,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
 from django.db.models import Prefetch
 from datetime import timedelta
+from common.bulk import BulkActionMixin, BulkCreateMixin
 from .serializers import KeywordSerializer, AlertSerializer
 
 
@@ -20,7 +21,8 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 # Keyword Viewset
-class KeywordViewSet(viewsets.ModelViewSet):
+class KeywordViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
+    bulk_field = 'name'
     permission_classes = [
         permissions.DjangoModelPermissions
     ]
@@ -56,7 +58,12 @@ class KeywordViewSet(viewsets.ModelViewSet):
 
 
 # Alert Viewset
-class AlertViewSet(viewsets.ModelViewSet):
+class AlertViewSet(BulkActionMixin, viewsets.ModelViewSet):
+    bulk_update_fields = ('status',)
+
+    def bulk_label(self, obj):
+        return f'{obj.keyword.name} - {obj.url}'
+
     permission_classes = [
         permissions.DjangoModelPermissions
     ]

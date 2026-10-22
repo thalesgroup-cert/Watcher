@@ -2,7 +2,7 @@ services:
 
   certstream:
     container_name: certstream
-    image: 0rickyy0/certstream-server-go:latest
+    image: 0rickyy0/certstream-server-go:${CERTSTREAM_VERSION:-v1.8.2}
     restart: always
     networks:
       default:
@@ -85,6 +85,8 @@ services:
     env_file:
       - .env
     environment:
+      http_proxy: "${HTTP_PROXY:-}"
+      https_proxy: "${HTTPS_PROXY:-}"
       no_proxy: "10.10.10.3,10.10.10.5,10.10.10.6,10.10.10.7,certstream"
     ports:
       - "9002:9002"

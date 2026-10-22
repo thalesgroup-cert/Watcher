@@ -27,7 +27,9 @@ services:
     volumes:
       - "${CA_PATH}/rootcafile.pem:/usr/local/share/ca-certificates/custom-ca.crt:ro"
     environment:
-      no_proxy: "${NO_PROXY},searxng,db_watcher"
+      http_proxy: "${HTTP_PROXY}"
+      https_proxy: "${HTTPS_PROXY}"
+      no_proxy: "${NO_PROXY},searxng,db_watcher,certstream"
       REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
     networks:
       - watcher_network

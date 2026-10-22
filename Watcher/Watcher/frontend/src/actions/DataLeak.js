@@ -13,6 +13,7 @@ import {
 } from "./types";
 import {createMessage, returnErrors} from "./messages";
 import {tokenConfig} from "./auth";
+import {fetchAllPages} from "./paginationUtils";
 
 // Here you will find all the API Requests
 
@@ -133,26 +134,39 @@ export const getDataLeakStatistics = () => (dispatch, getState) => {
         });
 };
 
-// GET ALL DATA LEAK ALERTS (stats only – no pagination)
+// GET ALL DATA LEAK ALERTS (stats only)
 export const getAllDataLeakAlerts = () => (dispatch, getState) => {
-    return axios
-        .get('/api/data_leak/alert/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: DATALEAK_GET_ALERTS_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/data_leak/alert/', getState)
+        .then(results => {
+            dispatch({ type: DATALEAK_GET_ALERTS_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
 };
 
-// GET ALL DATA LEAK KEYWORDS (stats only – no pagination)
+// GET ALL DATA LEAK KEYWORDS (stats only)
 export const getAllDataLeakKeywords = () => (dispatch, getState) => {
-    return axios
-        .get('/api/data_leak/keyword/?page=1&page_size=10000', tokenConfig(getState))
-        .then(res => {
-            dispatch({ type: DATALEAK_GET_KEYWORDS_ALL, payload: res.data.results || res.data });
+    return fetchAllPages('/api/data_leak/keyword/', getState)
+        .then(results => {
+            dispatch({ type: DATALEAK_GET_KEYWORDS_ALL, payload: results });
+            return results;
         })
         .catch(err => {
             dispatch(returnErrors(err.response?.data, err.response?.status));
         });
+};
+
+// Bulk descriptor of this module (see actions/Bulk.js): the API base, the action that drops a removed row from the
+// store (list reducers merge what the server returns) and what to reload afterwards (list + dashboard statistics).
+export const DATALEAK_KEYWORD_BULK = {
+    endpoint: "/api/data_leak/keyword/",
+    removedType: DATALEAK_DELETE_KEYWORD,
+    refresh: [getKeyWords, getAllDataLeakKeywords, getDataLeakStatistics],
+};
+
+export const DATALEAK_ALERT_BULK = {
+    endpoint: "/api/data_leak/alert/",
+    refresh: [getAlerts, getAllDataLeakAlerts, getDataLeakStatistics],
 };
