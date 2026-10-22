@@ -31,7 +31,7 @@ export const exportToLegitimateDomains = (domain, comment) => (dispatch, getStat
 
 // GET WEEKLY SUMMARY
 export const getWeeklySummary = () => (dispatch, getState) => {
-    return axios.get('/api/threats_watcher/summary/?type=weekly_summary', tokenConfig(getState))
+    return axios.get(`/api/threats_watcher/summary/?type=weekly_summary&_t=${Date.now()}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_WEEKLY_SUMMARY,
@@ -47,7 +47,7 @@ export const getWeeklySummary = () => (dispatch, getState) => {
 
 // GET BREAKING NEWS
 export const getBreakingNews = () => (dispatch, getState) => {
-    return axios.get('/api/threats_watcher/summary/?type=breaking_news', tokenConfig(getState))
+    return axios.get(`/api/threats_watcher/summary/?type=breaking_news&_t=${Date.now()}`, tokenConfig(getState))
         .then(res => {
             dispatch({
                 type: GET_BREAKING_NEWS,
@@ -93,3 +93,25 @@ export const generateWordSummary = (keyword) => (dispatch, getState) => {
             throw { status: err.response?.status, data: errorData };
         });
 };
+
+// SUMMARY REGENERATION COOLDOWN CONFIG
+export const getSummaryConfig = () => (dispatch, getState) =>
+    axios.get('/api/threats_watcher/summary/config/', tokenConfig(getState))
+        .then(res => res.data);
+
+export const updateSummaryConfig = (minutes) => (dispatch, getState) =>
+    axios.post('/api/threats_watcher/summary/config/', { regenerate_cooldown_minutes: minutes }, tokenConfig(getState))
+        .then(res => res.data);
+
+// SUMMARY REGENERATION
+export const regenerateWeeklySummary = () => (dispatch, getState) =>
+    axios.post('/api/threats_watcher/summary/regenerate-weekly/', {}, tokenConfig(getState))
+        .then(res => res.data);
+
+export const regenerateBreakingNews = (keyword) => (dispatch, getState) =>
+    axios.post(`/api/threats_watcher/summary/by-keyword/${encodeURIComponent(keyword)}/regenerate-breaking/`, {}, tokenConfig(getState))
+        .then(res => res.data);
+
+export const regenerateWordSummary = (keyword) => (dispatch, getState) =>
+    axios.post(`/api/threats_watcher/summary/by-keyword/${encodeURIComponent(keyword)}/regenerate/`, {}, tokenConfig(getState))
+        .then(res => res.data);

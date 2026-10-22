@@ -13,6 +13,8 @@ from connectors.models import ConnectorOverride
 from llm_gateway.utils.prompt_builder import PromptBuilder
 from llm_gateway.utils.log_pruner import LogPruner
 from llm_gateway.utils.token_manager import TokenManager
+from django.conf import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,23 @@ class SecurityAnalyzerService:
             except Exception as fallback_error:
                 return {"status": "error", "message": "All analysis models are currently unavailable."}
 
+    def _decrypt_api_key(self, api_key: str) -> str:
+        """Decrypts the API key if it's encrypted with Fernet (starts with gAAA)."""
+        if not api_key or not api_key.startswith('gAAA'):
+            return api_key
+            
+        try:
+            from cryptography.fernet import Fernet
+            
+            fernet_key = settings.CONNECTORS_ENCRYPTION_KEY
+            cipher_suite = Fernet(fernet_key)
+            
+            return cipher_suite.decrypt(api_key.encode('utf-8')).decode('utf-8')
+            
+        except Exception as e:
+            logger.warning(f"Could not decrypt API key ({type(e).__name__})")
+            return api_key
+
     def _call_remote_llm(self, prompt: str, connector_id: str) -> str:
         """Universal call via LiteLLM with custom exception handling."""
         config = self._get_llm_config(connector_id)
@@ -63,7 +82,7 @@ class SecurityAnalyzerService:
             raise LLMGatewayError(f"Connector '{connector_id}' is not configured.")
 
         model = config.get('MODEL_NAME')
-        api_key = config.get('API_KEY')
+        api_key = self._decrypt_api_key(config.get('API_KEY'))
         base_url = config.get('BASE_URL')
 
         if not model:

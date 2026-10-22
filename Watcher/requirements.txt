@@ -42,7 +42,7 @@ cryptography==41.0.7
 
 # NER-BERT model
 transformers==5.12.1
-tokenizers>=0.22.0
+tokenizers==0.22.0
 
 # OIDC / SSO
 mozilla-django-oidc==5.0.2
@@ -52,6 +52,6 @@ numpy==1.26.4
 
 #LLM Gateway
 requests==2.34.2
-litellm>=1.95.0
+litellm==1.95.0
 openai==2.53.0
 tiktoken==0.13.0

@@ -1,4 +1,4 @@
-import litellm
+from connectors.contrib.common_llm import common_health_check
 
 DEFINITION = {
     'id': 'openai',
@@ -17,33 +17,4 @@ DEFINITION = {
 }
 
 def health_check(plain):
-    api_key = plain('API_KEY')
-    model = plain('MODEL_NAME')
-    base_url = plain('BASE_URL')
-
-    if not model or not api_key:
-        return {'success': False, 'message': 'Model name and API key are required.'}
-
-    try:
-        kwargs = {
-            "model": model,
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 1,
-            "timeout": 10,
-            "api_key": api_key,
-        }
-        
-        if base_url:
-            kwargs["api_base"] = base_url
-
-        response = litellm.completion(**kwargs)
-        
-        if response:
-            return {'success': True, 'message': f"Successfully connected to OpenAI model '{model}'!"}
-        return {'success': False, 'message': 'Empty response received.'}
-    except litellm.AuthenticationError:
-        return {'success': False, 'message': 'Authentication failed: Invalid API Key.'}
-    except litellm.APIConnectionError:
-        return {'success': False, 'message': 'Connection error: Check the network or Base URL.'}
-    except Exception as exc:
-        return {'success': False, 'message': f"Connection Error: {str(exc)}"}
+    return common_health_check(plain, DEFINITION)

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { connect } from "react-redux";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
-import { Container, Row, Col, Card, Badge, Nav, Modal, Button } from "react-bootstrap";
+import { Container, Row, Col, Card, Badge, Nav, Modal, Button, Form } from "react-bootstrap";
 import GridLayout, { WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -13,6 +13,7 @@ import { loadProfile, updateProfile } from "../../actions/profile";
 import UserAvatar from "../common/UserAvatar";
 import preferencesService from "../../services/preferencesService";
 import { LAYOUT_PRESETS, applyPreset, getActivePresetId } from "../../config/layoutPresets";
+import { getSummaryConfig, updateSummaryConfig } from "../../actions/Common";
 
 const MODULES = [
     {
@@ -740,10 +741,37 @@ const AVATAR_PALETTE = [
     '#4caf50', '#ff9800', '#ff5722', '#795548',
 ];
 
-function Profile({ user, profile, logout, createMessage, loadProfile, updateProfile }) {
+function Profile({ user, profile, logout, createMessage, loadProfile, updateProfile, getSummaryConfig, updateSummaryConfig }) {
     const { currentTheme, availableThemes, changeTheme } = useTheme();
     const [activeSection, setActiveSection] = useState('settings');
     const [helpOpen, setHelpOpen] = useState(false);
+    const [cooldown, setCooldown] = useState(15);
+    const [isSavingCooldown, setIsSavingCooldown] = useState(false);
+
+    useEffect(() => {
+        if (user && user.is_superuser) {
+            getSummaryConfig()
+                .then(data => {
+                    if (data.regenerate_cooldown_minutes !== undefined) {
+                        setCooldown(data.regenerate_cooldown_minutes);
+                    }
+                })
+                .catch(err => console.error("Error fetching config:", err));
+        }
+    }, [user]);
+
+    const handleSaveCooldown = async (newVal) => {
+        setCooldown(newVal);
+        setIsSavingCooldown(true);
+        try {
+            await updateSummaryConfig(newVal);
+            createMessage({ successMessage: `Regeneration cooldown updated to ${newVal} minutes.` });
+        } catch (e) {
+            console.error("Failed to save cooldown", e);
+        } finally {
+            setIsSavingCooldown(false);
+        }
+    };
 
     useEffect(() => { loadProfile(); }, []);
 
@@ -922,6 +950,77 @@ function Profile({ user, profile, logout, createMessage, loadProfile, updateProf
                                             )}
                                         </div>
                                     </div>
+                                    <div className="border-top pt-3 mt-4">
+                                        <label className="text-muted fw-semibold d-block mb-2" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                                            Interface Size (Zoom)
+                                        </label>
+                                        <div style={{ maxWidth: "300px" }}>
+                                            <Form.Select 
+                                                size="sm"
+                                                value={profile.ui_zoom_level || 1.0}
+                                                onChange={(e) => updateProfile({ ui_zoom_level: parseFloat(e.target.value) })}
+                                                style={{ cursor: "pointer", fontSize: "0.95em" }}
+                                            >
+                                                <option value={1.0}>100% (Default - Large screens)</option>
+                                                <option value={0.9}>90% (Compact)</option>
+                                                <option value={0.8}>80% (Laptops & Small screens)</option>
+                                                <option value={0.75}>75% (Very compact)</option>
+                                            </Form.Select>
+                                        </div>
+                                        <div className="text-muted mt-2" style={{ fontSize: "0.85em" }}>
+                                            Adjust the overall size of the application to fit your screen perfectly.
+                                        </div>
+                                    </div>
+                                    <div className="border-top pt-3 mt-4">
+                                        <label className="text-muted fw-semibold d-block mb-3" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                                            AI Generation Options
+                                        </label>
+                                        <div className="d-flex align-items-center gap-2">
+                                            <div className="form-check form-switch custom-control custom-switch">
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input custom-control-input"
+                                                    id="typewriterSwitch"
+                                                    checked={profile.typewriter_enabled !== false}
+                                                    onChange={(e) => updateProfile({ typewriter_enabled: e.target.checked })}
+                                                    style={{ cursor: "pointer" }}
+                                                />
+                                                <label className="form-check-label custom-control-label" htmlFor="typewriterSwitch" style={{ cursor: "pointer", fontSize: "0.95em", userSelect: "none" }}>
+                                                    Enable Typewriter Effect
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div className="text-muted mt-2" style={{ fontSize: "0.85em" }}>
+                                            Displays AI summaries with a progressive typing animation instead of instant text.
+                                        </div>
+                                    </div>
+                                    {user && user.is_superuser && (
+                                        <div className="border-top pt-3 mt-4">
+                                            <label className="text-muted fw-semibold d-block mb-3" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                                                Admin Settings: Regeneration Cooldown
+                                            </label>
+                                            <div className="d-flex align-items-center gap-3">
+                                                <Form.Select 
+                                                    size="sm"
+                                                    value={cooldown}
+                                                    onChange={(e) => handleSaveCooldown(parseInt(e.target.value))}
+                                                    disabled={isSavingCooldown}
+                                                    style={{ width: '180px', cursor: 'pointer', fontSize: '0.95em' }}
+                                                >
+                                                    <option value={5}>5 minutes</option>
+                                                    <option value={10}>10 minutes</option>
+                                                    <option value={15}>15 minutes</option>
+                                                    <option value={30}>30 minutes</option>
+                                                    <option value={60}>1 hour</option>
+                                                    <option value={120}>2 hours</option>
+                                                </Form.Select>
+                                                {isSavingCooldown && <span className="spinner-border spinner-border-sm text-primary" />}
+                                            </div>
+                                            <div className="text-muted mt-2" style={{ fontSize: "0.85em" }}>
+                                                Defines the global waiting period required before any user can use the "Regenerate" button. This setting applies to everyone.
+                                            </div>
+                                        </div>
+                                    )}
                                     </>
                                 )}
                             </Card.Body>
@@ -1028,4 +1127,4 @@ const mapStateToProps = state => ({
     profile: state.profile,
 });
 
-export default connect(mapStateToProps, { logout, createMessage, loadProfile, updateProfile })(Profile);
+export default connect(mapStateToProps, { logout, createMessage, loadProfile, updateProfile, getSummaryConfig, updateSummaryConfig })(Profile);

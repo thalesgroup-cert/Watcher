@@ -968,4 +968,449 @@ describe('Threats Watcher - E2E Test Suite', () => {
         });
     });
   });
+
+  const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60 * 1000).toISOString();
+
+  const WEEKLY_TEXT =
+    'E2E weekly summary: CVE-2025-1234 is actively exploited against several European ' +
+    'financial institutions, while new phishing campaigns target cloud administrators.';
+  const WORD_TEXT =
+    'E2E word summary for test-malware: the malware spreads through malicious email ' +
+    'attachments and abuses scheduled tasks to persist on infected hosts.';
+  const CLUSTER_HTML =
+    '<div><span id="watcher-toggle-all" style="cursor:pointer">Collapse All</span></div>' +
+    '<details class="watcher-cluster" open><summary>Cluster A</summary><p>Details A</p></details>' +
+    '<details class="watcher-cluster" open><summary>Cluster B</summary><p>Details B</p></details>';
+  
+  const weeklyFixture = (overrides = {}) => ({
+    id: 101, type: 'weekly_summary', summary_text: WEEKLY_TEXT,
+    created_at: minutesAgo(180), updated_at: minutesAgo(180),
+    ai_model: 'e2e-weekly-model', ...overrides,
+  });
+
+  const breakingFixture = (overrides = {}) => ({
+    id: 201, type: 'breaking_news', keywords: 'test-malware',
+    summary_text: '<p>E2E breaking alert on test-malware.</p>',
+    created_at: minutesAgo(180), updated_at: minutesAgo(180),
+    ai_model: 'e2e-breaking-model', ...overrides,
+  });
+
+  const wordSummaryFixture = (overrides = {}) => ({
+    id: 301, type: 'trendy_word_summary', keywords: 'test-malware', summary_text: WORD_TEXT,
+    created_at: minutesAgo(180), updated_at: minutesAgo(180),
+    ai_model: 'e2e-word-model', ...overrides,
+  });
+
+  const summaryRoute = (type) => ({
+    method: 'GET',
+    pathname: '/api/threats_watcher/summary/',
+    query: { type },
+  });
+
+  const mockThreatsWatcher = ({
+    weekly = [], breaking = [], wordSummary = [],
+    typewriter = false, cooldown = 15, storage = {}, weeklyDelay = 0,
+  } = {}) => {
+    cy.intercept('GET', '/api/auth/profile', (req) => {
+      delete req.headers['if-none-match'];
+      delete req.headers['if-modified-since'];
+      req.continue((res) => {
+        if (res.body && typeof res.body === 'object') {
+          res.body.typewriter_enabled = typewriter;
+        }
+      });
+    }).as('getProfile');
+
+    cy.intercept('PATCH', '/api/auth/profile', (req) => {
+      req.continue((res) => {
+        if (res.body && typeof res.body === 'object') {
+          res.body.typewriter_enabled = typewriter;
+        }
+      });
+    });
+
+    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', (req) => {
+      delete req.headers['if-none-match'];
+      delete req.headers['if-modified-since'];
+      req.continue((res) => {
+        if (res.statusCode >= 400 || !res.body) return;
+        const now = new Date().toISOString();
+        const word = {
+          id: 999999, name: 'test-malware', occurrences: 9999, score: 100,
+          posturls: [`https://watcher.com/malware-report,${now}`],
+          created_at: now,
+        };
+        if (Array.isArray(res.body)) {
+          res.body = [word, ...res.body.filter((w) => w.name !== word.name)];
+        } else if (Array.isArray(res.body.results)) {
+          res.body.results = [word, ...res.body.results.filter((w) => w.name !== word.name)];
+          res.body.count = res.body.results.length;
+        }
+      });
+    }).as('getTrendyWords');
+
+    cy.intercept(summaryRoute('weekly_summary'), { statusCode: 200, body: weekly, delay: weeklyDelay }).as('getWeekly');
+    cy.intercept(summaryRoute('breaking_news'), { statusCode: 200, body: breaking }).as('getBreaking');
+    cy.intercept(summaryRoute('trendy_word_summary'), { statusCode: 200, body: wordSummary }).as('getWordSummary');
+    cy.intercept('GET', '/api/threats_watcher/summary/config/', {
+      statusCode: 200, body: { regenerate_cooldown_minutes: cooldown },
+    }).as('getConfig');
+
+    cy.window().then((win) => {
+      [
+        'watcher_weekly_read_id', 'watcher_breaking_read_id', 'watcher_weekly_active_tab',
+        'watcherCollapsedState', 'watcher_weekly_x', 'watcher_weekly_y',
+      ].forEach((key) => win.localStorage.removeItem(key));
+      win.localStorage.setItem('watcher_weekly_open', 'true');
+      Object.entries(storage).forEach(([key, value]) => win.localStorage.setItem(key, value));
+    });
+
+    cy.reload();
+    cy.wait(['@getWeekly', '@getBreaking', '@getConfig']);
+    cy.wait('@getProfile').its('response.body.typewriter_enabled').should('eq', typewriter);
+
+    if (weekly.length || breaking.length) {
+      cy.get(
+        '.position-fixed [title="Minimize"], [title="Show Threat Intelligence Summary"]',
+        { timeout: 10000 }
+      ).should('exist');
+      cy.get('body').then(($body) => {
+        const bubble = $body.find('[title="Show Threat Intelligence Summary"]');
+        if (bubble.length) cy.wrap(bubble.first()).click({ force: true });
+      });
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('WeeklyBreaking - Weekly Report regenerate, cooldown & display', () => {
+    const widget = (opts) => cy.contains('.position-fixed', 'Weekly Report', opts);
+    const regenerateBtn = () => widget().contains('button', /Regenerat/);
+    const READ = { watcher_weekly_read_id: '101' };
+
+    it('should display the weekly report with its AI model', () => {
+      mockThreatsWatcher({ weekly: [weeklyFixture()], storage: READ });
+      widget()
+        .should('contain', WEEKLY_TEXT)
+        .and('contain', 'e2e-weekly-model')
+        .and('contain', 'Generated at');
+    });
+
+    it('should enable Regenerate once the cooldown has elapsed', () => {
+      mockThreatsWatcher({ weekly: [weeklyFixture()], storage: READ });
+      regenerateBtn().should('have.attr', 'title', 'Regenerate').and('have.css', 'opacity', '0.8');
+    });
+
+    it('should disable Regenerate during the cooldown and not call the API', () => {
+      let calls = 0;
+      cy.intercept('POST', '/api/threats_watcher/summary/regenerate-weekly/', (req) => {
+        calls += 1;
+        req.reply({ statusCode: 200, body: { success: true } });
+      });
+      mockThreatsWatcher({ weekly: [weeklyFixture({ updated_at: minutesAgo(2) })], storage: READ });
+
+      regenerateBtn()
+        .should('have.attr', 'title', 'Please wait 13 minute(s) before the next regeneration.')
+        .and('have.css', 'opacity', '0.5');
+      regenerateBtn().click({ force: true });
+      cy.wait(500).then(() => expect(calls).to.eq(0));
+    });
+
+    it('should use the cooldown configured by the admin', () => {
+      mockThreatsWatcher({
+        weekly: [weeklyFixture({ updated_at: minutesAgo(30) })], cooldown: 60, storage: READ,
+      });
+      regenerateBtn().should('have.attr', 'title', 'Please wait 30 minute(s) before the next regeneration.');
+      cy.get('@getConfig').its('request.headers.authorization').should('match', /^Token /);
+    });
+
+    it('should regenerate the weekly report and start a new cooldown', () => {
+      const now = new Date().toISOString();
+      const regenerated = weeklyFixture({
+        id: 102, summary_text: 'Regenerated weekly summary.',
+        created_at: now, updated_at: now, ai_model: 'e2e-regenerated-model',
+      });
+      let regenDone = false;
+      cy.intercept('POST', '/api/threats_watcher/summary/regenerate-weekly/', (req) => {
+        setTimeout(() => { regenDone = true; }, 3000);
+        req.reply({ statusCode: 200, delay: 3000, body: { success: true, data: regenerated } });
+      }).as('regenWeekly');
+      mockThreatsWatcher({ weekly: [weeklyFixture()], storage: READ });
+
+      cy.intercept(summaryRoute('weekly_summary'), (req) => {
+        req.reply({ statusCode: 200, body: [regenDone ? regenerated : weeklyFixture()] });
+      });
+
+      regenerateBtn().click({ force: true });
+      widget().should('contain', 'Regenerating');
+      cy.wait('@regenWeekly');
+
+      widget({ timeout: 10000 })
+        .should('contain', 'Regenerated weekly summary.')
+        .and('contain', 'e2e-regenerated-model');
+      regenerateBtn().should('have.attr', 'title').and('match', /^Please wait \d+ minute\(s\)/);
+    });
+
+    it('should keep the current report when regeneration fails', () => {
+      cy.intercept('POST', '/api/threats_watcher/summary/regenerate-weekly/', {
+        statusCode: 502, body: { success: false, message: 'LLM unavailable' },
+      }).as('regenWeeklyFail');
+      mockThreatsWatcher({ weekly: [weeklyFixture()], storage: READ });
+
+      regenerateBtn().click({ force: true });
+      cy.wait('@regenWeeklyFail');
+      widget({ timeout: 10000 }).should('contain', WEEKLY_TEXT).and('not.contain', 'Regenerating');
+      regenerateBtn().should('have.attr', 'title', 'Regenerate');
+    });
+
+    it('should type the report progressively when typewriter is enabled', () => {
+      mockThreatsWatcher({ weekly: [weeklyFixture()], typewriter: true });
+      widget().find('.blinking-cursor').should('exist');
+      widget({ timeout: 20000 }).should('contain', WEEKLY_TEXT);
+      widget().find('.blinking-cursor').should('not.exist');
+      cy.window().its('localStorage').invoke('getItem', 'watcher_weekly_read_id').should('eq', '101');
+    });
+
+    it('should display the report instantly when typewriter is disabled', () => {
+      mockThreatsWatcher({ weekly: [weeklyFixture()], typewriter: false, weeklyDelay: 3000 });
+      widget({ timeout: 10000 }).should('contain', 'E2E weekly summary').then(($w) => {
+        expect($w.text()).to.include(WEEKLY_TEXT);
+        expect($w.find('.blinking-cursor')).to.have.length(0);
+      });
+    });
+
+    it('should collapse and expand all clusters', () => {
+      mockThreatsWatcher({ weekly: [weeklyFixture({ summary_text: CLUSTER_HTML })], storage: READ });
+
+      widget().find('details.watcher-cluster[open]').should('have.length', 2);
+      widget().find('#watcher-toggle-all').should('have.text', 'Collapse All').click({ force: true });
+      widget().find('details.watcher-cluster[open]').should('have.length', 0);
+      widget().find('#watcher-toggle-all').should('have.text', 'Expand All');
+      cy.window().its('localStorage').invoke('getItem', 'watcherCollapsedState').should('eq', 'collapsed');
+
+      widget().find('#watcher-toggle-all').click({ force: true });
+      widget().find('details.watcher-cluster[open]').should('have.length', 2);
+      widget().find('#watcher-toggle-all').should('have.text', 'Collapse All');
+      cy.window().its('localStorage').invoke('getItem', 'watcherCollapsedState').should('eq', 'expanded');
+    });
+
+    it('should restore the collapsed state saved in localStorage', () => {
+      mockThreatsWatcher({
+        weekly: [weeklyFixture({ summary_text: CLUSTER_HTML })],
+        storage: { ...READ, watcherCollapsedState: 'collapsed' },
+      });
+      widget().find('details.watcher-cluster').should('have.length', 2);
+      widget().find('details.watcher-cluster[open]').should('have.length', 0);
+      widget().find('#watcher-toggle-all').should('have.text', 'Expand All');
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('WeeklyBreaking - Breaking News regenerate & cooldown', () => {
+    const widget = () => cy.contains('.position-fixed', 'Breaking News');
+    const regenerateBtn = () => widget().contains('button', /Regenerat/);
+    const REGEN_URL = '/api/threats_watcher/summary/by-keyword/test-malware/regenerate-breaking/';
+
+    it('should display the breaking news with its AI model', () => {
+      mockThreatsWatcher({ breaking: [breakingFixture()] });
+      widget().should('contain', 'E2E breaking alert on test-malware.').and('contain', 'e2e-breaking-model');
+      regenerateBtn().should('have.attr', 'title', 'Regenerate');
+    });
+
+    it('should disable Regenerate during the cooldown and not call the API', () => {
+      let calls = 0;
+      cy.intercept('POST', REGEN_URL, (req) => {
+        calls += 1;
+        req.reply({ statusCode: 200, body: { success: true } });
+      });
+      mockThreatsWatcher({ breaking: [breakingFixture({ updated_at: minutesAgo(2) })] });
+
+      regenerateBtn()
+        .should('have.attr', 'title', 'Please wait 13 minute(s) before the next regeneration.')
+        .and('have.css', 'opacity', '0.5');
+      regenerateBtn().click({ force: true });
+      cy.wait(500).then(() => expect(calls).to.eq(0));
+    });
+
+    it('should regenerate the breaking news through its keyword', () => {
+      const now = new Date().toISOString();
+      cy.intercept('POST', REGEN_URL, {
+        statusCode: 200,
+        body: {
+          success: true,
+          data: breakingFixture({
+            summary_text: '<p>Regenerated breaking alert.</p>',
+            updated_at: now, ai_model: 'e2e-regenerated-model',
+          }),
+        },
+      }).as('regenBreaking');
+      mockThreatsWatcher({ breaking: [breakingFixture()] });
+
+      regenerateBtn().click({ force: true });
+      cy.wait('@regenBreaking');
+      widget().should('contain', 'Regenerated breaking alert.').and('contain', 'e2e-regenerated-model');
+      regenerateBtn().should('have.attr', 'title').and('match', /^Please wait \d+ minute\(s\)/);
+    });
+
+    it('should alert the user when regeneration fails', () => {
+      const alertStub = cy.stub();
+      cy.on('window:alert', alertStub);
+      cy.intercept('POST', REGEN_URL, {
+        statusCode: 502, body: { success: false, message: 'LLM unavailable' },
+      }).as('regenBreakingFail');
+      mockThreatsWatcher({ breaking: [breakingFixture()] });
+
+      regenerateBtn().click({ force: true });
+      cy.wait('@regenBreakingFail');
+      cy.wrap(alertStub).should('have.been.calledWithMatch', /LLM unavailable/);
+      widget().should('contain', 'E2E breaking alert on test-malware.');
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('WordSummary - regenerate, cooldown & typewriter', () => {
+    const card = (opts) => cy.get('.word-summary', opts);
+    const regenerateBtn = () => card().contains('button', /Regenerat/);
+    const REGEN_URL = '/api/threats_watcher/summary/by-keyword/test-malware/regenerate/';
+
+    const selectWord = () => {
+      cy.wait('@getTrendyWords');
+      cy.contains('td', 'test-malware', { timeout: 10000 }).then(($td) => {
+        const h5 = $td.find('h5');
+        cy.wrap(h5.length ? h5.first() : $td).click({ force: true });
+      });
+      cy.wait('@getWordSummary');
+    };
+    const waitUntilRegenerateReady = () => {
+      card({ timeout: 15000 }).should('contain', WORD_TEXT);
+      card().contains('button', /Regenerat/, { timeout: 15000 })
+        .should('have.attr', 'title', 'Force AI to regenerate this summary')
+        .and('have.css', 'opacity', '1');
+    };
+
+    it('should display the word summary with its AI model and dates', () => {
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture()] });
+      selectWord();
+      card()
+        .should('contain', 'Word Summary for test-malware')
+        .and('contain', WORD_TEXT)
+        .and('contain', 'e2e-word-model')
+        .and('contain', 'Generated at')
+        .and('contain', 'Updated at');
+    });
+
+    it('should enable Regenerate once the cooldown has elapsed', () => {
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture()] });
+      selectWord();
+      regenerateBtn()
+        .should('have.attr', 'title', 'Force AI to regenerate this summary')
+        .and('have.css', 'opacity', '1');
+    });
+
+    it('should disable Regenerate during the cooldown and not call the API', () => {
+      let calls = 0;
+      cy.intercept('POST', REGEN_URL, (req) => {
+        calls += 1;
+        req.reply({ statusCode: 200, body: { success: true } });
+      });
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture({ updated_at: minutesAgo(2) })] });
+      selectWord();
+
+      regenerateBtn()
+        .should('have.attr', 'title', 'Please wait 13 minute(s) before the next regeneration.')
+        .and('have.css', 'opacity', '0.5');
+      regenerateBtn().click({ force: true });
+      cy.wait(500).then(() => expect(calls).to.eq(0));
+    });
+
+    it('should use the cooldown configured by the admin', () => {
+      // 10 minutes ago: blocked with the default 15 min, allowed with 5 min
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture({ updated_at: minutesAgo(10) })], cooldown: 5 });
+      selectWord();
+      regenerateBtn().should('have.attr', 'title', 'Force AI to regenerate this summary');
+    });
+
+    it('should regenerate the summary and start a new cooldown', () => {
+      const now = new Date().toISOString();
+      cy.intercept('POST', REGEN_URL, {
+        statusCode: 200,
+        delay: 3000,
+        body: {
+          success: true,
+          data: wordSummaryFixture({
+            summary_text: 'Regenerated word summary.', updated_at: now, ai_model: 'e2e-regenerated-model',
+          }),
+        },
+      }).as('regenWord');
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture()] });
+      selectWord();
+      waitUntilRegenerateReady();
+      regenerateBtn().click({ force: true });
+      card().should('contain', 'Regenerating');
+      cy.wait('@regenWord');
+
+      card().should('contain', 'Regenerated word summary.').and('contain', 'e2e-regenerated-model');
+      regenerateBtn().should('have.attr', 'title').and('match', /^Please wait \d+ minute\(s\)/);
+    });
+
+    it('should keep the current summary when regeneration fails', () => {
+      cy.intercept('POST', REGEN_URL, {
+        statusCode: 502, body: { success: false, message: 'LLM unavailable' },
+      }).as('regenWordFail');
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture()] });
+      selectWord();
+      waitUntilRegenerateReady();
+      regenerateBtn().click({ force: true });
+      cy.wait('@regenWordFail');
+      card().should('contain', WORD_TEXT).and('not.contain', 'Regenerating');
+      regenerateBtn().should('have.attr', 'title', 'Force AI to regenerate this summary');
+    });
+
+    it('should disable Regenerate when the summary is in error', () => {
+      let calls = 0;
+      cy.intercept('POST', REGEN_URL, (req) => {
+        calls += 1;
+        req.reply({ statusCode: 200, body: { success: true } });
+      });
+      cy.intercept('GET', '**/api/threats_watcher/summary/by-keyword/test-malware**', {
+        statusCode: 404,
+        body: { error: 'not_found', message: 'Keyword not found', posts_count: 0 },
+      }).as('generateWordSummary');
+      mockThreatsWatcher({ wordSummary: [] });
+      selectWord();
+      cy.wait('@generateWordSummary');
+
+      card().should('contain', 'Keyword Not Found');
+      regenerateBtn().should('have.css', 'opacity', '0.5');
+      regenerateBtn().click({ force: true });
+      cy.wait(500).then(() => expect(calls).to.eq(0));
+    });
+
+      it('should type the summary progressively when typewriter is enabled', () => {
+      const LONG_TEXT = Array(40).fill(WORD_TEXT).join(' ');
+      mockThreatsWatcher({
+        wordSummary: [wordSummaryFixture({ summary_text: LONG_TEXT })],
+        typewriter: true,
+      });
+      selectWord();
+
+      card({ timeout: 10000 }).should('contain', 'Generated at');
+
+      card().invoke('text').then((first) => {
+        expect(first).not.to.include(LONG_TEXT);
+        cy.wait(2000);
+        card().invoke('text').should((later) => {
+          expect(later.length).to.be.greaterThan(first.length);
+        });
+      });
+    });
+
+    it('should display the summary instantly when typewriter is disabled', () => {
+      mockThreatsWatcher({ wordSummary: [wordSummaryFixture()], typewriter: false });
+      selectWord();
+      card({ timeout: 10000 }).should('contain', 'E2E word summary').then(($c) => {
+        expect($c.text()).to.include(WORD_TEXT);
+        expect($c.find('.blinking-cursor')).to.have.length(0);
+      });
+    });
+  });
 });

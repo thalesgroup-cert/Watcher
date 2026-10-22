@@ -4,7 +4,8 @@ const initialState = {
     theme: 'bootstrap',
     preferences: {},
     isLoading: false,
-    error: false
+    error: false,
+    typewriter_enabled: true,
 };
 
 export default function profileReducer(state = initialState, action) {

@@ -316,7 +316,7 @@ class ConnectorCard extends Component {
     render() {
         const { connector, onEditClick, onSetDefaultLLM } = this.props;
         const { testResult, testing } = this.state;
-        const isAI = ['openai', 'anthropic', 'gemini', 'ollama', 'company_enabler'].includes(connector.id) ||
+        const isAI = ['openai', 'anthropic', 'gemini', 'ollama', 'generic_llm_provider'].includes(connector.id) ||
                      (connector.category && connector.category.includes('Artificial Intelligence'));
 
         return (
@@ -422,7 +422,7 @@ class ConnectorsDashboard extends Component {
             error:           null,
             editConnector:   null,
             showEdit:        false,
-            groupByCategory: false,
+            groupByCategory: true,
             showHelp:        false,
         };
     }

@@ -186,6 +186,143 @@ describe('Profile Page - E2E Test Suite', () => {
     });
   });
 
+  describe('Settings Section - Interface, AI options & Admin cooldown', () => {
+    const PROFILE = {
+      avatar_color: null,
+      ui_zoom_level: 1.0,
+      typewriter_enabled: true,
+    };
+
+    const zoomSelect = () =>
+      cy.contains('label', 'Interface Size (Zoom)').parent().find('select');
+    const cooldownSelect = () =>
+      cy.contains('label', 'Regeneration Cooldown').parent().find('select');
+
+    beforeEach(() => {
+      // Defined after setupIntercepts(): the most recent matching intercept wins
+      cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: PROFILE }).as('getProfile');
+      cy.intercept('PATCH', '/api/auth/profile', (req) => {
+        req.reply({ statusCode: 200, body: { ...PROFILE, ...req.body } });
+      }).as('patchProfile');
+      cy.intercept('GET', '/api/threats_watcher/summary/config/', {
+        statusCode: 200,
+        body: { regenerate_cooldown_minutes: 30 },
+      }).as('getCooldownConfig');
+      cy.intercept('POST', '/api/threats_watcher/summary/config/', (req) => {
+        req.reply({ statusCode: 200, body: req.body });
+      }).as('postCooldownConfig');
+
+      // Reload so that profile and config are fetched through the mocks above
+      cy.reload();
+      cy.wait('@getProfile');
+      cy.get('.nav-link').contains('Settings').click();
+    });
+
+    // Zoom
+    it('should display the zoom selector with 4 options and 100% by default', () => {
+      zoomSelect().should('have.value', '1');
+      zoomSelect().find('option').should('have.length', 4);
+    });
+
+    it('should send ui_zoom_level as a number when zoom changes', () => {
+      zoomSelect().select('80% (Laptops & Small screens)');
+      cy.wait('@patchProfile').its('request.body.ui_zoom_level').should('eq', 0.8);
+      zoomSelect().should('have.value', '0.8');
+    });
+
+        it('should apply the selected zoom to the page body', () => {
+      cy.document().its('body.style.zoom').should('eq', '1');
+      zoomSelect().select('80% (Laptops & Small screens)');
+      cy.wait('@patchProfile');
+      cy.document().its('body.style.zoom').should('eq', '0.8');
+    });
+
+    it('should apply the saved zoom level on page load', () => {
+      cy.intercept('GET', '/api/auth/profile', {
+        statusCode: 200,
+        body: { ...PROFILE, ui_zoom_level: 0.9 },
+      }).as('getZoomedProfile');
+      cy.reload();
+      cy.wait('@getZoomedProfile');
+      cy.document().its('body.style.zoom').should('eq', '0.9');
+    });
+
+    // Typewriter
+    it('should display the typewriter switch enabled by default', () => {
+      cy.get('#typewriterSwitch').should('be.checked');
+      cy.contains('label', 'Enable Typewriter Effect').should('exist');
+    });
+
+    it('should send typewriter_enabled=false when the switch is turned off', () => {
+      cy.get('#typewriterSwitch').click({ force: true });
+      cy.wait('@patchProfile').its('request.body.typewriter_enabled').should('eq', false);
+      cy.get('#typewriterSwitch').should('not.be.checked');
+    });
+
+    it('should display the switch unchecked when typewriter is disabled in profile', () => {
+      cy.intercept('GET', '/api/auth/profile', {
+        statusCode: 200,
+        body: { ...PROFILE, typewriter_enabled: false },
+      }).as('getProfileNoTypewriter');
+      cy.reload();
+      cy.wait('@getProfileNoTypewriter');
+      cy.get('.nav-link').contains('Settings').click();
+      cy.get('#typewriterSwitch').should('not.be.checked');
+    });
+
+    //Admin cooldown (superuser)
+    it('should load the current cooldown from the config endpoint', () => {
+      cy.wait('@getCooldownConfig');
+      cooldownSelect().should('have.value', '30');
+      cooldownSelect().find('option').should('have.length', 6);
+    });
+
+    it('should POST the new cooldown when the admin changes it', () => {
+      cy.wait('@getCooldownConfig');
+      cooldownSelect().select('1 hour');
+      cy.wait('@postCooldownConfig')
+        .its('request.body')
+        .should('deep.equal', { regenerate_cooldown_minutes: 60 });
+      cooldownSelect().should('have.value', '60').and('not.be.disabled');
+    });
+
+    // Non-superuser
+        it('should hide cooldown settings and not call the config endpoint for a non-superuser', () => {
+      let configCalls = 0;
+      const nonAdmin = {
+        id: 2, username: 'analyst', first_name: 'Ana', last_name: 'Lyst',
+        email: 'analyst@watcher.local', is_superuser: false, is_staff: false,
+        groups: ['Analysts'], permissions: [],
+      };
+
+      // Covers both cases: user reloaded from the API, or restored from localStorage
+      cy.intercept('GET', '**/api/auth/user**', { statusCode: 200, body: nonAdmin });
+      cy.window().then((win) => {
+        const stored = win.localStorage.getItem('user');
+        if (stored) {
+          win.localStorage.setItem('user', JSON.stringify({ ...JSON.parse(stored), ...nonAdmin }));
+        }
+      });
+      cy.intercept('GET', '/api/threats_watcher/summary/config/', (req) => {
+        configCalls += 1;
+        req.reply({ statusCode: 403, body: {} });
+      });
+
+      cy.reload();
+      cy.get('.nav-link').contains('Settings').click();
+
+      // Options available to everyone stay visible
+      cy.contains('label', 'Interface Size (Zoom)').should('exist');
+      cy.get('#typewriterSwitch').should('exist');
+
+      // Admin-only items are hidden
+      cy.contains('.badge', 'Superuser').should('not.exist');
+      cy.contains('Regeneration Cooldown').should('not.exist');
+      cy.contains('.nav-link', 'Connectors').should('not.exist');
+      cy.wrap(null).then(() => expect(configCalls).to.eq(0));
+    });
+  });
+
 
   describe('Themes Section', () => {
     beforeEach(() => {

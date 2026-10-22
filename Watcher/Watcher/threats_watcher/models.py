@@ -124,6 +124,7 @@ class Summary(models.Model):
     summary_text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    ai_model = models.CharField(max_length=100, null=True, blank=True, default="Unknown")
     
     class Meta:
         verbose_name_plural = 'Summaries'
@@ -240,3 +241,26 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+class WatcherConfiguration(models.Model):
+    regenerate_cooldown_minutes = models.PositiveIntegerField(
+        default=15,
+        verbose_name="Regeneration cooldown (minutes)",
+        help_text="Time to wait before being able to use the Regenerate button."
+    )
+
+    class Meta:
+        verbose_name = "Watcher Global Configuration"
+        verbose_name_plural = "Watcher Global Configuration"
+
+    def __str__(self):
+        return "Global Settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_cooldown(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj.regenerate_cooldown_minutes

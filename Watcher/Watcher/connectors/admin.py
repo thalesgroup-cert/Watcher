@@ -14,7 +14,7 @@ class ConnectorOverrideForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             ai_connectors = [
                 'openai', 'anthropic', 'gemini', 'ollama', 
-                'company_enabler'
+                'generic_llm_provider'
             ]
             
             if self.instance.connector_id not in ai_connectors:

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { connect } from "react-redux";
-import { getWeeklySummary, getBreakingNews } from "../../actions/Common";
+import { getWeeklySummary, getBreakingNews, getSummaryConfig,regenerateWeeklySummary, regenerateBreakingNews } from "../../actions/Common";
+import { createMessage } from "../../actions/messages";
 
 function formatDate(dateStr) {
     if (!dateStr) return "";
@@ -13,6 +14,7 @@ function formatDate(dateStr) {
         minute: "2-digit",
     });
 }
+
 function convertCVELinksToHTML(text) {
     if (!text) return "";
     return text.replace(
@@ -20,6 +22,7 @@ function convertCVELinksToHTML(text) {
         '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #ffc107; text-decoration: underline;">$1</a>'
     );
 }
+
 function isNew(dateStr) {
     if (!dateStr) return false;
     const now = Date.now();
@@ -40,10 +43,12 @@ const BUBBLE_SIZE = 68;
 const MARGIN = 32;
 const DRAG_THRESHOLD = 5;
 
-const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
+const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews, typewriterEnabled, createMessage, getSummaryConfig, regenerateWeeklySummary, regenerateBreakingNews }) => {
     const [weeklyText, setWeeklyText] = useState("");
     const [weeklyDisplayHTML, setWeeklyDisplayHTML] = useState("");
     const [weeklyCreatedAt, setWeeklyCreatedAt] = useState("");
+    const [weeklyUpdatedAt, setWeeklyUpdatedAt] = useState("");
+    const [weeklyAiModel, setWeeklyAiModel] = useState("");
     const [weeklyId, setWeeklyId] = useState(null);
     const [breakingNews, setBreakingNews] = useState(null);
     const [activeTab, setActiveTab] = useState("");
@@ -64,6 +69,97 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
     const dragStartPos = useRef({ x: 0, y: 0 });
     const windowRef = useRef(null);
     const contentRef = useRef(null);
+    const [isRegeneratingWeekly, setIsRegeneratingWeekly] = useState(false);
+    const [isRegeneratingBreaking, setIsRegeneratingBreaking] = useState(false);
+
+    const [cooldownMinutes, setCooldownMinutes] = useState(15);
+    const [currentTime, setCurrentTime] = useState(Date.now());
+
+    useEffect(() => {
+        fetch('/api/threats_watcher/summary/config/')
+            .then(res => res.json())
+            .then(data => {
+                if (data.regenerate_cooldown_minutes !== undefined) {
+                    setCooldownMinutes(data.regenerate_cooldown_minutes);
+                }
+            })
+            .catch(err => console.error("Error fetching config:", err));
+
+        const interval = setInterval(() => setCurrentTime(Date.now()), 10000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const getCooldownStatus = (dateStr) => {
+        if (!dateStr) return { disabled: false, tooltip: "Regenerate" };
+        const lastUpdate = new Date(dateStr).getTime();
+        const elapsedMinutes = (currentTime - lastUpdate) / (1000 * 60);
+
+        if (elapsedMinutes < cooldownMinutes) {
+            const remainingMinutes = Math.ceil(cooldownMinutes - elapsedMinutes);
+            return { disabled: true, tooltip: `Please wait ${remainingMinutes} minute(s) before the next regeneration.` };
+        }
+        return { disabled: false, tooltip: "Regenerate" };
+    };
+
+    const weeklyCooldown = getCooldownStatus(weeklyUpdatedAt || weeklyCreatedAt);
+    const breakingCooldown = getCooldownStatus(breakingNews?.updated_at || breakingNews?.created_at);
+
+    useEffect(() => {
+        getSummaryConfig()
+            .then(data => {
+                if (data.regenerate_cooldown_minutes !== undefined) {
+                    setCooldownMinutes(data.regenerate_cooldown_minutes);
+                }
+            })
+            .catch(err => console.error("Error fetching config:", err));
+
+        const interval = setInterval(() => setCurrentTime(Date.now()), 10000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleRegenerateWeekly = async () => {
+        setIsRegeneratingWeekly(true);
+        try {
+            const data = await regenerateWeeklySummary();
+            if (data.success && data.data) {
+                setWeeklyText(data.data.summary_text || "");
+                setWeeklyCreatedAt(data.data.created_at || "");
+                setWeeklyUpdatedAt(data.data.updated_at || data.data.created_at || "");
+                setWeeklyId(data.data.id);
+                setWeeklyAiModel(data.data.ai_model || "");
+                setCurrentTime(Date.now());
+            }
+        } catch (err) {
+            if (err.response) {
+                createMessage({ error: "Regeneration failed: " + (err.response.data?.message || err.response.statusText) });
+            } else {
+                console.error("Network error :", err);
+                createMessage({ error: "Network error during regeneration." });
+            }
+        } finally {
+            setIsRegeneratingWeekly(false);
+        }
+    };
+
+    const handleRegenerateBreaking = async () => {
+        if (!breakingNews || !breakingNews.keywords) return;
+
+        setIsRegeneratingBreaking(true);
+        try {
+            const data = await regenerateBreakingNews(breakingNews.keywords);
+            if (data.success && data.data) {
+                setBreakingNews(data.data);
+            }
+        } catch (err) {
+            if (err.response) {
+                alert("Failed to regenerate the alert: " + (err.response.data?.message || err.response.statusText));
+            } else {
+                console.error("Network error :", err);
+            }
+        } finally {
+            setIsRegeneratingBreaking(false);
+        }
+    };
 
     useEffect(() => {
         if (weeklyId && weeklyCreatedAt) {
@@ -89,7 +185,6 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
         }
     }, [weeklyId, weeklyCreatedAt, breakingNews]);
 
-    // Typing effect for weekly summary
     useEffect(() => {
         if (!weeklyText) {
             setWeeklyDisplayHTML("");
@@ -97,8 +192,14 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
         }
 
         const lastReadId = localStorage.getItem(LS_WEEKLY_READ_KEY);
-        if (lastReadId === String(weeklyId)) {
+        
+        if (lastReadId === String(weeklyId) || !typewriterEnabled) {
             setWeeklyDisplayHTML(convertCVELinksToHTML(weeklyText));
+            
+            if (lastReadId !== String(weeklyId)) {
+                localStorage.setItem(LS_WEEKLY_READ_KEY, String(weeklyId));
+                setHasUnreadWeekly(false);
+            }
             return;
         }
 
@@ -120,7 +221,7 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
         setWeeklyDisplayHTML("");
         write();
         return () => clearTimeout(timeoutId);
-    }, [weeklyText, weeklyId]);
+    }, [weeklyText, weeklyId, typewriterEnabled]);
 
     useEffect(() => {
         if (!breakingNews || activeTab !== "breaking") return;
@@ -172,6 +273,68 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
         };
     }, [weeklyText, weeklyId, activeTab]);
 
+    useEffect(() => {
+        const contentEl = contentRef.current;
+        if (!contentEl) return;
+
+        const savedState = localStorage.getItem("watcherCollapsedState");
+        const toggleBtn = contentEl.querySelector("#watcher-toggle-all");
+        const details = Array.from(contentEl.querySelectorAll(".watcher-cluster"));
+
+        const updateToggleBtnText = () => {
+            if (!toggleBtn) return;
+            const allOpen = details.every(d => d.hasAttribute("open"));
+            const allClosed = details.every(d => !d.hasAttribute("open"));
+
+            if (allOpen) {
+                toggleBtn.innerText = "Collapse All";
+            } else if (allClosed) {
+                toggleBtn.innerText = "Expand All";
+            }
+        };
+
+        if (savedState === "collapsed") {
+            details.forEach(d => d.removeAttribute("open"));
+            if (toggleBtn) toggleBtn.innerText = "Expand All";
+        } else if (savedState === "expanded") {
+            details.forEach(d => d.setAttribute("open", "true"));
+            if (toggleBtn) toggleBtn.innerText = "Collapse All";
+        }
+
+        const handleGlobalToggleClick = (e) => {
+            if (e.target && e.target.id === "watcher-toggle-all") {
+                const isCollapsing = e.target.innerText === "Collapse All";
+                
+                details.forEach(d => {
+                    if (isCollapsing) {
+                        d.removeAttribute("open");
+                    } else {
+                        d.setAttribute("open", "true");
+                    }
+                });
+                
+                e.target.innerText = isCollapsing ? "Expand All" : "Collapse All";
+                localStorage.setItem("watcherCollapsedState", isCollapsing ? "collapsed" : "expanded");
+            }
+        };
+        const handleDetailsToggle = () => {
+            setTimeout(() => {
+                updateToggleBtnText();
+                if (toggleBtn) {
+                    localStorage.setItem("watcherCollapsedState", toggleBtn.innerText === "Collapse All" ? "expanded" : "collapsed");
+                }
+            }, 10);
+        };
+
+        contentEl.addEventListener("click", handleGlobalToggleClick);
+        details.forEach(d => d.addEventListener("toggle", handleDetailsToggle));
+
+        return () => {
+            contentEl.removeEventListener("click", handleGlobalToggleClick);
+            details.forEach(d => d.removeEventListener("toggle", handleDetailsToggle));
+        };
+    }, [minimized, activeTab, weeklyDisplayHTML]);
+
     const clampToViewport = useCallback((x, bottom, minimizedVal = minimized) => {
         const cardWidth = minimizedVal ? BUBBLE_SIZE : CARD_WIDTH;
         const cardHeight = minimizedVal ? BUBBLE_SIZE : (windowRef.current ? windowRef.current.offsetHeight : CARD_MIN_HEIGHT);
@@ -189,39 +352,62 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
     }, [minimized]);
 
     useEffect(() => {
-        getWeeklySummary()
-            .then(data => {
-                if (Array.isArray(data) && data.length > 0 && data[0].summary_text?.trim()) {
-                    setWeeklyText(data[0].summary_text);
-                    setWeeklyCreatedAt(data[0].created_at || "");
-                    setWeeklyId(data[0].id);
-                } else {
-                    setWeeklyText("");
-                    setWeeklyCreatedAt("");
-                    setWeeklyId(null);
-                }
-            })
-            .catch(() => {
-                setWeeklyText("");
-                setWeeklyCreatedAt("");
-                setWeeklyId(null);
-            });
+        let isMounted = true;
 
-        getBreakingNews()
-            .then(data => {
-                if (Array.isArray(data) && data.length > 0) {
-                    const latest = data
-                        .filter(n => n.created_at && isNew(n.created_at) && n.summary_text?.trim())
-                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-                    setBreakingNews(latest || null);
-                } else {
-                    setBreakingNews(null);
-                }
-            })
-            .catch(() => {
-                setBreakingNews(null);
-            });
-    }, [getWeeklySummary, getBreakingNews]);
+        const fetchData = () => {
+            getWeeklySummary()
+                .then(data => {
+                    if (isMounted) {
+                        if (Array.isArray(data) && data.length > 0 && data[0].summary_text?.trim()) {
+                            setWeeklyText(data[0].summary_text);
+                            setWeeklyCreatedAt(data[0].created_at || "");
+                            setWeeklyUpdatedAt(data[0].updated_at || data[0].created_at || "");
+                            setWeeklyId(data[0].id);
+                            setWeeklyAiModel(data[0].ai_model || "");
+                        } else {
+                            setWeeklyText("");
+                            setWeeklyCreatedAt("");
+                            setWeeklyId(null);
+                            setWeeklyAiModel("");
+                            setWeeklyUpdatedAt("");
+                        }
+                    }
+                })
+                .catch(() => {
+                    if (isMounted) {
+                        setWeeklyText("");
+                        setWeeklyCreatedAt("");
+                        setWeeklyId(null);
+                    }
+                });
+
+            getBreakingNews()
+                .then(data => {
+                    if (isMounted) {
+                        if (Array.isArray(data) && data.length > 0) {
+                            const latest = data
+                                .filter(n => n.created_at && isNew(n.created_at) && n.summary_text?.trim())
+                                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+                            setBreakingNews(latest || null);
+                        } else {
+                            setBreakingNews(null);
+                        }
+                    }
+                })
+                .catch(() => {
+                    if (isMounted) setBreakingNews(null);
+                });
+        };
+
+        fetchData();
+
+        const intervalId = setInterval(fetchData, 10000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, []);
 
     useEffect(() => localStorage.setItem(LS_TAB_KEY, activeTab), [activeTab]);
     useEffect(() => localStorage.setItem(LS_OPEN_KEY, minimized ? "false" : "true"), [minimized]);
@@ -304,7 +490,7 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
             icon: "description",
             label: (
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span className="material-icons" style={{ fontSize: 22, marginRight: 7, verticalAlign: "middle" }}>description</span>
+                    <span className="material-icons" style={{ fontSize: 18, marginRight: 7, verticalAlign: "middle" }}>description</span>
                     Weekly Report
                 </span>
             )
@@ -317,7 +503,7 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
             icon: "bolt",
             label: (
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span className="material-icons" style={{ fontSize: 22, marginRight: 7, verticalAlign: "middle" }}>bolt</span>
+                    <span className="material-icons" style={{ fontSize: 18, marginRight: 7, verticalAlign: "middle" }}>bolt</span>
                     Breaking News
                 </span>
             )
@@ -337,18 +523,21 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
             border: "none",
             fontWeight: "bold",
             cursor: "pointer",
-            fontSize: isActive ? "1.14em" : "1.06em",
+            fontSize: isActive ? "0.95em" : "0.9em",
             transition: "background 0.22s, color 0.18s, border-bottom 0.22s, box-shadow 0.16s, transform 0.2s",
             borderBottom: isActive ? "4px solid currentColor" : "2px solid #23272b",
             boxShadow: isActive ? "0 2px 18px 0 rgba(0,0,0,0.3)" : "none",
-            padding: isActive ? "1.2em 0 1.05em" : "0.70em 0 0.65em",
+            padding: isActive ? "0.7em 0 0.6em" : "0.4em 0 0.4em",
             width: tabs.length === 1 ? "100%" : (isActive ? "54%" : "46%"),
             borderRadius: tabs.length === 1
                 ? "1em 1em 0 0"
                 : (tab.key === "weekly" ? "1em 0 0 0" : "0 1em 0 0"),
             outline: "none",
             zIndex: isActive ? 1 : 0,
-            transform: isActive ? "scale(1.02)" : "scale(1)"
+            transform: isActive ? "scale(1.02)" : "scale(1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
         };
     }
 
@@ -426,6 +615,22 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                 {`
                 @keyframes blink { 0%{opacity:1;} 50%{opacity:0;} 100%{opacity:1;} }
                 .blinking-cursor { animation: blink 1s infinite; }
+
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                .icon-spin { animation: spin 1s linear infinite; }
+                @keyframes dotsBlink { 0%, 80%, 100% { opacity: 1; } 40% { opacity: 0; } }
+                .loading-dots span {
+                    animation: dotsBlink 1.2s infinite;
+                    margin-right: 2px;
+                }
+                .loading-dots span:nth-child(2) { animation-delay: .3s; }
+                .loading-dots span:nth-child(3) { animation-delay: .6s; }
+                
+                details.watcher-cluster > summary::-webkit-details-marker { display: none; }
+                details.watcher-cluster > summary { list-style: none; }
+                
+                details.watcher-cluster[open] > summary .cluster-arrow { transform: rotate(0deg); }
+                details.watcher-cluster:not([open]) > summary .cluster-arrow { transform: rotate(-90deg); }
                 `}
             </style>
             <div className="card shadow-lg mb-0 border-0 bg-secondary"
@@ -442,7 +647,7 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                     style={{
                         background: "#23272b",
                         borderRadius: "1em 1em 0 0",
-                        minHeight: 54,
+                        minHeight: 40,
                         position: "relative",
                         userSelect: "none",
                         display: "flex",
@@ -462,12 +667,15 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                             {tab.label}
                         </button>
                     ))}
+                    
                     <span style={{
                         position: "absolute",
                         right: 14,
                         top: "50%",
                         transform: "translateY(-50%)",
-                        zIndex: 20
+                        zIndex: 20,
+                        display: "flex",
+                        alignItems: "center"
                     }}>
                         <span
                             className="material-icons"
@@ -491,14 +699,38 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                     >
                         {activeTab === "weekly" && weeklyText && (
                             <div className="card-body">
-                                <div style={{ fontSize: "1.08em", color: "inherit", whiteSpace: "pre-line" }}>
+                                <div style={{ fontSize: "1.08em", color: "inherit"}}>
                                     <span dangerouslySetInnerHTML={{ __html: weeklyDisplayHTML }} />
-                                    {weeklyDisplayHTML !== convertCVELinksToHTML(weeklyText) && (
+                                    {typewriterEnabled && weeklyDisplayHTML !== convertCVELinksToHTML(weeklyText) && (
                                         <span className="blinking-cursor">|</span>
                                     )}
                                 </div>
-                                <div className="mt-2" style={{ fontSize: "0.85em", color: "inherit" }}>
-                                    Generated at {formatDate(weeklyCreatedAt)}
+                               <div className="mt-3 pt-2 d-flex justify-content-between align-items-center border-top border-secondary" style={{ fontSize: "0.85em", color: "inherit" }}>
+                                    <span className="text-muted">Generated at {formatDate(weeklyCreatedAt)}</span>
+                                    <span className="text-muted">{weeklyAiModel}</span>
+                                    <button 
+                                        className="btn btn-sm text-muted d-flex align-items-center gap-1"
+                                        onClick={() => { if (!(isRegeneratingWeekly || weeklyCooldown.disabled)) handleRegenerateWeekly(); }}
+                                        style={{ 
+                                            padding: "2px 8px", 
+                                            fontSize: "0.9em", 
+                                            border: "none",
+                                            cursor: (isRegeneratingWeekly || weeklyCooldown.disabled) ? "not-allowed" : "pointer",
+                                            opacity: (isRegeneratingWeekly || weeklyCooldown.disabled) ? 0.5 : 0.8,
+                                            transition: "opacity 0.2s"
+                                        }}
+                                        title={weeklyCooldown.tooltip}
+                                    >
+                                        <i className={`material-icons ${isRegeneratingWeekly ? 'icon-spin' : ''}`} style={{ fontSize: 14 }}>
+                                            {isRegeneratingWeekly ? 'sync' : 'refresh'}
+                                        </i>
+                                        {isRegeneratingWeekly ? (
+                                            <span className="loading-dots d-inline-flex ms-1">
+                                                Regenerating
+                                                <span>.</span><span>.</span><span>.</span>
+                                            </span>
+                                        ) : 'Regenerate'}
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -507,11 +739,35 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
                             <div className="card-body">
                                 <div
                                     className="card-text"
-                                    style={{ fontSize: "1.08em", whiteSpace: "pre-line", color: "inherit" }}
+                                    style={{ fontSize: "1.08em", color: "inherit" }}
                                     dangerouslySetInnerHTML={{ __html: breakingNews.summary_text }}
                                 />
-                                <div className="mt-2" style={{ fontSize: "0.85em", color: "inherit" }}>
-                                    Generated at {formatDate(breakingNews.created_at)}
+                                <div className="mt-3 pt-2 d-flex justify-content-between align-items-center border-top border-secondary" style={{ fontSize: "0.85em", color: "inherit" }}>
+                                    <span className="text-muted">Generated at {formatDate(breakingNews.created_at)}</span>
+                                    <span className="text-muted">{breakingNews.ai_model}</span>
+                                    <button 
+                                        className="btn btn-sm text-muted d-flex align-items-center gap-1"
+                                        onClick={() => { if (!(isRegeneratingBreaking || breakingCooldown.disabled)) handleRegenerateBreaking(); }}
+                                        style={{ 
+                                            padding: "2px 8px", 
+                                            fontSize: "0.9em", 
+                                            border: "none",
+                                            cursor: (isRegeneratingBreaking || breakingCooldown.disabled) ? "not-allowed" : "pointer",
+                                            opacity: (isRegeneratingBreaking || breakingCooldown.disabled) ? 0.5 : 0.8,
+                                            transition: "opacity 0.2s"
+                                        }}
+                                        title={breakingCooldown.tooltip}
+                                    >
+                                        <i className={`material-icons ${isRegeneratingBreaking ? 'icon-spin' : ''}`} style={{ fontSize: 14 }}>
+                                            {isRegeneratingBreaking ? 'sync' : 'refresh'}
+                                        </i>
+                                        {isRegeneratingBreaking ? (
+                                            <span className="loading-dots d-inline-flex ms-1">
+                                                Regenerating
+                                                <span>.</span><span>.</span><span>.</span>
+                                            </span>
+                                        ) : 'Regenerate'}
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -522,4 +778,14 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews }) => {
     );
 };
 
-export default connect(null, { getWeeklySummary, getBreakingNews })(WeeklyBreaking);
+const mapStateToProps = (state) => {
+    let isEnabled = state.profile?.typewriter_enabled;
+    if (isEnabled === undefined) {
+        isEnabled = state.auth?.user?.userprofile?.typewriter_enabled;
+    }
+    return {
+        typewriterEnabled: isEnabled !== false
+    };
+};
+
+export default connect(mapStateToProps, { getWeeklySummary, getBreakingNews, createMessage, getSummaryConfig, regenerateWeeklySummary, regenerateBreakingNews })(WeeklyBreaking);

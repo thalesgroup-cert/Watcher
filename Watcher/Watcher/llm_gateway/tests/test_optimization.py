@@ -6,6 +6,9 @@ from llm_gateway.utils.log_pruner import LogPruner
 from llm_gateway.utils.token_manager import TokenManager
 from llm_gateway.utils.prompt_builder import PromptBuilder
 from llm_gateway.services.analyzer import SecurityAnalyzerService
+from llm_gateway.router import LLMRouter
+from llm_gateway.exceptions import LLMConnectionError
+from connectors.core import connector_encrypt
 
 class OptimizationTests(TestCase):
     
@@ -98,3 +101,89 @@ class OptimizationTests(TestCase):
         self.assertEqual(result["analysis"], "Local fallback analysis.")
         mock_call_remote.assert_called_once()
         mock_call_fallback.assert_called_once()
+
+
+class RouterApiKeyDecryptionTests(TestCase):
+    """Test the Fernet decryption of API keys in the router and the analyzer."""
+
+    def test_router_decrypts_fernet_key(self):
+        encrypted = connector_encrypt("sk-secret")
+        self.assertTrue(encrypted.startswith("gAAA"))
+        self.assertEqual(LLMRouter()._decrypt_api_key(encrypted), "sk-secret")
+
+    def test_router_keeps_plain_key(self):
+        self.assertEqual(LLMRouter()._decrypt_api_key("sk-plain"), "sk-plain")
+
+    def test_router_handles_empty_key(self):
+        self.assertEqual(LLMRouter()._decrypt_api_key(""), "")
+        self.assertIsNone(LLMRouter()._decrypt_api_key(None))
+
+    def test_router_returns_raw_value_when_decryption_fails(self):
+        self.assertEqual(LLMRouter()._decrypt_api_key("gAAA-not-a-valid-token"), "gAAA-not-a-valid-token")
+
+    def test_analyzer_decrypts_fernet_key(self):
+        encrypted = connector_encrypt("sk-secret")
+        self.assertEqual(SecurityAnalyzerService()._decrypt_api_key(encrypted), "sk-secret")
+
+    def test_analyzer_keeps_plain_key_and_handles_invalid_token(self):
+        service = SecurityAnalyzerService()
+        self.assertEqual(service._decrypt_api_key("sk-plain"), "sk-plain")
+        self.assertEqual(service._decrypt_api_key("gAAA-invalid"), "gAAA-invalid")
+
+
+class RouterGenerateTextTests(TestCase):
+    """Test generate_text: the router is APIs-only and returns None instead of raising."""
+
+    @patch('llm_gateway.router.LLMRouter._call_litellm')
+    def test_success_returns_the_text(self, mock_call):
+        mock_call.return_value = "generated"
+        self.assertEqual(LLMRouter().generate_text("prompt", provider_name="openai"), "generated")
+        mock_call.assert_called_once()
+
+    @patch('llm_gateway.router.LLMRouter._call_litellm')
+    def test_failure_with_local_fallback_returns_none(self, mock_call):
+        """With huggingface_local as fallback the caller handles the local model."""
+        mock_call.side_effect = LLMConnectionError("down")
+        with self.settings(FALLBACK_LLM_PROVIDER='huggingface_local'):
+            self.assertIsNone(LLMRouter().generate_text("prompt", provider_name="openai"))
+        mock_call.assert_called_once()
+
+    @patch('llm_gateway.router.LLMRouter._call_litellm')
+    def test_failure_switches_to_fallback_connector(self, mock_call):
+        mock_call.side_effect = [LLMConnectionError("down"), "from fallback"]
+        router = LLMRouter()
+        with self.settings(FALLBACK_LLM_PROVIDER='gemini'):
+            result = router.generate_text("prompt", provider_name="openai")
+        self.assertEqual(result, "from fallback")
+        self.assertEqual(mock_call.call_args_list[1].args[1], 'gemini')
+        self.assertEqual(router.model_used, 'gemini')
+
+    @patch('llm_gateway.router.LLMRouter._call_litellm')
+    def test_failing_fallback_connector_returns_none(self, mock_call):
+        mock_call.side_effect = [LLMConnectionError("down"), LLMConnectionError("also down")]
+        with self.settings(FALLBACK_LLM_PROVIDER='gemini'):
+            self.assertIsNone(LLMRouter().generate_text("prompt", provider_name="openai"))
+
+    @patch('llm_gateway.router.LLMRouter._call_litellm')
+    def test_default_provider_comes_from_the_default_llm_override(self, mock_call):
+        from connectors.models import ConnectorOverride
+        ConnectorOverride.objects.create(connector_id='anthropic', is_default_llm=True)
+        mock_call.return_value = "ok"
+        LLMRouter().generate_text("prompt")
+        self.assertEqual(mock_call.call_args.args[1], 'anthropic')
+
+
+class RouterConfigTests(TestCase):
+    """Test the connector configuration lookup, including the generic_llm_provider rename."""
+
+    def test_generic_llm_provider_falls_back_to_generic_settings(self):
+        with self.settings(GENERIC_LLM_MODEL='m', GENERIC_LLM_KEY='k', GENERIC_LLM_URL='http://u'):
+            config = LLMRouter()._get_llm_config('generic_llm_provider')
+        self.assertEqual(config, {'MODEL_NAME': 'm', 'API_KEY': 'k', 'BASE_URL': 'http://u'})
+
+    def test_database_override_takes_precedence_over_settings(self):
+        from connectors.models import ConnectorOverride
+        ConnectorOverride.objects.create(connector_id='generic_llm_provider', overrides={'MODEL_NAME': 'db-model'})
+        with self.settings(GENERIC_LLM_MODEL='settings-model'):
+            config = LLMRouter()._get_llm_config('generic_llm_provider')
+        self.assertEqual(config['MODEL_NAME'], 'db-model')

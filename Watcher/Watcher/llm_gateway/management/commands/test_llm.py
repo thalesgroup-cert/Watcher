@@ -10,7 +10,7 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.NOTICE("=== LLM ROUTER TEST ==="))
         
-        default_provider = getattr(settings, 'DEFAULT_LLM_PROVIDER', 'company_enabler_llm')
+        default_provider = getattr(settings, 'DEFAULT_LLM_PROVIDER', 'generic_llm_provider')
         self.stdout.write(f"\n1. Testing default provider: [{default_provider}]")
         
         try:

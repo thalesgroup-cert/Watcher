@@ -377,3 +377,320 @@ class PendingActionResolutionTest(APITestCase):
             event_exists,
             "Expected a ACTION_CANCELLED TimelineEvent with object_id=site.pk after rejection"
         )
+
+
+CLUSTER_SUMMARY_HTML = (
+    "<div style='border-left: 3px solid #64748b; padding-left: 0.8em;'>"
+    "<div class='d-flex'><strong class='text-info'>Executive Summary</strong>"
+    "<span id='watcher-toggle-all'>Collapse All</span></div>"
+    "<p class='mt-1'>Surge of threats this week.</p></div>"
+    "<details open class='watcher-cluster' style='border-left: 3px solid #ef4444; padding-left: 0.8em;'>"
+    "<summary><div><span class='material-icons'>arrow_drop_down</span>"
+    "<strong class='m-0'>Atlassian Vulnerabilities</strong></div>"
+    "<div><span class='text-muted fst-italic'>Oct 06, 2026</span>"
+    "<span class='badge' style='color: #ef4444'>Critical</span></div></summary>"
+    "<p class='mb-3'>Atlassian disclosed multiple flaws.</p>"
+    "<div class='d-flex'>"
+    "<div class='m-0'><strong class='text-muted'>Threats:</strong> <span class='badge'>APT1</span></div>"
+    "<div class='m-0'><strong class='text-muted'>CVEs:</strong> "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2023-1111'>CVE-2023-1111</a> | "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2023-2222'>CVE-2023-2222</a></div>"
+    "</div></details>"
+)
+
+BREAKING_NEWS_HTML = (
+    "<p class='mb-3'>A DDoS attack disrupted Ubuntu.</p>"
+    "<div class='mt-3 p-3'><h6 class='text-uppercase'>Threat Context</h6><div class='d-flex'>"
+    "<div><strong class='text-muted'>Impact Level:</strong> <span class='badge bg-danger'>High</span></div>"
+    "<div><strong class='text-muted'>CVEs:</strong> "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2026-1' class='fw-bold'>CVE-2026-1</a> | "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2026-2'>CVE-2026-2</a></div>"
+    "</div></div>"
+)
+
+
+class HtmlToCitadelHtmlTest(TestCase):
+    """Test the conversion of the web summary HTML to the Matrix/Citadel HTML subset."""
+
+    def setUp(self):
+        from common.core import html_to_citadel_html
+        self.convert = html_to_citadel_html
+
+    def test_executive_summary_is_converted(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('<font data-mx-color="#64748b"><strong>EXECUTIVE SUMMARY</strong></font>', out)
+        self.assertIn('Surge of threats this week.', out)
+
+    def test_cluster_uses_severity_color_from_border(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('<font data-mx-color="#ef4444"><strong>▌ Atlassian Vulnerabilities</strong></font>', out)
+        self.assertIn('(Oct 06, 2026 · Critical)', out)
+
+    def test_web_artifacts_are_removed(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        for artifact in ('Collapse All', 'arrow_drop_down', 'class=', 'style=', '<details', '<summary', '<span'):
+            self.assertNotIn(artifact, out)
+
+    def test_cluster_cves_are_plain_text_without_links(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertNotIn('<a ', out)
+        self.assertNotIn('nvd.nist.gov', out)
+        self.assertIn('<strong>CVEs:</strong> CVE-2023-1111, CVE-2023-2222', out)
+
+    def test_cluster_threats_are_kept(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('<strong>Threats:</strong> APT1', out)
+
+    def test_blank_line_between_description_and_related_items(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('Atlassian disclosed multiple flaws.<br><br><strong>Threats:</strong> APT1', out)
+
+    def test_duplicate_cves_are_listed_once(self):
+        html = CLUSTER_SUMMARY_HTML.replace('CVE-2023-2222', 'CVE-2023-1111')
+        out = self.convert(html)
+        self.assertEqual(out.count('CVE-2023-1111'), 1)
+
+    def test_cluster_without_title_is_skipped(self):
+        html = (
+            "<details style='border-left: 3px solid #ef4444;'><summary></summary>"
+            "<p>No title here</p></details>"
+        )
+        out = self.convert(html)
+        self.assertNotIn('data-mx-color="#ef4444"', out)
+
+    def test_breaking_news_impact_is_colored(self):
+        out = self.convert(BREAKING_NEWS_HTML)
+        self.assertIn('<font data-mx-color="#eab308"><strong>High</strong></font>', out)
+
+    def test_breaking_news_impact_colors_follow_the_severity(self):
+        for level, color in (('Critical', '#ef4444'), ('Actively exploited', '#ef4444'),
+                             ('High', '#eab308'), ('Medium', '#38bdf8')):
+            out = self.convert(f"<div><span class='badge'>{level}</span></div>")
+            self.assertIn(f'<font data-mx-color="{color}"><strong>{level}</strong></font>', out)
+
+    def test_unknown_impact_level_stays_plain_text(self):
+        out = self.convert("<div><span class='badge'>Weird</span></div>")
+        self.assertNotIn('data-mx-color', out)
+        self.assertIn('Weird', out)
+
+    def test_breaking_news_cves_have_no_links(self):
+        out = self.convert(BREAKING_NEWS_HTML)
+        self.assertNotIn('<a ', out)
+        self.assertNotIn('nvd.nist.gov', out)
+        self.assertIn('CVE-2026-1, CVE-2026-2', out)
+        self.assertNotIn('|', out)
+
+    def test_breaking_news_keeps_basic_structure(self):
+        out = self.convert(BREAKING_NEWS_HTML)
+        self.assertIn('A DDoS attack disrupted Ubuntu.', out)
+        self.assertIn('<strong>Threat Context</strong>', out)
+        self.assertIn('<strong>Impact Level:</strong>', out)
+        self.assertNotIn('class=', out)
+
+    def test_output_has_no_newline(self):
+        # The caller replaces '\n' by '<br>', so the converter must not emit any
+        self.assertNotIn('\n', self.convert(CLUSTER_SUMMARY_HTML.replace('><', '>\n<')))
+        self.assertNotIn('\n', self.convert(BREAKING_NEWS_HTML.replace('><', '>\n<')))
+
+
+class HtmlToSlackAttachmentsTest(TestCase):
+    """Test the Slack Block Kit attachments built from the web summary HTML."""
+
+    def setUp(self):
+        from common.core import html_to_slack_attachments
+        self.convert = html_to_slack_attachments
+
+    def test_executive_summary_and_cluster_colors(self):
+        attachments = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertEqual([a['color'] for a in attachments], ['#64748b', '#ef4444'])
+
+    def test_executive_summary_block(self):
+        executive = self.convert(CLUSTER_SUMMARY_HTML)[0]
+        self.assertEqual(executive['blocks'][0]['text']['text'], 'Executive Summary')
+        self.assertEqual(executive['blocks'][1]['text']['text'], 'Surge of threats this week.')
+
+    def test_cluster_block_has_title_description_and_cves(self):
+        cluster = self.convert(CLUSTER_SUMMARY_HTML)[1]
+        self.assertEqual(cluster['blocks'][0]['text']['text'], 'Atlassian Vulnerabilities')
+        text = cluster['blocks'][1]['text']['text']
+        self.assertIn('Atlassian disclosed multiple flaws.', text)
+        self.assertIn('*CVEs :*', text)
+        self.assertIn('CVE-2023-1111', text)
+
+    def test_plain_html_falls_back_to_single_attachment(self):
+        attachments = self.convert(BREAKING_NEWS_HTML)
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]['color'], '#ef4444')
+        text = attachments[0]['blocks'][0]['text']['text']
+        self.assertNotIn('<', text)
+        self.assertIn('*Threat Context*', text)
+
+    def test_fallback_text_is_truncated_for_slack(self):
+        attachments = self.convert("<p>" + "x" * 5000 + "</p>")
+        self.assertLessEqual(len(attachments[0]['blocks'][0]['text']['text']), 2900)
+
+
+class CleanHtmlForEmailTest(TestCase):
+    """Test the removal of the interactive web elements before sending a summary by email."""
+
+    def setUp(self):
+        from common.core import clean_html_for_email
+        self.clean = clean_html_for_email
+
+    def test_collapse_button_is_removed(self):
+        self.assertNotIn('Collapse All', self.clean(CLUSTER_SUMMARY_HTML))
+
+    def test_details_and_summary_are_replaced(self):
+        out = self.clean(CLUSTER_SUMMARY_HTML)
+        for tag in ('<details', '</details>', '<summary', '</summary>'):
+            self.assertNotIn(tag, out)
+
+    def test_cluster_title_date_and_badge_are_rebuilt(self):
+        out = self.clean(CLUSTER_SUMMARY_HTML)
+        self.assertIn('Atlassian Vulnerabilities', out)
+        self.assertIn('Oct 06, 2026', out)
+        self.assertIn('Critical', out)
+        self.assertIn('border: 1px solid #ef4444', out)
+
+    def test_material_icon_is_removed(self):
+        self.assertNotIn('arrow_drop_down', self.clean(CLUSTER_SUMMARY_HTML))
+
+    def test_summary_without_title_is_dropped(self):
+        out = self.clean("<details><summary><span>no title</span></summary><p>Body</p></details>")
+        self.assertNotIn('no title', out)
+        self.assertIn('Body', out)
+
+    def test_empty_paragraphs_and_divs_are_removed(self):
+        out = self.clean("<p>   </p><div></div><p>Kept</p>")
+        self.assertEqual(out, "<p>Kept</p>")
+
+    def test_consecutive_line_breaks_are_collapsed(self):
+        self.assertEqual(self.clean("a<br><br><br>b"), "a<br>b")
+
+
+class SendCitadelMessageTest(TestCase):
+    """Test the Citadel notification sender (timeout and error handling)."""
+
+    CONFIG = {'url': 'https://citadel.example', 'token': 'tok', 'room_id': '!room:citadel.example'}
+    CONTENT = {
+        'msgtype': 'm.text',
+        'format': 'org.matrix.custom.html',
+        'body': 'Alert',
+        'formatted_body': '<b>Alert</b>',
+    }
+
+    def _send(self, content=None):
+        from common.utils.send_citadel_messages import send_citadel_message
+        return send_citadel_message(content or self.CONTENT, '!room:citadel.example', 'threats_watcher')
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_posts_to_the_matrix_send_endpoint(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        args, kwargs = mock_post.call_args
+        self.assertEqual(
+            args[0],
+            'https://citadel.example/_matrix/client/r0/rooms/!room:citadel.example/send/m.room.message'
+        )
+        self.assertEqual(kwargs['headers']['Authorization'], 'Bearer tok')
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_post_has_a_timeout(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        self.assertIsNotNone(mock_post.call_args.kwargs.get('timeout'))
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_payload_is_timestamped(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(payload['msgtype'], 'm.text')
+        self.assertEqual(payload['format'], 'org.matrix.custom.html')
+        self.assertRegex(payload['body'], r'^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] Alert$')
+        self.assertRegex(payload['formatted_body'], r'^<b>\[.*\]</b> <b>Alert</b>$')
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_formatted_body_is_none_when_absent(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send({'body': 'Plain'})
+        self.assertIsNone(mock_post.call_args.kwargs['json']['formatted_body'])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_network_error_is_logged_not_raised(self, _config, mock_post):
+        import requests
+        mock_post.side_effect = requests.exceptions.ReadTimeout('timed out')
+        with self.assertLogs('watcher.common', level='ERROR') as logs:
+            self._send()
+        self.assertIn('ReadTimeout', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_http_error_status_is_logged(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=401, text='M_UNKNOWN_TOKEN')
+        with self.assertLogs('watcher.common', level='ERROR') as logs:
+            self._send()
+        self.assertIn('401', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_success_is_logged(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        with self.assertLogs('watcher.common', level='INFO') as logs:
+            self._send()
+        self.assertIn('Message sent to Citadel successfully', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config',
+           return_value={'url': 'https://citadel.example', 'token': '', 'room_id': ''})
+    def test_missing_configuration_sends_nothing(self, _config, mock_post):
+        with self.assertLogs('watcher.common', level='WARNING'):
+            self._send()
+        mock_post.assert_not_called()
+
+
+class SendSlackMessageTest(TestCase):
+    """Test the Slack notification sender, including the optional attachments."""
+
+    CONFIG = {'token': 'xoxb-test', 'channel': '#alerts'}
+
+    def _send(self, **kwargs):
+        from common.utils.send_slack_messages import send_slack_message
+        return send_slack_message('Hello', '#alerts', 'threats_watcher', **kwargs)
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value=CONFIG)
+    def test_payload_without_attachments(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(payload['channel'], '#alerts')
+        self.assertTrue(payload['text'].endswith('Hello'))
+        self.assertNotIn('attachments', payload)
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value=CONFIG)
+    def test_attachments_are_added_to_the_payload(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        attachments = [{'color': '#ef4444', 'blocks': []}]
+        self._send(attachments=attachments)
+        self.assertEqual(mock_post.call_args.kwargs['json']['attachments'], attachments)
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value=CONFIG)
+    def test_empty_attachments_are_not_sent(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send(attachments=[])
+        self.assertNotIn('attachments', mock_post.call_args.kwargs['json'])
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value={'token': '', 'channel': ''})
+    def test_missing_configuration_sends_nothing(self, _config, mock_post):
+        with self.assertLogs('watcher.common', level='WARNING'):
+            self._send()
+        mock_post.assert_not_called()
