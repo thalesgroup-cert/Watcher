@@ -41,20 +41,6 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary, typewriterEnab
     const [currentTime, setCurrentTime] = useState(Date.now());
 
     useEffect(() => {
-        fetch('/api/threats_watcher/summary/config/')
-            .then(res => res.json())
-            .then(data => {
-                if (data.regenerate_cooldown_minutes !== undefined) {
-                    setCooldownMinutes(data.regenerate_cooldown_minutes);
-                }
-            })
-            .catch(err => console.error("Error fetching config:", err));
-
-        const interval = setInterval(() => setCurrentTime(Date.now()), 10000);
-        return () => clearInterval(interval);
-    }, []);
-
-    useEffect(() => {
         getSummaryConfig()
             .then(data => {
                 if (data.regenerate_cooldown_minutes !== undefined) {

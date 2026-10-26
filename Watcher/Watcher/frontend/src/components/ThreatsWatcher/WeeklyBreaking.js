@@ -75,20 +75,6 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews, typewriterEnabled, 
     const [cooldownMinutes, setCooldownMinutes] = useState(15);
     const [currentTime, setCurrentTime] = useState(Date.now());
 
-    useEffect(() => {
-        fetch('/api/threats_watcher/summary/config/')
-            .then(res => res.json())
-            .then(data => {
-                if (data.regenerate_cooldown_minutes !== undefined) {
-                    setCooldownMinutes(data.regenerate_cooldown_minutes);
-                }
-            })
-            .catch(err => console.error("Error fetching config:", err));
-
-        const interval = setInterval(() => setCurrentTime(Date.now()), 10000);
-        return () => clearInterval(interval);
-    }, []);
-
     const getCooldownStatus = (dateStr) => {
         if (!dateStr) return { disabled: false, tooltip: "Regenerate" };
         const lastUpdate = new Date(dateStr).getTime();

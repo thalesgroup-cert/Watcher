@@ -1431,9 +1431,9 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             content_template="*Weekly Report*\n" if slack_attachments else app_config_slack['content_template'],
             subscribers_filter={'slack': True},
             send_func=lambda content: send_slack_message(
-                content=content,
-                channel=get_slack_config()['channel'],
-                app_name=app_name,
+                content,
+                get_slack_config()['channel'],
+                app_name,
                 attachments=slack_attachments
             ),
             **slack_data
