@@ -84,18 +84,18 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary, typewriterEnab
             setTyping(false);
             return;
         }
-
+        
+        const text = summary.summary_text;
+        // Tuning: 3 = max characters per tick (lower = more like real typing, 1 = character by character), 4000 = target duration in ms (higher = calmer display)
+        const step = Math.min(3, Math.max(1, Math.ceil(text.length / (4000 / 12))));
         let i = 0;
-        let currentText = "";
         let timeoutId;
         function write() {
-            if (i < summary.summary_text.length) {
-                currentText += summary.summary_text.charAt(i);
-                setDisplayHTML(convertTextToHTML(currentText));
-                i++;
+            i = Math.min(text.length, i + step);
+            setDisplayHTML(convertTextToHTML(text.slice(0, i)));
+            if (i < text.length) {
                 timeoutId = setTimeout(write, 12);
             } else {
-                setDisplayHTML(convertTextToHTML(currentText));
                 setTyping(false);
             }
         }

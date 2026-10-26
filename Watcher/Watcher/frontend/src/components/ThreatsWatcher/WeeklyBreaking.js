@@ -189,17 +189,26 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews, typewriterEnabled, 
             return;
         }
 
+        const visibleLength = weeklyText.replace(/<[^>]*>/g, '').length;
+        // Tuning: 4 = max visible characters per tick (lower = more like real typing, 1 = character by character), 6000 = target duration in ms (higher = calmer display)
+        const step = Math.min(4, Math.max(1, Math.ceil(visibleLength / (6000 / 14))));
         let i = 0;
-        let currentText = "";
         let timeoutId;
         function write() {
+            let typed = 0;
+            while (i < weeklyText.length && typed < step) {
+                if (weeklyText[i] === '<') {
+                    const end = weeklyText.indexOf('>', i);
+                    i = end === -1 ? weeklyText.length : end + 1;
+                } else {
+                    i += 1;
+                    typed += 1;
+                }
+            }
+            setWeeklyDisplayHTML(convertCVELinksToHTML(weeklyText.slice(0, i)));
             if (i < weeklyText.length) {
-                currentText += weeklyText.charAt(i);
-                setWeeklyDisplayHTML(convertCVELinksToHTML(currentText));
-                i++;
                 timeoutId = setTimeout(write, 14);
             } else {
-                setWeeklyDisplayHTML(convertCVELinksToHTML(currentText));
                 localStorage.setItem(LS_WEEKLY_READ_KEY, String(weeklyId));
                 setHasUnreadWeekly(false);
             }
