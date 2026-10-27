@@ -14,6 +14,21 @@ import UserAvatar from "../common/UserAvatar";
 import preferencesService from "../../services/preferencesService";
 import { LAYOUT_PRESETS, applyPreset, getActivePresetId } from "../../config/layoutPresets";
 import { getSummaryConfig, updateSummaryConfig } from "../../actions/Common";
+import StepSlider from "../common/StepSlider";
+
+const ZOOM_OPTIONS = [
+    { value: 0.75, label: "75%",  desc: "Very compact" },
+    { value: 0.8,  label: "80%",  desc: "Laptops & small screens" },
+    { value: 0.9,  label: "90%",  desc: "Compact" },
+    { value: 1.0,  label: "100%", desc: "Default - Large screens" },
+];
+
+const COOLDOWN_OPTIONS = [
+    { value: 1, label: "1m" }, { value: 5, label: "5m" }, { value: 10, label: "10m" },
+    { value: 15, label: "15m" }, { value: 30, label: "30m" }, { value: 60, label: "1h" },
+    { value: 120, label: "2h" }, { value: 240, label: "4h" }, { value: 480, label: "8h" },
+    { value: 720, label: "12h" }, { value: 1440, label: "24h" },
+];
 
 const MODULES = [
     {
@@ -954,18 +969,13 @@ function Profile({ user, profile, logout, createMessage, loadProfile, updateProf
                                         <label className="text-muted fw-semibold d-block mb-2" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
                                             Interface Size (Zoom)
                                         </label>
-                                        <div style={{ maxWidth: "300px" }}>
-                                            <Form.Select 
-                                                size="sm"
-                                                value={profile.ui_zoom_level || 1.0}
-                                                onChange={(e) => updateProfile({ ui_zoom_level: parseFloat(e.target.value) })}
-                                                style={{ cursor: "pointer", fontSize: "0.95em" }}
-                                            >
-                                                <option value={1.0}>100% (Default - Large screens)</option>
-                                                <option value={0.9}>90% (Compact)</option>
-                                                <option value={0.8}>80% (Laptops & Small screens)</option>
-                                                <option value={0.75}>75% (Very compact)</option>
-                                            </Form.Select>
+                                        <div style={{ maxWidth: "480px" }}>
+                                            <StepSlider
+                                                options={ZOOM_OPTIONS}
+                                                value={Number(profile.ui_zoom_level) || 1.0}
+                                                onCommit={(value) => updateProfile({ ui_zoom_level: value })}
+                                                ariaLabel="Interface Size (Zoom)"
+                                            />
                                         </div>
                                         <div className="text-muted mt-2" style={{ fontSize: "0.85em" }}>
                                             Adjust the overall size of the application to fit your screen perfectly.
@@ -997,23 +1007,18 @@ function Profile({ user, profile, logout, createMessage, loadProfile, updateProf
                                     {user && user.is_superuser && (
                                         <div className="border-top pt-3 mt-4">
                                             <label className="text-muted fw-semibold d-block mb-3" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                                                Admin Settings: Regeneration Cooldown
+                                                Admin Settings: AI Summary Regeneration Cooldown
                                             </label>
                                             <div className="d-flex align-items-center gap-3">
-                                                <Form.Select 
-                                                    size="sm"
-                                                    value={cooldown}
-                                                    onChange={(e) => handleSaveCooldown(parseInt(e.target.value))}
-                                                    disabled={isSavingCooldown}
-                                                    style={{ width: '180px', cursor: 'pointer', fontSize: '0.95em' }}
-                                                >
-                                                    <option value={5}>5 minutes</option>
-                                                    <option value={10}>10 minutes</option>
-                                                    <option value={15}>15 minutes</option>
-                                                    <option value={30}>30 minutes</option>
-                                                    <option value={60}>1 hour</option>
-                                                    <option value={120}>2 hours</option>
-                                                </Form.Select>
+                                                <div style={{ flex: 1, maxWidth: "560px" }}>
+                                                    <StepSlider
+                                                        options={COOLDOWN_OPTIONS}
+                                                        value={cooldown}
+                                                        onCommit={(value) => handleSaveCooldown(value)}
+                                                        disabled={isSavingCooldown}
+                                                        ariaLabel="AI Summary Regeneration Cooldown"
+                                                    />
+                                                </div>
                                                 {isSavingCooldown && <span className="spinner-border spinner-border-sm text-primary" />}
                                             </div>
                                             <div className="text-muted mt-2" style={{ fontSize: "0.85em" }}>

@@ -1178,29 +1178,32 @@ describe('Threats Watcher - E2E Test Suite', () => {
       });
     });
 
-    it('should collapse and expand all clusters', () => {
+    it('should collapse the clusters by default and toggle them all', () => {
       mockThreatsWatcher({ weekly: [weeklyFixture({ summary_text: CLUSTER_HTML })], storage: READ });
 
-      widget().find('details.watcher-cluster[open]').should('have.length', 2);
-      widget().find('#watcher-toggle-all').should('have.text', 'Collapse All').click({ force: true });
+      // No saved preference: clusters are collapsed by default
+      widget().find('details.watcher-cluster').should('have.length', 2);
       widget().find('details.watcher-cluster[open]').should('have.length', 0);
-      widget().find('#watcher-toggle-all').should('have.text', 'Expand All');
-      cy.window().its('localStorage').invoke('getItem', 'watcherCollapsedState').should('eq', 'collapsed');
+      widget().find('#watcher-toggle-all').should('have.text', 'Expand All').click({ force: true });
 
-      widget().find('#watcher-toggle-all').click({ force: true });
       widget().find('details.watcher-cluster[open]').should('have.length', 2);
       widget().find('#watcher-toggle-all').should('have.text', 'Collapse All');
       cy.window().its('localStorage').invoke('getItem', 'watcherCollapsedState').should('eq', 'expanded');
-    });
 
-    it('should restore the collapsed state saved in localStorage', () => {
-      mockThreatsWatcher({
-        weekly: [weeklyFixture({ summary_text: CLUSTER_HTML })],
-        storage: { ...READ, watcherCollapsedState: 'collapsed' },
-      });
-      widget().find('details.watcher-cluster').should('have.length', 2);
+      widget().find('#watcher-toggle-all').click({ force: true });
       widget().find('details.watcher-cluster[open]').should('have.length', 0);
       widget().find('#watcher-toggle-all').should('have.text', 'Expand All');
+      cy.window().its('localStorage').invoke('getItem', 'watcherCollapsedState').should('eq', 'collapsed');
+    });
+
+    it('should restore the expanded state saved in localStorage', () => {
+      mockThreatsWatcher({
+        weekly: [weeklyFixture({ summary_text: CLUSTER_HTML })],
+        storage: { ...READ, watcherCollapsedState: 'expanded' },
+      });
+      widget().find('details.watcher-cluster').should('have.length', 2);
+      widget().find('details.watcher-cluster[open]').should('have.length', 2);
+      widget().find('#watcher-toggle-all').should('have.text', 'Collapse All');
     });
   });
 

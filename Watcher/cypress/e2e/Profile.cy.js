@@ -193,10 +193,20 @@ describe('Profile Page - E2E Test Suite', () => {
       typewriter_enabled: true,
     };
 
-    const zoomSelect = () =>
-      cy.contains('label', 'Interface Size (Zoom)').parent().find('select');
-    const cooldownSelect = () =>
-      cy.contains('label', 'Regeneration Cooldown').parent().find('select');
+    const zoomSlider = () =>
+      cy.contains('label', 'Interface Size (Zoom)').parent().find('input[type="range"]');
+    const cooldownSlider = () =>
+      cy.contains('label', 'AI Summary Regeneration Cooldown').parent().find('input[type="range"]');
+
+    const moveSlider = (slider, index) =>
+      slider.then(($input) => {
+        const input = $input[0];
+        const setValue = Object.getOwnPropertyDescriptor(
+          input.ownerDocument.defaultView.HTMLInputElement.prototype, 'value'
+        ).set;
+        setValue.call(input, index);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }).trigger('mouseup');
 
     beforeEach(() => {
       // Defined after setupIntercepts(): the most recent matching intercept wins
@@ -219,20 +229,24 @@ describe('Profile Page - E2E Test Suite', () => {
     });
 
     // Zoom
-    it('should display the zoom selector with 4 options and 100% by default', () => {
-      zoomSelect().should('have.value', '1');
-      zoomSelect().find('option').should('have.length', 4);
+    it('should display the zoom slider with 4 steps and 100% by default', () => {
+      zoomSlider().should('have.value', '3').and('have.attr', 'max', '3');
+      ['75%', '80%', '90%', '100%'].forEach((label) => {
+        cy.contains('label', 'Interface Size (Zoom)').parent().contains(label).should('exist');
+      });
+      cy.contains('label', 'Interface Size (Zoom)').parent()
+        .contains('.fw-semibold', '100%').should('have.class', 'text-primary');
     });
 
-    it('should send ui_zoom_level as a number when zoom changes', () => {
-      zoomSelect().select('80% (Laptops & Small screens)');
+    it('should send ui_zoom_level as a number when the slider is released', () => {
+      moveSlider(zoomSlider(), 1);
       cy.wait('@patchProfile').its('request.body.ui_zoom_level').should('eq', 0.8);
-      zoomSelect().should('have.value', '0.8');
+      zoomSlider().should('have.value', '1');
     });
 
-        it('should apply the selected zoom to the page body', () => {
+    it('should apply the selected zoom to the page body', () => {
       cy.document().its('body.style.zoom').should('eq', '1');
-      zoomSelect().select('80% (Laptops & Small screens)');
+      moveSlider(zoomSlider(), 1);
       cy.wait('@patchProfile');
       cy.document().its('body.style.zoom').should('eq', '0.8');
     });
@@ -273,17 +287,20 @@ describe('Profile Page - E2E Test Suite', () => {
     //Admin cooldown (superuser)
     it('should load the current cooldown from the config endpoint', () => {
       cy.wait('@getCooldownConfig');
-      cooldownSelect().should('have.value', '30');
-      cooldownSelect().find('option').should('have.length', 6);
+      cooldownSlider().should('have.value', '4').and('have.attr', 'max', '10');
+      cy.contains('label', 'AI Summary Regeneration Cooldown').parent()
+        .contains('.fw-semibold', '30m').should('have.class', 'text-primary');
+      cy.contains('label', 'AI Summary Regeneration Cooldown').parent().contains('1m').should('exist');
+      cy.contains('label', 'AI Summary Regeneration Cooldown').parent().contains('24h').should('exist');
     });
 
-    it('should POST the new cooldown when the admin changes it', () => {
+    it('should POST the new cooldown when the admin releases the slider', () => {
       cy.wait('@getCooldownConfig');
-      cooldownSelect().select('1 hour');
+      moveSlider(cooldownSlider(), 5);
       cy.wait('@postCooldownConfig')
         .its('request.body')
         .should('deep.equal', { regenerate_cooldown_minutes: 60 });
-      cooldownSelect().should('have.value', '60').and('not.be.disabled');
+      cooldownSlider().should('have.value', '5').and('not.be.disabled');
     });
 
     // Non-superuser
@@ -317,7 +334,7 @@ describe('Profile Page - E2E Test Suite', () => {
 
       // Admin-only items are hidden
       cy.contains('.badge', 'Superuser').should('not.exist');
-      cy.contains('Regeneration Cooldown').should('not.exist');
+      cy.contains('AI Summary Regeneration Cooldown').should('not.exist');
       cy.contains('.nav-link', 'Connectors').should('not.exist');
       cy.wrap(null).then(() => expect(configCalls).to.eq(0));
     });

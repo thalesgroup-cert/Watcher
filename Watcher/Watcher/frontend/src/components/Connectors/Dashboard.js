@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { Modal, Form, Button, Badge, Spinner, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import TableManager from '../common/TableManager';
-import { getConnectors, updateConnector, revealConnector, testConnector, resetConnectorField } from '../../actions/Connectors';
+import { getConnectors, updateConnector, revealConnector, testConnector, resetConnectorField, setDefaultLlm } from '../../actions/Connectors';
 
 const LOGO_BASE = '/static/frontend/images/connectors/';
 
@@ -179,6 +179,11 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave, onRese
                            style={{ fontSize: 11, fontWeight: 500, verticalAlign: 'middle' }}>
                         {connector.category}
                     </Badge>
+                    {connector.version && (
+                        <Badge bg="secondary" className="ms-2" style={{ fontSize: 11, fontWeight: 500, verticalAlign: 'middle' }}>
+                            v{connector.version}
+                        </Badge>
+                    )}
                 </Modal.Title>
             </Modal.Header>
             <form onSubmit={handleSave}>
@@ -327,9 +332,6 @@ class ConnectorCard extends Component {
                         <ConnectorLogo connector={connector} size={72} />
                     </div>
                     <div className="fw-bold mb-1" style={{ fontSize: 15 }}>{connector.name}</div>
-                    <div className="text-muted mb-2" style={{ fontSize: 11 }}>
-                        v{connector.version}
-                    </div>
                     <div className="d-flex align-items-center gap-2 flex-wrap justify-content-center">
                         <StatusBadge status={connector.status} />
                         <HealthBadge health={connector.health} />
@@ -501,37 +503,10 @@ class ConnectorsDashboard extends Component {
     
     handleSetDefaultLLM = async (connectorId, isDefault) => {
         try {
-            const getCookie = (name) => {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            };
-
-            const response = await fetch(`/api/connectors/${connectorId}/set-default-llm/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({ is_default_llm: isDefault })
-            });
-
-            if (response.ok) {
-                this.props.getConnectors();
-            } else {
-                console.error("Failed to update default LLM");
-            }
+            await this.props.setDefaultLlm(connectorId, isDefault);
+            this.props.getConnectors();
         } catch (error) {
-            console.error("Network error:", error);
+            console.error("Failed to update default LLM:", error);
         }
     };
 
@@ -763,4 +738,5 @@ export default connect(mapStateToProps, {
     revealConnector,
     testConnector,
     resetConnectorField,
+    setDefaultLlm,
 })(ConnectorsDashboard);

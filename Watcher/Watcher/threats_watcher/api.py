@@ -376,11 +376,15 @@ class SummaryViewSet(viewsets.ModelViewSet):
             cooldown = request.data.get('regenerate_cooldown_minutes')
             if cooldown is not None:
                 try:
-                    config.regenerate_cooldown_minutes = int(cooldown)
-                    config.save()
-                    return Response({'success': True, 'regenerate_cooldown_minutes': config.regenerate_cooldown_minutes})
-                except ValueError:
+                    cooldown_value = int(cooldown)
+                except (TypeError, ValueError):
                     return Response({'error': 'Invalid value'}, status=status.HTTP_400_BAD_REQUEST)
-            return Response({'error': 'Missing value'}, status=status.HTTP_400_BAD_REQUEST)
+                if not 1 <= cooldown_value <= 1440:
+                    return Response({'error': 'The cooldown must be between 1 and 1440 minutes.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                config.regenerate_cooldown_minutes = cooldown_value
+                config.save()
+                return Response({'success': True, 'regenerate_cooldown_minutes': config.regenerate_cooldown_minutes})
+            return Response({'error': 'Missing regenerate_cooldown_minutes'}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response({'regenerate_cooldown_minutes': config.regenerate_cooldown_minutes})

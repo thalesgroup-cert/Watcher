@@ -288,7 +288,7 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews, typewriterEnabled, 
             }
         };
 
-        if (savedState === "collapsed") {
+        if (savedState === "collapsed" || savedState === null) {
             details.forEach(d => d.removeAttribute("open"));
             if (toggleBtn) toggleBtn.innerText = "Expand All";
         } else if (savedState === "expanded") {
@@ -700,7 +700,14 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews, typewriterEnabled, 
                                         <span className="blinking-cursor">|</span>
                                     )}
                                 </div>
-                               <div className="mt-3 pt-2 d-flex justify-content-between align-items-center border-top border-secondary" style={{ fontSize: "0.85em", color: "inherit" }}>
+                               <div
+                                    className="mt-3 pt-2 d-flex justify-content-between align-items-center"
+                                    style={{
+                                        fontSize: "0.85em",
+                                        color: "inherit",
+                                        borderTop: "1px solid var(--bs-border-color)",
+                                    }}
+                                >
                                     <span className="text-muted">Generated at {formatDate(weeklyCreatedAt)}</span>
                                     <span className="text-muted">{weeklyAiModel}</span>
                                     <button 
@@ -737,7 +744,14 @@ const WeeklyBreaking = ({ getWeeklySummary, getBreakingNews, typewriterEnabled, 
                                     style={{ fontSize: "1.08em", color: "inherit" }}
                                     dangerouslySetInnerHTML={{ __html: breakingNews.summary_text }}
                                 />
-                                <div className="mt-3 pt-2 d-flex justify-content-between align-items-center border-top border-secondary" style={{ fontSize: "0.85em", color: "inherit" }}>
+                               <div
+                                    className="mt-3 pt-2 d-flex justify-content-between align-items-center"
+                                    style={{
+                                        fontSize: "0.85em",
+                                        color: "inherit",
+                                        borderTop: "1px solid var(--bs-border-color)",
+                                    }}
+                                >
                                     <span className="text-muted">Generated at {formatDate(breakingNews.created_at)}</span>
                                     <span className="text-muted">{breakingNews.ai_model}</span>
                                     <button 

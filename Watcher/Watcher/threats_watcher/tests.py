@@ -749,6 +749,13 @@ class SummaryConfigAPITest(APITestCase):
         response = self.client.get(self.URL)
         self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
+    def test_out_of_range_value_returns_400(self):
+        self._login(User.objects.create_superuser("cfgadmin", password="cfgpass123"))
+        for value in (0, 1441):
+            response = self.client.post(self.URL, {'regenerate_cooldown_minutes': value}, format='json')
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(WatcherConfiguration.get_cooldown(), 15)
+
 class SummaryConfigPermissionTest(TestCase):
     """Cooldown config: readable by any authenticated user, writable by admins only."""
 
