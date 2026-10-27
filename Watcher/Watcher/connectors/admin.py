@@ -1,6 +1,25 @@
 from django.contrib import admin
 from .models import ConnectorOverride, ConnectorHealthCheck
+from django import forms
 
+
+class ConnectorOverrideForm(forms.ModelForm):
+    class Meta:
+        model = ConnectorOverride
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        if self.instance and self.instance.pk:
+            ai_connectors = [
+                'openai', 'anthropic', 'gemini', 'ollama', 
+                'generic_llm_provider'
+            ]
+            
+            if self.instance.connector_id not in ai_connectors:
+                self.fields['is_default_llm'].disabled = True
+                self.fields['is_default_llm'].widget.attrs['style'] = 'display: none;'
 
 class NoAddModelAdmin(admin.ModelAdmin):
     """Rows are only ever created programmatically (via the /connectors API
@@ -12,7 +31,14 @@ class NoAddModelAdmin(admin.ModelAdmin):
 
 @admin.register(ConnectorOverride)
 class ConnectorOverrideAdmin(NoAddModelAdmin):
-    pass
+    form = ConnectorOverrideForm
+    
+    list_display = ('connector_id', 'is_default_llm')
+    list_editable = ('is_default_llm',)
+    search_fields = ('connector_id',)
+    
+    def get_changelist_form(self, request, **kwargs):
+        return self.form
 
 
 @admin.register(ConnectorHealthCheck)

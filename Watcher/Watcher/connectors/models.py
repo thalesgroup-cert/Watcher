@@ -8,6 +8,12 @@ class ConnectorOverride(models.Model):
 
     auto_seeded_fields = models.JSONField(default=list, blank=True)
 
+    is_default_llm = models.BooleanField(
+        default=False, 
+        verbose_name="Default LLM",
+        help_text="Check to set this AI as the default."
+    )
+
     class Meta:
         verbose_name = 'Connector Override'
         verbose_name_plural = 'Connector Overrides'
@@ -21,6 +27,8 @@ class ConnectorOverride(models.Model):
             self.overrides = {}
         if self.auto_seeded_fields is None:
             self.auto_seeded_fields = []
+        if self.is_default_llm:
+            ConnectorOverride.objects.filter(is_default_llm=True).exclude(pk=self.pk).update(is_default_llm=False)
         super().save(*args, **kwargs)
 
 

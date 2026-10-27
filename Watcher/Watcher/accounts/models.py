@@ -33,8 +33,11 @@ class UserProfile(models.Model):
     """Stores user UI preferences server-side."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     theme = models.CharField(max_length=50, default='bootstrap')
+    typewriter_enabled = models.BooleanField(default=True)
+    ui_zoom_level = models.FloatField(default=1.0, help_text="Zoom level (e.g: 0.8 for 80%)")
     preferences = models.JSONField(default=dict, blank=True)
     avatar_color = models.CharField(max_length=20, blank=True, null=True)
+    preferred_llm = models.CharField(max_length=100, blank=True, null=True, help_text="User's preferred LLM connector ID. If empty, the system default is used.")
     # preferences structure:
     # {
     #   "items_per_page": {"threats_watcher": 10, "data_leak": 10, ...},
