@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Prefetch
 from datetime import timedelta
+from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword, WatcherConfiguration
 from common.bulk import BulkActionMixin, BulkCreateMixin
 from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword
 from .serializers import SourceSerializer, TrendyWordSerializer, BannedWordSerializer, SummarySerializer, MonitoredKeywordSerializer
@@ -259,3 +260,131 @@ class SummaryViewSet(viewsets.ModelViewSet):
                 'error': 'generation_error',
                 'message': 'Unexpected error while processing keyword summary request.',
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='by-keyword/(?P<keyword>[^/.]+)/regenerate')
+    def regenerate_keyword(self, request, keyword=None):
+        import logging
+        logger = logging.getLogger('watcher.threats_watcher')
+        try:
+            keyword = (keyword or '').strip()
+            
+            cooldown = WatcherConfiguration.get_cooldown()
+            last_summary = Summary.objects.filter(type='trendy_word_summary', keywords__iexact=keyword).order_by('-updated_at').first()
+            if last_summary:
+                time_since = timezone.now() - last_summary.updated_at
+                if time_since < timedelta(minutes=cooldown):
+                    remaining = int(cooldown - time_since.total_seconds() / 60)
+                    return Response({'success': False, 'message': f'Please wait {remaining} minute(s) before the next regeneration.'}, status=429)
+
+            from .summary_manager import generate_trendy_word_summary, generate_keyword_summary_from_posturls
+            
+            trendy_word = TrendyWord.objects.filter(name__iexact=keyword).first()
+            if trendy_word:
+                summary = generate_trendy_word_summary(trendy_word.id)
+            else:
+                monitored = MonitoredKeyword.objects.filter(name__iexact=keyword).first()
+                if not monitored:
+                    return Response({'success': False, 'message': 'Keyword not found.'}, status=404)
+                posts_qs = list(monitored.posturls.all().order_by('-created_at')[:15])
+                summary = generate_keyword_summary_from_posturls(monitored.name, posts_qs)
+
+            if summary:
+                return Response({'success': True, 'data': self.get_serializer(summary).data})
+            return Response({'success': False, 'message': 'Generation failed.'}, status=502)
+        except Exception as e:
+            logger.exception("Error regenerating keyword summary")
+            return Response({'success': False, 'message': str(e)}, status=500)
+
+    @action(detail=False, methods=['post'], url_path='regenerate-weekly')
+    def regenerate_weekly(self, request):
+        import logging
+        logger = logging.getLogger('watcher.threats_watcher')
+        try:
+            cooldown = WatcherConfiguration.get_cooldown()
+            last_summary = Summary.objects.filter(type='weekly_summary').order_by('-updated_at').first()
+            if last_summary:
+                time_since = timezone.now() - last_summary.updated_at
+                if time_since < timedelta(minutes=cooldown):
+                    remaining = int(cooldown - time_since.total_seconds() / 60)
+                    return Response({'success': False, 'message': f'Please wait {remaining} minute(s) before the next regeneration.'}, status=429)
+
+            from .summary_manager import generate_weekly_summary
+
+            previous = Summary.objects.filter(type='weekly_summary').order_by('-created_at').first()
+            generate_weekly_summary(notify=False)
+            latest = Summary.objects.filter(type='weekly_summary').order_by('-created_at').first()
+
+            if latest and (previous is None or latest.pk != previous.pk):
+                return Response({'success': True, 'data': self.get_serializer(latest).data})
+
+            return Response({
+                'success': False,
+                'message': 'The AI could not generate a new report. The most recent report is still displayed.',
+                'data': self.get_serializer(latest).data if latest else None,
+            }, status=502)
+        
+        except Exception as e:
+            logger.exception("Error regenerating weekly summary")
+            return Response({'success': False, 'message': str(e)}, status=500)
+
+    @action(detail=False, methods=['post'], url_path='by-keyword/(?P<keyword>[^/.]+)/regenerate-breaking')
+    def regenerate_breaking(self, request, keyword=None):
+        import logging
+        logger = logging.getLogger('watcher.threats_watcher')
+        try:
+            keyword = (keyword or '').strip()
+            
+            cooldown = WatcherConfiguration.get_cooldown()
+            last_summary = Summary.objects.filter(type='breaking_news', keywords__iexact=keyword).order_by('-updated_at').first()
+            if last_summary:
+                time_since = timezone.now() - last_summary.updated_at
+                if time_since < timedelta(minutes=cooldown):
+                    remaining = int(cooldown - time_since.total_seconds() / 60)
+                    return Response({'success': False, 'message': f'Please wait {remaining} minute(s) before the next regeneration.'}, status=429)
+
+            from .summary_manager import generate_breaking_news
+            
+            trendy_word = TrendyWord.objects.filter(name__iexact=keyword).first()
+            if not trendy_word:
+                return Response({'success': False, 'message': 'TrendyWord not found for breaking news.'}, status=404)
+
+            summary = generate_breaking_news(trendy_word, notify=False)
+            
+            if summary:
+                return Response({'success': True, 'data': self.get_serializer(summary).data})
+            return Response({'success': False, 'message': 'Breaking news generation failed.'}, status=502)
+        except Exception as e:
+            logger.exception("Error regenerating breaking news")
+            return Response({'success': False, 'message': str(e)}, status=500)
+
+    def get_permissions(self):
+        action = getattr(self, 'action', None)
+        if action == 'admin_config':
+            if self.request.method == 'POST':
+                return [permissions.IsAdminUser()]
+            return [permissions.IsAuthenticated()]
+        if action in ('regenerate_keyword', 'regenerate_weekly', 'regenerate_breaking'):
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
+
+    @action(detail=False, methods=['get', 'post'], url_path='config')
+    def admin_config(self, request):
+        """Read (any authenticated user) or update (admins only) the global regeneration cooldown."""
+        config, _ = WatcherConfiguration.objects.get_or_create(pk=1)
+        
+        if request.method == 'POST':
+            cooldown = request.data.get('regenerate_cooldown_minutes')
+            if cooldown is not None:
+                try:
+                    cooldown_value = int(cooldown)
+                except (TypeError, ValueError):
+                    return Response({'error': 'Invalid value'}, status=status.HTTP_400_BAD_REQUEST)
+                if not 1 <= cooldown_value <= 1440:
+                    return Response({'error': 'The cooldown must be between 1 and 1440 minutes.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                config.regenerate_cooldown_minutes = cooldown_value
+                config.save()
+                return Response({'success': True, 'regenerate_cooldown_minutes': config.regenerate_cooldown_minutes})
+            return Response({'error': 'Missing regenerate_cooldown_minutes'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({'regenerate_cooldown_minutes': config.regenerate_cooldown_minutes})

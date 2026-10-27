@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { connect } from "react-redux";
-import { getWordSummary, generateWordSummary } from "../../actions/Common";
+import { getWordSummary, generateWordSummary, getSummaryConfig, regenerateWordSummary } from "../../actions/Common";
+import { createMessage } from "../../actions/messages"
 
 function formatDate(dateStr) {
     if (!dateStr) return "";
@@ -26,44 +27,90 @@ function convertTextToHTML(text) {
     return html;
 }
 
-const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
+const WordSummary = ({ word, getWordSummary, generateWordSummary, typewriterEnabled, createMessage, getSummaryConfig, regenerateWordSummary }) => {
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [errorType, setErrorType] = useState(null);
     const [displayHTML, setDisplayHTML] = useState("");
-    const [typing, setTyping] = useState(true);
+    const [typing, setTyping] = useState(false);
     const [postsCount, setPostsCount] = useState(0);
+    const [isRegenerating, setIsRegenerating] = useState(false);
+
+    const [cooldownMinutes, setCooldownMinutes] = useState(15);
+    const [currentTime, setCurrentTime] = useState(Date.now());
 
     useEffect(() => {
-        if (summary?.summary_text) {
-            let i = 0;
-            let currentText = "";
-            let timeoutId;
-            function write() {
-                if (i < summary.summary_text.length) {
-                    currentText += summary.summary_text.charAt(i);
-                    setDisplayHTML(convertTextToHTML(currentText));
-                    i++;
-                    timeoutId = setTimeout(write, 12);
-                } else {
-                    setDisplayHTML(convertTextToHTML(currentText));
-                    setTyping(false);
+        getSummaryConfig()
+            .then(data => {
+                if (data.regenerate_cooldown_minutes !== undefined) {
+                    setCooldownMinutes(data.regenerate_cooldown_minutes);
                 }
+            })
+            .catch(err => console.error("Error fetching config:", err));
+
+        const interval = setInterval(() => setCurrentTime(Date.now()), 10000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleRegenerate = async () => {
+        setIsRegenerating(true);
+        try {
+            const data = await regenerateWordSummary(word);
+            if (data.success && data.data) {
+                setSummary(data.data);
+                setCurrentTime(Date.now());
             }
-            setTyping(true);
-            setDisplayHTML("");
-            write();
-            return () => clearTimeout(timeoutId);
+        } catch (err) {
+            if (err.response) {
+                createMessage({ error: "Regeneration failed: " + (err.response.data?.message || err.response.statusText) });
+            } else {
+                console.error("Network error :", err);
+                createMessage({ error: "Network error during regeneration." });
+            }
+        } finally {
+            setIsRegenerating(false);
         }
-    }, [summary?.summary_text]);
+    };
+
+    useEffect(() => {
+        if (!summary?.summary_text) {
+            setDisplayHTML("");
+            return;
+        }
+
+        if (!typewriterEnabled) {
+            setDisplayHTML(convertTextToHTML(summary.summary_text));
+            setTyping(false);
+            return;
+        }
+        
+        const text = summary.summary_text;
+        // Tuning: 3 = max characters per tick (lower = more like real typing, 1 = character by character), 4000 = target duration in ms (higher = calmer display)
+        const step = Math.min(3, Math.max(1, Math.ceil(text.length / (4000 / 12))));
+        let i = 0;
+        let timeoutId;
+        function write() {
+            i = Math.min(text.length, i + step);
+            setDisplayHTML(convertTextToHTML(text.slice(0, i)));
+            if (i < text.length) {
+                timeoutId = setTimeout(write, 12);
+            } else {
+                setTyping(false);
+            }
+        }
+        setTyping(true);
+        setDisplayHTML("");
+        write();
+        return () => clearTimeout(timeoutId);
+    }, [summary?.summary_text, typewriterEnabled]);
 
     useEffect(() => {
         setLoading(true);
         setError(null);
         setErrorType(null);
         setDisplayHTML("");
-        setTyping(true);
+        setTyping(false);
         setPostsCount(0);
 
         getWordSummary(word)
@@ -138,6 +185,21 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
         );
     }
 
+    let isRegenerateDisabled = false;
+    let regenerateTooltip = "Force AI to regenerate this summary";
+
+    if (summary && (summary.updated_at || summary.created_at)) {
+        const lastUpdate = new Date(summary.updated_at || summary.created_at).getTime();
+        const elapsedMinutes = (currentTime - lastUpdate) / (1000 * 60);
+
+        if (elapsedMinutes < cooldownMinutes) {
+            isRegenerateDisabled = true;
+            const remainingMinutes = Math.ceil(cooldownMinutes - elapsedMinutes);
+            regenerateTooltip = `Please wait ${remainingMinutes} minute(s) before the next regeneration.`;
+        }
+    }
+    const buttonShouldBeDisabled = isRegenerating || loading || !!error || isRegenerateDisabled;
+
     return (
         <div style={{ 
             height: '100%', 
@@ -146,7 +208,7 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
             padding: '20px'
         }}>
             <div
-                className="word-summary card bg-secondary border-0 shadow-lg"
+                className="word-summary card border-0 shadow-lg bg-transparent"
                 style={{
                     borderRadius: "1em",
                     flex: 1,
@@ -173,11 +235,36 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
                     }}>
                         Word Summary for {word}
                     </span>
+                    <button 
+                       className="btn btn-sm text-muted d-flex align-items-center gap-1"
+                        onClick={() => { if (!buttonShouldBeDisabled) handleRegenerate(); }}
+                        style={{ 
+                            padding: "2px 8px", 
+                            fontSize: "0.85em", 
+                            border: "1px solid rgba(255,255,255,0.4)",
+                            cursor: buttonShouldBeDisabled ? "not-allowed" : "pointer",
+                            opacity: buttonShouldBeDisabled ? 0.5 : 1,
+                            transition: "opacity 0.2s"
+                        }}
+                        title={regenerateTooltip}
+                    >
+                        <i className={`material-icons ${isRegenerating ? 'icon-spin' : ''}`} style={{ fontSize: 16 }}>
+                            {isRegenerating ? 'sync' : 'refresh'}
+                        </i>
+                        {isRegenerating ? (
+                            <span className="d-flex align-items-center">
+                                Regenerating
+                                <span className="loading-dots d-inline-flex ms-1">
+                                    <span>.</span><span></span><span>.</span>
+                                </span>
+                            </span>
+                        ) : 'Regenerate'}
+                    </button>
                 </div>
 
                 {/* Body */}
                 <div
-                    className="px-4 py-4 bg-secondary"
+                    className="px-4 py-4"
                     style={{
                         borderRadius: "0 0 1em 1em",
                         flex: 1,
@@ -205,19 +292,16 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
                     {!loading && !error && summary && (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                             <div
-                                className="mb-3"
+                                className="mb-3 p-3 rounded shadow-sm"
                                 style={{
                                     fontSize: "1.08em",
-                                    color: "#fff",
-                                    background: "#282c34",
-                                    borderRadius: "0.7em",
-                                    padding: "1.3em 1em 1.1em 1em",
                                     position: "relative",
                                     lineHeight: 1.7,
-                                    boxShadow: "0 2px 10px #0002",
                                     flex: 1,
                                     overflow: 'auto',
-                                    whiteSpace: 'pre-line'
+                                    whiteSpace: 'pre-line',
+                                    background: "rgba(128, 128, 128, 0.15)",
+                                    color: "inherit"
                                 }}
                             >
                                 <span dangerouslySetInnerHTML={{ __html: displayHTML }} />
@@ -235,7 +319,7 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
                             </div>
                             <div
                                 style={{
-                                    color: "#fff",
+                                    color: "inherit",
                                     fontSize: "0.93em",
                                     marginTop: "8px",
                                     display: "flex",
@@ -243,10 +327,13 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
                                     flexShrink: 0
                                 }}
                             >
-                                <span>
+                                <span className="text-muted">
                                     Generated at {formatDate(summary.created_at)}
                                 </span>
-                                <span>
+                                <span className="text-muted">
+                                    {summary.ai_model}
+                                </span>
+                                <span className="text-muted">
                                     Updated at {formatDate(summary.updated_at)}
                                 </span>
                             </div>
@@ -259,6 +346,8 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
                 {`
                 @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
                 @keyframes dotsBlink { 0%, 80%, 100% { opacity: 1; } 40% { opacity: 0; } }
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                .icon-spin { animation: spin 1s linear infinite; }
                 
                 .blinking-cursor { animation: blink 1s infinite; }
                 
@@ -287,7 +376,19 @@ const WordSummary = ({ word, getWordSummary, generateWordSummary }) => {
 WordSummary.propTypes = {
     word: PropTypes.string.isRequired,
     getWordSummary: PropTypes.func.isRequired,
-    generateWordSummary: PropTypes.func.isRequired
+    generateWordSummary: PropTypes.func.isRequired,
+    createMessage: PropTypes.func.isRequired,
 };
 
-export default connect(null, { getWordSummary, generateWordSummary })(WordSummary);
+const mapStateToProps = (state) => {
+    let isEnabled = state.profile?.typewriter_enabled;
+    if (isEnabled === undefined) {
+        isEnabled = state.auth?.user?.userprofile?.typewriter_enabled;
+    }
+    
+    return {
+        typewriterEnabled: isEnabled !== false
+    };
+};
+
+export default connect(mapStateToProps, { getWordSummary, generateWordSummary, createMessage, getSummaryConfig, regenerateWordSummary })(WordSummary);

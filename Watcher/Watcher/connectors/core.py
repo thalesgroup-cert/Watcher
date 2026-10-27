@@ -162,20 +162,20 @@ def _compute_status(definition: dict, filled_map: dict) -> str:
 
 
 def _get_override_and_auto_seeded(connector_id: str) -> tuple:
-    """Return (overrides dict, set of field names that were auto-seeded rather than human-chosen)."""
+    """Return (overrides dict, set of field names that were auto-seeded rather than human-chosen, is_default_llm)."""
     from .models import ConnectorOverride
     try:
         obj = ConnectorOverride.objects.get(connector_id=connector_id)
-        return obj.overrides, set(obj.auto_seeded_fields)
+        return obj.overrides, set(obj.auto_seeded_fields), getattr(obj, 'is_default_llm', False)
     except ConnectorOverride.DoesNotExist:
-        return {}, set()
+        return {}, set(), False
 
 
 def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
     registry = _get_registry()
     entry = registry[connector_id]
     definition = entry['definition']
-    override_dict, auto_seeded = _get_override_and_auto_seeded(connector_id)
+    override_dict, auto_seeded, is_default_llm = _get_override_and_auto_seeded(connector_id)
 
     fields_out = []
     filled_map = {}
@@ -211,6 +211,7 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
         'author': definition.get('author', ''),
         'status': _compute_status(definition, filled_map),
         'health': get_connector_health(connector_id),
+        'is_default_llm': is_default_llm,
         'fields': fields_out,
     }
 

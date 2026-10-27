@@ -9,161 +9,126 @@ describe('CyberWatch - E2E Test Suite', () => {
     timestamp: '2026-06-24T14:30:00Z',
   };
 
-  const MONITORED_KEYWORDS_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        name: 'log4j',
-        level: 'hot',
-        occurrences: 7,
-        last_seen: '2026-06-24T10:00:00Z',
-        posturls: ['https://test-source.com/feed/1,2026-06-24T10:00:00Z'],
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        name: 'apache',
-        level: 'warm',
-        occurrences: 2,
-        last_seen: null,
-        posturls: [],
-        last_event: null,
-      },
-    ],
-  };
+  const MONITORED_KEYWORDS_FIXTURE = [
+    {
+      id: 1,
+      name: 'log4j',
+      level: 'hot',
+      occurrences: 7,
+      last_seen: '2026-06-24T10:00:00Z',
+      posturls: ['https://test-source.com/feed/1,2026-06-24T10:00:00Z'],
+      last_event: { ...SAMPLE_LAST_EVENT },
+    },
+    {
+      id: 2,
+      name: 'apache',
+      level: 'warm',
+      occurrences: 2,
+      last_seen: null,
+      posturls: [],
+      last_event: null,
+    },
+  ];
 
-  const WATCH_RULES_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        name: 'Test CVE Rule',
-        keywords: ['company', 'acme'],
-        exceptions: [],
-        scope: 'cve',
-        is_active: true,
-        hits_count: 3,
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        name: 'Ransomware Alert',
-        keywords: ['data', 'encrypted'],
-        exceptions: ['test'],
-        scope: 'ransomware',
-        is_active: false,
-        hits_count: 0,
-        last_event: null,
-      },
-    ],
-  };
+  const WATCH_RULES_FIXTURE = [
+    {
+      id: 1,
+      name: 'Test CVE Rule',
+      keywords: ['company', 'acme'],
+      exceptions: [],
+      scope: 'cve',
+      is_active: true,
+      hits_count: 3,
+      last_event: { ...SAMPLE_LAST_EVENT },
+    },
+    {
+      id: 2,
+      name: 'Ransomware Alert',
+      keywords: ['data', 'encrypted'],
+      exceptions: ['test'],
+      scope: 'ransomware',
+      is_active: false,
+      hits_count: 0,
+      last_event: null,
+    },
+  ];
 
-  const SOURCES_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        url: 'https://test-source.com/feed',
-        confident: true,
-        country: 'FR',
-        country_code: 'FR',
-        last_status_code: 200,
-        last_checked: '2026-06-24T12:00:00Z',
-        created_at: '2025-06-19T10:00:00Z',
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        url: 'https://e2e-source.org/rss',
-        confident: false,
-        country: 'US',
-        country_code: 'US',
-        last_status_code: null,
-        last_checked: null,
-        created_at: '2025-06-18T15:30:00Z',
-        last_event: null,
-      },
-    ],
-  };
+  const SOURCES_FIXTURE = [
+    {
+      id: 1,
+      url: 'https://test-source.com/feed',
+      confident: true,
+      country: 'FR',
+      country_code: 'FR',
+      last_status_code: 200,
+      last_checked: '2026-06-24T12:00:00Z',
+      created_at: '2025-06-19T10:00:00Z',
+      last_event: { ...SAMPLE_LAST_EVENT },
+    },
+    {
+      id: 2,
+      url: 'https://e2e-source.org/rss',
+      confident: false,
+      country: 'US',
+      country_code: 'US',
+      last_status_code: null,
+      last_checked: null,
+      created_at: '2025-06-18T15:30:00Z',
+      last_event: null,
+    },
+  ];
 
-  const BANNED_WORDS_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        name: 'test-spam',
-        created_at: '2025-06-19T10:00:00Z',
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        name: 'e2e-advertisement',
-        created_at: '2025-06-18T15:30:00Z',
-        last_event: null,
-      },
-    ],
-  };
+  const BANNED_WORDS_FIXTURE = [
+    {
+      id: 1,
+      name: 'test-spam',
+      created_at: '2025-06-19T10:00:00Z',
+      last_event: { ...SAMPLE_LAST_EVENT },
+    },
+    {
+      id: 2,
+      name: 'e2e-advertisement',
+      created_at: '2025-06-18T15:30:00Z',
+      last_event: null,
+    },
+  ];
 
-  const ARCHIVED_CVES_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 10,
-        cve_id: 'CVE-2024-9999',
-        description: 'Archived critical RCE vulnerability in test framework',
-        severity: 'CRITICAL',
-        cvss: 9.5,
-        published: '2024-12-01T10:00:00Z',
-        watch_rule_hit_name: 'Test CVE Rule',
-        archived: true,
-      },
-      {
-        id: 11,
-        cve_id: 'CVE-2024-8888',
-        description: 'Archived SQL injection in example database',
-        severity: 'HIGH',
-        cvss: 7.2,
-        published: '2024-11-15T10:00:00Z',
-        watch_rule_hit_name: null,
-        archived: true,
-      },
-    ],
-  };
+  const ARCHIVED_CVES_FIXTURE = [
+    {
+      id: 10,
+      cve_id: 'CVE-2024-9999',
+      description: 'Archived critical RCE vulnerability in test framework',
+      severity: 'CRITICAL',
+      cvss: 9.5,
+      published: '2024-12-01T10:00:00Z',
+      watch_rule_hit_name: 'Test CVE Rule',
+      archived: true,
+    },
+    {
+      id: 11,
+      cve_id: 'CVE-2024-8888',
+      description: 'Archived SQL injection in example database',
+      severity: 'HIGH',
+      cvss: 7.2,
+      published: '2024-11-15T10:00:00Z',
+      watch_rule_hit_name: null,
+      archived: true,
+    },
+  ];
 
-  const ARCHIVED_VICTIMS_FIXTURE = {
-    count: 1,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 10,
-        post_title: 'Old Corp Inc',
-        gang_name: 'LockBit',
-        published: '2024-12-15T10:00:00Z',
-        country: 'DE',
-        activity: 'Retail',
-        archived: true,
-      },
-    ],
-  };
+  const ARCHIVED_VICTIMS_FIXTURE = [
+    {
+      id: 10,
+      post_title: 'Old Corp Inc',
+      gang_name: 'LockBit',
+      published: '2024-12-15T10:00:00Z',
+      country: 'DE',
+      activity: 'Retail',
+      archived: true,
+    },
+  ];
 
-  const ARCHIVED_HITS_FIXTURE = {
-    count: 0,
-    next: null,
-    previous: null,
-    results: [],
-  };
+  const ARCHIVED_HITS_FIXTURE =  [];
 
 
   const setupIntercepts = () => {

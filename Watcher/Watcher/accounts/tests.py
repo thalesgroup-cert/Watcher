@@ -2,6 +2,9 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
+from rest_framework.test import APITestCase
+from rest_framework import status
+from knox.models import AuthToken
 from accounts.models import UserProfile, _AVATAR_COLORS
 from accounts.serializers import UserProfileSerializer
 from accounts.oidc import WatcherOIDCBackend
@@ -39,6 +42,56 @@ class UserProfileTest(TestCase):
             serializer.data,
             "UserProfileSerializer must include avatar_color in its fields"
         )
+
+    def test_ui_preferences_defaults(self):
+        """New users get the default typewriter and zoom preferences."""
+        user = User.objects.create_user(
+            username='uidefaults', password='testpass123'
+        )
+        profile = UserProfile.objects.get(user=user)
+        self.assertTrue(profile.typewriter_enabled)
+        self.assertEqual(profile.ui_zoom_level, 1.0)
+
+    def test_ui_preferences_in_serializer(self):
+        """UserProfileSerializer must expose typewriter_enabled and ui_zoom_level."""
+        user = User.objects.create_user(
+            username='uiserializer', password='testpass123'
+        )
+        profile = UserProfile.objects.get(user=user)
+        data = UserProfileSerializer(profile).data
+        self.assertIn('typewriter_enabled', data)
+        self.assertIn('ui_zoom_level', data)
+
+
+class ProfileAPITest(APITestCase):
+    """Test that UI preferences can be read and updated through the profile API."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='profileuser', password='testpass123')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_get_profile_returns_ui_preferences(self):
+        response = self.client.get('/api/auth/profile')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['typewriter_enabled'])
+        self.assertEqual(response.data['ui_zoom_level'], 1.0)
+
+    def test_patch_updates_ui_preferences(self):
+        response = self.client.patch(
+            '/api/auth/profile',
+            {'typewriter_enabled': False, 'ui_zoom_level': 0.8},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertFalse(profile.typewriter_enabled)
+        self.assertEqual(profile.ui_zoom_level, 0.8)
+
+    def test_profile_requires_auth(self):
+        self.client.credentials()
+        response = self.client.get('/api/auth/profile')
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
 
 class WatcherOIDCBackendTest(TestCase):

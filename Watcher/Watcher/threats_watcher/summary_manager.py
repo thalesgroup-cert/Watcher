@@ -4,6 +4,7 @@ import difflib
 import json
 from typing import List, Set
 from datetime import timedelta
+from llm_gateway.router import LLMRouter
 
 from django.utils import timezone
 from django.conf import settings
@@ -11,7 +12,6 @@ from django.conf import settings
 from .models import TrendyWord, PostUrl, Summary
 from .model_manager import (
     get_ner_pipeline,
-    get_summarizer_pipeline,
     get_summarizer_tokenizer,
     get_summarizer_model,
 )
@@ -453,263 +453,332 @@ def extract_entities_and_threats(title: str) -> dict:
     }
 
 
-def generate_weekly_summary():
+def generate_weekly_summary(notify=True):
     """Generate and send weekly threat summary (top-5 trending topics)."""
-    logger.info("Starting weekly summary generation")
-
-    try:
-        model, tokenizer = get_summarizer_model()
-        if model is None or tokenizer is None:
-            raise RuntimeError("Summarizer model unavailable")
-
-        try:
-            model.eval()
-        except Exception:
-            pass
-
-        logger.info("Summarizer model loaded successfully")
-    except Exception:
-        logger.error("Failed to load summarizer model", exc_info=True)
-        return
+    logger.info("Starting weekly summary generation with Multi-LLM clustering")
 
     try:
         from .core import send_threats_watcher_notifications
 
-        trendywords_qs = TrendyWord.objects.all().order_by('-created_at')
-        logger.info(f"Processing {trendywords_qs.count()} trending word candidates")
-
-        summaries_data = []
-        keywords_used = []
-        existing_summaries = []
         cutoff = timezone.now() - timedelta(days=30)
-
-        # Generation parameters
-        max_words_needed = 5
-        max_posts_per_trend = 30
-        max_input_tokens = 450
-        min_words, max_words_target = 30, 90
-        generation_min_new_tokens, generation_max_new_tokens = 40, 150
-        num_beams = 5
-        no_repeat_ngram_size = 3
-        length_penalty = 0.9
-        early_stopping = True
-        english_confidence_threshold = 0.70
-
-        max_attempts = min(trendywords_qs.count(), max_words_needed * 5)
-
-        for tw in trendywords_qs[:max_attempts]:
-            if len(summaries_data) >= max_words_needed:
-                break
-
-            logger.info(f"Processing trendy word '{tw.name}'")
-
-            posturls = list(tw.posturls.filter(created_at__gte=cutoff).order_by('-created_at')[:max_posts_per_trend])
-
+        trendywords_qs = TrendyWord.objects.all().order_by('-created_at')[:7]
+        
+        weekly_context = []
+        keywords_used = []
+        
+        for tw in trendywords_qs:
+            posturls = list(tw.posturls.filter(created_at__gte=cutoff).order_by('-created_at')[:10])
             if not posturls:
                 continue
-
+            
             raw_titles = []
-            for posturl_obj in posturls:
+            for pu in posturls:
                 try:
-                    text = get_article_title_or_summary(posturl_obj)
-                    if not text or len(text.strip()) < 30:
-                        logger.debug(f"Insufficient text for {posturl_obj.url} (len={len(text) if text else 0})")
-                        continue
-
-                    text = clean_text_and_metadata(text)
-                    if len(text.strip()) < 30:
-                        logger.debug(f"Text too short after cleaning for {posturl_obj.url}")
-                        continue
-
-                    if not is_english(text, threshold=english_confidence_threshold):
-                        logger.debug(f"Non-English source skipped for {posturl_obj.url}")
-                        continue
-
-                    raw_titles.append(text)
-
-                except Exception as e:
-                    logger.warning(f"Error processing post for '{tw.name}': {e}")
-                    continue
-
-            if not raw_titles:
-                continue
-
-            all_titles = deduplicate_titles(raw_titles)
-
-            min_titles_required = 1 if tw.name.startswith('CVE-') else 2
-            if len(all_titles) < min_titles_required:
-                continue
-
-            # Build corpus
-            corpus = " ".join(all_titles[:20])
-            corpus_words = corpus.split()
-            if len(corpus_words) > 350:
-                corpus = " ".join(corpus_words[:350])
-
-            prompt = (
-                f"Write a complete summary of this cybersecurity news in {min_words}-{max_words_target} words. "
-                f"Requirements:\n"
-                f"- Write 2-3 complete sentences (NO truncation)\n"
-                f"- Be specific about vulnerability, products, impact\n"
-                f"- End with a period\n\n"
-                f"{corpus}"
-            )
-
-            # Generate summary
-            try:
-                import torch
-                with torch.no_grad():
-                    inputs = tokenizer(prompt, truncation=True, max_length=max_input_tokens, return_tensors="pt")
-
-                    gen_kwargs = {
-                        "max_new_tokens": generation_max_new_tokens,
-                        "min_new_tokens": generation_min_new_tokens,
-                        "num_beams": num_beams,
-                        "no_repeat_ngram_size": no_repeat_ngram_size,
-                        "early_stopping": early_stopping,
-                        "do_sample": False,
-                        "length_penalty": length_penalty,
-                        "repetition_penalty": 1.3,
-                    }
-
-                    try:
-                        summarizer_model = get_summarizer_model()[0]
-                        outputs = summarizer_model.generate(input_ids=inputs["input_ids"], attention_mask=inputs.get("attention_mask"), **gen_kwargs)
-                        generated = get_summarizer_model()[1].decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-                    except Exception:
-                        summarizer = get_summarizer_pipeline()
-                        if summarizer:
-                            res = summarizer(prompt, max_length=120, min_length=40, truncation=True, do_sample=False)
-                            if isinstance(res, list) and res:
-                                first = res[0]
-                                if isinstance(first, dict):
-                                    generated = first.get('generated_text') or first.get('summary_text') or first.get('text') or ""
-                                elif isinstance(first, str):
-                                    generated = first
-                            elif isinstance(res, dict):
-                                generated = res.get('generated_text') or res.get('summary_text') or res.get('text') or ""
-                            else:
-                                generated = str(res)
-                        else:
-                            raise RuntimeError("No summarizer available")
-
-            except Exception as e:
-                logger.error(f"Generation failed for '{tw.name}': {e}")
-                continue
-
-            summary = (generated or "").strip()
-            summary = re.sub(r'^(summarize|summary|text):\s*', '', summary, flags=re.IGNORECASE)
-            summary = clean_text_and_metadata(summary)
-            summary = re.sub(r'\s+', ' ', summary).strip()
-
-            cves_in_summary = extract_and_normalize_cves(summary)
-
-            if summary and not summary[0].isupper():
-                summary = summary[0].upper() + summary[1:]
-
-            if summary and not summary.endswith(('.', '!', '?')):
-                summary += '.'
-
-            word_count = len(summary.split()) if summary else 0
-            if word_count < 20:
-                continue
-
-            if is_duplicate_summary(summary, existing_summaries, threshold=0.70):
-                continue
-
-            # Extract entities
-            entities = {
-                'products': set(),
-                'cves': set(),
-                'organizations': set(),
-                'attackers': set()
-            }
-
-            for title in all_titles:
-                try:
-                    extracted = extract_entities_and_threats(title)
-                    entities['products'].update(extracted.get('product', []))
-                    entities['cves'].update(extracted.get('cves', []))
-                    entities['organizations'].update(extracted.get('organizations', []))
-                    entities['attackers'].update(extracted.get('attackers', []))
+                    txt = get_article_title_or_summary(pu)
+                    if txt:
+                        cleaned = clean_text_and_metadata(txt)
+                        if len(cleaned) > 30:
+                            raw_titles.append(cleaned)
                 except Exception:
                     continue
+            
+            if raw_titles:
+                oldest_date = min(pu.created_at for pu in posturls)
+                formatted_date = oldest_date.strftime("%b %d, %Y")
 
-            entities['products'] = {p for p in entities['products'] if len(p) >= 4 and not p.isdigit()}
-            entities['cves'] = cves_in_summary
+                unique = deduplicate_titles(raw_titles)[:5]
+                weekly_context.append(f"Topic '{tw.name}' (First seen: {formatted_date}):\n" + "\n".join(f"- {t}" for t in unique))
+                keywords_used.append(tw.name)
 
-            summaries_data.append({
-                'summary': summary,
-                'entities': entities
-            })
-            existing_summaries.append(summary)
-            keywords_used.append(tw.name)
-            logger.info(f"Summary generated for '{tw.name}'")
+        if not weekly_context:
+            logger.info("No valid data for weekly summary")
+            return
 
-        if summaries_data:
-            summary_lines = []
-            for item in summaries_data:
-                summary_lines.append(f"• {item['summary']}")
-                metadata = []
-                entities = item['entities']
-                if entities['products']:
-                    products = sorted(list(entities['products']))[:3]
-                    metadata.append(f"Products: {', '.join(products)}")
-                if entities['cves']:
-                    cves = sorted(list(entities['cves']))
-                    cve_links = [f"{cve} (https://nvd.nist.gov/vuln/detail/{cve})" for cve in cves]
-                    metadata.append(f"CVEs: {' | '.join(cve_links)}")
-                if entities['attackers']:
-                    attackers = sorted(list(entities['attackers']))[:2]
-                    metadata.append(f"Threat actors: {', '.join(attackers)}")
-                if metadata:
-                    summary_lines.append("  " + " | ".join(metadata))
-                summary_lines.append("")
-            summary_text = "\n".join(summary_lines).strip()
-            logger.info(f"Weekly summary generated with {len(summaries_data)} entries")
+        full_corpus = "\n\n".join(weekly_context)
+        summary_text = None
+        used_model = "Unknown"
 
+        org_name = getattr(settings, 'ORGANIZATION_NAME', 'the organization')
+        context = getattr(settings, 'THREATS_WATCHER_CONTEXT', 'global technology and cybersecurity')
+
+        prompt = f"""You are a Lead Cyber Threat Intelligence Analyst for {org_name} (key sectors: {context}).
+        Review the following trending cybersecurity topics and news from the past week.
+        Group them into logical threat clusters (e.g., 'Ransomware Operations', 'Critical Vulnerabilities').
+
+        You MUST respond ONLY with a valid JSON object matching this exact structure:
+        {{
+            "executive_summary": "A concise 2-sentence high-level overview of the week's major threats.",
+            "clusters": [
+                {{
+                    "theme": "Cluster Name",
+                    "date": "Use the 'First seen' date provided next to the Topic name. If merging multiple topics, use the oldest date.",
+                    "severity": "Critical, High, Medium, or Low",
+                    "summary": "Detailed actionable summary of this cluster in a single clear paragraph.",
+                    "cves": ["CVE-XXXX-XXXX"],
+                    "actors_or_malware": ["APT29", "LockBit"]
+                }}
+            ]
+        }}
+
+        Weekly News Context:
+        {full_corpus[:6000]}
+        """
+        try:
+            from llm_gateway.router import LLMRouter
+            router = LLMRouter()
+            llm_response = router.generate_text(prompt=prompt)
+            
+            if llm_response:
+                json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
+                
+                if json_match:
+                    data = json.loads(json_match.group(0))
+                    lines = []
+                    
+                    exec_sum = data.get('executive_summary', '')
+                    lines.append("<div style='border-left: 3px solid #64748b; padding-left: 0.8em; margin-bottom: 24px;'>")
+                    
+                    lines.append("<div class='d-flex justify-content-between align-items-center' style='margin-bottom: 1em;'>")
+                    lines.append("<strong class='text-info text-uppercase' style='font-size: 0.85em; letter-spacing: 0.05em;'>Executive Summary</strong>")
+                    lines.append("<span id='watcher-toggle-all' class='text-muted border rounded px-2 py-1' style='font-size: 0.75em; cursor: pointer; user-select: none; transition: background 0.2s;'>Collapse All</span>")
+                    lines.append("</div>")
+                    
+                    lines.append(f"<p class='mt-1 mb-0 text-body' style='line-height: 1.4; font-size: 0.9em;'>{exec_sum}</p>")
+                    lines.append("</div>")
+                    
+                    clusters = data.get('clusters', [])
+                    for i, cluster in enumerate(clusters):
+                        theme = cluster.get('theme', 'Threat Cluster')
+                        severity = cluster.get('severity', 'Medium')
+                        event_date = cluster.get('date', 'This Week')
+                        summary_info = cluster.get('summary', '')
+                        raw_date = cluster.get('date', '')
+                        event_date = str(raw_date).strip().strip('"').strip("'") if raw_date else ""
+                        
+                        if event_date.lower() in ['none', 'n/a', 'null', 'this week', 'unknown', '']:
+                            event_date = ""
+                        
+                        sev_upper = severity.upper()
+                        if 'CRITICAL' in sev_upper:
+                            color = "#ef4444"
+                        elif 'HIGH' in sev_upper:
+                            color = "#eab308"
+                        elif 'MEDIUM' in sev_upper:
+                            color = "#38bdf8"
+                        else:
+                            color = "#94a3b8"
+                            
+                        lines.append(f"<details open class='watcher-cluster' style='border-left: 3px solid {color}; padding-left: 0.8em; margin-bottom: 1.5em;'>")
+                        
+                        lines.append("<summary class='d-flex justify-content-between align-items-center mb-3' style='cursor: pointer; outline: none; user-select: none;'>")
+                        
+                        lines.append(f"<div class='d-flex align-items-center'><span class='material-icons cluster-arrow' style='font-size: 1.2em; color: {color}; margin-right: 0.25em; margin-left: -0.25em; transition: transform 0.2s;'>arrow_drop_down</span><strong class='m-0 text-body' style='font-size: 0.95em;'>{theme}</strong></div>")
+                        
+                        lines.append(f"<div class='d-flex align-items-center gap-2'>")
+                        if event_date:
+                            lines.append(f"<span class='text-muted fst-italic' style='font-size: 0.75em;'>{event_date}</span>")
+                        lines.append(f"<span class='badge' style='font-size: 0.75em; padding: 0.15em 0.6em; color: {color}; border: 1px solid {color}60; background: transparent;'>{severity}</span>")
+                        lines.append("</div>")
+                        lines.append("</summary>")
+                        
+                        lines.append(f"<p class='mb-3 text-body' style='font-size: 0.9em; line-height: 1.4;'>{summary_info}</p>")
+                        
+                        meta_lines = []
+                        threats = [t for t in cluster.get('actors_or_malware', []) if t and str(t).strip().lower() != 'none']
+                        if threats:
+                            meta_lines.append(f"<div class='m-0'><strong class='text-muted'>Threats:</strong> <span class='badge bg-danger text-white'>{', '.join(threats)}</span></div>")
+                        
+                        cves = [c for c in cluster.get('cves', []) if c and str(c).strip().lower() != 'none']
+                        if cves:
+                            cve_links = [f"<a href='https://nvd.nist.gov/vuln/detail/{c}' target='_blank' class='text-info text-decoration-underline'>{c}</a>" for c in cves]
+                            meta_lines.append(f"<div class='m-0'><strong class='text-muted'>CVEs:</strong> {' | '.join(cve_links)}</div>")
+                            
+                        if meta_lines:
+                            lines.append(f"<div class='d-flex flex-column mt-2 mb-0' style='gap: 0.3em; font-size: 0.85em;'>{''.join(meta_lines)}</div>")
+                        
+                        lines.append("</details>")
+                        
+                    summary_text = "\n".join(lines).strip()
+                    used_model = getattr(router, 'model_used', 'Primary LLM Router')
+                    logger.info("Weekly summary successfully generated via LLM clustering.")
+                else:
+                    logger.warning("No valid JSON found in the LLM response for the weekly summary.")
+                    summary_text = None
+        except Exception as e:
+            logger.error(f"Failed to process Weekly LLM JSON: {e}")
+            summary_text = None
+
+        if not summary_text:
+            logger.warning("LLM clustering failed. Falling back to local PyTorch CausalLM engine for weekly summary.")
+            
+            model, model_tokenizer = get_summarizer_model()
+            if model and model_tokenizer:
+                import torch
+                try:
+                    fallback_prompt = f"Summarize the top 3 cybersecurity threats from the news below.\n\nNews:\n{full_corpus[:3000]}"
+                    
+                    messages = [
+                        {
+                            "role": "system", 
+                            "content": "You are a CTI analyst. Output exactly 3 bullet points starting with '•'. Each bullet must be a full sentence (15-30 words) explaining the vendor, the vulnerability, and the impact."
+                        },
+                        {
+                            "role": "user",
+                            "content": "Summarize the top 3 cybersecurity threats from the news below.\n\nNews:\nAcmeCorp routers have a critical SQL injection flaw leading to data theft. BetaTech firewalls are vulnerable to DoS attacks causing network crashes. GammaSoft VPNs have an auth bypass allowing remote access."
+                        },
+                        {
+                            "role": "assistant",
+                            "content": "• AcmeCorp has disclosed a critical SQL injection vulnerability in their routing software that allows attackers to steal sensitive data.\n• BetaTech firewalls are currently vulnerable to Denial of Service (DoS) attacks, which can cause severe network crashes and downtime.\n• GammaSoft VPN gateways contain an authentication bypass flaw that enables unauthorized users to gain remote access to internal networks."
+                        },
+                        {
+                            "role": "user", 
+                            "content": fallback_prompt
+                        }
+                    ]
+                    
+                    chat_prompt = model_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                    inputs = model_tokenizer(chat_prompt, return_tensors="pt", truncation=True, max_length=2048)
+                    
+                    logger.info("Starting safe local Qwen-Instruct inference for weekly summary...")
+                    
+                    with torch.no_grad():
+                        outputs = model.generate(
+                            inputs["input_ids"], 
+                            max_new_tokens=250, 
+                            do_sample=False, 
+                            repetition_penalty=1.15
+                        )
+                    
+                    input_length = inputs["input_ids"].shape[1]
+                    res_raw = model_tokenizer.decode(outputs[0][input_length:], skip_special_tokens=True).strip()
+                    
+                    if res_raw and not res_raw.endswith(('.', '!', '?')):
+                        last_dot = max(res_raw.rfind('.'), res_raw.rfind('!'), res_raw.rfind('?'))
+                        if last_dot != -1:
+                            res_raw = res_raw[:last_dot + 1]
+                            
+                    logger.info("Local Qwen weekly inference finished successfully.")
+                    
+                    fallback_lines = []
+                    valid_bullets_count = 0
+                    
+                    for line in res_raw.split('\n'):
+                        line = line.strip()
+                        if not line or len(line) < 15:
+                            continue
+                            
+                        if line.startswith('**') and line.endswith('**'):
+                            continue
+                        if re.match(r'^\d+\.\s*\*\*', line):
+                            continue
+                            
+                        line = re.sub(r'^([•\-\*]+|\d+\.)\s*\*?\*?', '', line).strip()
+                        line = re.sub(r'^[A-Za-z0-9\s]+:\s*', '', line)
+                        line = line.replace('**', '')
+                    
+                        fallback_lines.append(f"<div class='mb-2'>• {line}</div>")
+                        valid_bullets_count += 1
+                        if valid_bullets_count >= 3:
+                            break
+                    if len(fallback_lines) > 1:
+                        summary_text = "".join(fallback_lines).strip()
+                        if model and hasattr(model, 'config') and hasattr(model.config, '_name_or_path'):
+                            model_path = model.config._name_or_path
+                            used_model = f"local/{model_path.split('/')[-1]}"
+                        else:
+                            used_model = getattr(settings, "HF_LOCAL_MODEL", "Local CausalLM Fallback")
+                        
+                except Exception as e:
+                    logger.error(f"Local CausalLM weekly summary generation failed safely: {e}")
+                    summary_text = f"<div class='text-danger fw-bold mb-2'>Weekly Threat Fallback Report:</div><div>• Generation skipped due to local resource limits.</div>"
+                    used_model = "Local Fallback (Error)"
+
+        if summary_text:
             summary_obj = Summary.objects.create(
                 type='weekly_summary',
                 keywords=', '.join(keywords_used),
-                summary_text=summary_text
+                summary_text=summary_text,
+                ai_model=used_model
             )
-            from .core import send_threats_watcher_notifications
-            send_threats_watcher_notifications({
-                'notification_type': 'weeklysummary',
-                'summary_text': summary_text,
-            })
-            logger.info("Weekly summary notifications sent")
+
+            if notify:
+                send_threats_watcher_notifications({
+                    'notification_type': 'weeklysummary',
+                    'summary_text': summary_text,
+                })
+                logger.info("Weekly summary notifications sent")
+            else:
+                logger.info("Weekly summary regenerated manually, notifications skipped")
         else:
-            logger.info("No valid summaries generated this week")
+            logger.error("All generation methods failed for Weekly Summary.")
 
     except Exception as e:
         logger.error(f"Weekly summary generation failed: {e}", exc_info=True)
-        from .core import send_threats_watcher_notifications
-        try:
-            send_threats_watcher_notifications({
-                'notification_type': 'weeklysummary',
-                'summary_text': "Weekly threat analysis failed due to technical issue.",
-            })
-        except Exception:
-            logger.exception("Failed to send failure notification")
-    finally:
-        try:
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
+        if notify:
+            try:
+                from .core import send_threats_watcher_notifications
+                send_threats_watcher_notifications({
+                    'notification_type': 'weeklysummary',
+                    'summary_text': "Weekly threat analysis failed due to technical issue.",
+                })
+            except Exception:
+                pass
 
+def analyze_threat_with_llm(keyword: str, corpus: str) -> dict:
+    """
+    Uses LiteLLM to extract the summary, enriched entities, and the alert score in a single pass.
+    Returns a dictionary (JSON) or None on failure.
+    """
+    org_name = getattr(settings, 'ORGANIZATION_NAME', 'the organization')
+    context = getattr(settings, 'THREATS_WATCHER_CONTEXT', 'global technology and cybersecurity')
+    
+    full_prompt = f"""You are an elite Cyber Threat Intelligence (CTI) analyst working for {org_name} (key sectors: {context}).
+Analyze the following cybersecurity news corpus about '{keyword}'.
 
-def generate_breaking_news(trendy_word):
-    """Generate a breaking-news style alert for a TrendyWord."""
-    logger.info(f"Generating breaking news for '{trendy_word.name}' ({getattr(trendy_word, 'occurrences', 'n/a')} occurrences)")
-    summarizer = get_summarizer_pipeline()
-    tokenizer = get_summarizer_tokenizer()
+You MUST respond ONLY with a valid JSON object (no markdown, no extra text) matching exactly this structure:
+{{
+    "summary": "A 3-sentence actionable summary covering the threat, impact, and affected products/sectors.",
+    "impact_level": "Critical, High, Medium, or Low",
+    "alert_score": <int 1-10>,
+    "justification": "Brief explanation of the score based on relevance to {org_name} sectors.",
+    "entities": {{
+        "cves": ["Extract only real CVE identifiers (format: CVE-YYYY-NNNNN) explicitly present in the text. If none exist, output exactly [\"None\"]."],
+        "apts_or_actors": ["List of threat actors explicitly mentioned. If NONE are found, return exactly [\"None\"]. DO NOT deduce or guess based on the target."],
+        "malwares": ["List of malwares. If none, return [\"None\"]"],
+        "mitre_ttps": ["List of MITRE techniques. If none, return [\"None\"]"],
+        "targeted_sectors": ["List of targeted industries"],
+        "targeted_countries": ["List of targeted countries. If none, return [\"None\"]"]
+    }}
+}}
 
-    if not summarizer or not tokenizer:
-        logger.error("Summarizer pipeline or tokenizer unavailable")
+News Corpus:
+{corpus[:4000]}
+"""
+
+    try:
+        from llm_gateway.router import LLMRouter
+        router = LLMRouter()
+        response_text = router.generate_text(prompt=full_prompt)
+        
+        # Security: If router returns None (fallback delegation), exit cleanly
+        if not response_text:
+            return None
+        
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            parsed_data = json.loads(json_match.group(0))
+            parsed_data["model_used"] = getattr(router, "model_used", "Primary LLM Router")
+            return parsed_data
         return None
+
+    except Exception as e:
+        logger.error(f"LLM analysis failed for '{keyword}': {e}")
+        return None
+
+def generate_breaking_news(trendy_word, notify=True):
+    """Generate a breaking-news style alert for a TrendyWord using multi-LLM abstraction with local fallback."""
+    logger.info(f"Generating breaking news for '{trendy_word.name}' ({getattr(trendy_word, 'occurrences', 'n/a')} occurrences)")
+    tokenizer = get_summarizer_tokenizer()
 
     try:
         from .core import send_threats_watcher_notifications
@@ -744,6 +813,97 @@ def generate_breaking_news(trendy_word):
         if len(corpus) < 40:
             return None
 
+        llm_result = analyze_threat_with_llm(trendy_word.name, corpus)
+        
+        if llm_result and isinstance(llm_result, dict) and "summary" in llm_result:
+            logger.info(f"Breaking news successfully generated via LLM router for '{trendy_word.name}'")
+            
+            raw_summary = llm_result["summary"]
+            entities_data = llm_result.get("entities", {})
+            
+            raw_cves = entities_data.get("cves", [])
+            valid_cves = []
+            for c in raw_cves:
+                c_str = str(c).strip().upper()
+                match = re.search(r'CVE-\d{4}-\d{4,7}', c_str)
+                if match:
+                    valid_cves.append(match.group(0))
+            cves_final = sorted(list(dict.fromkeys(valid_cves)))
+
+            def get_valid(key):
+                items = entities_data.get(key, [])
+                if isinstance(items, str): items = [items]
+                return [str(x).strip() for x in items if x and str(x).strip().lower() != 'none']
+
+            sectors = get_valid('targeted_sectors')
+            actors = get_valid('apts_or_actors')
+            malwares = get_valid('malwares')
+            impact = llm_result.get('impact_level', 'Unknown')
+            recommendations = llm_result.get('recommendations', '')
+
+            html_lines = [f"<p class='mb-3 text-body' style='line-height: 1.5;'>{raw_summary}</p>"]
+            meta_lines = []
+            
+            if impact and impact.lower() != 'unknown':
+                impact_color = "bg-danger" if "critical" in impact.lower() or "high" in impact.lower() else "bg-warning text-dark"
+                meta_lines.append(f"<div><strong class='text-muted'>Impact Level:</strong> <span class='badge {impact_color}'>{impact.capitalize()}</span></div>")
+
+            if recommendations and str(recommendations).strip().lower() != 'none':
+                meta_lines.append(f"<div><strong class='text-muted'>Recommendations:</strong> <span class='text-success fw-bold'>{recommendations}</span></div>")
+                
+            if sectors:
+                meta_lines.append(f"<div><strong class='text-muted'>Targeted Sectors:</strong> <span class='fw-bold'>{', '.join(sectors[:3])}</span></div>")
+                
+            if actors:
+                meta_lines.append(f"<div><strong class='text-muted'>Threat Actors:</strong> <span class='badge bg-secondary'>{', '.join(actors[:3])}</span></div>")
+            
+            if malwares:
+                meta_lines.append(f"<div><strong class='text-muted'>Malware/TTPs:</strong> <span class='text-danger fw-bold'>{', '.join(malwares[:3])}</span></div>")
+                
+            if cves_final:
+                cve_links = [f"<a href='https://nvd.nist.gov/vuln/detail/{c}' target='_blank' class='fw-bold' style='color: #0d6efd; text-decoration: underline;'>{c}</a>" for c in cves_final]
+                meta_lines.append(f"<div><strong class='text-muted'>CVEs:</strong> {' | '.join(cve_links)}</div>")
+
+            if meta_lines:
+                html_lines.append(f"<div class='mt-3 p-3 rounded' style='background: rgba(128,128,128,0.15); border: 1px solid rgba(128,128,128,0.2);'><h6 class='text-uppercase text-muted mb-2' style='font-size: 0.75em; letter-spacing: 0.05em;'>Threat Context :</h6><div class='d-flex flex-column' style='gap: 0.4em; font-size: 0.85em;'>{''.join(meta_lines)}</div></div>")
+
+            summary_text = "".join(html_lines)
+
+            used_model = llm_result.get("model_used", "Primary LLM Router")
+            
+            summary_obj = Summary.objects.create(
+                type='breaking_news',
+                keywords=trendy_word.name,
+                summary_text=summary_text,
+                ai_model=used_model
+            )
+
+            payload = {
+                'notification_type': 'breakingnews',
+                'keyword': trendy_word.name,
+                'occurrences': getattr(trendy_word, 'occurrences', None),
+                'summary_text': summary_text,
+                'alert_score': llm_result.get("alert_score"),
+                'justification': llm_result.get("justification"),
+                'impact_level': llm_result.get("impact_level"),
+            }
+            if cves_final:
+                payload['cves'] = cves_final
+
+            if notify:
+                try:
+                    send_threats_watcher_notifications(payload)
+                except Exception:
+                    logger.exception("Failed sending breaking news notifications")
+            else:
+                logger.info(f"Breaking news for '{trendy_word.name}' regenerated manually, notifications skipped")
+
+            wc = len(summary_text.split())
+            logger.info(f"LLM Breaking news sent for '{trendy_word.name}' (id={summary_obj.id}, {wc} words, score={llm_result.get('alert_score')})")
+            return summary_obj
+
+        logger.info(f"LLM router unavailable or failed, falling back to local pipeline for '{trendy_word.name}'")
+
         pre_prompt = (
             "Produce a single short paragraph (1-3 short sentences, 15-70 words) summarizing the cybersecurity news below. "
             "Only provide factual information. Do NOT output questions, instructions, repeated lines, placeholders, or prompts like 'Identify the'. "
@@ -769,49 +929,7 @@ def generate_breaking_news(trendy_word):
                 full_input = " ".join(words)
                 input_tokens = len(words)
 
-        max_len = min(150, max(80, input_tokens // 2))
-        min_len = max(30, max_len // 2)
-
-        def _extract_summary_from_result(result):
-            if not result:
-                return None
-            try:
-                if isinstance(result, list) and result:
-                    first = result[0]
-                    if isinstance(first, dict):
-                        for key in ('summary_text', 'generated_text', 'text', 'content'):
-                            val = first.get(key)
-                            if val and isinstance(val, str) and val.strip():
-                                return val.strip()
-                    else:
-                        if isinstance(first, str) and first.strip():
-                            return first.strip()
-                elif isinstance(result, dict):
-                    for key in ('summary_text', 'generated_text', 'text', 'content'):
-                        val = result.get(key)
-                        if val and isinstance(val, str) and val.strip():
-                            return val.strip()
-                elif isinstance(result, str):
-                    return result.strip()
-            except Exception:
-                return None
-            return None
-
         summary_raw = None
-        for attempt in range(2):
-            prompt = full_input
-            if attempt == 1:
-                prompt = ("IMPORTANT: Do NOT output instructions, questions, or placeholders. Produce 1-2 factual sentences only.\n\n" + full_input)
-            try:
-                result = summarizer(prompt, max_length=max_len, min_length=min_len, truncation=True, do_sample=False)
-            except Exception as e:
-                logger.warning(f"Summarizer pipeline error for '{trendy_word.name}' on attempt {attempt+1}: {e}")
-                result = None
-
-            candidate = _extract_summary_from_result(result)
-            if candidate:
-                summary_raw = candidate
-                break
 
         if not summary_raw:
             try:
@@ -819,32 +937,27 @@ def generate_breaking_news(trendy_word):
                 if model and model_tokenizer:
                     import torch
                     with torch.no_grad():
-                        inputs = model_tokenizer(full_input, truncation=True, max_length=450, return_tensors="pt")
-                        gen_kwargs = {
-                            "max_new_tokens": 120,
-                            "min_new_tokens": 40,
-                            "num_beams": 4,
-                            "no_repeat_ngram_size": 3,
-                            "early_stopping": True,
-                            "do_sample": False,
-                            "length_penalty": 0.9,
-                        }
-                        try:
-                            outputs = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs.get("attention_mask"), **gen_kwargs)
-                        except RuntimeError as e:
-                            if "out of memory" in str(e).lower():
-                                try:
-                                    torch.cuda.empty_cache()
-                                except Exception:
-                                    pass
-                                gen_kwargs["max_new_tokens"] = 80
-                                gen_kwargs["num_beams"] = 2
-                                outputs = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs.get("attention_mask"), **gen_kwargs)
-                            else:
-                                raise
-                        summary_raw = model_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
+                        # Enforce strict system instructions for concise breaking news output
+                        messages = [
+                            {"role": "system", "content": "You are a Cyber Threat Intelligence analyst. Provide a single short paragraph (1-3 sentences) summarizing the news factually. Do not add commentary or introductory phrases."},
+                            {"role": "user", "content": full_input}
+                        ]
+                        chat_prompt = model_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                        inputs = model_tokenizer(chat_prompt, return_tensors="pt", truncation=True, max_length=2048)
+                        
+                        # Generate the fallback summary using greedy decoding
+                        outputs = model.generate(
+                            inputs["input_ids"], 
+                            max_new_tokens=120, 
+                            do_sample=False,
+                            repetition_penalty=1.1
+                        )
+                        
+                        # Isolate the newly generated tokens
+                        input_length = inputs["input_ids"].shape[1]
+                        summary_raw = model_tokenizer.decode(outputs[0][input_length:], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
             except Exception as e:
-                logger.warning(f"Model.generate fallback failed for '{trendy_word.name}': {e}")
+                logger.warning(f"Local CausalLM fallback generation failed for '{trendy_word.name}': {e}")
                 summary_raw = None
 
         summary_text = None
@@ -950,12 +1063,45 @@ def generate_breaking_news(trendy_word):
                 return None
             summary_text = fallback_summary
 
-        cves_final = sorted(list(extract_and_normalize_cves(summary_text)))
+        summary_text_raw = summary_text
+        cves_final = sorted(list(extract_and_normalize_cves(summary_text_raw)))
+        
+        fallback_html_lines = []
+        fallback_html_lines.append(f"<p class='mb-3 text-body' style='line-height: 1.5;'>{summary_text_raw}</p>")
+        
+        meta_lines = []
+        current_impact = locals().get('impact', None)
+        if current_impact:
+            impact_color = "bg-danger" if current_impact in ['critical', 'high', 'actively exploited'] else "bg-warning text-dark"
+            meta_lines.append(f"<div><strong class='text-muted'>Estimated Impact: <span class='badge {impact_color}'>{current_impact.capitalize()}</span></strong></div>")
+        
+        current_orgs = locals().get('top_orgs', [])
+        if current_orgs:
+            meta_lines.append(f"<div><strong class='text-muted'>Targeted Entities: <span class='text-info'>{', '.join(current_orgs[:3])}</span></strong></div>")
+        current_attackers = locals().get('top_attackers', [])
+        if current_attackers:
+            meta_lines.append(f"<div><strong class='text-muted'>Suspected Actors: <span class='badge bg-dark border border-secondary'>{', '.join(current_attackers[:3])}</span></strong></div>")
+
+        if cves_final:
+            cve_links = [f"<a href='https://nvd.nist.gov/vuln/detail/{c}' target='_blank' class='text-info text-decoration-underline'>{c}</a>" for c in cves_final]
+            meta_lines.append(f"<div><strong class='text-muted'>CVEs: {' | '.join(cve_links)}</strong></div>")
+            
+        if meta_lines:
+            fallback_html_lines.append(f"<div class='mt-3 p-3 rounded' style='background: rgba(128, 128, 128, 0.15); border: 1px solid rgba(128, 128, 128, 0.2);'><h6 class='text-uppercase text-muted mb-2' style='font-size: 0.75em; letter-spacing: 0.05em;'>Extracted Indicators</h6><div class='d-flex flex-column' style='gap: 0.4em; font-size: 0.85em;'>{''.join(meta_lines)}</div></div>")
+
+        summary_text = "".join(fallback_html_lines)
+
+        if model and hasattr(model, 'config') and hasattr(model.config, '_name_or_path'):
+            model_path = model.config._name_or_path
+            used_model = f"local/{model_path.split('/')[-1]}"
+        else:
+            used_model = getattr(settings, "HF_LOCAL_MODEL", "Local AI Model")
 
         summary_obj = Summary.objects.create(
             type='breaking_news',
             keywords=trendy_word.name,
-            summary_text=summary_text
+            summary_text=summary_text,
+            ai_model=used_model
         )
 
         payload = {
@@ -967,10 +1113,13 @@ def generate_breaking_news(trendy_word):
         if cves_final:
             payload['cves'] = cves_final
 
-        try:
-            send_threats_watcher_notifications(payload)
-        except Exception:
-            logger.exception("Failed sending breaking news notifications")
+        if notify:
+            try:
+                send_threats_watcher_notifications(payload)
+            except Exception:
+                logger.exception("Failed sending breaking news notifications")
+        else:
+            logger.info(f"Breaking news for '{trendy_word.name}' regenerated manually, notifications skipped")
 
         wc = len(summary_text.split())
         logger.info(f"Breaking news sent for '{trendy_word.name}' (id={summary_obj.id}, {wc} words, {len(cves_final)} CVEs)")
@@ -982,12 +1131,8 @@ def generate_breaking_news(trendy_word):
 
 
 def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
-    """Generate AI summary for a keyword using a provided PostUrl list."""
-    summarizer = get_summarizer_pipeline()
-    tokenizer = get_summarizer_tokenizer()
-    if not summarizer or not tokenizer:
-        logger.error("Summarizer or tokenizer unavailable")
-        return None
+    """Generate AI summary for a keyword using Multi-LLM abstraction with local fallback."""
+    logger.info(f"Generating summary for keyword '{keyword}' via Multi-LLM pipeline")
 
     try:
         if not posturls:
@@ -1016,82 +1161,132 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
             logger.info(f"Corpus too small for '{keyword}' (len={len(corpus)})")
             return None
 
-        prompt = (
-            f"Provide a comprehensive summary of the following cybersecurity news about '{keyword}'.\n"
-            f"You MUST write exactly 3 detailed sentences covering the threat, the impact, and the affected products.\n\n"
-            f"{corpus}"
-        )
+        llm_result = analyze_threat_with_llm(keyword, corpus)
+        
+        if llm_result and isinstance(llm_result, dict) and "summary" in llm_result:
+            logger.info(f"Summary successfully generated via LLM router for '{keyword}'")
 
-        # Generate summary
-        try:
-            input_tokens = len(tokenizer.encode(prompt))
-        except Exception:
-            input_tokens = len(prompt.split())
+            used_model = llm_result.get("model_used", "Primary LLM Router")
+            summary_text = llm_result["summary"]
+            summary_text = summary_text.replace("—", ", ")
+            summary_text = summary_text.replace("–", "-")
+            summary_text = summary_text.replace(" ,", ",")
+            entities_data = llm_result.get("entities", {})
+            
+            summary_lines = [f"<p class='mb-2 text-body' style='line-height: 1.4;'>{summary_text}</p>"]
+            
+            meta_lines = []
+            def get_valid_entities(key):
+                items = entities_data.get(key) or []
+                return [x for x in items if x and str(x).strip().lower() != 'none']
 
-        max_len = min(150, max(80, input_tokens // 2))
-        min_len = max(40, max_len // 2)
+            valid_sectors = get_valid_entities('targeted_sectors')
+            if valid_sectors:
+                sectors_str = ", ".join(valid_sectors[:3])
+                meta_lines.append(f"<div><strong class='text-muted'>Sectors:</strong> <span class='text-info'>{sectors_str}</span></div>")
+                
+            valid_malwares = get_valid_entities('malwares')
+            if valid_malwares:
+                malware_str = ", ".join(valid_malwares[:3])
+                meta_lines.append(f"<div><strong class='text-muted'>Malware/Tools:</strong> <span class='text-warning'>{malware_str}</span></div>")
+                
+            valid_actors = get_valid_entities('apts_or_actors')
+            if valid_actors:
+                actors_str = ", ".join(valid_actors[:2])
+                meta_lines.append(f"<div><strong class='text-muted'>Threat actors:</strong> <span style='color: #f87171; background-color: rgba(248, 113, 113, 0.15); padding: 1px 4px; border-radius: 3px; font-weight: 600;'>{actors_str}</span></div>")
+                
+            valid_mitre = get_valid_entities('mitre_ttps')
+            if valid_mitre:
+                mitre_str = ", ".join(valid_mitre[:2])
+                meta_lines.append(f"<div><strong class='text-muted'>MITRE ATT&CK:</strong> <span class='badge bg-secondary'>{mitre_str}</span></div>")
+                
+            valid_cves = get_valid_entities('cves')
+            if valid_cves:
+                cves = sorted(list(set(valid_cves)))
+                cve_links = [f"<a href='https://nvd.nist.gov/vuln/detail/{cve}' target='_blank' class='text-info text-decoration-underline'>{cve}</a>" for cve in cves]
+                meta_lines.append(f"<div><strong class='text-muted'>CVEs:</strong> {' | '.join(cve_links)}</div>")
+            
+            if llm_result.get("alert_score"):
+                score = llm_result['alert_score']
+                impact = llm_result.get('impact_level', 'Unknown')
+                score_badge = "bg-danger" if score >= 8 else ("bg-warning text-dark" if score >= 5 else "bg-info text-dark")
+                
+                org_name = getattr(settings, 'ORGANIZATION_NAME', 'Organization')
+                display_name = f"{org_name.capitalize()} Alert Score" if org_name.lower() != 'the organization' else "Alert Score"
+                
+                score_inline = f"<strong class='text-muted'>{display_name}:</strong> <span class='badge {score_badge}'>{score}/10</span> <span class='text-muted ms-1' style='font-size: 0.9em;'>({impact} Impact)</span>"
+                meta_lines.append(f"<div class='mt-1'>{score_inline}</div>")
+                
+            if llm_result.get("justification"):
+                meta_lines.append(f"<div class='mt-1 text-muted' style='font-size: 0.85em; line-height: 1.3;'><strong>Justification:</strong> {llm_result['justification']}</div>")
 
-        try:
-            result = None
-        except Exception as e:
-            logger.error(f"Summarizer failed for '{keyword}': {e}")
-            result = None
+            if meta_lines:
+                summary_lines.append(f"<div class='mt-2 d-flex flex-column gap-1' style='font-size: 0.9em;'>{''.join(meta_lines)}</div>")
 
+            final_summary = "\n".join([line for line in summary_lines if line]).strip()
+
+            summary_obj, created = Summary.objects.update_or_create(
+                type='trendy_word_summary',
+                keywords=keyword,
+                defaults={'summary_text': final_summary, 'ai_model': used_model}
+            )
+
+            logger.info(f"LLM Summary {'created' if created else 'updated'} for '{keyword}' (id={summary_obj.id})")
+            return summary_obj
+
+        logger.warning(f"LLM router unavailable/failed for '{keyword}', falling back to local PyTorch engine.")
+        
         summary_raw = None
-        if result:
-            if isinstance(result, list) and result:
-                first = result[0]
-                if isinstance(first, dict):
-                    for key in ('summary_text', 'generated_text', 'text', 'content'):
-                        val = first.get(key)
-                        if val and isinstance(val, str) and val.strip():
-                            summary_raw = val.strip()
-                            break
-                elif isinstance(first, str) and first.strip():
-                    summary_raw = first.strip()
-            elif isinstance(result, dict):
-                for key in ('summary_text', 'generated_text', 'text', 'content'):
-                    val = result.get(key)
-                    if val and isinstance(val, str) and val.strip():
-                        summary_raw = val.strip()
-                        break
-            elif isinstance(result, str) and result.strip():
-                summary_raw = result.strip()
 
         if not summary_raw:
             try:
                 model, model_tokenizer = get_summarizer_model()
                 if model and model_tokenizer:
                     import torch
+                    
+                    fallback_prompt = (
+                        f"Analyze the following cybersecurity news and extract the specific events related to the keyword '{keyword}'.\n"
+                        f"Provide a concise, 3-sentence factual paragraph covering the threat, impact, and affected entities. "
+                        f"Do not include introductory or concluding remarks.\n\n"
+                        f"News:\n{corpus[:2000]}"
+                    )
+                    
                     with torch.no_grad():
-                        inputs = model_tokenizer(prompt, truncation=True, max_length=450, return_tensors="pt")
-                        gen_kwargs = {
-                            "max_new_tokens": 160,
-                            "min_new_tokens": 60,
-                            "num_beams": 5,
-                            "no_repeat_ngram_size": 3,
-                            "early_stopping": True,
-                            "do_sample": False,
-                            "length_penalty": 2.0,
-                            "repetition_penalty": 1.3,
-                        }
-                        try:
-                            outputs = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs.get("attention_mask"), **gen_kwargs)
-                        except RuntimeError as e:
-                            if "out of memory" in str(e).lower():
-                                try:
-                                    import torch as _torch
-                                    _torch.cuda.empty_cache()
-                                except Exception:
-                                    pass
-                                gen_kwargs["max_new_tokens"] = 80
-                                gen_kwargs["num_beams"] = 2
-                                outputs = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs.get("attention_mask"), **gen_kwargs)
-                            else:
-                                raise
-                        summary_raw = model_tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
+                        messages = [
+                            {
+                                "role": "system", 
+                                "content": "You are a strict Cyber Threat Intelligence parser. Output ONLY the factual summary paragraph. Never explain your reasoning, never use conversational filler."
+                            },
+                            {
+                                "role": "user", 
+                                "content": fallback_prompt
+                            }
+                        ]
+                        
+                        chat_prompt = model_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                        inputs = model_tokenizer(chat_prompt, return_tensors="pt", truncation=True, max_length=2048)
+                        
+                        logger.info(f"Starting Qwen2.5 local inference for keyword '{keyword}'...")
+                        
+                        outputs = model.generate(
+                            inputs["input_ids"], 
+                            max_new_tokens=150, 
+                            do_sample=False,
+                            repetition_penalty=1.15
+                        )
+                        
+                        input_length = inputs["input_ids"].shape[1]
+                        summary_raw = model_tokenizer.decode(outputs[0][input_length:], skip_special_tokens=True).strip()
+                        
+                        if summary_raw and not summary_raw.endswith(('.', '!', '?')):
+                            last_dot = max(summary_raw.rfind('.'), summary_raw.rfind('!'), summary_raw.rfind('?'))
+                            if last_dot != -1:
+                                summary_raw = summary_raw[:last_dot + 1]
+                                
+                        logger.info(f"Local Qwen inference for '{keyword}' finished successfully.")
+                        
             except Exception as e:
-                logger.error(f"Model.generate fallback failed for '{keyword}': {e}")
+                logger.error(f"Local CausalLM fallback generation failed for '{keyword}': {e}")
                 return None
 
         if not summary_raw or not summary_raw.strip():
@@ -1099,21 +1294,19 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
             return None
 
         summary_text = clean_text_and_metadata(summary_raw.strip())
+        
+        summary_text = re.sub(r'^\*?\*?(Summary Paragraph|Summary|Key Facts|Here is a summary|Threat Summary)[*:\-\s]+', '', summary_text, flags=re.IGNORECASE).strip()
+        
         summary_text = re.sub(r'\s+', ' ', summary_text).strip()
 
         if not summary_text.endswith((".", "!", "?")):
             summary_text += "."
 
-        if len(summary_text.split()) < 15:
+        if len(summary_text.split()) < 10: 
+            logger.error(f"Summary too short for '{keyword}'")
             return None
 
-        entities = {
-            'products': set(),
-            'cves': set(),
-            'organizations': set(),
-            'attackers': set()
-        }
-
+        entities = {'products': set(), 'cves': set(), 'organizations': set(), 'attackers': set()}
         for title in unique_texts:
             try:
                 extracted = extract_entities_and_threats(title)
@@ -1123,31 +1316,51 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
                 entities['cves'].update(extracted.get('cves', []))
             except Exception:
                 continue
-
         entities['cves'].update(extract_and_normalize_cves(summary_text))
 
-        # Build final summary
-        summary_lines = [summary_text, ""]
+        summary_lines = [f"<p class='mb-2 text-body' style='line-height: 1.4;'>{summary_text}</p>"]
+        meta_lines = []
+        
         if entities['products']:
-            summary_lines.append("Products: " + ", ".join(sorted(list(entities['products']))[:3]))
+            products_str = ", ".join(sorted(list(entities['products']))[:3])
+            meta_lines.append(f"<div><strong class='text-muted'>Products:</strong> <span class='text-info'>{products_str}</span></div>")
+            
+        if entities['attackers']:
+            actors_str = ", ".join(sorted(list(entities['attackers']))[:2])
+            meta_lines.append(f"<div><strong class='text-muted'>Threat actors:</strong> <span class='badge bg-danger'>{actors_str}</span></div>")
+            
         if entities['cves']:
             cves = sorted(list(entities['cves']))
-            cve_links = [f"{cve} (https://nvd.nist.gov/vuln/detail/{cve})" for cve in cves]
-            summary_lines.append("CVEs: " + " | ".join(cve_links))
-        if entities['attackers']:
-            summary_lines.append("Threat actors: " + ", ".join(sorted(list(entities['attackers']))[:2]))
+            cve_links = []
+            for cve in cves:
+                if cve.lower() == 'none':
+                    cve_links.append("<span class='text-muted'>None</span>")
+                else:
+                    cve_links.append(f"<a href='https://nvd.nist.gov/vuln/detail/{cve}' target='_blank' class='text-info' style='text-decoration: underline;'>{cve}</a>")
+            meta_lines.append(f"<div><strong class='text-muted'>CVEs:</strong> {' | '.join(cve_links)}</div>")
+            
         if entities['organizations']:
-            summary_lines.append("Organizations: " + ", ".join(sorted(list(entities['organizations']))[:3]))
+            orgs_str = ", ".join(sorted(list(entities['organizations']))[:3])
+            meta_lines.append(f"<div><strong class='text-muted'>Organizations:</strong> <span class='text-info'>{orgs_str}</span></div>")
+
+        if meta_lines:
+            summary_lines.append(f"<div class='mt-2 d-flex flex-column gap-1' style='font-size: 0.9em;'>{''.join(meta_lines)}</div>")
 
         final_summary = "\n".join([line for line in summary_lines if line]).strip()
+
+        if model and hasattr(model, 'config') and hasattr(model.config, '_name_or_path'):
+            model_path = model.config._name_or_path
+            used_model = f"local/{model_path.split('/')[-1]}"
+        else:
+            used_model = getattr(settings, "HF_LOCAL_MODEL", "Local AI Model")
 
         summary_obj, created = Summary.objects.update_or_create(
             type='trendy_word_summary',
             keywords=keyword,
-            defaults={'summary_text': final_summary}
+            defaults={'summary_text': final_summary, 'ai_model': used_model}
         )
 
-        logger.info(f"Summary {'created' if created else 'updated'} for '{keyword}' (id={summary_obj.id}, {len(summary_text.split())} words)")
+        logger.info(f"Fallback Summary {'created' if created else 'updated'} for '{keyword}' (id={summary_obj.id})")
         return summary_obj
 
     except Exception as e:

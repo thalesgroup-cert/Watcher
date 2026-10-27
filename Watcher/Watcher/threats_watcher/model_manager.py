@@ -1,26 +1,28 @@
-
-
 import logging
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+import os
+from django.conf import settings
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 logger = logging.getLogger('watcher.threats_watcher')
 
-# Global model cache
+# Global model cache to prevent redundant loading
 _ner_pipeline = None
-_summarizer_pipeline = None
 _summarizer_tokenizer = None
 _summarizer_model = None
 
+# Retrieve the local CausalLM model from environment settings for offline fallback
+LOCAL_MODEL_NAME = getattr(settings, 'HF_LOCAL_MODEL', 'Qwen/Qwen2.5-0.5B-Instruct')
 
 def get_ner_pipeline():
     """
-    Load and return Named Entity Recognition pipeline.
+    Load and return the Named Entity Recognition (NER) pipeline.
     
-    Uses dslim/bert-base-NER with grouped entities for:
-        - Person names (PER)
-        - Organizations (ORG)
-        - Locations (LOC)
-        - Miscellaneous entities (MISC)
+    This lightweight model (dslim/bert-base-NER) is explicitly maintained to perform
+    fast and efficient entity extraction (PER, ORG, LOC, MISC) across large volumes 
+    of RSS feed titles, avoiding the overhead of generating these entities via LLMs.
+    
+    Returns:
+        transformers.pipelines.Pipeline: The initialized NER pipeline, or None if loading fails.
     """
     global _ner_pipeline
     if _ner_pipeline is None:
@@ -30,68 +32,46 @@ def get_ner_pipeline():
                 model="dslim/bert-base-NER",
                 aggregation_strategy="simple"
             )
-            logger.info("NER model (dslim/bert-base-NER) loaded successfully")
+            logger.info("NER model (dslim/bert-base-NER) loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to load NER model: {e}")
             return None
     return _ner_pipeline
 
-
-def get_summarizer_pipeline():
-    """
-    Load and return text generation pipeline (legacy compatibility).
-    
-    Uses google/flan-t5-base for text-to-text generation tasks.
-    Kept for backward compatibility with breaking news generation.
-    
-    For full control over generation parameters, use get_summarizer_model() instead.
-    """
-    global _summarizer_pipeline
-    if _summarizer_pipeline is None:
-        try:
-            _summarizer_pipeline = pipeline(
-                "text-generation",
-                model="google/flan-t5-base"
-            )
-            logger.info("FLAN-T5 summarizer pipeline loaded successfully")
-        except Exception as e:
-            logger.error(f"Failed to load FLAN-T5 summarizer pipeline: {e}")
-            return None
-    return _summarizer_pipeline
-
-
 def get_summarizer_tokenizer():
     """
-    Load and return FLAN-T5 tokenizer.
+    Load and return the tokenizer associated with the local fallback LLM.
+    
+    Returns:
+        transformers.PreTrainedTokenizer: The initialized tokenizer, or None if loading fails.
     """
     global _summarizer_tokenizer
     if _summarizer_tokenizer is None:
         try:
-            _summarizer_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
-            logger.info("FLAN-T5 tokenizer loaded successfully")
+            _summarizer_tokenizer = AutoTokenizer.from_pretrained(LOCAL_MODEL_NAME)
         except Exception as e:
-            logger.error(f"Failed to load FLAN-T5 tokenizer: {e}")
+            logger.error(f"Failed to load tokenizer for {LOCAL_MODEL_NAME}: {e}")
             return None
     return _summarizer_tokenizer
 
-
 def get_summarizer_model():
     """
-    Load and return FLAN-T5 model with tokenizer for advanced generation.
+    Load and return the local fallback language model (CausalLM) and its tokenizer.
     
-    Provides direct access to model.generate() for:
-        - Fine-grained control over generation parameters
-        - Custom beam search settings
-        - GPU acceleration support
-        - Avoiding pipeline limitations
+    This model serves as the offline failover mechanism for threat intelligence 
+    summarization and clustering when primary LLM API gateways (e.g., OpenAI, Gemini) 
+    are unavailable or unconfigured.
+    
+    Returns:
+        tuple: (model, tokenizer) if successful, otherwise (None, None).
     """
     global _summarizer_model, _summarizer_tokenizer
     if _summarizer_model is None or _summarizer_tokenizer is None:
         try:
-            _summarizer_tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
-            _summarizer_model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
-            logger.info("FLAN-T5 model and tokenizer loaded successfully")
+            _summarizer_tokenizer = AutoTokenizer.from_pretrained(LOCAL_MODEL_NAME)
+            _summarizer_model = AutoModelForCausalLM.from_pretrained(LOCAL_MODEL_NAME)
+            logger.info(f"Fallback Model ({LOCAL_MODEL_NAME}) loaded successfully.")
         except Exception as e:
-            logger.error(f"Failed to load FLAN-T5 model/tokenizer: {e}")
+            logger.error(f"Failed to load Fallback Model ({LOCAL_MODEL_NAME}): {e}")
             return None, None
     return _summarizer_model, _summarizer_tokenizer

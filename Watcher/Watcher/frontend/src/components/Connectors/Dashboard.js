@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { Modal, Form, Button, Badge, Spinner, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import TableManager from '../common/TableManager';
-import { getConnectors, updateConnector, revealConnector, testConnector, resetConnectorField } from '../../actions/Connectors';
+import { getConnectors, updateConnector, revealConnector, testConnector, resetConnectorField, setDefaultLlm } from '../../actions/Connectors';
 
 const LOGO_BASE = '/static/frontend/images/connectors/';
 
@@ -179,6 +179,11 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave, onRese
                            style={{ fontSize: 11, fontWeight: 500, verticalAlign: 'middle' }}>
                         {connector.category}
                     </Badge>
+                    {connector.version && (
+                        <Badge bg="secondary" className="ms-2" style={{ fontSize: 11, fontWeight: 500, verticalAlign: 'middle' }}>
+                            v{connector.version}
+                        </Badge>
+                    )}
                 </Modal.Title>
             </Modal.Header>
             <form onSubmit={handleSave}>
@@ -314,8 +319,10 @@ class ConnectorCard extends Component {
     }
 
     render() {
-        const { connector, onEditClick } = this.props;
+        const { connector, onEditClick, onSetDefaultLLM } = this.props;
         const { testResult, testing } = this.state;
+        const isAI = ['openai', 'anthropic', 'gemini', 'ollama', 'generic_llm_provider'].includes(connector.id) ||
+                     (connector.category && connector.category.includes('Artificial Intelligence'));
 
         return (
             <div className="card shadow-sm h-100 d-flex flex-column text-center">
@@ -325,14 +332,37 @@ class ConnectorCard extends Component {
                         <ConnectorLogo connector={connector} size={72} />
                     </div>
                     <div className="fw-bold mb-1" style={{ fontSize: 15 }}>{connector.name}</div>
-                    <div className="text-muted mb-2" style={{ fontSize: 11 }}>
-                        v{connector.version}
-                    </div>
                     <div className="d-flex align-items-center gap-2 flex-wrap justify-content-center">
                         <StatusBadge status={connector.status} />
                         <HealthBadge health={connector.health} />
                         {connector.readonly && <Badge bg="warning" text="dark">Read-only</Badge>}
+                        {connector.is_default_llm && (
+                            <Badge bg="primary" className="d-inline-flex align-items-center gap-0.5">
+                                <i className="material-icons me-1" style={{ fontSize: 13, verticalAlign: 'text-bottom' }}>
+                                    star
+                                </i>
+                                Default
+                            </Badge>
+                        )}
                     </div>
+
+                    {isAI && (
+                        <div className="mt-3 w-100 p-2 d-flex align-items-center justify-content-center text-light">
+                            <div className="form-check form-switch mb-0 d-flex align-items-center justify-content-center gap-2" style={{ paddingLeft: 0 }}>
+                                <input
+                                    className="form-check-input mt-0 ms-0"
+                                    type="checkbox"
+                                    id={`default_llm_${connector.id}`}
+                                    checked={connector.is_default_llm || false}
+                                    onChange={(e) => onSetDefaultLLM(connector.id, e.target.checked)}
+                                    style={{ cursor: 'pointer', margin: 0 }}
+                                />
+                                <label className="form-check-label text-light fw-bold mb-0" htmlFor={`default_llm_${connector.id}`} style={{ fontSize: 11, cursor: 'pointer' }}>
+                                    Set as Default LLM
+                                </label>
+                            </div>
+                        </div>
+                    )}
 
                     {testResult && (
                         <div className={`mt-3 d-flex align-items-start justify-content-between gap-1 p-2 rounded border border-${testResult.success ? 'success' : 'danger'} w-100`}
@@ -394,7 +424,7 @@ class ConnectorsDashboard extends Component {
             error:           null,
             editConnector:   null,
             showEdit:        false,
-            groupByCategory: false,
+            groupByCategory: true,
             showHelp:        false,
         };
     }
@@ -470,6 +500,15 @@ class ConnectorsDashboard extends Component {
     handleReveal     = (connectorId) => this.props.revealConnector(connectorId);
     handleTest       = (connectorId) => this.props.testConnector(connectorId);
     handleResetField = (connectorId, fieldName) => this.props.resetConnectorField(connectorId, fieldName);
+    
+    handleSetDefaultLLM = async (connectorId, isDefault) => {
+        try {
+            await this.props.setDefaultLlm(connectorId, isDefault);
+            this.props.getConnectors();
+        } catch (error) {
+            console.error("Failed to update default LLM:", error);
+        }
+    };
 
     toggleGroupByCategory = () => this.setState(prev => ({ groupByCategory: !prev.groupByCategory }));
     toggleHelp = () => this.setState(prev => ({ showHelp: !prev.showHelp }));
@@ -489,7 +528,7 @@ class ConnectorsDashboard extends Component {
                 <div className="row g-3 mb-3 row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5">
                     {data.map(c => (
                         <div className="col" key={c.id}>
-                            <ConnectorCard connector={c} onEditClick={this.openEdit} onTest={this.handleTest} />
+                            <ConnectorCard connector={c} onEditClick={this.openEdit} onTest={this.handleTest} onSetDefaultLLM={this.handleSetDefaultLLM}/>
                         </div>
                     ))}
                 </div>
@@ -514,7 +553,7 @@ class ConnectorsDashboard extends Component {
                 <div className="row g-3 mb-1 row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5">
                     {byCategory[category].map(c => (
                         <div className="col" key={c.id}>
-                            <ConnectorCard connector={c} onEditClick={this.openEdit} onTest={this.handleTest} />
+                            <ConnectorCard connector={c} onEditClick={this.openEdit} onTest={this.handleTest} onSetDefaultLLM={this.handleSetDefaultLLM} />
                         </div>
                     ))}
                 </div>
@@ -699,4 +738,5 @@ export default connect(mapStateToProps, {
     revealConnector,
     testConnector,
     resetConnectorField,
+    setDefaultLlm,
 })(ConnectorsDashboard);

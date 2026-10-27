@@ -32,6 +32,7 @@ import store from "../store";
 import {loadUser, loginWithToken} from "../actions/auth";
 import {loadConfig} from "../actions/config";
 import { ThemeProvider } from '../contexts/ThemeContext';
+import GlobalZoomHandler from './common/GlobalZoomHandler';
 
 // Alert Options
 const alertOptions = {
@@ -116,6 +117,7 @@ class App extends Component {
                     <AlertProvider template={AlertTemplate} {...alertOptions}>
                         <Router>
                             <Fragment>
+                                <GlobalZoomHandler />
                                 <Header/>
                                 <Alerts/>
                                 <BulkProgress/>

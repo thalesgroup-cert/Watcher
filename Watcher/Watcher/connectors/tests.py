@@ -166,7 +166,7 @@ class CoreAPITest(TestCase):
     def test_underscore_prefixed_packages_are_excluded_from_discovery(self):
         """contrib/_template must never be auto-registered as a real connector."""
         self.assertFalse(connector_exists('my_service'))
-        self.assertEqual(get_connector_count(), 14)
+        self.assertEqual(get_connector_count(), 19)
 
     def test_get_connector_by_id_returns_correct_connector(self):
         connector = get_connector_by_id('smtp')
@@ -624,3 +624,177 @@ class WeeklyHealthCheckJobTest(TestCase):
         actions = PendingAction.objects.filter(action_type='connector_health_check')
         self.assertEqual(actions.count(), 2)
 
+class DefaultLLMConfigurationTest(TestCase):
+    """Tests for default LLM selection exclusivity and API endpoint."""
+
+    def setUp(self):
+        import connectors.core as core_mod
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+
+    def test_default_llm_exclusivity(self):
+        """Setting a connector as default LLM must automatically unset others."""
+        c1 = ConnectorOverride.objects.create(connector_id='openai', is_default_llm=True)
+        c2 = ConnectorOverride.objects.create(connector_id='anthropic', is_default_llm=False)
+        
+        c2.is_default_llm = True
+        c2.save()
+        
+        c1.refresh_from_db()
+        self.assertFalse(c1.is_default_llm)
+        self.assertTrue(c2.is_default_llm)
+
+
+class DefaultLLMAPITest(APITestCase):
+    """Tests for the set-default-llm REST API endpoint."""
+
+    def setUp(self):
+        import connectors.core as core_mod
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+
+        self.superuser = User.objects.create_superuser('admin_llm', 'admin_llm@test.com', 'password')
+        self.regular_user = User.objects.create_user('user_llm', 'user_llm@test.com', 'password')
+        _, self.super_token = AuthToken.objects.create(self.superuser)
+        _, self.user_token = AuthToken.objects.create(self.regular_user)
+
+    def _auth(self, token):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_set_default_llm_requires_superuser(self):
+        """Regular users cannot change the default LLM."""
+        self._auth(self.user_token)
+        resp = self.client.post('/api/connectors/openai/set-default-llm/', {'is_default_llm': True}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_set_default_llm_works_for_superuser(self):
+        """Superusers can set a connector as the default LLM successfully."""
+        self._auth(self.super_token)
+        resp = self.client.post('/api/connectors/openai/set-default-llm/', {'is_default_llm': True}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        
+        obj = ConnectorOverride.objects.get(connector_id='openai')
+        self.assertTrue(obj.is_default_llm)
+
+
+class CommonLLMHealthCheckTest(TestCase):
+    """common_health_check is shared by every LiteLLM connector (openai, anthropic, gemini, ollama, generic)."""
+
+    DEFINITION = {
+        'name': 'Test Provider',
+        'fields': [
+            {'name': 'API_KEY', 'label': 'API Key', 'required': True},
+            {'name': 'MODEL_NAME', 'label': 'Model Name', 'required': True},
+            {'name': 'BASE_URL', 'label': 'Base URL', 'required': False},
+        ],
+    }
+
+    @staticmethod
+    def _plain(values):
+        return lambda name: values.get(name, '')
+
+    def _run(self, values, **completion_kwargs):
+        from connectors.contrib.common_llm import common_health_check
+        with patch('connectors.contrib.common_llm.litellm.completion', **completion_kwargs) as mock_completion:
+            return common_health_check(self._plain(values), self.DEFINITION), mock_completion
+
+    def test_missing_required_field_does_not_call_the_api(self):
+        result, mock_completion = self._run({'API_KEY': 'key'})
+        self.assertFalse(result['success'])
+        self.assertIn('Model Name', result['message'])
+        mock_completion.assert_not_called()
+
+    def test_success_with_valid_response(self):
+        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'gpt-test'}, return_value=MagicMock())
+        self.assertTrue(result['success'])
+        self.assertIn('Test Provider', result['message'])
+        self.assertIn('gpt-test', result['message'])
+
+    def test_base_url_is_passed_only_when_set(self):
+        _, mock_completion = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, return_value=MagicMock())
+        self.assertNotIn('api_base', mock_completion.call_args.kwargs)
+        _, mock_completion = self._run(
+            {'API_KEY': 'key', 'MODEL_NAME': 'm', 'BASE_URL': 'http://llm.local'}, return_value=MagicMock()
+        )
+        self.assertEqual(mock_completion.call_args.kwargs['api_base'], 'http://llm.local')
+
+    def test_empty_response_is_a_failure(self):
+        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, return_value=None)
+        self.assertFalse(result['success'])
+        self.assertIn('Empty response', result['message'])
+
+    def test_authentication_error_message(self):
+        import litellm
+        error = litellm.AuthenticationError(message="bad key", llm_provider="openai", model="m")
+        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, side_effect=error)
+        self.assertFalse(result['success'])
+        self.assertIn('Invalid API Key', result['message'])
+
+    def test_connection_error_message(self):
+        import litellm
+        error = litellm.APIConnectionError(message="unreachable", llm_provider="openai", model="m")
+        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, side_effect=error)
+        self.assertFalse(result['success'])
+        self.assertIn('Connection error', result['message'])
+
+    def test_unexpected_error_is_reported(self):
+        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, side_effect=Exception("boom"))
+        self.assertFalse(result['success'])
+        self.assertIn('boom', result['message'])
+
+    def test_every_llm_connector_delegates_to_common_health_check(self):
+        import importlib
+        for connector in ('openai', 'anthropic', 'gemini', 'ollama', 'generic_llm_provider'):
+            module = importlib.import_module(f'connectors.contrib.{connector}.connector')
+            with patch(f'connectors.contrib.{connector}.connector.common_health_check',
+                       return_value={'success': True, 'message': 'ok'}) as mock_common:
+                result = module.health_check(self._plain({}))
+            self.assertTrue(result['success'], connector)
+            mock_common.assert_called_once()
+
+
+class CitadelHealthCheckTest(TestCase):
+    """The Citadel health check validates the token with the Matrix whoami endpoint."""
+
+    VALUES = {'CITADEL_URL': 'https://citadel.example/', 'CITADEL_API_TOKEN': 'tok'}
+
+    @staticmethod
+    def _plain(values):
+        return lambda name: values.get(name, '')
+
+    def _run(self, **get_kwargs):
+        from connectors.contrib.citadel.connector import health_check
+        with patch('connectors.contrib.citadel.connector.requests.get', **get_kwargs) as mock_get:
+            return health_check(self._plain(self.VALUES)), mock_get
+
+    def test_calls_matrix_whoami_with_bearer_token(self):
+        _, mock_get = self._run(return_value=MagicMock(status_code=200))
+        args, kwargs = mock_get.call_args
+        self.assertEqual(args[0], 'https://citadel.example/_matrix/client/r0/account/whoami')
+        self.assertEqual(kwargs['headers']['Authorization'], 'Bearer tok')
+
+    def test_success_on_200(self):
+        result, _ = self._run(return_value=MagicMock(status_code=200))
+        self.assertTrue(result['success'])
+        self.assertIn('https://citadel.example', result['message'])
+
+    def test_invalid_token_gives_explicit_message(self):
+        result, _ = self._run(return_value=MagicMock(status_code=401))
+        self.assertFalse(result['success'])
+        self.assertIn('token', result['message'].lower())
+
+    def test_other_http_status_is_reported(self):
+        result, _ = self._run(return_value=MagicMock(status_code=404))
+        self.assertEqual(result, {'success': False, 'message': 'HTTP 404'})
+
+    def test_network_error_is_reported(self):
+        result, _ = self._run(side_effect=Exception('Read timed out'))
+        self.assertFalse(result['success'])
+        self.assertIn('timed out', result['message'])
+
+    def test_missing_configuration_does_not_call_the_network(self):
+        from connectors.contrib.citadel.connector import health_check
+        with patch('connectors.contrib.citadel.connector.requests.get') as mock_get:
+            result = health_check(self._plain({}))
+        self.assertFalse(result['success'])
+        mock_get.assert_not_called()
