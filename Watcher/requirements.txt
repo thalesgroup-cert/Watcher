@@ -42,7 +42,7 @@ cryptography==50.0.0
 
 # NER-BERT model
 transformers==5.12.1
-tokenizers==0.22.0
+tokenizers==0.22.2
 
 # OIDC / SSO
 mozilla-django-oidc==5.0.2
