@@ -42,7 +42,7 @@ Watcher is a Django & React JS platform designed to discover and monitor emergin
 
 Watcher empowers your security operations with comprehensive threat detection and monitoring:
 
-- **AI-Driven Threat Intelligence** - Transform raw threat data into actionable intelligence with automated weekly digests of top-5 trending cybersecurity topics, real-time breaking news alerts when threats emerge, on-demand summaries for any security keyword including related CVE and threat actor details.
+- **AI-Driven Threat Intelligence** - Transform raw threat data into actionable intelligence with the LLM of your choice (OpenAI, Anthropic, Gemini, Ollama or any OpenAI-compatible endpoint), with an automatic fallback to a local model. Get a weekly report clustering the top threats by severity, real-time breaking news alerts with impact level, targeted sectors, threat actors and CVEs, and on-demand summaries for any security keyword. Any summary can be regenerated on demand.
 
 - **CVE & Ransomware Intelligence** - Continuously fetch, correlate, and surface external threat data: CVEs from [cve.circl.lu](https://cve.circl.lu), ransomware victims and groups from [ransomware.live](https://ransomware.live) and [ransomlook.io](https://ransomlook.io). Define keyword-based Watch Rules to get alerted when specific threats match your organisation's context.
 
@@ -67,20 +67,20 @@ Extend Watcher's capabilities with powerful integrations and management tools:
 - **SSO / OpenID Connect** - Federated login via any OIDC provider (Keycloak, Azure AD, etc.) with PKCE and Knox token issuance. Configurable per-instance via `.env`
 - **Bulk Add & Bulk Actions** - Add many items at once with the *One item per line* toggle (with a no-write Preview and a per-item created / skipped / error summary), or tick rows in any table to edit, delete or export them (to Legitimate Domains or MISP) in one go
 - **Flexible Authentication** - Support for LDAP, local, and SSO/OIDC authentication systems
-- **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, and more) from one place, with encrypted credential storage and per-connector health checks.
-- **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions
+- **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, LLM providers, and more) from one place, with encrypted credential storage, per-connector health checks, and a one-click **Default LLM** selection.
+- **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions, with dedicated layouts for the weekly report and breaking news
 - **Interactive API Documentation** - Auto-generated Swagger UI at `/api/docs/` and OpenAPI 3 schema at `/api/schema/` powered by drf-spectacular
 - **Ticketing System Integration** - Automatically feed your ticketing system with security findings
 - **Comprehensive Admin Interface** - Manage all aspects of Watcher through Django's powerful admin panel
 - **Advanced Access Control** - Granular user permissions and group management for team collaboration
-- **Modern UI Experience** - A modern interface with customizable themes, resizable dashboard panels, advanced filtering with saved filter sets, and persistent user preferences
+- **Modern UI Experience** - A modern interface with customizable themes, resizable dashboard panels, advanced filtering with saved filter sets, an adjustable interface zoom, an optional typewriter effect for AI summaries, and persistent user preferences
 
 ## Involved dependencies
 
 Watcher leverages open source tools and libraries:
-- [**Hugging Face Transformers**](https://huggingface.co/docs/transformers) - AI/ML framework powering threat intelligence summarization and entity extraction
-- [**google/flan-t5-base**](https://huggingface.co/google/flan-t5-base) - Text-to-text generation model for AI-powered threat summaries
-- [**dslim/bert-base-NER**](https://huggingface.co/dslim/bert-base-NER) - Named Entity Recognition for automatic IOC extraction
+- [**LiteLLM**](https://github.com/BerriAI/litellm) - Unified gateway to the LLM providers powering threat intelligence summaries and entity extraction
+- [**Hugging Face Transformers**](https://huggingface.co/docs/transformers) - Local models used as a fallback when no LLM provider is available
+- [**dslim/bert-base-NER**](https://huggingface.co/dslim/bert-base-NER) - Local Named Entity Recognition fallback for automatic IOC extraction
 - [**certstream**](https://github.com/CaliDog/certstream-python) - Certificate Transparency monitoring
 - [**dnstwist**](https://github.com/elceef/dnstwist) - Domain name permutation engine
 - [**SearxNG**](https://github.com/searxng/searxng) - Privacy-respecting metasearch engine
