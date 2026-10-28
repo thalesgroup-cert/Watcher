@@ -3,12 +3,8 @@ import PropTypes from "prop-types";
 
 const StepSlider = ({ options, value, onCommit, disabled, ariaLabel }) => {
     const indexOf = (v) => {
-        const exact = options.findIndex(o => o.value === v);
-        if (exact !== -1) return exact;
-        const num = Number(v);
-        if (Number.isNaN(num)) return 0;
-        return options.reduce((best, o, i) =>
-            Math.abs(Number(o.value) - num) < Math.abs(Number(options[best].value) - num) ? i : best, 0);
+        const idx = options.findIndex(o => o.value === v);
+        return idx === -1 ? 0 : idx;
     };
     const [index, setIndex] = useState(indexOf(value));
 
@@ -19,13 +15,20 @@ const StepSlider = ({ options, value, onCommit, disabled, ariaLabel }) => {
         if (newValue !== value) onCommit(newValue);
     };
 
+    const n = options.length;
+    const alignStyle = {
+        width: `calc(${(100 * (n - 1)) / n}% + 1rem)`,
+        marginLeft: `calc(${50 / n}% - 0.5rem)`,
+    };
+
     return (
-        <div className="px-1 pt-1">
+        <div>
             <input
                 type="range"
-                className="form-range"
+                className="form-range d-block"
+                style={alignStyle}
                 min={0}
-                max={options.length - 1}
+                max={n - 1}
                 step={1}
                 value={index}
                 disabled={disabled}
@@ -35,15 +38,13 @@ const StepSlider = ({ options, value, onCommit, disabled, ariaLabel }) => {
                 onTouchEnd={commit}
                 onKeyUp={commit}
             />
-            <div className="d-flex justify-content-between">
+            <div className="d-flex small">
                 {options.map((o, i) => (
-                    <div key={o.value} className="text-center" style={{ flex: "1", fontSize: "0.78rem" }}>
+                    <div key={o.value} className="text-center flex-fill" style={{ flexBasis: 0 }}>
                         <div className={`fw-semibold ${i === index ? "text-primary" : "text-muted"}`}>
                             {o.label}
                         </div>
-                        {o.desc && (
-                            <div className="text-muted" style={{ fontSize: "0.72rem" }}>{o.desc}</div>
-                        )}
+                        {o.desc && <div className="text-muted">{o.desc}</div>}
                     </div>
                 ))}
             </div>
