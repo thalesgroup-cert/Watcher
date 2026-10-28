@@ -1,18 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 
-const SLIDER_CSS = `
-.step-slider { height: 1.5rem; }
-.step-slider::-webkit-slider-runnable-track {
-    height: 0.4rem; border-radius: 1rem;
-    background: linear-gradient(to right, var(--bs-primary) var(--fill), var(--bs-border-color) var(--fill));
-}
-.step-slider::-webkit-slider-thumb { margin-top: -0.3rem; }
-.step-slider::-moz-range-track { height: 0.4rem; border-radius: 1rem; background: var(--bs-border-color); }
-.step-slider::-moz-range-progress { height: 0.4rem; border-radius: 1rem; background: var(--bs-primary); }
-`;
-
-
 const StepSlider = ({ options, value, onCommit, disabled, ariaLabel }) => {
     const indexOf = (v) => {
         const idx = options.findIndex(o => o.value === v);
@@ -28,19 +16,17 @@ const StepSlider = ({ options, value, onCommit, disabled, ariaLabel }) => {
     };
 
     const n = options.length;
-    const trackStyle = {
+    const alignStyle = {
         width: `calc(${(100 * (n - 1)) / n}% + 1rem)`,
         marginLeft: `calc(${50 / n}% - 0.5rem)`,
-        "--fill": `${(index / (n - 1)) * 100}%`,
     };
 
     return (
-        <div className="pt-1">
-            <style>{SLIDER_CSS}</style>
+        <div>
             <input
                 type="range"
-                className="form-range step-slider d-block"
-                style={trackStyle}
+                className="form-range d-block"
+                style={alignStyle}
                 min={0}
                 max={n - 1}
                 step={1}
@@ -52,15 +38,13 @@ const StepSlider = ({ options, value, onCommit, disabled, ariaLabel }) => {
                 onTouchEnd={commit}
                 onKeyUp={commit}
             />
-            <div className="d-flex">
+            <div className="d-flex small">
                 {options.map((o, i) => (
-                    <div key={o.value} className="text-center" style={{ flex: "1", fontSize: "0.78rem" }}>
+                    <div key={o.value} className="text-center flex-fill" style={{ flexBasis: 0 }}>
                         <div className={`fw-semibold ${i === index ? "text-primary" : "text-muted"}`}>
                             {o.label}
                         </div>
-                        {o.desc && (
-                            <div className="text-muted" style={{ fontSize: "0.72rem" }}>{o.desc}</div>
-                        )}
+                        {o.desc && <div className="text-muted">{o.desc}</div>}
                     </div>
                 ))}
             </div>
