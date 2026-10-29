@@ -1,7 +1,7 @@
 import { PROFILE_LOADED, PROFILE_UPDATED, PROFILE_LOADING, PROFILE_ERROR } from "../actions/types";
 
 const initialState = {
-    theme: 'bootstrap',
+    theme: 'darkly',
     preferences: {},
     isLoading: false,
     error: false,
