@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .bulk import normalize_domain_data
-from .models import LegitimateDomain, PendingAction
+from .models import LegitimateDomain, PendingAction, Screenshot
 
 # Legitimate Domain Serializer
 class LegitimateDomainSerializer(serializers.ModelSerializer):
@@ -23,6 +23,17 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
             'last_event',
         ]
 
+    # The list is public (read-only for anonymous visitors); these fields are internal.
+    INTERNAL_FIELDS = ('ticket_id', 'comments', 'misp_event_uuid', 'last_event')
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request is not None and not request.user.is_authenticated:
+            for name in self.INTERNAL_FIELDS:
+                fields.pop(name, None)
+        return fields
+
     def get_last_event(self, obj):
         events = getattr(obj, '_timeline_events', None)
         if events is not None:
@@ -33,9 +44,11 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
             return None
         u = event.user
         avatar_color = None
+        avatar = None
         if u:
             try:
                 avatar_color = u.profile.avatar_color or None
+                avatar = u.profile.avatar or None
             except Exception:
                 pass
         return {
@@ -43,6 +56,7 @@ class LegitimateDomainSerializer(serializers.ModelSerializer):
             'first_name': u.first_name if u else '',
             'last_name': u.last_name if u else '',
             'avatar_color': avatar_color,
+            'avatar': avatar,
             'action': event.action,
             'timestamp': event.timestamp,
         }
@@ -103,3 +117,11 @@ class PendingActionSerializer(serializers.ModelSerializer):
 
     def get_action_type_label(self, obj):
         return obj.get_action_type_display()
+
+
+class ScreenshotSerializer(serializers.ModelSerializer):
+    taken_by = serializers.CharField(source='taken_by.username', read_only=True, default=None)
+
+    class Meta:
+        model = Screenshot
+        fields = ['id', 'url', 'size', 'created_at', 'taken_by']

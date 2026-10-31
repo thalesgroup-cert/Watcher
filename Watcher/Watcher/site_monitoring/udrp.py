@@ -263,10 +263,18 @@ def notify_udrp_decision(site, decision):
     label = "favourable (Transfer/Cancel)" if decision == 'won' else "unfavourable (Denied)"
     domain_sanitized = site.domain_name.replace('.', '[.]')
 
-    _notify_thehive(site, domain_sanitized, today, ticket, label)
-    _notify_slack(domain_sanitized, today, ticket, label)
-    _notify_citadel(domain_sanitized, today, ticket, label)
-    _notify_email(site, decision, label, today, domain_sanitized)
+    channels = (
+        ('TheHive', lambda: _notify_thehive(site, domain_sanitized, today, ticket, label)),
+        ('Slack', lambda: _notify_slack(domain_sanitized, today, ticket, label)),
+        ('Citadel', lambda: _notify_citadel(domain_sanitized, today, ticket, label)),
+        ('Email', lambda: _notify_email(site, decision, label, today, domain_sanitized)),
+    )
+    # One failing channel must not stop the next ones, nor the caller that still has to save and queue the transfer.
+    for name, send in channels:
+        try:
+            send()
+        except Exception as exc:
+            logger.error("UDRP decision notification on %s failed for %s: %s", name, site.domain_name, exc)
 
 
 def _notify_thehive(site, domain_sanitized, today, ticket, label):
@@ -318,41 +326,39 @@ def _notify_thehive(site, domain_sanitized, today, ticket, label):
     )
 
 
-def _notify_slack(domain_sanitized, today, ticket, label):
-    from common.core import APP_CONFIG_SLACK
-    from common.utils.send_slack_messages import send_slack_message
+def _udrp_context(domain_sanitized, today, ticket, label):
+    from connectors.notifications import get_type
 
-    config = APP_CONFIG_SLACK.get('udrp_decision')
-    if not config:
+    return {
+        'domain_name_sanitized': domain_sanitized,
+        'decision_label': label,
+        'date': today,
+        'ticket': ticket,
+        'details_url': getattr(settings, 'WATCHER_URL', '') + get_type('udrp_decision').url_suffix,
+    }
+
+
+def _notify_slack(domain_sanitized, today, ticket, label):
+    from common.utils.send_slack_messages import send_slack_message
+    from connectors.core import get_slack_config
+    from connectors.notifications import is_enabled, render_message
+
+    if not is_enabled('udrp_decision', 'slack'):
         return
 
-    watcher_url = getattr(settings, 'WATCHER_URL', '')
-    content = config['content_template'].format(
-        domain_name_sanitized=domain_sanitized,
-        decision_label=label,
-        date=today,
-        ticket=ticket,
-        details_url=watcher_url + config['url_suffix'],
-    )
-    send_slack_message(content, config['channel'], app_name='udrp_checker')
+    content = render_message('udrp_decision', 'slack', _udrp_context(domain_sanitized, today, ticket, label))
+    send_slack_message(content, get_slack_config()['channel'], app_name='udrp_checker')
 
 
 def _notify_citadel(domain_sanitized, today, ticket, label):
-    from common.core import APP_CONFIG_CITADEL
     from common.utils.send_citadel_messages import send_citadel_message
+    from connectors.core import get_citadel_config
+    from connectors.notifications import is_enabled, render_message
 
-    config = APP_CONFIG_CITADEL.get('udrp_decision')
-    if not config:
+    if not is_enabled('udrp_decision', 'citadel'):
         return
 
-    watcher_url = getattr(settings, 'WATCHER_URL', '')
-    formatted_body = config['content_template'].format(
-        domain_name_sanitized=domain_sanitized,
-        decision_label=label,
-        date=today,
-        ticket=ticket,
-        details_url=watcher_url + config['url_suffix'],
-    )
+    formatted_body = render_message('udrp_decision', 'citadel', _udrp_context(domain_sanitized, today, ticket, label))
     send_citadel_message(
         content={
             'msgtype': 'm.text',
@@ -360,19 +366,18 @@ def _notify_citadel(domain_sanitized, today, ticket, label):
             'format': 'org.matrix.custom.html',
             'formatted_body': formatted_body,
         },
-        room_id=config['citadel_room_id'],
+        room_id=get_citadel_config()['room_id'],
         app_name='udrp_checker',
     )
 
 
 def _notify_email(site, decision, label, today, domain_sanitized):
-    from common.core import APP_CONFIG_EMAIL
     from common.utils.send_email_notifications import send_email_notifications
     from site_monitoring.models import Subscriber
     from common.mail_template.udrp_template import get_udrp_template
+    from connectors.notifications import email_subject, is_enabled
 
-    config = APP_CONFIG_EMAIL.get('udrp_decision')
-    if not config:
+    if not is_enabled('udrp_decision', 'email'):
         return
 
     email_list = [
@@ -385,7 +390,7 @@ def _notify_email(site, decision, label, today, domain_sanitized):
         logger.debug("UDRP email: no subscribers with email=True found.")
         return
 
-    subject = config['subject'].format(domain_name_sanitized=domain_sanitized)
+    subject = email_subject('udrp_decision', {'domain_name_sanitized': domain_sanitized})
     body = get_udrp_template(site, decision, label, today)
     send_email_notifications(subject, body, email_list, app_name='udrp_checker')
 

@@ -1,734 +1,180 @@
-describe('CyberWatch - E2E Test Suite', () => {
+// Cyber Watch: matches inbox (KPI quick filters, drawer, archive moving on, bulk archive), CVEs (severity filters,
+// drawer with references and rules), ransomware victims (group), watch rules (live preview, create + match the data
+// collected, pause, delete) and Insights. All API calls are mocked.
+describe('Cyber Watch', () => {
+  const USER = { id: 1, username: 'analyst', first_name: 'Ana', last_name: 'Lyst', email: '', is_superuser: true, is_staff: false, groups: [], permissions: [] };
+  const API = '/api/cyber_watch/';
+  const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString().slice(0, 19);
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-  const SAMPLE_LAST_EVENT = {
-    username: 'admin',
-    first_name: 'Admin',
-    last_name: 'User',
-    avatar_color: '#2196f3',
-    action: 'updated',
-    timestamp: '2026-06-24T14:30:00Z',
+  const CVES = [
+    { id: 1, cve_id: 'CVE-2026-1001', description: 'Fortinet FortiOS SSL-VPN heap overflow allows remote code execution without authentication.', cvss_score: 9.8, severity: 'CRITICAL', published: ago(120), references: [{ url: 'https://fortiguard.example/psirt/FG-IR-26-001', type: 'ADVISORY' }, { url: 'https://nvd.nist.gov/vuln/detail/CVE-2026-1001', type: 'WEB' }], fetched_at: ago(100), is_archived: false, hits_count: 1 },
+    { id: 2, cve_id: 'CVE-2026-1002', description: 'WordPress plugin Forms stored XSS.', cvss_score: 5.4, severity: 'MEDIUM', published: ago(600), references: [], fetched_at: ago(590), is_archived: false, hits_count: 0 },
+    { id: 3, cve_id: 'CVE-2026-1003', description: 'Linux kernel use-after-free in netfilter.', cvss_score: null, severity: '', published: ago(900), references: [], fetched_at: ago(890), is_archived: false, hits_count: 0 },
+  ];
+  const VICTIMS = [
+    { id: 11, group: 7, group_name: 'akira', victim_name: 'Clinique du Nord', country: 'FR', sector: 'Healthcare', attacked_at: ago(300), url: 'https://www.ransomware.live/id/abc', fetched_at: ago(290), is_archived: false, hits_count: 1 },
+    { id: 12, group: 8, group_name: 'qilin', victim_name: 'Steelworks GmbH', country: 'DE', sector: 'Manufacturing', attacked_at: ago(2000), url: '', fetched_at: ago(1990), is_archived: false, hits_count: 0 },
+  ];
+  const GROUP = { id: 7, name: 'akira', description: 'Akira is a ransomware group active since 2023.', source: 'ransomware.live', first_seen: '2023-03-01', victim_count: 412, last_attack_at: ago(300) };
+  const RULES = [
+    { id: 1, name: 'Edge devices', keywords: ['Fortinet', 'Ivanti'], exceptions: [], scope: 'cve', is_active: true, created_at: ago(30000), hits_count: 3, open_hits_count: 1, last_hit_at: ago(110), last_event: null },
+    { id: 2, name: 'Healthcare sector', keywords: ['Healthcare'], exceptions: [], scope: 'ransomware', is_active: true, created_at: ago(20000), hits_count: 1, open_hits_count: 1, last_hit_at: ago(290), last_event: null },
+  ];
+  const MATCHES = [
+    {
+      id: 21, rule: 1, rule_name: 'Edge devices', rule_scope: 'cve', hit_type: 'cve', object_id: 'CVE-2026-1001', hit_display: 'CVE-2026-1001 - Fortinet FortiOS SSL-VPN heap overflow',
+      matched_keyword: 'Fortinet', hit_at: ago(110), is_archived: false,
+      target: { kind: 'cve', id: 1, cve_id: 'CVE-2026-1001', severity: 'CRITICAL', cvss_score: 9.8, published: ago(120), is_archived: false },
+    },
+    {
+      id: 22, rule: 2, rule_name: 'Healthcare sector', rule_scope: 'ransomware', hit_type: 'ransomware_victim', object_id: 'akira::Clinique du Nord', hit_display: 'Clinique du Nord (akira) - FR',
+      matched_keyword: 'Healthcare', hit_at: ago(290), is_archived: false,
+      target: { kind: 'victim', id: 11, victim_name: 'Clinique du Nord', group_id: 7, group_name: 'akira', country: 'FR', sector: 'Healthcare', attacked_at: ago(300), url: 'https://www.ransomware.live/id/abc', is_archived: false },
+    },
+  ];
+  const series = (f) => Array.from({ length: 30 }, (_, i) => ({ date: day(i - 29), ...f(i) }));
+  const STATS = {
+    cves: { total: 3, critical7d: 1, newToday: 1, new7d: 3, archived: 4, matched: 1, bySeverity: { CRITICAL: 1, MEDIUM: 1, NONE: 1 }, perDay: series((i) => ({ count: i % 5 })) },
+    victims: {
+      total: 2, newToday: 1, new7d: 2, archived: 0, matched: 1, groups: 2, activeGroups7d: 2, perDay: series((i) => ({ count: (i * 3) % 7 })),
+      topGroups: [{ id: 7, name: 'akira', count: 1 }, { id: 8, name: 'qilin', count: 1 }],
+      topSectors: [{ name: 'Healthcare', count: 1 }, { name: 'Manufacturing', count: 1 }],
+      topCountries: [{ name: 'FR', count: 1 }, { name: 'DE', count: 1 }],
+    },
+    hits: { open: 2, openCve: 1, openVictims: 1, new7d: 2, archived: 5, perDay: series((i) => ({ count: 1, cve: i % 2, ransomware_victim: 1 - (i % 2) })) },
+    rules: { total: 2, active: 2, byRule: [{ id: 1, name: 'Edge devices', open: 1, total: 3, active: true }, { id: 2, name: 'Healthcare sector', open: 1, total: 1, active: true }] },
   };
-
-  const MONITORED_KEYWORDS_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        name: 'log4j',
-        level: 'hot',
-        occurrences: 7,
-        last_seen: '2026-06-24T10:00:00Z',
-        posturls: ['https://test-source.com/feed/1,2026-06-24T10:00:00Z'],
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        name: 'apache',
-        level: 'warm',
-        occurrences: 2,
-        last_seen: null,
-        posturls: [],
-        last_event: null,
-      },
-    ],
-  };
-
-  const WATCH_RULES_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        name: 'Test CVE Rule',
-        keywords: ['company', 'acme'],
-        exceptions: [],
-        scope: 'cve',
-        is_active: true,
-        hits_count: 3,
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        name: 'Ransomware Alert',
-        keywords: ['data', 'encrypted'],
-        exceptions: ['test'],
-        scope: 'ransomware',
-        is_active: false,
-        hits_count: 0,
-        last_event: null,
-      },
-    ],
-  };
-
-  const SOURCES_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        url: 'https://test-source.com/feed',
-        confident: true,
-        country: 'FR',
-        country_code: 'FR',
-        last_status_code: 200,
-        last_checked: '2026-06-24T12:00:00Z',
-        created_at: '2025-06-19T10:00:00Z',
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        url: 'https://e2e-source.org/rss',
-        confident: false,
-        country: 'US',
-        country_code: 'US',
-        last_status_code: null,
-        last_checked: null,
-        created_at: '2025-06-18T15:30:00Z',
-        last_event: null,
-      },
-    ],
-  };
-
-  const BANNED_WORDS_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 1,
-        name: 'test-spam',
-        created_at: '2025-06-19T10:00:00Z',
-        last_event: { ...SAMPLE_LAST_EVENT },
-      },
-      {
-        id: 2,
-        name: 'e2e-advertisement',
-        created_at: '2025-06-18T15:30:00Z',
-        last_event: null,
-      },
-    ],
-  };
-
-  const ARCHIVED_CVES_FIXTURE = {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 10,
-        cve_id: 'CVE-2024-9999',
-        description: 'Archived critical RCE vulnerability in test framework',
-        severity: 'CRITICAL',
-        cvss: 9.5,
-        published: '2024-12-01T10:00:00Z',
-        watch_rule_hit_name: 'Test CVE Rule',
-        archived: true,
-      },
-      {
-        id: 11,
-        cve_id: 'CVE-2024-8888',
-        description: 'Archived SQL injection in example database',
-        severity: 'HIGH',
-        cvss: 7.2,
-        published: '2024-11-15T10:00:00Z',
-        watch_rule_hit_name: null,
-        archived: true,
-      },
-    ],
-  };
-
-  const ARCHIVED_VICTIMS_FIXTURE = {
-    count: 1,
-    next: null,
-    previous: null,
-    results: [
-      {
-        id: 10,
-        post_title: 'Old Corp Inc',
-        gang_name: 'LockBit',
-        published: '2024-12-15T10:00:00Z',
-        country: 'DE',
-        activity: 'Retail',
-        archived: true,
-      },
-    ],
-  };
-
-  const ARCHIVED_HITS_FIXTURE = {
-    count: 0,
-    next: null,
-    previous: null,
-    results: [],
-  };
-
-
-  const setupIntercepts = () => {
-    const credentials = Cypress.env('testCredentials');
-
-    // Auth
-    cy.intercept('GET', '/api/auth/user/', {
-      statusCode: 200,
-      body: {
-        id: 1,
-        username: credentials.username,
-        first_name: credentials.firstName,
-        email: credentials.email,
-        is_superuser: true,
-      },
-    }).as('getUser');
-
-    cy.intercept('POST', '/api/auth/login/', {
-      statusCode: 200,
-      body: {
-        token: 'mock-token-123456789',
-        user: {
-          id: 1,
-          username: credentials.username,
-          first_name: credentials.firstName,
-          email: credentials.email,
-        },
-      },
-    }).as('login');
-
-    // CyberWatch panels — GET
-    cy.intercept('GET', '**/api/threats_watcher/monitored-keywords/**', {
-      statusCode: 200,
-      body: MONITORED_KEYWORDS_FIXTURE,
-    }).as('getMonitoredKeywords');
-
-    cy.intercept('GET', '**/api/cyber_watch/watch-rules/**', {
-      statusCode: 200,
-      body: WATCH_RULES_FIXTURE,
-    }).as('getWatchRules');
-
-    cy.intercept('GET', '**/api/threats_watcher/source/**', {
-      statusCode: 200,
-      body: SOURCES_FIXTURE,
-    }).as('getSources');
-
-    cy.intercept('GET', '**/api/threats_watcher/bannedword/**', {
-      statusCode: 200,
-      body: BANNED_WORDS_FIXTURE,
-    }).as('getBannedWords');
-
-    cy.intercept('GET', '**/api/cyber_watch/cves/**', {
-      statusCode: 200,
-      body: ARCHIVED_CVES_FIXTURE,
-    }).as('getArchivedCVEs');
-
-    cy.intercept('GET', '**/api/cyber_watch/ransomware/victims/**', {
-      statusCode: 200,
-      body: ARCHIVED_VICTIMS_FIXTURE,
-    }).as('getArchivedVictims');
-
-    cy.intercept('GET', '**/api/cyber_watch/watch-rule-hits/**', {
-      statusCode: 200,
-      body: ARCHIVED_HITS_FIXTURE,
-    }).as('getArchivedHits');
-
-    cy.intercept('GET', '**/api/timeline/events/**', {
-      statusCode: 200,
-      body: { count: 0, next: null, previous: null, results: [] },
-    }).as('getTimeline');
-
-    // Monitored Keywords — CRUD
-    cy.intercept('POST', '**/api/threats_watcher/monitored-keywords/**', (req) => {
-      req.reply({
-        statusCode: 201,
-        body: {
-          id: 99,
-          level: 'warm',
-          occurrences: 0,
-          last_seen: null,
-          posturls: [],
-          last_event: null,
-          ...req.body,
-          created_at: new Date().toISOString(),
-        },
-      });
-    }).as('addMonitoredKeyword');
-
-    cy.intercept('PATCH', '**/api/threats_watcher/monitored-keywords/*', {
-      statusCode: 200,
-    }).as('patchMonitoredKeyword');
-
-    cy.intercept('DELETE', '**/api/threats_watcher/monitored-keywords/*', {
-      statusCode: 204,
-    }).as('deleteMonitoredKeyword');
-
-    // Watch Rules — CRUD
-    cy.intercept('POST', '**/api/cyber_watch/watch-rules/**', (req) => {
-      req.reply({
-        statusCode: 201,
-        body: {
-          id: 99,
-          hits_count: 0,
-          last_event: null,
-          ...req.body,
-        },
-      });
-    }).as('addWatchRule');
-
-    cy.intercept('PATCH', '**/api/cyber_watch/watch-rules/**', {
-      statusCode: 200,
-    }).as('patchWatchRule');
-
-    cy.intercept('DELETE', '**/api/cyber_watch/watch-rules/**', {
-      statusCode: 204,
-    }).as('deleteWatchRule');
-
-    // Sources — CRUD
-    cy.intercept('POST', '**/api/threats_watcher/source/**', (req) => {
-      req.reply({
-        statusCode: 201,
-        body: {
-          id: 99,
-          confident: false,
-          last_status_code: null,
-          last_checked: null,
-          last_event: null,
-          ...req.body,
-          created_at: new Date().toISOString(),
-        },
-      });
-    }).as('addSource');
-
-    cy.intercept('PATCH', '**/api/threats_watcher/source/**', {
-      statusCode: 200,
-    }).as('patchSource');
-
-    cy.intercept('DELETE', '**/api/threats_watcher/source/**', {
-      statusCode: 204,
-    }).as('deleteSource');
-
-    // Banned Words — CRUD
-    cy.intercept('POST', '**/api/threats_watcher/bannedword/**', (req) => {
-      req.reply({
-        statusCode: 201,
-        body: {
-          id: 99,
-          last_event: null,
-          ...req.body,
-          created_at: new Date().toISOString(),
-        },
-      });
-    }).as('addBannedWord');
-
-    cy.intercept('PATCH', '**/api/threats_watcher/bannedword/**', {
-      statusCode: 200,
-    }).as('patchBannedWord');
-
-    cy.intercept('DELETE', '**/api/threats_watcher/bannedword/**', {
-      statusCode: 204,
-    }).as('deleteBannedWord');
-
-    // Archived Alerts — unarchive
-    cy.intercept('PATCH', '**/api/cyber_watch/cves/*/archive/**', {
-      statusCode: 200,
-    }).as('unarchiveCVE');
-
-    cy.intercept('PATCH', '**/api/cyber_watch/ransomware/victims/*/archive/**', {
-      statusCode: 200,
-    }).as('unarchiveVictim');
-
-    cy.intercept('PATCH', '**/api/cyber_watch/watch-rule-hits/*/archive/**', {
-      statusCode: 200,
-    }).as('unarchiveHit');
-  };
-
-
-  before(() => {
-    // Real login once to capture a valid auth token for the suite
-    const credentials = Cypress.env('testCredentials');
-    cy.visit('/#/login');
-    cy.get('input[type="text"], input[name="username"]', { timeout: 15000 })
-      .should('be.visible').type(credentials.username);
-    cy.get('input[type="password"], input[name="password"]')
-      .should('be.visible').type(credentials.password);
-    cy.get('button[type="submit"], button:contains("Login")')
-      .should('not.be.disabled').click();
-    cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
-    cy.window().then((win) => {
-      const token = win.localStorage.getItem('token') || win.sessionStorage.getItem('token');
-      Cypress.env('authData', { token: token || '', isAuthenticated: true });
-    });
-    cy.log('Auth token captured for test suite');
-  });
-
+  const PREVIEW = { cves: 4, victims: 0, cveSamples: [{ id: 1, label: 'CVE-2026-1001', detail: 'Fortinet FortiOS SSL-VPN heap overflow', keyword: 'Fortinet', severity: 'CRITICAL', date: ago(120) }], victimSamples: [] };
+  const page = (results) => ({ count: results.length, next: null, previous: null, results });
+  const SUMMARY = (status, ids) => ({ succeeded: ids.length, skipped: 0, errors: 0, ok_status: status, results: ids.map((id) => ({ value: String(id), status, reason: '', id })) });
 
   beforeEach(() => {
     cy.on('uncaught:exception', () => false);
-
-    // Intercepts must be set up BEFORE each test — Cypress clears them between tests
-    setupIntercepts();
-
-    // Visit with token pre-loaded so PrivateRoute renders immediately
-    cy.visit('/#/cyber_watch', {
-      onBeforeLoad(win) {
-        const authData = Cypress.env('authData');
-        if (authData?.token) {
-          win.localStorage.setItem('token', authData.token);
-        }
-      },
-    });
-
-    cy.wait('@getWatchRules', { timeout: 15000 });
-    cy.url().should('include', '/cyber_watch');
-    cy.log('Page ready with fixture data');
+    cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
+    cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'bootstrap', preferences: {}, avatar_color: null } });
+    cy.intercept('GET', `${API}statistics/`, { statusCode: 200, body: STATS });
+    cy.intercept('GET', `${API}watch-rule-hits/?*`, (req) => {
+      const { object_id: objectId, rule } = req.query;
+      const rows = objectId ? MATCHES.filter((m) => m.object_id === objectId) : rule ? MATCHES.filter((m) => String(m.rule) === String(rule)) : MATCHES;
+      req.reply({ statusCode: 200, body: page(rows) });
+    }).as('matches');
+    cy.intercept('GET', `${API}watch-rule-hits/21/`, { statusCode: 200, body: MATCHES[0] });
+    cy.intercept('GET', `${API}watch-rule-hits/22/`, { statusCode: 200, body: MATCHES[1] });
+    cy.intercept('GET', `${API}cves/?*`, { statusCode: 200, body: page(CVES) }).as('cves');
+    cy.intercept('GET', `${API}cves/1/`, { statusCode: 200, body: CVES[0] });
+    cy.intercept('GET', `${API}ransomware/victims/?*`, { statusCode: 200, body: page(VICTIMS) }).as('victims');
+    cy.intercept('GET', `${API}ransomware/victims/11/`, { statusCode: 200, body: VICTIMS[0] });
+    cy.intercept('GET', `${API}ransomware/groups/7/`, { statusCode: 200, body: GROUP });
+    cy.intercept('GET', `${API}watch-rules/?*`, { statusCode: 200, body: page(RULES) });
+    cy.intercept('GET', `${API}watch-rules/1/`, { statusCode: 200, body: RULES[0] });
+    cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
+    cy.visit('/#/cyber_watch', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-cyber') });
+    cy.get('[data-testid="match-row"]', { timeout: 20000 }).should('have.length', 2);
   });
 
-
-  describe('Page Navigation and Access', () => {
-    it('should be on the CyberWatch page', () => {
-      cy.url().should('include', '/cyber_watch');
-      cy.get('body').should('be.visible');
+  describe('matches', () => {
+    it('opens on what is left to review and filters from the KPI cards and the toolbar', () => {
+      cy.wait('@matches').its('request.url').should('include', 'status=active');
+      cy.get('[data-testid="match-row"]').first().should('contain', 'CVE-2026-1001').and('contain', 'Critical - 9.8').and('contain', 'Fortinet');
+      cy.contains('button', /^Ransomware victims\s*1/).click();
+      cy.wait('@matches').its('request.url').should('include', 'hit_type=ransomware_victim');
+      cy.location('hash').should('include', 'type=ransomware_victim');
+      cy.contains('button', /^To review\s*2/).click();
+      cy.get('[role="combobox"]').eq(1).click();
+      cy.contains('[role="option"]', 'Edge devices').click();
+      cy.wait('@matches').its('request.url').should('include', 'rule=1');
     });
 
-    it('should display the CyberWatch dashboard panels', () => {
-      cy.get('.container-fluid, [class*="grid"]', { timeout: 15000 })
-        .first()
-        .should('exist');
-    });
-
-    it('should display the navbar', () => {
-      cy.get('.navbar', { timeout: 10000 }).should('exist');
-    });
-  });
-
-
-  describe('Statistics Panel', () => {
-    it('should display at least one statistics card', () => {
-      cy.get('.card', { timeout: 15000 }).should('have.length.at.least', 1);
-    });
-
-    it('should display monitored keywords stat', () => {
-      cy.get('body', { timeout: 10000 })
-        .invoke('text')
-        .should('match', /monitored keywords/i);
-    });
-
-    it('should display RSS sources stat', () => {
-      cy.get('body').invoke('text').should('match', /rss sources/i);
-    });
-
-    it('should display active rules stat', () => {
-      cy.get('body').invoke('text').should('match', /active rules/i);
-    });
-
-    it('should display banned words stat', () => {
-      cy.get('body').invoke('text').should('match', /banned words/i);
-    });
-  });
-
-
-  describe('Monitored Keywords Panel', () => {
-    it('should display the monitored keywords table', () => {
-      cy.get('table', { timeout: 15000 }).should('exist');
-      cy.get('body').invoke('text').should('include', 'log4j');
-    });
-
-    it('should display all keywords from fixture', () => {
-      cy.get('body').invoke('text').should('include', 'apache');
-    });
-
-    it('should open add keyword modal', () => {
-      cy.contains('button', 'Add Keyword').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Add Monitored Keyword');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should add a new monitored keyword', () => {
-      cy.contains('button', 'Add Keyword').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal input[type="text"]').first().type('new-keyword-e2e');
-      cy.get('.modal').contains('button', 'Add').click();
-      cy.wait('@addMonitoredKeyword');
-      cy.log('New keyword submitted successfully');
-    });
-
-    it('should open edit modal for a keyword', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title="Edit"]').click();
+    it('explains a match, archives it and moves on to the next one, then opens the victim', () => {
+      cy.intercept('PATCH', `${API}watch-rule-hits/21/`, (req) => req.reply({ statusCode: 200, body: { ...MATCHES[0], ...req.body } })).as('archive');
+      cy.get('[data-testid="match-row"]').first().click();
+      cy.location('hash').should('include', 'match=21');
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.contains('Edge devices');
+        cy.contains('remote code execution');
+        cy.get('mark').should('contain', 'Fortinet');
+        cy.contains('button', /^Archive$/).click();
       });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Edit Monitored Keyword');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
+      cy.wait('@archive').its('request.body').should('deep.equal', { is_archived: true });
+      cy.location('hash').should('include', 'match=22');
+      cy.get('.MuiDrawer-paper').contains('button', 'Open the victim').click();
+      cy.location('hash').should('include', 'tab=ransomware').and('include', 'victim=11');
+      cy.get('.MuiDrawer-paper').should('contain', '412');
+      cy.get('[data-testid="rules-matched"]').should('contain', 'Healthcare sector');
+      cy.wait('@victims'); // the request of the first display of the victims tab
+      cy.get('.MuiDrawer-paper').contains('button', 'Show its victims').click();
+      cy.wait('@victims').its('request.url').should('include', 'group_id=7');
     });
 
-    it('should open delete confirmation for a keyword', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title="Delete"]').click();
-      });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Confirm Deletion');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should open timeline modal for a keyword', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title="History"]').click();
-      });
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal .btn-close').click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should filter keywords by name', () => {
-      cy.contains('button', 'Show Filters').first().click();
-      cy.get('input[placeholder*="keyword"]').first().clear().type('log4j');
-      cy.get('body').invoke('text').should('include', 'log4j');
+    it('archives several matches at once', () => {
+      cy.intercept('POST', `${API}watch-rule-hits/bulk_update/`, (req) => req.reply({ statusCode: 200, body: SUMMARY('updated', req.body.ids) })).as('bulk');
+      cy.get('[data-testid="match-row"]').eq(0).find('input[type="checkbox"]').check();
+      cy.get('[data-testid="match-row"]').eq(1).find('input[type="checkbox"]').check();
+      cy.contains('button', /^Archive$/).click();
+      cy.wait('@bulk').its('request.body').should('deep.equal', { ids: [21, 22], changes: { is_archived: true } });
     });
   });
 
+  it('lists the CVEs by severity and opens one with its references and rules', () => {
+    cy.intercept('PATCH', `${API}cves/1/`, (req) => req.reply({ statusCode: 200, body: { ...CVES[0], ...req.body } })).as('archiveCve');
+    cy.contains('[role="tab"]', 'CVEs').click();
+    cy.get('[data-testid="cve-row"]').eq(2).should('contain', 'Not scored yet');
+    cy.wait('@cves'); // the request of the first display of this tab
+    cy.contains('button', 'Critical - 7 days').click();
+    cy.wait('@cves').its('request.url').should('include', 'severity=CRITICAL').and('include', 'period=7d');
+    cy.get('[data-testid="cve-row"]').first().click();
+    cy.get('.MuiDrawer-paper').should('contain', 'fortiguard.example');
+    cy.get('[data-testid="rules-matched"]').should('contain', 'Edge devices');
+    cy.get('.MuiDrawer-paper').contains('button', /^Archive$/).click();
+    cy.wait('@archiveCve').its('request.body').should('deep.equal', { is_archived: true });
+    cy.get('[data-testid="rules-matched"] [role="button"]').first().click();
+    cy.location('hash').should('include', 'match=21').and('not.include', 'tab=');
+  });
 
-  describe('Watch Rules Panel', () => {
-    it('should display watch rules from fixture', () => {
-      cy.get('body', { timeout: 15000 }).invoke('text').should('include', 'Test CVE Rule');
-    });
-
-    it('should display second watch rule', () => {
-      cy.get('body').invoke('text').should('include', 'Ransomware Alert');
-    });
-
-    it('should display scope badges (CVE, Ransomware)', () => {
-      cy.get('body').invoke('text').should('include', 'CVE').and('include', 'Ransomware');
-    });
-
-    it('should display active/inactive status', () => {
-      cy.get('body').invoke('text').should('include', 'Yes').and('include', 'No');
-    });
-
-    it('should open add watch rule modal', () => {
-      cy.contains('button', 'Add Rule').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Add Watch Rule');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should add a new watch rule', () => {
-      cy.contains('button', 'Add Rule').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal input[type="text"]').first().type('New E2E Rule');
-      cy.get('.modal textarea').first().type('e2e, cypress');
-      cy.get('.modal').contains('button', 'Add').click();
-      cy.wait('@addWatchRule');
-      cy.log('New watch rule submitted successfully');
-    });
-
-    it('should open edit modal for Test CVE Rule', () => {
-      cy.get('body').contains('Test CVE Rule').parents('tr').within(() => {
-        cy.get('button[title="Edit"]').click();
+  describe('watch rules', () => {
+    it('previews a new rule, creates it and matches the data already collected', () => {
+      cy.intercept('POST', `${API}watch-rules/preview/`, { statusCode: 200, body: PREVIEW }).as('preview');
+      cy.intercept('POST', `${API}watch-rules/`, (req) => req.reply({ statusCode: 201, body: { ...RULES[0], ...req.body, id: 9, hits_count: 0, open_hits_count: 0, last_hit_at: null } })).as('create');
+      cy.intercept('POST', `${API}watch-rules/9/scan/`, { statusCode: 200, body: { created: 4 } }).as('scan');
+      cy.intercept('GET', `${API}watch-rules/9/`, { statusCode: 200, body: { ...RULES[0], id: 9, name: 'VPN vendors' } });
+      cy.contains('button', 'New watch rule').click();
+      cy.location('hash').should('include', 'tab=rules').and('include', 'dialog=add-rule');
+      cy.get('[role="dialog"]').within(() => {
+        cy.get('input[name="name"]').type('VPN vendors');
+        cy.contains('button', /^CVEs$/).click();
+        cy.get('textarea[name="keywords"]').type('Fortinet, Ivanti{enter}Citrix');
       });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Edit Watch Rule');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
+      cy.wait('@preview').its('request.body').should('deep.equal', { keywords: ['Fortinet', 'Ivanti', 'Citrix'], exceptions: [], scope: 'cve' });
+      cy.get('[data-testid="rule-preview"]').should('contain', 'Would match 4 CVEs');
+      cy.get('[role="dialog"]').contains('button', 'Create').click();
+      cy.wait('@create').its('request.body').should('include', { name: 'VPN vendors', scope: 'cve', is_active: true });
+      cy.wait('@scan');
+      cy.location('hash').should('include', 'rule=9');
     });
 
-    it('should open delete confirmation for a watch rule', () => {
-      cy.get('body').contains('Test CVE Rule').parents('tr').within(() => {
-        cy.get('button[title="Delete"]').click();
-      });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Confirm Deletion');
-      cy.get('.modal').invoke('text').should('include', 'Test CVE Rule');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should open timeline modal for Test CVE Rule', () => {
-      cy.get('body').contains('Test CVE Rule').parents('tr').within(() => {
-        cy.get('button[title="History"]').click();
-      });
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal .btn-close').click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should filter watch rules by scope', () => {
-      cy.get('body').then(($body) => {
-        const scopeSelects = $body.find('select').filter((_, el) => {
-          const siblings = el.closest('.row');
-          return siblings !== null;
-        });
-        if (scopeSelects.length > 0) {
-          cy.wrap(scopeSelects).first().select('cve');
-          cy.get('body').invoke('text').should('match', /cve/i);
-          cy.wrap(scopeSelects).first().select('');
-          cy.log('Scope filter applied successfully');
-        } else {
-          cy.log('No scope filter select visible — skipping');
-        }
-      });
-    });
-
-    it('should display keyword badges on rules', () => {
-      cy.get('body').invoke('text').should('include', 'company').and('include', 'acme');
+    it('pauses and deletes a rule', () => {
+      cy.intercept('PATCH', `${API}watch-rules/1/`, (req) => req.reply({ statusCode: 200, body: { ...RULES[0], ...req.body } })).as('pause');
+      cy.intercept('DELETE', `${API}watch-rules/1/`, { statusCode: 204 }).as('delete');
+      cy.contains('[role="tab"]', 'Watch rules').click();
+      cy.get('[data-testid="rule-row"]').first().click();
+      cy.get('[data-testid="rule-keywords"]').should('contain', 'Fortinet');
+      cy.get('.MuiDrawer-paper').contains('button', 'Pause').click();
+      cy.wait('@pause').its('request.body').should('deep.equal', { is_active: false });
+      cy.get('.MuiDrawer-paper').contains('button', 'Delete').click();
+      // The drawer is a dialog too: only the confirmation is meant.
+      cy.get('[role="dialog"]:not(.MuiDrawer-paper)').should('contain', '3 matches are deleted').contains('button', 'Delete').click();
+      cy.wait('@delete');
     });
   });
 
-
-  describe('Sources Panel', () => {
-    it('should display sources from fixture', () => {
-      cy.get('body', { timeout: 15000 })
-        .invoke('text')
-        .should('include', 'test-source.com');
-    });
-
-    it('should open add RSS source modal', () => {
-      cy.contains('button', 'Add Source').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Add RSS Source');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should add a new RSS source', () => {
-      cy.contains('button', 'Add Source').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal input[type="url"]').first().type('https://new-e2e-feed.com/rss');
-      cy.get('.modal').contains('button', 'Add').click();
-      cy.wait('@addSource');
-      cy.log('New source submitted successfully');
-    });
-
-    it('should open delete confirmation for test-source.com', () => {
-      cy.get('body').contains('test-source.com').parents('tr').within(() => {
-        cy.get('button[title="Delete"]').click();
-      });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Confirm Deletion');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should open timeline for test-source.com', () => {
-      cy.get('body').contains('test-source.com').parents('tr').within(() => {
-        cy.get('button[title="History"]').click();
-      });
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal .btn-close').click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should open edit modal for a source', () => {
-      cy.get('body').contains('test-source.com').parents('tr').within(() => {
-        cy.get('button[title="Edit"]').click();
-      });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Edit RSS Source');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-  });
-
-
-  describe('Banned Words Panel', () => {
-    it('should display banned words from fixture', () => {
-      cy.get('body', { timeout: 15000 })
-        .invoke('text')
-        .should('include', 'test-spam');
-    });
-
-    it('should display second banned word', () => {
-      cy.get('body').invoke('text').should('include', 'e2e-advertisement');
-    });
-
-    it('should open add banned word modal', () => {
-      cy.contains('button', 'Add Banned Word').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Add Banned Word');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should add a new banned word', () => {
-      cy.contains('button', 'Add Banned Word').click();
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal input[type="text"]').first().type('new-banned-word-e2e');
-      cy.get('.modal').contains('button', 'Add').click();
-      cy.wait('@addBannedWord');
-      cy.log('New banned word submitted successfully');
-    });
-
-    it('should open delete confirmation for test-spam', () => {
-      cy.get('body').contains('test-spam').parents('tr').within(() => {
-        cy.get('button[title="Delete"]').click();
-      });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal-title').should('contain.text', 'Confirm Deletion');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-
-    it('should open edit modal for a banned word', () => {
-      cy.get('body').contains('test-spam').parents('tr').within(() => {
-        cy.get('button[title="Edit"]').click();
-      });
-      cy.get('.modal').should('be.visible');
-      cy.get('.modal button').contains(/close/i).click();
-      cy.get('.modal').should('not.exist');
-    });
-  });
-
-
-  describe('Archived Alerts Panel', () => {
-    it('should display archived CVEs tab by default', () => {
-      cy.get('body', { timeout: 15000 })
-        .invoke('text')
-        .should('include', 'CVE-2024-9999');
-    });
-
-    it('should display CVE severity badge CRITICAL', () => {
-      cy.get('body').invoke('text').should('include', 'CRITICAL');
-    });
-
-    it('should display second archived CVE', () => {
-      cy.get('body').invoke('text').should('include', 'CVE-2024-8888');
-    });
-
-    it('should display Enable button to unarchive a CVE', () => {
-      cy.get('body').then(($body) => {
-        const hasEnableBtn = $body.find('button').toArray()
-          .some(el => el.textContent.trim() === 'Enable');
-        if (hasEnableBtn) {
-          cy.contains('button', 'Enable').first().should('exist');
-          cy.log('Enable/unarchive button found for CVE');
-        } else {
-          cy.log('Enable button not visible — user may lack manage permission');
-        }
-      });
-    });
-
-    it('should switch to Hits tab', () => {
-      cy.contains('button.nav-link', /hits/i).click();
-      cy.get('body', { timeout: 10000 }).should('be.visible');
-      cy.log('Hits tab opened — fixture has 0 archived hits');
-    });
-
-    it('should switch back to CVEs tab', () => {
-      cy.contains('button.nav-link', /cves/i).first().click();
-      cy.get('body').invoke('text').should('include', 'CVE-2024-9999');
-      cy.log('Returned to CVEs tab');
-    });
-  });
-
-
-  after(() => {
-    cy.log('CyberWatch test cleanup...');
-    cy.window().then((win) => {
-      win.localStorage.clear();
-      win.sessionStorage.clear();
-    });
-    cy.log('CyberWatch test cleanup completed');
+  it('shows the insights and filters from them', () => {
+    cy.contains('[role="tab"]', 'Insights').click();
+    cy.get('[data-testid="matches-chart"] svg').should('exist');
+    cy.get('button[aria-label="Show the critical CVEs"]').click();
+    cy.location('hash').should('include', 'tab=cves').and('include', 'csev=CRITICAL');
+    cy.contains('[role="tab"]', 'Insights').click();
+    cy.get('button[aria-label="Review the matches of Healthcare sector"]').click();
+    cy.location('hash').should('include', 'rule=2').and('not.include', 'tab=');
   });
 });

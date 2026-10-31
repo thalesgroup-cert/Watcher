@@ -2,9 +2,7 @@ import requests
 import json
 import time
 import logging
-from django.conf import settings
-from django.utils import timezone
-from .whois import WhoisDiscovery, perform_single_whois_lookup
+from .whois import perform_single_whois_lookup
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
@@ -307,7 +305,7 @@ def update_domain_registrar_info():
         return
     
     for domain in domains_to_update:
-        logger.info(f"Processing lookup for domain: {domain.domain_name}")
+        logger.debug(f"Processing lookup for domain: {domain.domain_name}")
         
         success = perform_single_rdap_lookup(domain)
         

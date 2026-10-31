@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Alert, Site, Subscriber
+from .models import Alert, MonitoredPage, PageVersion, Site, Subscriber
 from import_export import resources
 from import_export.admin import ExportMixin
 from common.misp import get_misp_uuid
@@ -98,15 +98,29 @@ class Site(ExportMixin, admin.ModelAdmin):
 
 @admin.register(Subscriber)
 class Subscriber(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
-    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    list_display = ('user_rec', 'created_at', 'email')
+    list_filter = ('email',) 
     search_fields = ('user_rec__username',)
     fieldsets = (
         (None, { 
             'fields': ('user_rec', 'created_at')
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber."
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive are set once for the whole instance under Connectors > Notifications."
         }),
     )
+
+@admin.register(MonitoredPage)
+class MonitoredPageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'url', 'threshold', 'check_interval', 'is_active', 'last_status', 'last_checked',
+                    'last_changed']
+    list_filter = ('is_active',)
+    search_fields = ['name', 'url']
+
+
+@admin.register(PageVersion)
+class PageVersionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'page', 'created_at', 'size', 'change_ratio', 'notified']
+    list_filter = ('notified',)
+    exclude = ('text',)

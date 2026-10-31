@@ -36,6 +36,9 @@ class TimelineEvent(models.Model):
         ordering = ['-timestamp']
         indexes = [
             models.Index(fields=['content_type', 'object_id']),
+            # Activity feed (newest first, overall and per user): ascending so a backward scan serves ORDER BY timestamp DESC, id DESC.
+            models.Index(fields=['timestamp'], name='timeline_ev_ts_idx'),
+            models.Index(fields=['user', 'timestamp'], name='timeline_ev_user_ts_idx'),
         ]
         verbose_name = 'Timeline Event'
         verbose_name_plural = 'Timeline Events'

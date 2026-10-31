@@ -3,6 +3,7 @@ import logging
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .core import (
     get_all_connectors,
@@ -11,6 +12,7 @@ from .core import (
     reset_connector_field,
     test_connector,
 )
+from .notifications import UNSET, describe, describe_all, preview, save_setting
 
 logger = logging.getLogger('watcher.connectors')
 
@@ -99,3 +101,54 @@ class ConnectorViewSet(viewsets.ViewSet):
         except Exception as exc:
             logger.error("Error resetting field '%s' on connector '%s': %s", field_name, pk, exc)
             return Response({'error': f"Failed to reset field '{field_name}' on connector '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class NotificationListView(APIView):
+    """GET /api/connectors/notifications/ - every notification with what is on for each channel."""
+    permission_classes = [IsSuperUser]
+
+    def get(self, request):
+        try:
+            return Response(describe_all())
+        except Exception as exc:
+            logger.error("Error listing notifications: %s", exc)
+            return Response({'error': 'Failed to list notifications'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class NotificationSettingView(APIView):
+    """PATCH /api/connectors/notifications/<type>/<channel>/ - switch a channel on or off, choose the fields."""
+    permission_classes = [IsSuperUser]
+
+    def patch(self, request, type_id, channel):
+        try:
+            save_setting(
+                type_id, channel, enabled=request.data.get('enabled'), fields=request.data.get('fields'),
+                template_text=request.data.get('template', UNSET), title=request.data.get('title', UNSET),
+            )
+            return Response(describe(type_id))
+        except KeyError as exc:
+            return Response({'error': exc.args[0]}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.error("Error saving the notification '%s' on '%s': %s", type_id, channel, exc)
+            return Response({'error': 'Failed to save the notification'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class NotificationPreviewView(APIView):
+    """POST /api/connectors/notifications/<type>/<channel>/preview/ - the message, from a fictional sample."""
+    permission_classes = [IsSuperUser]
+
+    def post(self, request, type_id, channel):
+        try:
+            return Response(preview(
+                type_id, channel, request.data.get('fields'),
+                template_text=request.data.get('template', UNSET), title=request.data.get('title', UNSET),
+            ))
+        except KeyError as exc:
+            return Response({'error': exc.args[0]}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.error("Error building the preview of '%s' on '%s': %s", type_id, channel, exc)
+            return Response({'error': 'Failed to build the preview'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

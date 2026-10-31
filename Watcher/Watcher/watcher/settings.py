@@ -108,6 +108,12 @@ SUBJECT_TAG_SITE_MONITORING = os.environ.get('SUBJECT_TAG_SITE_MONITORING', 'INC
 EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
 WATCHER_URL = os.environ.get('WATCHER_URL', '')
+
+# Screenshot service (the `screenshotter` container): empty switches the screenshots of the monitored pages off
+SCREENSHOT_SERVICE_URL = os.environ.get('SCREENSHOT_SERVICE_URL', '')
+SCREENSHOT_TIMEOUT = int(os.environ.get('SCREENSHOT_TIMEOUT', '60'))
+# Screenshots kept for each object (the oldest are deleted)
+SCREENSHOT_KEEP = int(os.environ.get('SCREENSHOT_KEEP', '10'))
 # Watcher Logo
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
 GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
@@ -236,6 +242,8 @@ REST_KNOX = {
 }
 
 MIDDLEWARE = [
+    # First, so that it sees every request and times all the others (the access log, logs/access.log)
+    'common.access_log.AccessLogMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -306,7 +314,7 @@ WSGI_APPLICATION = 'watcher.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'CONN_MAX_AGE': 3600,
+        'CONN_MAX_AGE': 0,  # runserver opens a thread per request: persistent connections are never reused (Django docs)
         'NAME': os.environ.get('DB_NAME', 'db_watcher'),
         'USER': os.environ.get('DB_USER', 'watcher'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
@@ -356,6 +364,9 @@ USE_TZ = False
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
+# Local development only: let WhiteNoise pick up a rebuilt frontend bundle without restarting Django.
+WHITENOISE_AUTOREFRESH = os.environ.get('WHITENOISE_AUTOREFRESH', '') == '1'
+
 
 # Create logs directory if it doesn't exist
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
@@ -367,7 +378,22 @@ TRACE_LEVEL = os.environ.get('TRACE_LEVEL', 'INFO')
 # Logging configuration
 LOGGING = {
     "version": 1,
+    'filters': {
+        # The health check of Docker asks the web server for `/` every 30 seconds: its line says nothing
+        'skip_health_check': {'()': 'common.utils.log_filters.HealthCheckFilter'},
+    },
     'formatters': {
+        # The format Django gives to the lines of its development server (see django.utils.log.DEFAULT_LOGGING)
+        'django.server': {
+            '()': 'django.utils.log.ServerFormatter',
+            'format': '[{server_time}] {message}',
+            'style': '{',
+        },
+        'access': {
+            'format': '{asctime} {levelname} {message}',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+            'style': '{',
+        },
         'verbose': {
             'format': '{levelname} {asctime} | {message}',
             'style': '{',
@@ -383,6 +409,19 @@ LOGGING = {
         },
     },
     'handlers': {
+        'file_access': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'access.log'),
+            'formatter': 'access',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+        },
+        'django.server': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'django.server',
+        },
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
@@ -446,6 +485,21 @@ LOGGING = {
         },
     },
     "loggers": {
+        'django.server': {
+            'handlers': ['django.server'],
+            'level': 'INFO',
+            'propagate': False,
+            'filters': ['skip_health_check'],
+        },
+        # Django warns about every 4xx ("Bad Request: /api/..."), without saying who: the access log does it with the user.
+        # What stays here is the 5xx, with its traceback.
+        'django.request': {'level': 'ERROR'},
+        # Who did what (common/access_log.py). ACCESS_LOG_CONSOLE=1 also prints it on the console.
+        'watcher.access': {
+            'handlers': ['file_access'] + (['console'] if os.environ.get('ACCESS_LOG_CONSOLE') == '1' else []),
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
         'watcher.common': {
             'handlers': ['file_common', 'console'], 
             'level': TRACE_LEVEL,

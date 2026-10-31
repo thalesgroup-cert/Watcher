@@ -20,7 +20,6 @@ from . import certstream_client
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
-from django.db.models import Q
 
 # Configure logger
 logger = logging.getLogger('watcher.dns_finder')
@@ -542,16 +541,12 @@ def send_dns_finder_notifications(alert):
     alert, across all three sources. subdomain_takeover routes through the
     dedicated 'dns_finder_dangling' templates; dnstwist/certstream_keyword
     share 'dns_finder' and pick their template internally from `source`.
+    Slack, Citadel and TheHive follow the instance settings (Connectors > Notifications); the email goes to the
+    subscribers who ticked E-mail.
 
     :param alert: Alert Object.
     """
-    subscribers = Subscriber.objects.filter(
-        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for DNS Threats Monitored, no message sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
         logger.error(f"Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
@@ -578,13 +573,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     :param alerts_number: The total number of alerts in the group.
     :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
-    subscribers = Subscriber.objects.filter(
-        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for DNS Threats Monitored group, no message sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     context_data_group = {
         'dns_monitored': dns_monitored,
@@ -596,7 +585,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     for alert in alerts:
 
         context_data_thehive = {
-            'alert': alert,  
+            'alert': alert,
         }
 
         send_only_thehive_notifications('dns_finder', context_data_thehive, subscribers)

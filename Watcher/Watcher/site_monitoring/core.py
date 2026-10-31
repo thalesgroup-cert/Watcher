@@ -1,9 +1,6 @@
 # coding=utf-8
 from __future__ import unicode_literals
-import smtplib
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from django.db import close_old_connections
 from django.db import transaction
 from django.conf import settings
@@ -11,7 +8,7 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
-from .models import Site, Alert, Subscriber
+from .models import Site, Alert, Subscriber, PageScreenshot, MonitoredPage, PageVersion
 import tlsh
 import requests
 import socket
@@ -19,12 +16,19 @@ import ipaddress
 from dns import resolver
 from dns.exception import DNSException, Timeout as DNSTimeout
 import shadow_useragent
-from common.core import send_app_specific_notifications
+from common.core import send_app_specific_notifications, capture_page, screenshots_configured
 from django.db.models import Q
 import time
 import random
 from common.utils.rdap import RDAPDiscovery
 from common.utils.whois import WhoisDiscovery
+import common.utils.job_log as job_log  # not a "from common" line: the documentation build keeps it
+from urllib.parse import urljoin, urlparse
+from bs4 import BeautifulSoup, Comment
+import difflib
+import hashlib
+import re
+import html
 
 # Configure logger
 logger = logging.getLogger('watcher.site_monitoring')
@@ -42,6 +46,8 @@ LEGITIMACY_LABELS = {
 
 try:
     shadow_useragent = shadow_useragent.ShadowUserAgent()
+    # The library logs its own state as ERROR/WARNING at every use ("{'last_update': …}"): nothing to act on
+    logging.getLogger('shadow-useragent').setLevel(logging.CRITICAL)
 except Exception as e:
     logger.error(str(e))
     logger.info("Using default User-Agent")
@@ -63,7 +69,11 @@ def start_scheduler():
     scheduler.add_job(update_site_monitoring_rdap_data, 'cron', day_of_week='mon-sun', minute='*/15', id='site_rdap_job',
                       max_instances=1,
                       replace_existing=True)
-    
+
+    # The pages are checked at the pace of their own interval: the job only looks at the ones that are due
+    scheduler.add_job(check_monitored_pages, 'cron', day_of_week='mon-sun', minute='*/15', id='monitored_pages_job',
+                      max_instances=1, coalesce=True, replace_existing=True)
+
     scheduler.start()
 
 
@@ -211,10 +221,12 @@ def perform_site_rdap_lookup(site):
         
         if not rdap.fetch_rdap_data():
             # Fallback to WHOIS
-            logger.info(f"RDAP lookup failed for domain {site.domain_name}, falling back to WHOIS")
+            logger.debug(f"RDAP lookup failed for domain {site.domain_name}, falling back to WHOIS")
             whois = WhoisDiscovery(site.domain_name)
             if not whois.fetch_whois_data():
-                logger.warning(f"No RDAP/WHOIS data found for domain {site.domain_name}")
+                # An unregistered domain has no record: counted in the summary of the job
+                job_log.job_count('without_data')
+                logger.debug(f"No RDAP/WHOIS data found for domain {site.domain_name}")
                 return False
             
             rdap = whois
@@ -226,10 +238,6 @@ def perform_site_rdap_lookup(site):
         if not registrar and not expiration_date:
             return False
 
-        old_data = {
-            'registrar': site.registrar,
-            'expiry': site.domain_expiry
-        }
         
         new_data = {
             'registrar': registrar,
@@ -306,6 +314,7 @@ def perform_site_rdap_lookup(site):
         return False
 
 
+@job_log.logged_job("RDAP/WHOIS lookup for site monitoring", logger)
 def update_site_monitoring_rdap_data():
     """
     Update RDAP/WHOIS data for all sites in Site Monitoring.
@@ -317,14 +326,17 @@ def update_site_monitoring_rdap_data():
     
     for site in sites:
         try:
+            job_log.job_count('sites')
             perform_site_rdap_lookup(site)
             time.sleep(1)  # Rate limiting
         except Exception as e:
+            job_log.job_count('errors')
             logger.error(f"Error processing RDAP/WHOIS for {site.domain_name}: {str(e)}")
 
     logger.info("RDAP/WHOIS lookup process completed for Site Monitoring")
 
 
+@job_log.logged_job("Suspicious website monitoring", logger)
 def monitoring_check():
     """
         Main monitoring function.
@@ -345,7 +357,8 @@ def monitoring_check():
 
             if site.expiry is None or (site.expiry - timezone.now()) > timedelta(days=0):
 
-                logger.info(f"Monitoring: {site.domain_name}")
+                job_log.job_count('sites')
+                logger.debug(f"Monitoring: {site.domain_name}")
 
                 result = check_content(site, alert, shadow_useragent)
                 alert = result[0]
@@ -434,7 +447,7 @@ def check_content(site, alert, ua):
                     fuzzy_hash = content_fingerprint(response)
                     Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash, web_status=200)
         else:
-            logger.warning(f"Status code: {response.status_code}")
+            logger.warning(f"{site.domain_name} answered HTTP {response.status_code}")
             Site.objects.filter(pk=site.pk).update(web_status=response.status_code)
     except requests.exceptions.RequestException:
         try:
@@ -451,11 +464,16 @@ def check_content(site, alert, ua):
                         fuzzy_hash = content_fingerprint(response)
                         Site.objects.filter(pk=site.pk).update(content_fuzzy_hash=fuzzy_hash, web_status=200)
             else:
-                logger.warning(f"Status code: {response.status_code}")
+                logger.warning(f"{site.domain_name} answered HTTP {response.status_code}")
                 Site.objects.filter(pk=site.pk).update(web_status=response.status_code)
         except requests.exceptions.RequestException:
             Site.objects.filter(pk=site.pk).update(web_status=None)
-            logger.warning(f"{site.domain_name} is unreachable.")
+            job_log.job_count('unreachable')
+            # Said once, when the site goes down; a domain that never answered is only counted in the summary
+            if site.web_status is not None:
+                logger.info(f"{site.domain_name} is no longer reachable (it answered HTTP {site.web_status}).")
+            else:
+                logger.debug(f"{site.domain_name} is unreachable.")
 
     return alert, score
 
@@ -650,9 +668,11 @@ def check_mail(site, alert):
     except DNSTimeout:
         pass  # a timeout says nothing about the records
     except(resolver.NoAnswer, resolver.NXDOMAIN, resolver.NoNameservers, DNSException):
-        if Site.objects.get(pk=site.pk).MX_records != []:
+        known_mx = Site.objects.get(pk=site.pk).MX_records
+        if known_mx != []:
             Site.objects.filter(pk=site.pk).update(MX_records=[])
-            alert_mx = True
+            # None means the site was never checked: recording "no MX" is the baseline, not a change
+            alert_mx = known_mx is not None
 
     try:
         # The answer holds a few addresses of a pool spread over many networks: a change only
@@ -775,6 +795,7 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
 
         with transaction.atomic():
             new_alert = Alert.objects.create(site=site, **alert_data)
+        job_log.job_count('changes')
 
         time.sleep(random.uniform(1, 3))
 
@@ -798,30 +819,33 @@ def create_alert(alert, site, new_ip, new_ip_second, score):
                 if site.monitored and alert != 8:
                     Site.objects.filter(pk=site.pk).update(MX_records=site.MX_records,
                                                             mail_A_record_ip=site.mail_A_record_ip)
-                    
+
+        # The mail fields are filled in the database after the alert is created: send what is stored
+        new_alert.refresh_from_db()
+        alert_data['id'] = new_alert.pk
+        for field in ('new_MX_records', 'old_MX_records', 'new_mail_A_record_ip', 'old_mail_A_record_ip'):
+            stored = getattr(new_alert, field)
+            if stored:
+                alert_data[field] = stored
+
         send_website_monitoring_notifications(site, alert_data)
 
 
 def send_website_monitoring_notifications(site, alert_data):
     """
     Sends notifications to Slack, Citadel, TheHive or Email based on Site Monitoring.
-    
+    Slack, Citadel and TheHive follow the instance settings (Connectors > Notifications); the email goes to the
+    subscribers who ticked E-mail.
+
     Args:
         site (Site): The object representing the site to monitor.
         alert_data (dict): The alert data associated with the site.
     """
-    subscribers = Subscriber.objects.filter(
-        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for Site Monitoring, no message sent.")
-        return
-
+    subscribers = Subscriber.objects.all()
 
     ip_changes = f"New IP: {alert_data.get('new_ip', 'N/A')} | Old IP: {alert_data.get('old_ip', 'N/A')}"
     ip_second_changes = f"New Second IP: {alert_data.get('new_ip_second', 'N/A')} | Old Second IP: {alert_data.get('old_ip_second', 'N/A')}"
-    mx_changes = f"MX Records: {', '.join(alert_data.get('new_mx_records', []))}" 
+    mx_changes = f"MX Records: {', '.join(alert_data.get('new_mx_records', []))}"
     content_score_info = f"TLSH Score: {alert_data.get('difference_score', 'N/A')}"
     alert_type_info = f"Alert Type: {alert_data.get('type', 'N/A')}"
 
@@ -829,10 +853,10 @@ def send_website_monitoring_notifications(site, alert_data):
     required_keys = ['new_ip', 'old_ip', 'new_ip_second', 'old_ip_second', 'new_MX_records', 'old_MX_records', 'new_mail_A_record_ip', 'old_mail_A_record_ip']
     for key in required_keys:
         if key not in alert_data:
-            alert_data[key] = 'None' 
+            alert_data[key] = 'None'
 
 
-    if alert_data['type'] == 'Web content change detected':  
+    if alert_data['type'] == 'Web content change detected':
         alert_data['new_ip'] = alert_data.get('new_ip')
         alert_data['old_ip'] = alert_data.get('old_ip')
         alert_data['new_ip_second'] = alert_data.get('new_ip_second')
@@ -854,3 +878,409 @@ def send_website_monitoring_notifications(site, alert_data):
     }
 
     send_app_specific_notifications('website_monitoring', context_data, subscribers)
+
+
+# Screenshots of the monitored pages: one is kept with each version of a page (the client is `common.core`).
+def capture_for_version(page, version):
+    """
+    Take the screenshot of a page and keep it with a version, replacing the one it had.
+
+    :return: True when a screenshot was kept.
+    """
+    image = capture_page(page.url)
+    if image is None:
+        return False
+    PageScreenshot.objects.update_or_create(version=version, defaults={'image': image, 'size': len(image)})
+    logger.debug(f"Screenshot of {page.url} kept ({len(image) // 1024} KB)")
+    return True
+
+
+# Monitoring of precise web pages (MonitoredPage): the text of each page is kept when it changes, and a change that is
+# big enough is notified.
+PAGE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+PAGE_REQUEST_TIMEOUT = (5, 15)
+PAGE_MAX_BYTES = 2 * 1024 * 1024
+PAGE_MAX_REDIRECTS = 5
+# The extracted text kept in a version: a page bigger than this is cut (the end of a very long page is not worth a row)
+PAGE_MAX_TEXT = 500_000
+# Lines of the summary of a change, and their length
+PAGE_SUMMARY_LINES = 6
+PAGE_SUMMARY_WIDTH = 200
+
+_REMOVED_TAGS = ('head', 'script', 'style', 'noscript', 'template', 'iframe', 'svg', 'canvas', 'nav', 'footer', 'form',
+                 'button', 'select')
+_MONTHS = ('jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|'
+           'september|october|november|december|janv|fév|févr|avr|juin|juil|août|déc|janvier|février|mars|avril|mai|'
+           'juillet|septembre|octobre|novembre|décembre')
+# What changes on a page without the page having changed: dates, hours, "3 hours ago", "1,204 views"
+_NOISE = [re.compile(pattern, re.IGNORECASE) for pattern in (
+    r'\b\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?\b',
+    r'\b\d{1,2}[/.]\d{1,2}[/.]\d{2,4}\b',
+    r'\b\d{1,2}:\d{2}(:\d{2})?(\s?[ap]\.?m\.?)?\b',
+    rf'\b\d{{1,2}}(st|nd|rd|th|er)?\s+(de\s+)?({_MONTHS})\.?,?\s+\d{{4}}\b',
+    rf'\b({_MONTHS})\.?\s+\d{{1,2}}(st|nd|rd|th)?,?(\s+\d{{4}})?\b',
+    r'\b\d+\s+(second|minute|hour|day|week|month|year|seconde|heure|jour|semaine|mois|an)s?\s+(ago|auparavant)\b',
+    r'\bil y a\s+\d+\s+\w+\b',
+    r'\b[\d,. ]+\s*(views?|vues?|comments?|commentaires?|shares?|likes?|reads?)\b',
+)]
+
+
+class PageError(Exception):
+    """The page could not be downloaded; the message says why in a few words."""
+
+
+# Download
+def _is_public(host):
+    """True when every address the host resolves to is a public one (Watcher must not be used to reach its network)."""
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(host, None)}
+    except socket.gaierror:
+        return False
+    return bool(addresses) and all(ipaddress.ip_address(address.split('%')[0]).is_global for address in addresses)
+
+
+def fetch_page(url):
+    """
+    Download a page, following at most PAGE_MAX_REDIRECTS redirects, each one checked.
+
+    :return: (status code, body bytes or None when the answer is not text)
+    :raises PageError: not http(s), private address, too many redirects, unreachable
+    """
+    headers = {'User-Agent': PAGE_USER_AGENT, 'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5'}
+    current = url
+    for _ in range(PAGE_MAX_REDIRECTS + 1):
+        parsed = urlparse(current)
+        if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+            raise PageError("not an http(s) address")
+        if not _is_public(parsed.hostname):
+            raise PageError("the address is not public")
+        try:
+            response = requests.get(current, headers=headers, timeout=PAGE_REQUEST_TIMEOUT, allow_redirects=False,
+                                    stream=True)
+        except requests.exceptions.RequestException as exc:
+            raise PageError(f"unreachable ({type(exc).__name__})") from exc
+        try:
+            if response.is_redirect and response.headers.get('Location'):
+                current = urljoin(current, response.headers['Location'])
+                continue
+            if response.status_code != 200:
+                return response.status_code, None
+            content_type = response.headers.get('Content-Type', '').lower()
+            if content_type and not any(kind in content_type for kind in ('text/', 'html', 'xml', 'json')):
+                return response.status_code, None
+            body = b''
+            for chunk in response.iter_content(65536):
+                body += chunk
+                if len(body) >= PAGE_MAX_BYTES:
+                    break
+            return response.status_code, body
+        except requests.exceptions.RequestException as exc:
+            raise PageError(f"unreachable ({type(exc).__name__})") from exc
+        finally:
+            response.close()
+    raise PageError("too many redirects")
+
+
+# Text
+def compile_ignore_patterns(source):
+    """The regular expressions of a page, one per line. ValueError (with the line) when one is not valid."""
+    patterns = []
+    for line in (source or '').splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if len(line) > 200:
+            raise ValueError(f"Pattern too long: {line[:30]}…")
+        try:
+            patterns.append(re.compile(line, re.IGNORECASE))
+        except re.error as exc:
+            raise ValueError(f"Invalid pattern '{line[:40]}': {exc}") from exc
+    return patterns
+
+
+def extract_page_text(body, css_selector='', ignore_patterns=''):
+    """
+    The text of a page, one line per block, without what changes by itself.
+
+    :param body: HTML (bytes: the parser reads the charset) or text.
+    :param css_selector: only this part of the page; the whole page when empty or when nothing matches.
+    :param ignore_patterns: regular expressions, one per line, removed from the text.
+    """
+    soup = BeautifulSoup(body, 'html.parser')
+    for comment in soup.find_all(string=lambda node: isinstance(node, Comment)):
+        comment.extract()
+    root = soup
+    if css_selector.strip():
+        try:
+            root = soup.select_one(css_selector.strip()) or soup
+        except Exception:  # an invalid selector: compare the whole page rather than nothing
+            root = soup
+    for tag in root.find_all(list(_REMOVED_TAGS)):
+        tag.decompose()
+    for tag in root.find_all(attrs={'hidden': True}):
+        tag.decompose()
+
+    patterns = _NOISE + compile_patterns_quietly(ignore_patterns)
+    lines = []
+    for raw in root.get_text('\n').splitlines():
+        line = ' '.join(raw.split())
+        for pattern in patterns:
+            line = pattern.sub('', line)
+        line = ' '.join(line.split())
+        if line:
+            lines.append(line)
+    return '\n'.join(lines)[:PAGE_MAX_TEXT]
+
+
+def compile_patterns_quietly(source):
+    """The valid patterns only: an invalid one (edited in the admin) must not stop the checks."""
+    patterns = []
+    for line in (source or '').splitlines():
+        try:
+            patterns += compile_ignore_patterns(line)
+        except ValueError:
+            logger.debug("Ignoring an invalid ignore pattern")
+    return patterns
+
+
+# Comparison
+def compare_texts(old_text, new_text):
+    """
+    How much the text changed.
+
+    :return: (ratio in %, lines added, lines removed). The ratio is the number of characters of the lines that were
+        removed or added, over the characters of both texts: 0 for the same text, 100 for a completely different one.
+    """
+    old_lines, new_lines = old_text.split('\n'), new_text.split('\n')
+    added, removed = [], []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
+        if tag in ('replace', 'delete'):
+            removed += old_lines[i1:i2]
+        if tag in ('replace', 'insert'):
+            added += new_lines[j1:j2]
+    total = len(old_text) + len(new_text)
+    changed = sum(len(line) + 1 for line in added + removed)
+    return (round(min(100.0, 100.0 * changed / total), 1) if total else 0.0), added, removed
+
+
+def diff_rows(old_text, new_text, context=3):
+    """
+    The difference between two versions for display: rows {'kind': 'same'|'add'|'remove'|'skip', 'text'}. Runs of
+    unchanged lines longer than twice `context` are cut to `context` lines on each side, with a 'skip' row that says how
+    many lines were left out.
+    """
+    old_lines, new_lines = old_text.split('\n'), new_text.split('\n')
+    rows = []
+    opcodes = difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes()
+    for index, (tag, i1, i2, j1, j2) in enumerate(opcodes):
+        if tag == 'equal':
+            lines = new_lines[j1:j2]
+            first, last = index == 0, index == len(opcodes) - 1
+            # Keep `context` lines next to a change: after the one before (head), before the one after (tail)
+            head = 0 if first else context
+            tail = 0 if last else context
+            if len(lines) > head + tail + 1:
+                rows += [{'kind': 'same', 'text': t} for t in lines[:head]]
+                rows.append({'kind': 'skip', 'text': str(len(lines) - head - tail)})
+                rows += [{'kind': 'same', 'text': t} for t in (lines[len(lines) - tail:] if tail else [])]
+            else:
+                rows += [{'kind': 'same', 'text': t} for t in lines]
+        else:
+            rows += [{'kind': 'remove', 'text': t} for t in old_lines[i1:i2]]
+            rows += [{'kind': 'add', 'text': t} for t in new_lines[j1:j2]]
+    return rows
+
+
+def summarize_change(added, removed):
+    """A few lines of a change, shortened: what the notification shows (the page text is never sent whole)."""
+    def shorten(lines):
+        return [line if len(line) <= PAGE_SUMMARY_WIDTH else line[:PAGE_SUMMARY_WIDTH - 1] + '…' for line in lines[:PAGE_SUMMARY_LINES]]
+    return {'added': shorten(added), 'removed': shorten(removed),
+            'more_added': max(0, len(added) - PAGE_SUMMARY_LINES), 'more_removed': max(0, len(removed) - PAGE_SUMMARY_LINES)}
+
+
+# Check
+def _record_status(page, status):
+    """Say once, when the page changes of state, that it stops or starts answering. `status` 0: unreachable."""
+    status = status or None
+    if page.last_status != status:
+        if status == 200:
+            if page.last_checked is not None:
+                logger.info(f"Page {page.url} answers again")
+        elif page.last_status == 200 or page.last_checked is None:
+            logger.warning(f"Page {page.url} did not answer 200 ({status or 'unreachable'})")
+        else:
+            logger.debug(f"Page {page.url}: {status or 'unreachable'}")
+    MonitoredPage.objects.filter(pk=page.pk).update(last_status=status, last_checked=timezone.now())
+    page.last_status = status
+
+
+def trim_versions(page):
+    """Keep the newest `retention` versions (at least two: a change needs a version to be compared with)."""
+    keep = max(2, page.retention)
+    old_ids = list(page.versions.order_by('-created_at', '-id').values_list('id', flat=True)[keep:])
+    if old_ids:
+        PageVersion.objects.filter(id__in=old_ids).delete()
+
+
+def check_page(page):
+    """
+    Check one page.
+
+    :return: the new PageVersion when the text changed (or the first one), None otherwise.
+    """
+    try:
+        status, body = fetch_page(page.url)
+    except PageError as exc:
+        job_log.job_count('unreachable')
+        _record_status(page, 0)
+        logger.debug(f"Page {page.url}: {exc}")
+        return None
+    _record_status(page, status)
+    if body is None:
+        return None
+
+    text = extract_page_text(body, page.css_selector, page.ignore_patterns)
+    if not text:
+        return None
+    content_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
+    previous = page.versions.first()
+    if previous and previous.content_hash == content_hash:
+        return None
+
+    ratio, added, removed = compare_texts(previous.text, text) if previous else (None, [], [])
+    version = PageVersion.objects.create(page=page, text=text, content_hash=content_hash, size=len(text),
+                                         change_ratio=ratio)
+    MonitoredPage.objects.filter(pk=page.pk).update(last_changed=version.created_at)
+    job_log.job_count('changes' if previous else 'new_pages')
+    trim_versions(page)
+    if page.capture_screenshots and screenshots_configured():
+        try:
+            if capture_for_version(page, version):
+                job_log.job_count('screenshots')
+        except Exception as exc:  # a screenshot that fails must not lose the version nor the notification
+            logger.error(f"Page {page.url}: screenshot failed ({type(exc).__name__}: {exc})")
+
+    if previous and ratio >= page.threshold:
+        logger.info(f"Page {page.url} changed by {ratio}% (threshold {page.threshold}%)")
+        notify_page_change(page, version, summarize_change(added, removed))
+        PageVersion.objects.filter(pk=version.pk).update(notified=True)
+    elif previous:
+        logger.debug(f"Page {page.url} changed by {ratio}%, under the threshold of {page.threshold}%")
+    return version
+
+
+def due_pages(now=None):
+    """The active pages whose last check is older than their interval."""
+    now = now or timezone.now()
+    return [page for page in MonitoredPage.objects.filter(is_active=True)
+            if page.last_checked is None or now - page.last_checked >= timedelta(minutes=page.check_interval)]
+
+
+@job_log.logged_job("Monitored pages", logger)
+def check_monitored_pages():
+    """Scheduled job: check the pages that are due."""
+    close_old_connections()
+    for page in due_pages():
+        job_log.job_count('pages')
+        try:
+            check_page(page)
+        except Exception as exc:  # one page must not stop the next ones
+            logger.error(f"Page {page.url}: check failed ({type(exc).__name__}: {exc})")
+
+
+# Notification of a change of a monitored page (Slack, Citadel, e-mail). The text of a page is not trusted: it is escaped
+# for each channel and only a few shortened lines of the change are sent.
+PAGE_NOTIFICATION = 'page_change'
+
+
+def _slack_escape(text):
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _page_list(lines, more, escape, bullet, separator):
+    """The changed lines as one value of a message; empty (so the line is left out) when there are none."""
+    if not lines:
+        return ''
+    items = [bullet + escape(line) for line in lines]
+    if more:
+        items.append(f"{bullet}… and {more} more")
+    return separator.join(items)
+
+
+def _page_context(page, version, summary, channel):
+    """Values of the message on a channel. `channel`: 'slack', 'citadel' or 'email'."""
+    from connectors.notifications import get_type
+
+    name = (page.name or page.url).replace('\r', ' ').replace('\n', ' ')
+    escape = {'slack': _slack_escape, 'citadel': html.escape}.get(channel, lambda text: text)
+    separator, bullet = ('<br>', '• ') if channel == 'citadel' else ('\n', '• ')
+    return {
+        'page_name': escape(name),
+        'page_url': escape(page.url),
+        'change_percent': f"{version.change_ratio:g} %",
+        'added_text': _page_list(summary['added'], summary['more_added'], escape, bullet, separator),
+        'removed_text': _page_list(summary['removed'], summary['more_removed'], escape, bullet, separator),
+        'added_lines': summary['added'], 'removed_lines': summary['removed'],
+        'more_added': summary['more_added'], 'more_removed': summary['more_removed'],
+        'details_url': getattr(settings, 'WATCHER_URL', '') + get_type(PAGE_NOTIFICATION).url_suffix,
+    }
+
+
+def _send_page_slack(page, version, summary):
+    from common.utils.send_slack_messages import send_slack_message
+    from connectors.core import get_slack_config
+    from connectors.notifications import is_enabled, render_message
+
+    if not is_enabled(PAGE_NOTIFICATION, 'slack'):
+        return
+    content = render_message(PAGE_NOTIFICATION, 'slack', _page_context(page, version, summary, 'slack'))
+    send_slack_message(content, get_slack_config()['channel'], app_name='page_monitoring')
+
+
+def _send_page_citadel(page, version, summary):
+    from common.utils.send_citadel_messages import send_citadel_message
+    from connectors.core import get_citadel_config
+    from connectors.notifications import is_enabled, render_message
+
+    if not is_enabled(PAGE_NOTIFICATION, 'citadel'):
+        return
+    body = render_message(PAGE_NOTIFICATION, 'citadel', _page_context(page, version, summary, 'citadel'))
+    send_citadel_message(
+        content={'msgtype': 'm.text', 'body': body, 'format': 'org.matrix.custom.html', 'formatted_body': body},
+        room_id=get_citadel_config()['room_id'],
+        app_name='page_monitoring',
+    )
+
+
+def _send_page_email(page, version, summary):
+    from common.mail_template.page_change_template import get_page_change_template
+    from common.utils.send_email_notifications import send_email_notifications
+    from connectors.notifications import email_subject, is_enabled
+    from .models import Subscriber
+
+    if not is_enabled(PAGE_NOTIFICATION, 'email'):
+        return
+    recipients = [s.user_rec.email for s in Subscriber.objects.filter(email=True) if s.user_rec.email]
+    if not recipients:
+        job_log.note_channel('no recipients')
+        return
+    context = _page_context(page, version, summary, 'email')
+    subject = email_subject(PAGE_NOTIFICATION, {'page_name': context['page_name']})
+    send_email_notifications(subject, get_page_change_template(context), recipients, app_name='page_monitoring')
+
+
+def notify_page_change(page, version, summary):
+    """
+    Tell the channels that a page changed. A channel that fails does not stop the next ones; how each went is logged
+    in one line (a warning when one failed).
+    """
+    report = {}
+    for channel, send in (('slack', _send_page_slack), ('citadel', _send_page_citadel), ('email', _send_page_email)):
+        try:
+            report[channel] = job_log.run_channel(channel, lambda send=send: send(page, version, summary))
+        except Exception as exc:
+            report[channel] = f"failed ({str(exc)[:110]})"
+    problems = any(status.startswith('failed') for status in report.values())
+    logger.log(logging.WARNING if problems else logging.INFO,
+               f"Notification page change #{page.pk}: " + ', '.join(f"{c}={s}" for c, s in report.items()))

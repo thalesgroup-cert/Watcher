@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.fields import GenericRelation
@@ -116,3 +118,32 @@ class PendingAction(models.Model):
 
     def __str__(self):
         return f"[{self.get_action_type_display()}] {self.title} ({self.status})"
+
+
+class Screenshot(models.Model):
+    """
+    A screenshot of the page of an object of any module (a data leak, a domain…), taken on demand by the `screenshotter`
+    container. `target` names the kind of object (`data_leak.alert`), `target_id` its id: the screenshots go away with
+    their object (see `common.core.forget_screenshots`). The image is a JPEG, kept apart from what lists read.
+    """
+    target = models.CharField(max_length=60)
+    target_id = models.PositiveIntegerField()
+    url = models.URLField(max_length=1000)
+    image = models.BinaryField(editable=False)
+    size = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    taken_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        indexes = [models.Index(fields=['target', 'target_id'])]
+
+    def __str__(self):
+        return f"{self.target} #{self.target_id} ({self.size // 1024} KB)"
+
+
+@receiver(post_delete, sender=LegitimateDomain)
+def forget_domain_screenshots(sender, instance, **kwargs):
+    """The screenshots of a legitimate domain go away with it."""
+    from .core import forget_screenshots
+    forget_screenshots('common.legitimate_domain', instance.pk)

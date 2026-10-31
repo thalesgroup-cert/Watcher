@@ -41,3 +41,26 @@ class ConnectorHealthCheck(models.Model):
 
     def __str__(self):
         return self.connector_id
+
+
+class NotificationSetting(models.Model):
+    """
+    What one notification does on one channel: sent or not for the whole instance, and which fields its message
+    shows. `selected_fields` is None until someone chooses, which means "every field of the catalogue".
+    """
+    notification_type = models.CharField(max_length=64)
+    channel = models.CharField(max_length=16)
+    enabled = models.BooleanField(default=False)
+    selected_fields = models.JSONField(default=None, null=True, blank=True)
+    # A message written by hand replaces the one built from the fields; None keeps the catalogue's message.
+    custom_template = models.TextField(default=None, null=True, blank=True)
+    # Title of the TheHive alert or subject of the email, written by hand.
+    custom_title = models.CharField(max_length=500, default=None, null=True, blank=True)
+
+    class Meta:
+        unique_together = [('notification_type', 'channel')]
+        verbose_name = 'Notification Setting'
+        verbose_name_plural = 'Notification Settings'
+
+    def __str__(self):
+        return f'{self.notification_type} / {self.channel}'

@@ -24,7 +24,7 @@ def health_check(plain):
         return {'success': False, 'message': 'Citadel URL or token not configured'}
     try:
         resp = requests.get(
-            f'{url}/api/v2/rooms',
+            f'{url}/_matrix/client/r0/account/whoami',
             headers={'Authorization': f'Bearer {token}'},
             timeout=5,
         )

@@ -32,9 +32,12 @@ populate_user.connect(make_inactive)
 class UserProfile(models.Model):
     """Stores user UI preferences server-side."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    theme = models.CharField(max_length=50, default='bootstrap')
+    # Empty until the user picks one: the browser keeps its own choice (see frontend ThemeModeProvider).
+    theme = models.CharField(max_length=50, default='', blank=True)
     preferences = models.JSONField(default=dict, blank=True)
     avatar_color = models.CharField(max_length=20, blank=True, null=True)
+    # {style, seed, options} of a DiceBear avatar built on the profile; None keeps the coloured initials.
+    avatar = models.JSONField(default=None, null=True, blank=True)
     # preferences structure:
     # {
     #   "items_per_page": {"threats_watcher": 10, "data_leak": 10, ...},

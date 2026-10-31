@@ -1,7 +1,6 @@
 # coding=utf-8
 import logging
 import requests
-from datetime import timedelta
 from django.utils import timezone
 from django.db import close_old_connections
 from django.utils.dateparse import parse_datetime
@@ -568,18 +567,13 @@ def fetch_ransomlook_data():
 
 def send_cyber_watch_notifications(content):
     """
-    Send CyberWatch notifications to all enabled subscribers via Slack, Citadel, TheHive and/or Email.
+    Send CyberWatch notifications via Slack, Citadel, TheHive and/or Email.
+    Slack, Citadel and TheHive follow the instance settings (Connectors > Notifications); the email goes to the
+    subscribers who ticked E-mail and asked for this kind of notification.
     """
     notification_type = content.get('notification_type', '')
 
-    # Filter subscribers by channel availability
-    subscribers = Subscriber.objects.filter(
-        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
-    )
-
-    if not subscribers.exists():
-        logger.warning(f"{timezone.now()} - No CyberWatch subscribers configured, no notification sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     # Filter by subscription preference
     if notification_type == 'new_cve':
@@ -591,7 +585,110 @@ def send_cyber_watch_notifications(content):
     elif notification_type == 'victim_hit':
         subscribers = subscribers.filter(notify_victim_hits=True)
 
-    if not subscribers.exists():
-        return
-
     send_app_specific_notifications('cyber_watch', content, subscribers)
+
+
+# Watch rules against the data already collected: preview of a rule, recording its hits on demand, and the CVE / victim
+# each hit points at. Matching is the one of the fetch jobs (`_match_keyword_against_fields`).
+SAMPLE_SIZE = 5
+
+
+def victim_key(victim):
+    """`WatchRuleHit.object_id` of a victim, as written by `_check_watch_rules_for_victim`."""
+    return (f"{victim.group.name}::{victim.victim_name}" if victim.group_id else victim.victim_name)[:500]
+
+
+def _cve_fields(cve):
+    return {'cve_id': cve.cve_id, 'description': cve.description, 'severity': cve.severity}
+
+
+def _victim_fields(victim):
+    return {
+        'victim_name': victim.victim_name, 'country': victim.country, 'sector': victim.sector,
+        'group_name': victim.group.name if victim.group_id else '',
+    }
+
+
+def _first_match(keywords, exceptions, fields):
+    for keyword in keywords:
+        if keyword and _match_keyword_against_fields(keyword, exceptions, fields):
+            return keyword
+    return None
+
+
+def _candidates(scope):
+    """Active (not archived) CVEs and victims the scope covers."""
+    cves = CVEAlert.objects.filter(is_archived=False).order_by('-published') if scope in ('cve', 'both') else CVEAlert.objects.none()
+    victims = (RansomwareVictim.objects.filter(is_archived=False).select_related('group').order_by('-attacked_at')
+               if scope in ('ransomware', 'both') else RansomwareVictim.objects.none())
+    return cves, victims
+
+
+def match_rule(keywords, exceptions, scope):
+    """What a rule would match in the active CVEs and victims: counts and the latest few of each."""
+    cves, victims = _candidates(scope)
+    cve_matches, victim_matches = [], []
+    for cve in cves:
+        keyword = _first_match(keywords, exceptions, _cve_fields(cve))
+        if keyword:
+            cve_matches.append({'id': cve.id, 'label': cve.cve_id, 'detail': cve.description[:160], 'keyword': keyword,
+                                'severity': cve.severity, 'date': cve.published})
+    for victim in victims:
+        keyword = _first_match(keywords, exceptions, _victim_fields(victim))
+        if keyword:
+            victim_matches.append({'id': victim.id, 'label': victim.victim_name, 'detail': victim.group.name,
+                                   'keyword': keyword, 'country': victim.country, 'date': victim.attacked_at})
+    return {
+        'cves': len(cve_matches), 'victims': len(victim_matches),
+        'cveSamples': cve_matches[:SAMPLE_SIZE], 'victimSamples': victim_matches[:SAMPLE_SIZE],
+    }
+
+
+def record_rule_hits(rule):
+    """
+    Record the hits of `rule` on the active CVEs and victims already collected (the fetch jobs only check new
+    ones). No notification is sent: these are not new events. Returns the number of new hits.
+    """
+    cves, victims = _candidates(rule.scope)
+    created = 0
+    now = timezone.now()
+    for kind, rows, fields, key, display in (
+        ('cve', cves, _cve_fields, lambda c: c.cve_id, lambda c: f"{c.cve_id} - {c.description[:300]}"),
+        ('ransomware_victim', victims, _victim_fields, victim_key,
+         lambda v: f"{v.victim_name} ({v.group.name if v.group_id else ''}) - {v.country}"),
+    ):
+        for row in rows:
+            for keyword in rule.keywords:
+                if keyword and _first_match([keyword], rule.exceptions, fields(row)):
+                    _, new = WatchRuleHit.objects.get_or_create(
+                        rule=rule, hit_type=kind, object_id=key(row), matched_keyword=keyword,
+                        defaults={'hit_display': display(row), 'hit_at': now},
+                    )
+                    created += new
+    return created
+
+
+def hit_targets(hits):
+    """{hit id: the CVE or victim it points at}, in two queries for a page of hits."""
+    hits = [h for h in hits if h is not None]
+    cve_ids = {h.object_id for h in hits if h.hit_type == 'cve'}
+    victim_keys = {h.object_id for h in hits if h.hit_type == 'ransomware_victim'}
+    cves = {
+        c.cve_id: {'kind': 'cve', 'id': c.id, 'cve_id': c.cve_id, 'severity': c.severity, 'cvss_score': c.cvss_score,
+                   'published': c.published, 'is_archived': c.is_archived}
+        for c in CVEAlert.objects.filter(cve_id__in=cve_ids)
+    }
+    victims = {}
+    if victim_keys:
+        pairs = [k.split('::', 1) for k in victim_keys if '::' in k]
+        condition = Q(pk__in=[])
+        for group, name in pairs:
+            condition |= Q(group__name=group, victim_name=name)
+        for v in RansomwareVictim.objects.filter(condition).select_related('group').order_by('attacked_at'):
+            # The latest attack wins when a victim was posted twice.
+            victims[victim_key(v)] = {
+                'kind': 'victim', 'id': v.id, 'victim_name': v.victim_name, 'group_id': v.group_id,
+                'group_name': v.group.name, 'country': v.country, 'sector': v.sector, 'attacked_at': v.attacked_at,
+                'url': v.url, 'is_archived': v.is_archived,
+            }
+    return {h.id: (cves if h.hit_type == 'cve' else victims).get(h.object_id) for h in hits}

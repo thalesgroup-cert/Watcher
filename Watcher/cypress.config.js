@@ -1,4 +1,5 @@
 const { defineConfig } = require('cypress');
+const createBundler = require('@bahmutov/cypress-esbuild-preprocessor');
 
 module.exports = defineConfig({
   e2e: {
@@ -14,6 +15,8 @@ module.exports = defineConfig({
     },
 
     setupNodeEvents(on, config) {
+      on('file:preprocessor', createBundler());
+
       on('before:browser:launch', (browser = {}, launchOptions) => {
         if (browser.family === 'chromium') {
           launchOptions.args.push('--enable-unsafe-swiftshader');

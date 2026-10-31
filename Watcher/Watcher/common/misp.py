@@ -1,7 +1,5 @@
 import logging
-from django.utils import timezone
-from rest_framework.exceptions import NotFound
-from pymisp import MISPTag, MISPAttribute, MISPObject
+from pymisp import MISPTag, MISPObject
 from .models import MISPEventUuidLink
 from connectors.core import get_misp_config, get_thehive_config
 
@@ -298,7 +296,10 @@ def create_or_update_objects(misp_api, event, site, dry_run=False):
             return False, "Invalid MISP event format - please check the event UUID"
 
         domain_identifier = _get_domain_identifier(site)
-        is_takeover = hasattr(site, 'alert_set') and site.alert_set.filter(source='subdomain_takeover').exists()
+        alert_set = getattr(site, 'alert_set', None)
+        # only dns_finder alerts carry a `source`; site_monitoring alerts do not
+        has_source = alert_set is not None and any(f.name == 'source' for f in alert_set.model._meta.get_fields())
+        is_takeover = has_source and alert_set.filter(source='subdomain_takeover').exists()
         objects_builder = create_takeover_objects if is_takeover else create_objects
 
         logger.info(f"Processing domain name {domain_identifier} for event {event['Event']['uuid']}")

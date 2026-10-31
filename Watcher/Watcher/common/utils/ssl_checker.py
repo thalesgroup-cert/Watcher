@@ -75,16 +75,16 @@ class SSLCertificateChecker:
             return True
             
         except ssl.SSLError as e:
-            logger.warning(f"SSL error fetching certificate for {self.domain}: {str(e)}")
+            logger.debug(f"SSL error fetching certificate for {self.domain}: {str(e)}")
             return False
         except socket.gaierror as e:
-            logger.warning(f"DNS resolution failed for {self.domain}: {str(e)}")
+            logger.debug(f"DNS resolution failed for {self.domain}: {str(e)}")
             return False
         except socket.timeout as e:
-            logger.warning(f"Connection timeout for {self.domain}: {str(e)}")
+            logger.debug(f"Connection timeout for {self.domain}: {str(e)}")
             return False
         except ConnectionRefusedError as e:
-            logger.warning(f"Connection refused for {self.domain}: {str(e)}")
+            logger.debug(f"Connection refused for {self.domain}: {str(e)}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error fetching certificate for {self.domain}: {str(e)}")
@@ -255,7 +255,7 @@ def perform_single_ssl_check(site):
                 logger.warning(f"Could not extract SSL expiry date for {site.domain_name}")
                 return False
         else:
-            logger.warning(f"Failed to fetch SSL certificate for {site.domain_name}")
+            logger.debug(f"Failed to fetch SSL certificate for {site.domain_name}")
             return False
             
     except Exception as e:

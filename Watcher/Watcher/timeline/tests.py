@@ -331,3 +331,81 @@ class TimelineAPITest(APITestCase):
                 event,
                 f"Field '{field}' is missing from the serialized TimelineEvent.",
             )
+
+
+# ---------------------------------------------------------------------------
+# Class 5 – Activity feed API
+# ---------------------------------------------------------------------------
+
+class TimelineFeedAPITest(APITestCase):
+    """Tests for GET /api/timeline/events/feed/ and /summary/"""
+
+    FEED = '/api/timeline/events/feed/'
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='feeduser', password='feedpass')
+        self.other = User.objects.create_user(username='otheruser', password='otherpass')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        TimelineEvent.objects.all().delete()
+
+        domain_ct = ContentType.objects.get_for_model(LegitimateDomain)
+        user_ct = ContentType.objects.get_for_model(User)
+        self.mine = TimelineEvent.objects.create(
+            content_type=domain_ct, object_id=1, action=TimelineEvent.ACTION_UPDATED,
+            user=self.user, object_repr='mine.example.com', diff={'contact': {'old': None, 'new': 'soc'}},
+        )
+        self.theirs = TimelineEvent.objects.create(
+            content_type=domain_ct, object_id=2, action=TimelineEvent.ACTION_CREATED,
+            user=self.other, object_repr='theirs.example.com',
+        )
+        self.auto = TimelineEvent.objects.create(
+            content_type=user_ct, object_id=3, action=TimelineEvent.ACTION_CREATED,
+            user=None, object_repr='auto.example.com',
+        )
+
+    def _ids(self, query=''):
+        response = self.client.get(self.FEED + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return {e['id'] for e in response.data['results']}
+
+    def test_requires_auth(self):
+        self.client.credentials()
+        self.assertEqual(self.client.get(self.FEED).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_default_is_people_only(self):
+        self.assertEqual(self._ids(), {self.mine.id, self.theirs.id})
+
+    def test_actor_filters(self):
+        self.assertEqual(self._ids('?actor=automated'), {self.auto.id})
+        self.assertEqual(self._ids('?actor=me'), {self.mine.id})
+        self.assertEqual(self._ids('?actor=all'), {self.mine.id, self.theirs.id, self.auto.id})
+
+    def test_module_action_and_search_filters(self):
+        self.assertEqual(self._ids('?actor=all&module=common'), {self.mine.id, self.theirs.id})
+        self.assertEqual(self._ids('?actor=all&module=common,auth'), {self.mine.id, self.theirs.id, self.auto.id})
+        self.assertEqual(self._ids('?action=updated'), {self.mine.id})
+        self.assertEqual(self._ids('?search=THEIRS'), {self.theirs.id})
+
+    def test_newest_first_with_cursor(self):
+        response = self.client.get(self.FEED + '?actor=all&page_size=2')
+        self.assertEqual([e['id'] for e in response.data['results']], [self.auto.id, self.theirs.id])
+        self.assertIsNotNone(response.data['next'])
+        next_page = self.client.get(response.data['next'])
+        self.assertEqual([e['id'] for e in next_page.data['results']], [self.mine.id])
+        self.assertIsNone(next_page.data['next'])
+
+    def test_feed_fields(self):
+        event = self.client.get(self.FEED + '?actor=me').data['results'][0]
+        self.assertEqual(event['content_type'], 'common.legitimatedomain')
+        self.assertEqual(event['object_id'], 1)
+        self.assertEqual(event['diff'], {'contact': {'old': None, 'new': 'soc'}})
+
+    def test_summary(self):
+        response = self.client.get('/api/timeline/events/summary/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['people_today'], 2)
+        self.assertEqual(response.data['automated_today'], 1)
+        self.assertEqual(response.data['people_week'], 2)
+        self.assertEqual(response.data['contributors_week'], 2)
+        self.assertEqual(response.data['by_module_week'], {'common': 2})

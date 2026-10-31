@@ -2,13 +2,10 @@ import logging
 from rest_framework import serializers
 
 logger = logging.getLogger('watcher.site_monitoring')
-from django.utils import timezone
-import requests
-from rest_framework.exceptions import NotFound, AuthenticationFailed
 from connectors.core import get_misp_config
 
-from .core import monitoring_init
-from .models import Alert, Site
+from .core import compile_ignore_patterns, monitoring_init
+from .models import Alert, MonitoredPage, PageVersion, Site
 
 from pymisp import PyMISP, MISPEvent
 from common.bulk import normalize_domain_data
@@ -31,9 +28,11 @@ def _get_last_event(obj):
         return None
     u = event.user
     avatar_color = None
+    avatar = None
     if u:
         try:
             avatar_color = u.profile.avatar_color or None
+            avatar = u.profile.avatar or None
         except Exception:
             pass
     return {
@@ -41,6 +40,7 @@ def _get_last_event(obj):
         'first_name':  u.first_name if u else '',
         'last_name':   u.last_name if u else '',
         'avatar_color': avatar_color,
+        'avatar': avatar,
         'action':      event.action,
         'timestamp':   event.timestamp,
     }
@@ -50,6 +50,10 @@ def _get_last_event(obj):
 class SiteSerializer(serializers.ModelSerializer):
     misp_event_uuid = serializers.SerializerMethodField()
     last_event      = serializers.SerializerMethodField()
+    # Annotated by SiteViewSet.get_queryset (left out when the site comes from elsewhere)
+    alerts_count      = serializers.IntegerField(read_only=True)
+    open_alerts_count = serializers.IntegerField(read_only=True)
+    last_alert_at     = serializers.DateTimeField(read_only=True)
 
     def get_misp_event_uuid(self, obj):
         return get_misp_uuid(obj.domain_name)
@@ -113,6 +117,21 @@ class AlertSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class AlertSiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Site
+        fields = ['id', 'domain_name', 'legitimacy']
+
+
+class AlertListSerializer(serializers.ModelSerializer):
+    """Rows of the alert list: the site is named, not serialized in full (that cost a MISP lookup per row)."""
+    site = AlertSiteSerializer(read_only=True)
+
+    class Meta:
+        model = Alert
+        fields = '__all__'
+
+
 # MISP Serializer
 class MISPSerializer(serializers.Serializer):
     id = serializers.IntegerField()
@@ -138,7 +157,7 @@ class MISPSerializer(serializers.Serializer):
             event_uuid = data.get('event_uuid', '')
             
             try:
-                site = Site.objects.get(pk=site_id)
+                Site.objects.get(pk=site_id)
             except Site.DoesNotExist:
                 raise serializers.ValidationError({"id": "Site not found"})
 
@@ -226,3 +245,63 @@ class MISPSerializer(serializers.Serializer):
             'misp_event_uuid': get_misp_uuid(site.domain_name),
             'message': self._message
         }
+
+class MonitoredPageSerializer(serializers.ModelSerializer):
+    """A monitored page, with the figures of its history (annotated by the viewset)."""
+    versions_count = serializers.IntegerField(read_only=True, default=0)
+    last_ratio = serializers.FloatField(read_only=True, default=None)
+
+    class Meta:
+        model = MonitoredPage
+        fields = ['id', 'url', 'name', 'css_selector', 'ignore_patterns', 'threshold', 'check_interval', 'retention',
+                  'capture_screenshots', 'is_active', 'last_checked', 'last_status', 'last_changed', 'created_at',
+                  'versions_count', 'last_ratio']
+        read_only_fields = ['last_checked', 'last_status', 'last_changed', 'created_at']
+
+    def validate_url(self, value):
+        from urllib.parse import urlparse
+        value = value.strip()
+        if urlparse(value).scheme not in ('http', 'https'):
+            raise serializers.ValidationError("Only http(s) addresses can be monitored")
+        return value
+
+    def validate_css_selector(self, value):
+        if value.strip():
+            import soupsieve
+            try:
+                soupsieve.compile(value.strip())
+            except Exception as exc:
+                raise serializers.ValidationError(f"Invalid CSS selector: {exc}")
+        return value.strip()
+
+    def validate_ignore_patterns(self, value):
+        try:
+            compile_ignore_patterns(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
+        return value
+
+    def validate_threshold(self, value):
+        if not 1 <= value <= 100:
+            raise serializers.ValidationError("Between 1 and 100")
+        return value
+
+    def validate_check_interval(self, value):
+        if not 15 <= value <= 10080:
+            raise serializers.ValidationError("Between 15 minutes and 7 days")
+        return value
+
+    def validate_retention(self, value):
+        if not 2 <= value <= 500:
+            raise serializers.ValidationError("Between 2 and 500 versions")
+        return value
+
+
+class PageVersionSerializer(serializers.ModelSerializer):
+    """A version in the history of a page (without its text, which is long, nor its screenshot)."""
+    # Annotated by MonitoredPageViewSet.page_versions
+    has_screenshot = serializers.BooleanField(read_only=True, default=False)
+
+    class Meta:
+        model = PageVersion
+        fields = ['id', 'created_at', 'size', 'change_ratio', 'notified', 'has_screenshot']

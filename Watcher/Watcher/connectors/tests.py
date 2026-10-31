@@ -1,35 +1,37 @@
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase
+from django.test import TestCase, SimpleTestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
 
-from connectors.models import ConnectorOverride, ConnectorHealthCheck
-from connectors.core import (
-    get_all_connectors,
-    get_connector_by_id,
-    connector_exists,
-    save_connector_overrides,
-    reset_connector_field,
-    get_connector_count,
-    test_connector,
-    connector_encrypt,
-    connector_decrypt,
-    _compute_status,
-    get_connector_health,
-    record_health_check,
-    run_weekly_health_checks,
-)
+from connectors.models import ConnectorOverride, ConnectorHealthCheck, NotificationSetting
+from connectors.core import (get_all_connectors, get_connector_by_id, connector_exists, save_connector_overrides,
+                             reset_connector_field, get_connector_count, test_connector, connector_encrypt,
+                             connector_decrypt, _compute_status, get_connector_health, record_health_check,
+                             run_weekly_health_checks, get_misp_config, get_thehive_config)
 from common.models import PendingAction
+from connectors.notifications import (all_types, get_type, render_per_alert, render_text, render_title, EmailSpec,
+                                      Field, Layout, NotificationType, email_subject, get_setting, is_enabled,
+                                      registry, render_message, render_thehive_title, save_setting, thehive_meta,
+                                      template)
+from common.core import (send_app_specific_notifications, send_app_specific_notifications_group,
+                         send_only_thehive_notifications)
+from data_leak.models import Alert, Keyword, Subscriber
+from dns_finder.models import Alert as DnsAlert, DnsMonitored, DnsTwisted
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+import json
+import os
+import importlib
 
 
 class ConnectorOverrideModelTest(TestCase):
     """ConnectorOverride model creation and field storage."""
 
     def test_create_and_retrieve(self):
-        obj = ConnectorOverride.objects.create(
+        ConnectorOverride.objects.create(
             connector_id='test_connector',
             overrides={'HOST': 'localhost', 'PORT': '5432'},
         )
@@ -624,3 +626,809 @@ class WeeklyHealthCheckJobTest(TestCase):
         actions = PendingAction.objects.filter(action_type='connector_health_check')
         self.assertEqual(actions.count(), 2)
 
+
+# Notifications API
+BASE = '/api/connectors/notifications/'
+
+
+class NotificationAPITest(APITestCase):
+    def setUp(self):
+        NotificationSetting.objects.all().delete()
+        self.superuser = User.objects.create_superuser('notif_admin', 'admin@test.com', 'password')
+        self.regular_user = User.objects.create_user('notif_user', 'user@test.com', 'password')
+        _, self.super_token = AuthToken.objects.create(self.superuser)
+        _, self.user_token = AuthToken.objects.create(self.regular_user)
+
+    def _auth(self, token):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_every_endpoint_requires_a_superuser(self):
+        self._auth(self.user_token)
+        self.assertEqual(self.client.get(BASE).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.patch(BASE + 'data_leak/slack/', {'enabled': True}, format='json').status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.post(BASE + 'data_leak/slack/preview/', {}, format='json').status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_anonymous_is_refused(self):
+        self.assertEqual(self.client.get(BASE).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_list_describes_every_type_and_channel(self):
+        self._auth(self.super_token)
+        resp = self.client.get(BASE)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 17)
+        leak = next(t for t in resp.data if t['id'] == 'data_leak')
+        self.assertEqual(leak['module'], 'data_leak')
+        self.assertEqual(list(leak['channels']), ['slack', 'citadel', 'thehive', 'email'])
+        slack = leak['channels']['slack']
+        self.assertFalse(slack['enabled'])
+        self.assertEqual(slack['fields'], ['keyword_name', 'url'])
+        self.assertEqual(slack['available'], [
+            {'id': 'keyword_name', 'label': 'Keyword', 'required': False},
+            {'id': 'url', 'label': 'Source', 'required': True},
+        ])
+        self.assertEqual(slack['connector']['id'], 'slack')
+        self.assertIn(slack['connector']['status'], ('configured', 'partial', 'disabled'))
+        self.assertEqual(leak['channels']['email']['connector']['id'], 'smtp')
+        self.assertEqual(leak['channels']['email']['available'], [])
+        weekly = next(t for t in resp.data if t['id'] == 'threats_watcher_weeklysummary')
+        self.assertNotIn('thehive', weekly['channels'])
+
+    def test_switching_a_channel_on(self):
+        self._auth(self.super_token)
+        resp = self.client.patch(BASE + 'data_leak/slack/', {'enabled': True}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(resp.data['channels']['slack']['enabled'])
+        self.assertFalse(resp.data['channels']['citadel']['enabled'])
+
+    def test_choosing_the_fields(self):
+        self._auth(self.super_token)
+        resp = self.client.patch(BASE + 'data_leak/slack/', {'fields': ['url']}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['channels']['slack']['fields'], ['url'])
+
+    def test_bad_requests_save_nothing(self):
+        self._auth(self.super_token)
+        cases = [
+            ('data_leak/slack/', {'fields': ['keyword_name']}),        # required field missing
+            ('data_leak/slack/', {'fields': ['url', 'nope']}),         # unknown field
+            ('data_leak/slack/', {'fields': 'url'}),                   # not a list
+            ('data_leak/slack/', {'enabled': 'yes'}),                  # not a boolean
+            ('data_leak/email/', {'fields': ['url']}),                 # nothing to choose on email
+            ('threats_watcher_weeklysummary/thehive/', {'enabled': True}),  # no TheHive message
+        ]
+        for path, body in cases:
+            with self.subTest(path=path, body=body):
+                resp = self.client.patch(BASE + path, body, format='json')
+                self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn('error', resp.data)
+        self.assertFalse(NotificationSetting.objects.exists())
+
+    def test_unknown_type_and_channel_are_404(self):
+        self._auth(self.super_token)
+        self.assertEqual(self.client.patch(BASE + 'nope/slack/', {'enabled': True}, format='json').status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.patch(BASE + 'data_leak/sms/', {'enabled': True}, format='json').status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.post(BASE + 'nope/slack/preview/', {}, format='json').status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_preview_of_a_text_channel_uses_the_fields_sent(self):
+        self._auth(self.super_token)
+        resp = self.client.post(BASE + 'data_leak/slack/preview/', {'fields': ['url']}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['kind'], 'text')
+        self.assertIn('• *Source:* https://pastebin.com/abc123', resp.data['content'])
+        self.assertNotIn('*• Keyword:*', resp.data['content'])
+        self.assertFalse(NotificationSetting.objects.exists())
+
+    def test_preview_without_fields_uses_the_saved_ones(self):
+        self._auth(self.super_token)
+        self.client.patch(BASE + 'data_leak/slack/', {'fields': ['url']}, format='json')
+        resp = self.client.post(BASE + 'data_leak/slack/preview/', {}, format='json')
+        self.assertNotIn('*• Keyword:*', resp.data['content'])
+
+    def test_preview_of_citadel_thehive_and_email(self):
+        self._auth(self.super_token)
+        citadel = self.client.post(BASE + 'data_leak/citadel/preview/', {}, format='json').data
+        self.assertEqual(citadel['kind'], 'html')
+        self.assertIn('<tr><td><strong>Source</strong></td><td>https://pastebin.com/abc123</td></tr>', citadel['content'])
+        thehive = self.client.post(BASE + 'data_leak/thehive/preview/', {}, format='json').data
+        self.assertEqual(thehive['kind'], 'text')
+        self.assertTrue(thehive['title'].startswith('New Data Leakage - Alert #'))
+        email = self.client.post(BASE + 'data_leak/email/preview/', {}, format='json').data
+        self.assertEqual(email['kind'], 'html')
+        self.assertEqual(email['title'], '[ALERT #42] Data Leak')
+        self.assertIn('<html', email['content'])
+
+    def test_preview_refuses_what_the_save_refuses(self):
+        self._auth(self.super_token)
+        self.assertEqual(self.client.post(BASE + 'data_leak/slack/preview/', {'fields': ['nope']}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(BASE + 'threats_watcher_weeklysummary/thehive/preview/', {}, format='json').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_every_type_previews_on_every_channel(self):
+        self._auth(self.super_token)
+        for item in self.client.get(BASE).data:
+            for channel in item['channels']:
+                with self.subTest(type=item['id'], channel=channel):
+                    resp = self.client.post(f"{BASE}{item['id']}/{channel}/preview/", {}, format='json')
+                    self.assertEqual(resp.status_code, status.HTTP_200_OK)
+                    self.assertTrue(resp.data['content'])
+
+
+# Notification catalogue
+with open(os.path.join(os.path.dirname(__file__), 'test_data', 'notification_golden.json'), encoding='utf-8') as _f:
+    GOLDEN = json.load(_f)
+
+MODULES = {'threats_watcher', 'cyber_watch', 'data_leak', 'dns_finder', 'website_monitoring'}
+
+
+class CatalogueShapeTest(SimpleTestCase):
+    def test_seventeen_types_and_fifty_eight_channel_pairs(self):
+        types = all_types()
+        self.assertEqual(len(types), 17)
+        self.assertEqual(sum(len(t.channels) for t in types), 58)
+        per_channel = {c: sum(1 for t in types if c in t.channels) for c in ('slack', 'citadel', 'thehive', 'email')}
+        self.assertEqual(per_channel, {'slack': 16, 'citadel': 16, 'thehive': 9, 'email': 17})
+
+    def test_every_type_has_a_module_and_a_link(self):
+        for ntype in all_types():
+            with self.subTest(type=ntype.id):
+                self.assertIn(ntype.module, MODULES)
+                self.assertTrue(ntype.url_suffix.startswith('#'))
+                self.assertTrue(ntype.label)
+
+    def test_field_ids_are_unique_within_a_type(self):
+        for ntype in all_types():
+            ids = [f.id for f in ntype.fields]
+            self.assertEqual(len(ids), len(set(ids)), ntype.id)
+
+
+class GoldenMessagesTest(SimpleTestCase):
+    """With every field selected, the messages are the ones the hardcoded APP_CONFIG_* dicts produced."""
+
+    def test_default_messages_equal_the_legacy_text(self):
+        for ntype in all_types():
+            ctx = ntype.sample()
+            for channel in ('slack', 'citadel'):
+                if channel in ntype.layouts:
+                    with self.subTest(type=ntype.id, channel=channel):
+                        self.assertEqual(render_text(ntype, channel, ctx), GOLDEN[f'{ntype.id}/{channel}'])
+            if 'thehive' in ntype.layouts:
+                with self.subTest(type=ntype.id, channel='thehive'):
+                    self.assertEqual(render_text(ntype, 'thehive', ctx), GOLDEN[f'{ntype.id}/thehive'])
+                    self.assertEqual(render_title(ntype, ctx), GOLDEN[f'{ntype.id}/thehive_title'])
+            if ntype.email:
+                with self.subTest(type=ntype.id, channel='email'):
+                    self.assertEqual(ntype.email.subject.format(**ctx), GOLDEN[f'{ntype.id}/email_subject'])
+
+    def test_the_fixed_alert_of_a_group_notification_is_unchanged(self):
+        ntype = get_type('dns_finder')
+        ctx = ntype.sample()
+        layout = ntype.thehive_per_alert
+        self.assertEqual(layout.title.format(**ctx), GOLDEN['dns_finder/per_alert_title'])
+        self.assertEqual(render_per_alert("dns_finder", ctx)[1], GOLDEN["dns_finder/per_alert"])
+
+
+class FieldChoiceTest(SimpleTestCase):
+    def test_every_field_can_be_left_out_on_its_own(self):
+        for ntype in all_types():
+            ctx = ntype.sample()
+            for channel in ('slack', 'citadel', 'thehive'):
+                if channel not in ntype.layouts:
+                    continue
+                full = render_text(ntype, channel, ctx)
+                for f in ntype.fields_for(channel):
+                    if f.required:
+                        continue
+                    with self.subTest(type=ntype.id, channel=channel, field=f.id):
+                        shown = [i for i in ntype.default_fields(channel) if i != f.id]
+                        self.assertNotEqual(render_text(ntype, channel, ctx, shown), full)
+
+    def test_only_the_required_fields_still_make_a_message(self):
+        for ntype in all_types():
+            ctx = ntype.sample()
+            for channel in ('slack', 'citadel', 'thehive'):
+                if channel not in ntype.layouts:
+                    continue
+                required = [f.id for f in ntype.fields_for(channel) if f.required]
+                with self.subTest(type=ntype.id, channel=channel):
+                    self.assertTrue(render_text(ntype, channel, ctx, required))
+
+
+class EmailPreviewTest(SimpleTestCase):
+    def test_every_sample_email_renders(self):
+        for ntype in all_types():
+            if not ntype.email:
+                continue
+            ctx = ntype.sample()
+            with self.subTest(type=ntype.id):
+                body = ntype.email.sample_body(ctx)
+                self.assertIn('<html', body)
+                self.assertTrue(ntype.email.subject.format(**ctx))
+
+
+# Notification settings
+def _sample():
+    return {'name': 'example.com', 'count': 3, 'details_url': 'https://watcher.test/#/x'}
+
+
+TYPE = NotificationType(
+    id='test_type', label='Test type', module='data_leak', url_suffix='#/x', sample=_sample,
+    fields=(
+        Field('name', 'Name', slack='*• Name:* {name}\n', citadel='<li>Name: {name}</li>', thehive='Name: {name}\n', required=True),
+        Field('count', 'Count', slack='*• Count:* {count}\n', citadel='<li>Count: {count}</li>', thehive='Count: {count}\n'),
+        Field('note', 'Note', thehive='Note: fixed\n'),
+    ),
+    layouts={
+        'slack': Layout(head='*Test {name}*\n\n', tail='\nMore: {details_url}'),
+        'citadel': Layout(head='<ul>', tail='</ul>'),
+        'thehive': Layout(head='**Alert**\n', title='Test - {name}'),
+    },
+    email=EmailSpec(subject='[TEST] {name}', sample_body=lambda ctx: '<html></html>'),
+    thehive_meta={'severity': 2, 'tlp': 1, 'pap': 1},
+    thehive_per_alert=Layout(head='per alert {name}', title='Per alert {name}'),
+)
+
+ONLY_SLACK = NotificationType(
+    id='only_slack', label='Only Slack', module='data_leak', url_suffix='#/x', sample=_sample,
+    layouts={'slack': Layout(head='fixed {name}')},
+)
+
+
+class RenderTest(SimpleTestCase):
+    def test_every_field_is_shown_by_default(self):
+        self.assertEqual(
+            render_text(TYPE, 'slack', _sample()),
+            '*Test example.com*\n\n*• Name:* example.com\n*• Count:* 3\n\nMore: https://watcher.test/#/x',
+        )
+
+    def test_only_the_selected_fields_are_shown(self):
+        self.assertEqual(
+            render_text(TYPE, 'slack', _sample(), ['name']),
+            '*Test example.com*\n\n*• Name:* example.com\n\nMore: https://watcher.test/#/x',
+        )
+
+    def test_lines_follow_the_catalogue_order_not_the_selection_order(self):
+        self.assertEqual(render_text(TYPE, 'slack', _sample(), ['count', 'name']), render_text(TYPE, 'slack', _sample()))
+
+    def test_a_field_without_a_line_for_the_channel_is_skipped(self):
+        self.assertEqual(render_text(TYPE, 'citadel', _sample()), '<ul><li>Name: example.com</li><li>Count: 3</li></ul>')
+        self.assertEqual(render_text(TYPE, 'thehive', _sample()), '**Alert**\nName: example.com\nCount: 3\nNote: fixed\n')
+
+    def test_values_that_contain_braces_are_not_formatted_again(self):
+        ctx = {**_sample(), 'name': '{oops}'}
+        self.assertIn('{oops}', render_text(TYPE, 'slack', ctx))
+
+    def test_thehive_title(self):
+        self.assertEqual(render_title(TYPE, _sample()), 'Test - example.com')
+
+    def test_channels_and_fields_of_a_type(self):
+        self.assertEqual(TYPE.channels, ('slack', 'citadel', 'thehive', 'email'))
+        self.assertEqual(ONLY_SLACK.channels, ('slack',))
+        self.assertEqual(TYPE.fields_for('email'), ())
+        self.assertEqual(TYPE.default_fields('slack'), ['name', 'count'])
+        self.assertEqual(TYPE.default_fields('thehive'), ['name', 'count', 'note'])
+
+
+class StoreTest(TestCase):
+    def setUp(self):
+        self.enterContext(patch.dict(registry._TYPES, {'test_type': TYPE, 'only_slack': ONLY_SLACK}))
+
+    def test_no_row_means_off_with_every_field(self):
+        self.assertEqual(get_setting('test_type', 'slack'), (False, ['name', 'count']))
+        self.assertFalse(is_enabled('test_type', 'slack'))
+
+    def test_switching_on_keeps_the_default_fields(self):
+        self.assertEqual(save_setting('test_type', 'slack', enabled=True), (True, ['name', 'count']))
+        self.assertTrue(is_enabled('test_type', 'slack'))
+        self.assertIsNone(NotificationSetting.objects.get(notification_type='test_type', channel='slack').selected_fields)
+
+    def test_choosing_fields(self):
+        save_setting('test_type', 'slack', fields=['name'])
+        self.assertEqual(get_setting('test_type', 'slack'), (False, ['name']))
+        self.assertEqual(NotificationSetting.objects.get(notification_type='test_type', channel='slack').selected_fields, ['name'])
+
+    def test_choosing_every_field_is_stored_as_not_chosen(self):
+        save_setting('test_type', 'slack', fields=['count', 'name'])
+        self.assertIsNone(NotificationSetting.objects.get(notification_type='test_type', channel='slack').selected_fields)
+
+    def test_the_two_settings_are_independent(self):
+        save_setting('test_type', 'slack', enabled=True, fields=['name'])
+        save_setting('test_type', 'slack', enabled=False)
+        self.assertEqual(get_setting('test_type', 'slack'), (False, ['name']))
+
+    def test_a_required_field_cannot_be_removed(self):
+        with self.assertRaisesMessage(ValueError, 'name'):
+            save_setting('test_type', 'slack', fields=['count'])
+
+    def test_an_unknown_field_is_refused(self):
+        with self.assertRaisesMessage(ValueError, 'nope'):
+            save_setting('test_type', 'slack', fields=['name', 'nope'])
+
+    def test_fields_must_be_a_list_of_strings(self):
+        with self.assertRaises(ValueError):
+            save_setting('test_type', 'slack', fields='name')
+        with self.assertRaises(ValueError):
+            save_setting('test_type', 'slack', fields=[1])
+
+    def test_enabled_must_be_a_boolean(self):
+        with self.assertRaises(ValueError):
+            save_setting('test_type', 'slack', enabled='yes')
+
+    def test_unknown_type_and_unknown_channel(self):
+        with self.assertRaises(KeyError):
+            save_setting('missing', 'slack', enabled=True)
+        with self.assertRaises(KeyError):
+            save_setting('test_type', 'sms', enabled=True)
+
+    def test_a_channel_the_type_does_not_have(self):
+        with self.assertRaisesMessage(ValueError, 'no citadel message'):
+            save_setting('only_slack', 'citadel', enabled=True)
+
+    def test_email_has_no_fields_to_choose(self):
+        with self.assertRaises(ValueError):
+            save_setting('test_type', 'email', fields=['name'])
+        self.assertEqual(save_setting('test_type', 'email', enabled=True), (True, []))
+
+    def test_stale_field_ids_are_ignored_and_required_fields_always_shown(self):
+        NotificationSetting.objects.create(notification_type='test_type', channel='slack', selected_fields=['gone'])
+        self.assertEqual(get_setting('test_type', 'slack'), (False, ['name']))
+        NotificationSetting.objects.filter(notification_type='test_type', channel='slack').update(selected_fields=['count'])
+        self.assertEqual(get_setting('test_type', 'slack'), (False, ['name', 'count']))
+
+    def test_render_message_uses_the_saved_fields(self):
+        save_setting('test_type', 'slack', fields=['name'])
+        self.assertNotIn('Count', render_message('test_type', 'slack', _sample()))
+        self.assertIn('Name', render_message('test_type', 'slack', _sample()))
+
+    def test_title_subject_meta_and_per_alert_text(self):
+        self.assertEqual(render_thehive_title('test_type', _sample()), 'Test - example.com')
+        self.assertEqual(email_subject('test_type', _sample()), '[TEST] example.com')
+        self.assertEqual(thehive_meta('test_type'), {'severity': 2, 'tlp': 1, 'pap': 1})
+        self.assertEqual(render_per_alert('test_type', _sample()), ('Per alert example.com', 'per alert example.com'))
+
+
+# Notification delivery
+class DeliveryTest(TestCase):
+    def setUp(self):
+        # The test database starts with every setting seeded (off): the tests switch on what they need.
+        NotificationSetting.objects.all().delete()
+        self.alert = Alert.objects.create(
+            keyword=Keyword.objects.create(name='example.com'), url='https://pastebin.com/abc', content='leaked')
+        self.user = User.objects.create_user('recipient', 'recipient@test.com', 'pass')
+        self.slack = self.enterContext(patch('common.core.send_slack_message'))
+        self.citadel = self.enterContext(patch('common.core.send_citadel_message'))
+        self.thehive = self.enterContext(patch('common.core.send_thehive_alert'))
+        self.email = self.enterContext(patch('common.core.send_email_notifications'))
+
+    def _send(self, subscribers=None):
+        send_app_specific_notifications(
+            'data_leak', {'alert': self.alert}, Subscriber.objects.all() if subscribers is None else subscribers)
+
+    def test_nothing_is_sent_until_a_channel_is_switched_on(self):
+        Subscriber.objects.create(user_rec=self.user, email=True)
+        self._send()
+        for mock in (self.slack, self.citadel, self.thehive, self.email):
+            mock.assert_not_called()
+
+    def test_slack_goes_out_without_any_subscriber(self):
+        save_setting('data_leak', 'slack', enabled=True)
+        self._send(Subscriber.objects.none())
+        self.slack.assert_called_once()
+        self.assertIn('https://pastebin.com/abc', self.slack.call_args[0][0])
+
+    def test_the_message_shows_only_the_chosen_fields(self):
+        save_setting('data_leak', 'slack', enabled=True, fields=['url'])
+        self._send()
+        text = self.slack.call_args[0][0]
+        self.assertNotIn('*• Keyword:*', text)
+        self.assertIn('• *Source:* https://pastebin.com/abc', text)
+
+    def test_citadel_and_thehive_follow_their_own_switch(self):
+        save_setting('data_leak', 'citadel', enabled=True)
+        save_setting('data_leak', 'thehive', enabled=True)
+        self._send()
+        self.citadel.assert_called_once()
+        self.assertIn('https://pastebin.com/abc', self.citadel.call_args.kwargs['content']['formatted_body'])
+        self.thehive.assert_called_once()
+        self.assertTrue(self.thehive.call_args.kwargs['title'].startswith('New Data Leakage - Alert #'))
+
+    def test_email_needs_the_switch_and_a_recipient(self):
+        Subscriber.objects.create(user_rec=self.user, email=True)
+        self._send()
+        self.email.assert_not_called()
+
+        save_setting('data_leak', 'email', enabled=True)
+        Subscriber.objects.all().update(email=False)
+        self._send()
+        self.email.assert_not_called()
+
+        Subscriber.objects.all().update(email=True)
+        self._send()
+        self.email.assert_called_once()
+        self.assertEqual(self.email.call_args[0][2], ['recipient@test.com'])
+
+    def test_a_failing_channel_does_not_stop_the_others(self):
+        Subscriber.objects.create(user_rec=self.user, email=True)
+        save_setting('data_leak', 'slack', enabled=True)
+        save_setting('data_leak', 'email', enabled=True)
+        self.slack.side_effect = RuntimeError('Slack is down')
+        self._send()
+        self.email.assert_called_once()
+
+    def test_a_failing_setting_read_does_not_raise_and_sends_nothing(self):
+        Subscriber.objects.create(user_rec=self.user, email=True)
+        with patch('common.core.is_enabled', side_effect=RuntimeError('db down')):
+            self._send()
+        for mock in (self.slack, self.citadel, self.thehive, self.email):
+            mock.assert_not_called()
+
+    def test_a_failing_setting_read_on_one_channel_does_not_stop_the_others(self):
+        from connectors.notifications import is_enabled as real_is_enabled
+        Subscriber.objects.create(user_rec=self.user, email=True)
+        save_setting('data_leak', 'slack', enabled=True)
+        save_setting('data_leak', 'email', enabled=True)
+
+        def flaky(type_id, channel):
+            if channel == 'slack':
+                raise RuntimeError('db down')
+            return real_is_enabled(type_id, channel)
+
+        with patch('common.core.is_enabled', side_effect=flaky):
+            self._send()
+        self.slack.assert_not_called()
+        self.email.assert_called_once()
+
+    def test_group_notification_follows_the_settings(self):
+        context = {'keyword': 'example.com', 'alerts_number': 3}
+        send_app_specific_notifications_group('data_leak_group', context, Subscriber.objects.none())
+        self.slack.assert_not_called()
+
+        save_setting('data_leak_group', 'slack', enabled=True)
+        send_app_specific_notifications_group('data_leak_group', context, Subscriber.objects.none())
+        self.slack.assert_called_once()
+        self.assertIn('*3*', self.slack.call_args[0][0])
+
+    def test_a_failing_setting_read_does_not_raise_for_the_group_thehive_alert(self):
+        with patch('common.core.is_enabled', side_effect=RuntimeError('db down')):
+            send_only_thehive_notifications('data_leak', {'alert': self.alert}, Subscriber.objects.none())
+        self.thehive.assert_not_called()
+
+    def test_one_thehive_alert_per_alert_of_a_group(self):
+        send_only_thehive_notifications('data_leak', {'alert': self.alert}, Subscriber.objects.none())
+        self.thehive.assert_not_called()
+
+        save_setting('data_leak', 'thehive', enabled=True)
+        send_only_thehive_notifications('data_leak', {'alert': self.alert}, Subscriber.objects.none())
+        self.thehive.assert_called_once()
+        self.assertEqual(self.thehive.call_args.kwargs['severity'], 1)
+
+
+class DnsFinderTheHiveTest(TestCase):
+    """DNS Finder opens its own TheHive alert (search for the parent domain first) inside the generic sender."""
+
+    def setUp(self):
+        NotificationSetting.objects.all().delete()
+        monitored = DnsMonitored.objects.create(domain_name='example.com')
+        twisted = DnsTwisted.objects.create(domain_name='evil.example.com', dns_monitored=monitored)
+        self.alert = DnsAlert.objects.create(
+            dns_twisted=twisted, source=DnsAlert.SOURCE_DNSTWIST, trigger='dnstwist')
+        self.context = {'alert': self.alert, 'source': DnsAlert.SOURCE_DNSTWIST}
+        self.slack = self.enterContext(patch('common.core.send_slack_message'))
+        self.email = self.enterContext(patch('common.core.send_email_notifications'))
+        self.search_ticket = self.enterContext(
+            patch('common.core.search_thehive_for_ticket_id', return_value=(None, None)))
+        self.search_observable = self.enterContext(
+            patch('common.core.search_thehive_for_observable', return_value=(None, None)))
+        self.update_alert = self.enterContext(patch('common.core.update_existing_alert_case'))
+        self.create_alert = self.enterContext(patch('common.core.create_new_alert'))
+
+    def _send(self):
+        send_app_specific_notifications('dns_finder', self.context, Subscriber.objects.none())
+
+    def test_a_new_thehive_alert_carries_the_catalogue_title_and_meta(self):
+        save_setting('dns_finder', 'thehive', enabled=True)
+        self._send()
+        self.create_alert.assert_called_once()
+        kwargs = self.create_alert.call_args.kwargs
+        self.assertEqual(kwargs['title'], 'New Twisted DNS found - example[.]com')
+        self.assertEqual((kwargs['severity'], kwargs['tlp'], kwargs['pap']), (1, 1, 1))
+
+    def test_nothing_goes_to_thehive_while_it_is_switched_off(self):
+        self._send()
+        self.create_alert.assert_not_called()
+        self.search_observable.assert_not_called()
+
+    def test_a_failing_thehive_block_does_not_stop_slack(self):
+        save_setting('dns_finder', 'thehive', enabled=True)
+        save_setting('dns_finder', 'slack', enabled=True)
+        self.create_alert.side_effect = RuntimeError('TheHive is down')
+        self._send()
+        self.slack.assert_called_once()
+
+    def test_an_error_before_the_thehive_calls_does_not_stop_slack(self):
+        save_setting('dns_finder', 'thehive', enabled=True)
+        save_setting('dns_finder', 'slack', enabled=True)
+        with patch('common.core.generate_ref', side_effect=RuntimeError('no reference available')):
+            self._send()
+        self.slack.assert_called_once()
+        self.create_alert.assert_not_called()
+
+
+class UdrpDeliveryTest(TestCase):
+    """UDRP decisions: Slack and Citadel raised KeyError before (the legacy dicts had no channel or room)."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+        NotificationSetting.objects.all().delete()
+        self.site = SimpleNamespace(domain_name='example.com', ticket_id='T-1')
+        # The TheHive comment is not part of this feature and would call the real TheHive if it is configured.
+        self.enterContext(patch('site_monitoring.udrp._notify_thehive'))
+        self.slack = self.enterContext(patch('common.utils.send_slack_messages.send_slack_message'))
+        self.citadel = self.enterContext(patch('common.utils.send_citadel_messages.send_citadel_message'))
+        self.email = self.enterContext(patch('common.utils.send_email_notifications.send_email_notifications'))
+        self.enterContext(patch('connectors.core.get_slack_config', return_value={'token': 't', 'channel': 'C1'}))
+        self.enterContext(patch(
+            'connectors.core.get_citadel_config', return_value={'url': 'https://c', 'token': 't', 'room_id': '!room'}))
+
+    def _notify(self):
+        from site_monitoring.udrp import notify_udrp_decision
+        notify_udrp_decision(self.site, 'won')
+
+    def test_nothing_goes_out_until_a_channel_is_switched_on(self):
+        self._notify()
+        for mock in (self.slack, self.citadel, self.email):
+            mock.assert_not_called()
+
+    def test_slack_uses_the_configured_channel(self):
+        save_setting('udrp_decision', 'slack', enabled=True)
+        self._notify()
+        self.slack.assert_called_once()
+        content, channel = self.slack.call_args[0][:2]
+        self.assertEqual(channel, 'C1')
+        self.assertIn('example[.]com', content)
+
+    def test_citadel_uses_the_configured_room(self):
+        save_setting('udrp_decision', 'citadel', enabled=True)
+        self._notify()
+        self.citadel.assert_called_once()
+        self.assertEqual(self.citadel.call_args.kwargs['room_id'], '!room')
+        self.assertIn('example[.]com', self.citadel.call_args.kwargs['content']['formatted_body'])
+
+    def _switch_on_all_channels(self):
+        from site_monitoring.models import Subscriber as SiteSubscriber
+        user = User.objects.create_user('udrp_recipient', 'udrp@test.com', 'pass')
+        SiteSubscriber.objects.create(user_rec=user, email=True)
+        for channel in ('slack', 'citadel', 'email'):
+            save_setting('udrp_decision', channel, enabled=True)
+
+    def test_a_failing_slack_does_not_stop_citadel_and_email(self):
+        self._switch_on_all_channels()
+        self.slack.side_effect = RuntimeError('Slack is down')
+        self._notify()
+        self.citadel.assert_called_once()
+        self.email.assert_called_once()
+
+    def test_a_failing_citadel_does_not_stop_email(self):
+        self._switch_on_all_channels()
+        self.citadel.side_effect = RuntimeError('Citadel is down')
+        self._notify()
+        self.slack.assert_called_once()
+        self.email.assert_called_once()
+
+    def test_email_goes_to_the_site_monitoring_subscribers(self):
+        from site_monitoring.models import Subscriber as SiteSubscriber
+        user = User.objects.create_user('udrp_recipient', 'udrp@test.com', 'pass')
+        SiteSubscriber.objects.create(user_rec=user, email=True)
+        save_setting('udrp_decision', 'email', enabled=True)
+        self._notify()
+        self.email.assert_called_once()
+        subject, _body, recipients = self.email.call_args[0][:3]
+        self.assertEqual(subject, '[UDRP DECISION] example[.]com')
+        self.assertEqual(recipients, ['udrp@test.com'])
+
+
+migration = importlib.import_module('connectors.migrations.0006_seed_notification_settings')
+
+# The last migration of each app before it dropped the slack / citadel / thehive boxes of its subscribers. The seed
+# reads those boxes, so it is tested on the schema it was written for, not on the current models.
+BEFORE_THE_DROP = [
+    ('threats_watcher', '0020_source_last_checked_source_last_status_code'),
+    ('cyber_watch', '0001_initial'),
+    ('data_leak', '0013_alter_keyword_options'),
+    ('dns_finder', '0016_alert_feed_indexes'),
+    ('site_monitoring', '0035_site_network_history'),
+    ('connectors', '0007_notificationsetting_custom_message'),
+]
+
+
+def _enabled(type_id, channel):
+    return NotificationSetting.objects.get(notification_type=type_id, channel=channel).enabled
+
+
+class SeedTest(TransactionTestCase):
+    def setUp(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(BEFORE_THE_DROP)
+        self.apps = MigrationExecutor(connection).loader.project_state(BEFORE_THE_DROP).apps
+        NotificationSetting.objects.all().delete()
+        self.user = self.apps.get_model('auth', 'User').objects.create(username='seed_user', email='seed@test.com')
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def subscriber(self, app_label, **flags):
+        return self.apps.get_model(app_label, 'Subscriber').objects.create(user_rec=self.user, **flags)
+
+    def seed(self):
+        migration.seed(self.apps, None)
+
+    def test_one_row_per_supported_pair_all_off_without_subscribers(self):
+        self.seed()
+        self.assertEqual(NotificationSetting.objects.count(), 52)
+        self.assertFalse(NotificationSetting.objects.filter(enabled=True).exists())
+        self.assertFalse(NotificationSetting.objects.exclude(selected_fields=None).exists())
+
+    def test_a_channel_is_on_when_a_subscriber_of_the_module_ticked_it(self):
+        self.subscriber('data_leak', slack=True, email=True)
+        self.seed()
+        self.assertTrue(_enabled('data_leak', 'slack'))
+        self.assertTrue(_enabled('data_leak_group', 'slack'))
+        self.assertTrue(_enabled('data_leak', 'email'))
+        self.assertFalse(_enabled('data_leak', 'citadel'))
+        self.assertFalse(_enabled('data_leak', 'thehive'))
+        self.assertFalse(_enabled('dns_finder', 'slack'))
+
+    def test_threats_watcher_opt_in_flags_are_respected(self):
+        self.subscriber(
+            'threats_watcher', slack=True, notify_weekly_summary=False, notify_breaking_news=True,
+            notify_trendy_words=False, notify_monitored_keywords=True)
+        self.seed()
+        self.assertFalse(_enabled('threats_watcher_weeklysummary', 'slack'))
+        self.assertTrue(_enabled('threats_watcher_breakingnews', 'slack'))
+        self.assertTrue(_enabled('threats_watcher', 'slack'))
+
+    def test_cyber_watch_opt_in_flags_are_respected(self):
+        self.subscriber('cyber_watch', thehive=True, notify_cve_hits=False)
+        self.seed()
+        self.assertFalse(_enabled('cyber_watch_cve_hit', 'thehive'))
+        self.assertTrue(_enabled('cyber_watch_new_cve', 'thehive'))
+        self.assertFalse(_enabled('cyber_watch_new_cve', 'slack'))
+
+    def test_site_monitoring_subscribers_also_seed_udrp(self):
+        self.subscriber('site_monitoring', citadel=True)
+        self.seed()
+        self.assertTrue(_enabled('website_monitoring', 'citadel'))
+        self.assertTrue(_enabled('udrp_decision', 'citadel'))
+
+    def test_running_it_twice_changes_nothing(self):
+        self.subscriber('data_leak', slack=True)
+        self.seed()
+        self.seed()
+        self.assertEqual(NotificationSetting.objects.count(), 52)
+
+    def test_the_frozen_channel_map_matches_the_catalogue(self):
+        frozen = {type_id: set(channels) for type_id, (_, _, channels) in migration.SEEDS.items()}
+        # Types added after the seed have no row: they are off until a superuser switches them on
+        added_since_seed = {'page_change', 'article_rule_hit'}
+        live = {t.id: set(t.channels) for t in all_types() if t.id not in added_since_seed}
+        self.assertEqual(frozen, live)
+
+class TemplateEngineTest(SimpleTestCase):
+    def test_variables_and_dotted_names(self):
+        ctx = {'a': 'x', 'obj': type('O', (), {'pk': 7})()}
+        self.assertEqual(template.render('{a}-{obj.pk}-{missing}', ctx), 'x-7-')
+
+    def test_block_shows_only_when_the_variable_has_a_value(self):
+        text = 'A{{#if mx}} MX: {mx}{{/if}}.'
+        self.assertEqual(template.render(text, {'mx': 'mx1'}), 'A MX: mx1.')
+        for empty in (None, '', '  ', []):
+            self.assertEqual(template.render(text, {'mx': empty}), 'A.')
+        self.assertEqual(template.render(text, {'mx': 0}), 'A MX: 0.')
+
+    def test_else_and_nesting(self):
+        text = '{{#if a}}{{#if b}}ab{{else}}a{{/if}}{{else}}none{{/if}}'
+        self.assertEqual(template.render(text, {'a': 1, 'b': 1}), 'ab')
+        self.assertEqual(template.render(text, {'a': 1}), 'a')
+        self.assertEqual(template.render(text, {}), 'none')
+
+    def test_braces_inside_a_value_are_not_read_again(self):
+        self.assertEqual(template.render('{a}', {'a': '{b} {{#if c}}'}), '{b} {{#if c}}')
+
+    def test_validation(self):
+        template.validate('{a} {{#if b}}x{{/if}}', {'a', 'b'})
+        for bad in ('', '   ', '{{#if a}}', '{{/if}}', '{{else}}', '{nope}', '{{#if nope}}x{{/if}}'):
+            with self.assertRaises(ValueError, msg=bad):
+                template.validate(bad, {'a', 'b'})
+        with self.assertRaises(ValueError):
+            template.validate('x' * (template.MAX_LENGTH + 1), set())
+
+
+class CustomMessageAPITest(APITestCase):
+    def setUp(self):
+        NotificationSetting.objects.all().delete()
+        admin = User.objects.create_superuser('tpl_admin', 'a@test.com', 'password')
+        _, token = AuthToken.objects.create(admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _patch(self, type_id, channel, body):
+        return self.client.patch(f'{BASE}{type_id}/{channel}/', body, format='json')
+
+    def test_describe_offers_the_default_message_and_the_variables(self):
+        channel = self.client.get(BASE).data[0]['channels']['slack']
+        self.assertIsNone(channel['template'])
+        self.assertTrue(channel['default_template'].startswith('*'))
+        self.assertIn('details_url', [v['name'] for v in channel['variables']])
+
+    def test_saving_and_resetting_a_message(self):
+        resp = self._patch('cyber_watch_cve_hit', 'slack', {'template': 'Hit {cve_id}{{#if keyword}} on {keyword}{{/if}}'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['channels']['slack']['template'], 'Hit {cve_id}{{#if keyword}} on {keyword}{{/if}}')
+        ctx = {'cve_id': 'CVE-1', 'keyword': ''}
+        self.assertEqual(render_message('cyber_watch_cve_hit', 'slack', ctx), 'Hit CVE-1')
+        self.assertEqual(self._patch('cyber_watch_cve_hit', 'slack', {'template': None}).status_code, 200)
+        self.assertIsNone(NotificationSetting.objects.get(notification_type='cyber_watch_cve_hit', channel='slack').custom_template)
+
+    def test_website_monitoring_shows_the_mx_line_only_when_it_changed(self):
+        text = 'Site {domain_name_sanitized}{{#if new_mx_records}}\nMX: {old_mx_records} -> {new_mx_records}{{/if}}'
+        self.assertEqual(self._patch('website_monitoring', 'slack', {'template': text}).status_code, 200)
+        base = {'domain_name_sanitized': 'example[.]com', 'old_mx_records': 'a', 'new_mx_records': None}
+        self.assertEqual(render_message('website_monitoring', 'slack', base), 'Site example[.]com')
+        base['new_mx_records'] = 'b'
+        self.assertEqual(render_message('website_monitoring', 'slack', base), 'Site example[.]com\nMX: a -> b')
+
+    def test_title_and_subject(self):
+        self.assertEqual(self._patch('data_leak', 'thehive', {'title': 'Leak {keyword_name}'}).status_code, 200)
+        self.assertEqual(render_thehive_title('data_leak', {'keyword_name': 'k', 'alert_pk': 1}), 'Leak k')
+        self.assertEqual(self._patch('data_leak', 'email', {'title': 'Subject {alert_pk}'}).status_code, 200)
+        self.assertEqual(email_subject('data_leak', {'alert_pk': 9}), 'Subject 9')
+
+    def test_what_cannot_be_saved(self):
+        for type_id, channel, body in (
+            ('data_leak', 'slack', {'template': '{nope}'}),
+            ('data_leak', 'slack', {'template': '{{#if url}}'}),
+            ('data_leak', 'slack', {'template': ''}),
+            ('data_leak', 'email', {'template': 'body'}),
+            ('data_leak', 'slack', {'title': 'x'}),
+            ('data_leak', 'thehive', {'title': 'two\nlines'}),
+        ):
+            resp = self._patch(type_id, channel, body)
+            self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, msg=str(body))
+        self.assertFalse(NotificationSetting.objects.exclude(selected_fields=None).exists())
+        self.assertFalse(NotificationSetting.objects.filter(custom_template__isnull=False).exists())
+
+    def test_preview_of_an_unsaved_message(self):
+        url = f'{BASE}data_leak/thehive/preview/'
+        resp = self.client.post(url, {'template': '# {keyword_name}', 'title': 'T {alert_pk}'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['format'], 'markdown')
+        self.assertTrue(resp.data['content'].startswith('# '))
+        self.assertTrue(resp.data['title'].startswith('T '))
+        self.assertEqual(self.client.post(url, {'template': '{nope}'}, format='json').status_code, 400)
+        self.assertFalse(NotificationSetting.objects.filter(custom_template__isnull=False).exists())
+
+
+# TheHive tags
+class TagSettingsTest(TestCase):
+    """Tags are typed as `a,b,c` but were also saved as the text of a Python list."""
+
+    def _thehive_tags(self, value):
+        ConnectorOverride.objects.update_or_create(connector_id='thehive', defaults={'overrides': {'THE_HIVE_TAGS': value}})
+        return get_thehive_config()['tags']
+
+    def _misp_tags(self, value):
+        ConnectorOverride.objects.update_or_create(connector_id='misp', defaults={'overrides': {'MISP_TAGS': value}})
+        return get_misp_config()['tags']
+
+    def test_comma_separated_tags(self):
+        self.assertEqual(self._thehive_tags('Watcher,Impersonation,Malicious Domain'),
+                         ['Watcher', 'Impersonation', 'Malicious Domain'])
+
+    def test_tags_saved_as_the_text_of_a_list_lose_their_brackets_and_quotes(self):
+        self.assertEqual(self._thehive_tags("['Watcher', 'Impersonation', 'Typosquatting']"),
+                         ['Watcher', 'Impersonation', 'Typosquatting'])
+
+    def test_no_tags(self):
+        self.assertEqual(self._thehive_tags(''), [])
+        self.assertEqual(self._thehive_tags('[]'), [])
+
+    def test_misp_reads_tags_the_same_way(self):
+        self.assertEqual(self._misp_tags("['Watcher', 'tlp:amber']"), ['Watcher', 'tlp:amber'])

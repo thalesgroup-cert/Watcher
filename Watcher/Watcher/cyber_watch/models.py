@@ -165,9 +165,6 @@ class Subscriber(models.Model):
 
     # Notification channels
     email   = models.BooleanField(default=False, verbose_name="E-mail")
-    thehive = models.BooleanField(default=False, verbose_name="TheHive")
-    slack   = models.BooleanField(default=False, verbose_name="Slack")
-    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     # Subscription types
     notify_all_cves      = models.BooleanField(default=True,  verbose_name="All CVEs")

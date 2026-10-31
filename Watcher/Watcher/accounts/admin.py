@@ -6,10 +6,10 @@ from django.contrib.auth.models import User
 from django.utils.safestring import mark_safe
 from .models import APIKey, UserProfile
 from .api import generate_api_key
+from .core import THEME_CHOICES
 from django.contrib import messages
 from django import forms
 from django.utils import timezone
-from datetime import timedelta
 from knox.models import AuthToken
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -280,8 +280,8 @@ class APIKeyAdmin(admin.ModelAdmin):
     def key_details(self, obj):
         if obj.auth_token:
             return mark_safe(
-                f"Algorithm: SHA3_512<br>"
-                f"Raw API keys are not stored, so there is no way to see this user’s API key."
+                "Algorithm: SHA3_512<br>"
+                "Raw API keys are not stored, so there is no way to see this user’s API key."
             )
         return None
 
@@ -309,24 +309,6 @@ class AuthTokenAdmin(admin.ModelAdmin):
 admin.site.unregister(AuthToken)
 
 
-THEME_CHOICES = [
-    ('bootstrap', 'Watcher Default'),
-    ('flatly', 'Flatly'),
-    ('cosmo', 'Cosmo'),
-    ('lux', 'Lux'),
-    ('minty', 'Minty'),
-    ('morph', 'Morph'),
-    ('sandstone', 'Sandstone'),
-    ('united', 'United'),
-    ('yeti', 'Yeti'),
-    ('cyborg', 'Cyborg'),
-    ('darkly', 'Darkly'),
-    ('slate', 'Slate'),
-    ('solar', 'Solar'),
-    ('superhero', 'Superhero'),
-    ('brite', 'Brite'),
-]
-
 MODULE_LAYOUT_LABELS = {
     'watcher_threats_grid':            'Threats Watcher',
     'watcher_dataleak_grid':           'Data Leak',
@@ -346,7 +328,7 @@ _PANEL_ICONS = {
 
 
 class UserProfileAdminForm(forms.ModelForm):
-    theme = forms.ChoiceField(choices=THEME_CHOICES, required=True)
+    theme = forms.ChoiceField(choices=[('', 'Not chosen')] + THEME_CHOICES, required=False)
 
     class Meta:
         model = UserProfile
@@ -360,7 +342,7 @@ def _render_layout_panel(title, layout):
     """Render a miniature grid preview for admin."""
     if not isinstance(layout, list):
         return ''
-    max_x, max_y, max_w, max_h = 12, 0, 0, 0
+    max_y = 0
     for item in layout:
         max_y = max(max_y, item.get('y', 0) + item.get('h', 1))
     if max_y == 0:

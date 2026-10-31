@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Watcher?
 
-Watcher is an AI-powered cybersecurity threat detection and monitoring platform built by Thales Group CERT, packaged as a single Django project with a React (webpack, not Vite) frontend embedded in it. It continuously watches for threats targeting an organisation: trending CVEs and ransomware activity, RSS-fed CERT advisories, look-alike/typosquatted domains (DNS permutation + Certificate Transparency), data leaks across paste sites and code registries, and changes to monitored malicious/legitimate domains — then correlates, scores, and pushes the results into TheHive/MISP, Slack, Citadel, or email.
+Watcher is an AI-powered cybersecurity threat detection and monitoring platform built by Thales Group CERT, packaged as a single Django project with a React (Vite-built, served by Django) frontend embedded in it. It continuously watches for threats targeting an organisation: trending CVEs and ransomware activity, RSS-fed CERT advisories, look-alike/typosquatted domains (DNS permutation + Certificate Transparency), data leaks across paste sites and code registries, and changes to monitored malicious/legitimate domains — then correlates, scores, and pushes the results into TheHive/MISP, Slack, Citadel, or email.
 
 ## Commands
 
@@ -27,13 +27,17 @@ make backup           # Backup the database (./scripts/backup-db.sh)
 ### Frontend (from repo root, builds into `Watcher/Watcher/frontend/static/frontend/`)
 
 ```bash
-npm run dev           # webpack --mode development --watch, served by Django via whitenoise
-npm run build          # webpack --mode production
+npm run dev           # vite build --mode development --watch, served by Django via whitenoise
+npm run build          # tsc --noEmit, then vite build (production)
+npm run typecheck      # tsc --noEmit
+npm run lint           # eslint .
 npm run cypress:open   # Cypress e2e, interactive
 npm run test:e2e       # Cypress e2e, headless
 ```
 
-There is no separate frontend dev server — React is bundled by webpack and served by Django itself (`frontend` app), unlike a typical Vite-proxied SPA setup.
+There is no separate frontend dev server — Vite builds one IIFE bundle (`main.js` + `main.css`, entry `src/index.tsx`) that Django serves itself (`frontend` app). After a build, compare the size of the local `main.js` with the one served on `/static/frontend/main.js` before judging a render: the container gets the file through `docker compose watch`.
+
+Behaviour checks are the Cypress specs in `Watcher/cypress/e2e/*.cy.js` (fully mocked).
 
 ### Backend (from `Watcher/Watcher/`)
 
@@ -50,9 +54,10 @@ python manage.py createsuperuser
 
 | Service | Role |
 |---|---|
-| `watcher` | Django app (runserver on 9002 in dev compose; Gunicorn-style prod image `ghcr.io/thalesgroup-cert/watcher`) — runs the web UI/API *and* the in-process APScheduler jobs (see below); fixed IP `10.10.10.6` |
+| `watcher` | Django app (served by Gunicorn on 9002, one worker with 16 threads because the in-process scheduler must run once; image `ghcr.io/thalesgroup-cert/watcher`) — runs the web UI/API *and* the in-process APScheduler jobs (see below); fixed IP `10.10.10.6` |
 | `db_watcher` | MySQL 8.0 (`mysql_native_password` auth plugin required) — fixed IP `10.10.10.5` |
 | `searxng` | Privacy-respecting metasearch engine, used by `data_leak` for paste/code-leak searches — fixed IP `10.10.10.3` |
+| `screenshotter` | Headless Chromium (Playwright) behind a tiny HTTP server (`screenshotter/`), used by `site_monitoring` for the screenshots of the monitored pages. It runs the code of the pages it visits, so it has **its own network shared with `watcher` only** (no database, no other service), a read-only filesystem, no capability, limited memory, and refuses anything that is not a public http(s) address (`screenshotter/guard.py`). `SCREENSHOT_SERVICE_URL=""` on `watcher` switches the screenshots off; `SCREENSHOT_PROXY` makes the browser leave through a proxy. Not part of `deployment/` yet (no published image) |
 | `certstream` | `0rickyy0/certstream-server-go` — Certificate Transparency stream consumed by `dns_finder` for real-time suspicious-domain detection — fixed IP `10.10.10.7` |
 | `traefik` (optional, `compose_reverse_proxy.yaml`) | TLS-terminating reverse proxy for the corporate domain |
 
@@ -73,9 +78,18 @@ Representative jobs (see each app's `core.py` for the authoritative list):
 | `threats_watcher` | `main_watch` (RSS ingestion, every 30 min), `cleanup` (daily 08:00), `generate_weekly_summary` (AI weekly digest) |
 | `dns_finder` | `main_dns_twist` (dnstwist permutation scan, every 2h), `main_certificate_transparency` (certstream consumer, every 1h) |
 | `data_leak` | `main_data_leak` (SearxNG-driven leak search, every 5 min, up to 10 concurrent instances), `cleanup` (every 2h) |
-| `site_monitoring` | `monitoring_check` (content/IP/MX diff via TLSH, every 15 min), `update_site_monitoring_rdap_data` (every 15 min) |
+| `site_monitoring` | `monitoring_check` (content/IP/MX diff via TLSH, every 15 min), `update_site_monitoring_rdap_data` (every 15 min), `check_monitored_pages` (pages that are due, every 15 min) |
 | `cyber_watch` | `fetch_latest_cves`, `fetch_ransomware_data`, `fetch_ransomlook_data` (all every 30 min) |
 | `common` | `update_domain_registrar_info` / `update_legitimate_domains_rdap_data` (WHOIS/RDAP, every 30 min), `update_monitored_sites_rdap_data` / `update_all_ssl_certificates` (hourly/6h), `check_udrp_statuses` (6h), `run_weekly_health_checks` (connector health, Monday 06:00) |
+
+### Web server and logs
+
+The image serves Watcher with **Gunicorn** (`gunicorn.conf.py`, started as `gunicorn watcher.wsgi:application`). It runs **one worker with 16 threads, on purpose**: the APScheduler jobs start inside the web process, so a second worker would run every job (and send every notification) twice; do not raise `workers` and do not use `--preload` (a fork drops the scheduler threads). `docker-compose.override.yml` sets `GUNICORN_RELOAD=1` so that `docker compose watch` still reloads the code; `python manage.py runserver` remains fine for a run outside Docker.
+
+Three kinds of log, kept apart:
+- **Application log** — the `watcher.*` loggers (what Watcher detects, schedules and sends): console and `logs/<module>.log`. Each scheduled job ends with one `CRON TASK done: <job> - <counts> (<s>s)` line, and each notification with one `Notification <module> #<id> (<subject>): slack=ok, citadel=failed (…), thehive=ok, email=no recipients` line (WARNING when a channel failed). What happens to each domain or keyword is DEBUG.
+- **Access log** — `logs/access.log`, written by `common/access_log.py`: `user ip METHOD /path status duration`. INFO for actions that change something and successful logins, WARNING for refused actions, failed logins, 401/403, ERROR for 5xx, DEBUG for reads of the API; `/static/` and the Docker health check are not logged. `ACCESS_LOG_CONSOLE=1` also prints it on the console.
+- **Server log** — Gunicorn's own messages (start, stop, a worker that dies), on the console, prefixed `gunicorn:`. Its access log is off.
 
 ### Django Apps (`Watcher/Watcher/`)
 
@@ -88,14 +102,21 @@ Representative jobs (see each app's `core.py` for the authoritative list):
 | `cyber_watch` | CVE (cve.circl.lu) and ransomware (ransomware.live, ransomlook.io) intelligence fetch/correlation, keyword-based Watch Rules |
 | `data_leak` | Leak detection across Pastebin, StackOverflow, GitHub/GitLab/Bitbucket, APKMirror, npm, etc., via SearxNG |
 | `dns_finder` | Suspicious/typosquatted domain detection: dnstwist permutations + certstream-driven Certificate Transparency monitoring; `certstream_client.py` is the websocket consumer for the internal `certstream` service |
-| `site_monitoring` | Malicious-domain surveillance (IP/MX/content-hash via TLSH, RDAP/WHOIS expiry) and UDRP case tracking (`udrp.py`) |
-| `threats_watcher` | RSS-fed threat news (CERT-FR, CERT-EU, US-CERT, ACSC, …), AI summarization/NER pipeline (`model_manager.py`, `summary_manager.py`) for weekly digests and breaking-news alerts |
+| `site_monitoring` | Malicious-domain surveillance (IP/MX/content-hash via TLSH, RDAP/WHOIS expiry) and UDRP case tracking (`udrp.py`); precise web pages (`MonitoredPage`/`PageVersion`, `pages.py`): extracted text, noise filtered, versions kept, diff, notified above a per-page threshold, and a screenshot kept with each version (`screenshots.py`, `PageScreenshot`) |
+| `threats_watcher` | RSS-fed threat news (CERT-FR, CERT-EU, US-CERT, ACSC, …), AI summarization/NER pipeline (`model_manager.py`, `summary_manager.py`) for weekly digests and breaking-news alerts; monitored keywords, each a single word or a rule of several words (AND / one of / exceptions, `rules.py`) matched against the collected articles |
 | `timeline` | Cross-module audit/activity timeline (`middleware.py` + `signals.py` capture events from the other apps) |
-| `frontend` | Serves the built React/webpack bundle (`frontend/static/frontend/`) and its Django template/view |
+| `frontend` | Serves the built React/Vite bundle (`frontend/static/frontend/`) and its Django template/view |
 
 ### Frontend (`Watcher/Watcher/frontend/src`)
 
-React 18 (not 19) + React Router v5 + Redux (`redux`, `react-redux`, `redux-thunk`) + MUI v9 (`@mui/material`, `@mui/x-charts`, `@mui/lab`), bundled by webpack 5 (Babel, not Vite/esbuild) straight into Django's static files — no separate frontend server or API proxy to configure. Also pulls in `deck.gl` (WorldMap geospatial view), `chart.js`/`react-chartjs-2`, `react-grid-layout` (resizable dashboard panels), `react-wordcloud`, and `bootstrap`/`react-bootstrap` alongside MUI. E2E tests use Cypress (`Watcher/cypress/`), not Playwright.
+TypeScript, React 19 + react-router 8 (`HashRouter`, routes in `components/App.tsx`) + MUI v9 (`@mui/material`, `@mui/x-charts`) + TanStack Query (server data) + Zustand (session, bulk-action feedback, docked inspector), bundled by Vite straight into Django's static files — no separate frontend server or API proxy to configure. No Redux, no Bootstrap. Visualisations: `@visx/wordcloud` (word cloud), `react-force-graph-2d` + `d3-force` (graph of words linked by their articles), `react-simple-maps` + `world-atlas` (world map). Layout:
+
+- `features/<module>/` — one folder per page (`types.ts`, `api.ts`, `hooks.ts`, `catalog.ts`, `<Module>Page.tsx`, `components/`): `dashboard` (home `/`: attention cards, briefing, word cloud / graph, world map, latest CVEs and victims), `threatsWatcher` (`/threats_watcher`), `cyberWatch`, `dataLeak`, `dnsFinder`, `siteMonitoring`, `legitimateDomains`, `connectors`, plus `auth`, `timeline` (activity feed + object history), `bulk`, `exports`, `misp`, `pendingActions`, `config`.
+- `ui/` — shared building blocks: `Page`/`PageHeader`, `DataTable`, `KpiCard`, `SideDrawer` (the object inspector: docked beside the list on wide screens, no backdrop), `SelectionBar`, `ConfirmDialog`, `EmptyState`, `WorldMap`, `charts` (validated palette, `ChartCard`, `RankedBars`).
+- `layouts/AppShell.tsx` — the sidebar (icon rail that opens on hover, pin to keep it open, drawer on mobile); `/login` is a full page outside it.
+- `lib/useUrlParams` — page state (tab, filters, sort, page, open object, dialog) lives in the URL; each tab of a page prefixes its own parameters.
+
+Every page follows the same conventions: a `PageHeader` with tabs, a server-sorted `DataTable` whose rows open a docked `SideDrawer`, filters and the open object kept in the URL (each tab prefixes its own parameters), bulk actions through `SelectionBar`, and a `ConfirmDialog` before anything destructive.
 
 ### AI / ML
 
@@ -113,7 +134,7 @@ React 18 (not 19) + React Router v5 + Redux (`redux`, `react-redux`, `redux-thun
 | `deployment/Makefile` | All operational tasks (see Commands above) |
 | `deployment/scripts/` | `init.sh`, `deploy.sh`, `migrate.sh`, `populate-db.sh`, `create-superuser.sh`, `backup-db.sh`, `check-network.sh`, `replace-tls.sh` |
 
-The root `.env` is currently **tracked by git** in this repo (not gitignored) — don't assume it's safe to fill in real secrets locally without first checking `git status`/adding it to `.gitignore`, and don't `git add`/commit it without checking what you'd be staging.
+The root `.env` is **not versioned** (it is gitignored): copy `.env.example` to `.env` and fill it in locally. `.env.example` lists every variable the code and the compose files read, with empty or dummy values; keep it in sync when a variable is added.
 
 ## Full Local Dev Deployment — `/deploy-full-e2e`
 
@@ -125,7 +146,7 @@ Assumes: Docker + Compose v2 (this machine: client 29.7.2 / compose plugin 5.5.1
 
 Watcher reads config from **two different `.env` files at once**. `compose_apps.yaml`'s `watcher` service loads `env_file: [${WATCHER_PATH}/.env, ./.env]` — both merged into the container's environment, with the *second* file's values overriding the first on any shared key:
 
-- **`Watcher/.env`** (repo root, sibling to this file) — the actual Django-level config read in `watcher/settings.py` and each app's `core.py`: `DJANGO_SECRET_KEY`, `DB_*`, LDAP/OIDC, SMTP, Slack/Citadel/TheHive/MISP keys, CyberWatch feed URLs, etc. **There is no `.env.example` for this file anywhere in the repo** — construct it from the variable names Django actually reads, or copy an existing deployment's `.env` and blank the secrets.
+- **`Watcher/.env`** (repo root, sibling to this file) — the actual Django-level config read in `watcher/settings.py` and each app's `core.py`: `DJANGO_SECRET_KEY`, `DB_*`, LDAP/OIDC, SMTP, Slack/Citadel/TheHive/MISP keys, CyberWatch feed URLs, etc. Its template is `.env.example` at the repo root.
 - **`deployment/.env`** (from `deployment/.env.example`) — the Compose-level config: ports, image versions, network subnet/IPs, container names — but **also** `DB_USER`/`DB_PASSWORD`/`DB_ROOT_PASSWORD`/`DJANGO_SECRET_KEY`/`TZ`/`SEARX_HOSTNAME`/`SEARX_COMMAND`/`DATA_LEAK_SEARX_URL`/`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` — the exact same variable names as the root `.env`.
 
 Because `deployment/.env` loads *last*, it silently wins on all 11 overlapping keys. Set a real `DJANGO_SECRET_KEY` or DB password only in the root `.env` and the container still runs with `deployment/.env`'s (placeholder) value — no error, no warning. Keep those keys in sync by hand across both files.

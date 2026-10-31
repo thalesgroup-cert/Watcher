@@ -16,7 +16,7 @@ ARG NO_PROXY
 #################################################
 #                FRONTEND BUILD                #
 #################################################
-FROM node:18-bookworm-slim AS frontend-builder
+FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /frontend
 
@@ -25,8 +25,8 @@ RUN npm ci
 
 COPY . .
 
-# Install ReactJs dependencies
-RUN npm install
+# Build the React bundle (Vite)
+RUN npm run build
 
 #################################################
 #                BACKEND BUILD                 #
@@ -120,4 +120,4 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 9002
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:9002"]
+CMD ["gunicorn", "watcher.wsgi:application"]

@@ -1,6 +1,5 @@
 import requests
 import logging
-from django.utils import timezone
 from connectors.core import get_thehive_config
 
 # Configure logger
@@ -52,7 +51,6 @@ def search_thehive_for_observable(observable_value, thehive_url, api_key):
     Search for the most recent case for the observable, then the most recent alert if no case is found.
     Returns (type, object) or (None, None) if nothing is found.
     """
-    import json
     import requests
 
     headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
@@ -163,7 +161,7 @@ def add_comment_to_item(item_type, item_id, comment, thehive_url, api_key):
         logger.error(f"Error while adding comment: {e}")
 
 
-def create_observables(observables, parent_domain=None, subdomain=None):
+def create_observables(observables, parent_domain=None, subdomain=None, tlp=1, pap=1):
     """
     Format observables for TheHive API with automatic parent_domain and subdomain tags.
 
@@ -174,29 +172,19 @@ def create_observables(observables, parent_domain=None, subdomain=None):
     :rtype: list
     """
 
-    current_time = timezone.now().strftime("%H:%M:%S")
-    current_date = timezone.now().strftime("%d/%m/%y")
-
     observables_data = []
     for obs in observables:
-        tag_info = []
-        if 'tags' in obs:
-            for tag in obs['tags']:
-                tag_parts = tag.split(':')
-                if len(tag_parts) == 2:
-                    tag_info.append(f"*{tag_parts[0]}:* {tag_parts[1]}")
-        
-        tags_message = "\n".join(tag_info) if tag_info else "No tags"
-        message = f"**More information(s)**:\n{tags_message}"
-
         observable_data = {
             "dataType": obs['dataType'],
             "data": obs['data'],
-            "message": message,
-            "ioc": True,
-            "sighted": True,
-            "tlp": 1,
-            "pap": 1
+            # What Watcher knows about it, in a sentence an analyst reads in the list of observables
+            "message": obs.get('message') or '',
+            # Only what Watcher flags as suspicious is an indicator; the rest is context
+            "ioc": bool(obs.get('ioc', False)),
+            # Watcher detects from outside: nothing was seen in the organisation's own systems
+            "sighted": False,
+            "tlp": tlp,
+            "pap": pap
         }
 
         if 'tags' in obs:
@@ -225,14 +213,14 @@ def update_existing_alert_case(item_type, existing_item, observables, comment, t
     item_id = existing_item["_id"]
     
     if observables:
-        observables_data = create_observables(observables, parent_domain, subdomain)
+        observables_data = create_observables(observables, parent_domain, subdomain, tlp=existing_item.get("tlp", 1), pap=existing_item.get("pap", 1))
         add_observables_to_item(item_type, item_id, observables_data, thehive_url, api_key)
 
     if comment:
         add_comment_to_item(item_type, item_id, comment, thehive_url, api_key)
 
 
-def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, app_name, observables, customFields, comment, thehive_url, api_key, parent_domain=None, subdomain=None):
+def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, app_name, observables, customFields, comment, thehive_url, api_key, parent_domain=None, subdomain=None, external_link=None):
     from common.core import generate_ref
     """
     Create a new alert in TheHive with the provided details.
@@ -304,6 +292,9 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
             "email-sender": {"string": get_thehive_config()['email_sender']}
         }
     }
+    if external_link:
+        # The way back from the alert to the object in Watcher
+        alert_data["externalLink"] = external_link
 
     headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
     proxies = {"http": None, "https": None}
@@ -317,7 +308,7 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
         logger.info(f"Alert successfully created on TheHive for {app_name}.")
 
         if observables:
-            observables_data = create_observables(observables, parent_domain, subdomain)
+            observables_data = create_observables(observables, parent_domain, subdomain, tlp=int(tlp), pap=int(pap))
             add_observables_to_item("alert", alert_id, observables_data, thehive_url, api_key)
 
         if comment:
@@ -330,7 +321,7 @@ def create_new_alert(ticket_id, title, description, severity, tlp, pap, tags, ap
         return None
 
 
-def handle_alert_or_case(ticket_id, observables, comment, title, description, severity, tlp, pap, tags, app_name, customFields, thehive_url, api_key):
+def handle_alert_or_case(ticket_id, observables, comment, title, description, severity, tlp, pap, tags, app_name, customFields, thehive_url, api_key, external_link=None):
     """
     Handle the creation or updating of alerts and cases in TheHive.
 
@@ -367,5 +358,7 @@ def handle_alert_or_case(ticket_id, observables, comment, title, description, se
         create_new_alert(
             ticket_id=ticket_id, title=title, description=description, severity=severity, 
             tlp=tlp, pap=pap, tags=tags, app_name=app_name, observables=observables, 
-            customFields=customFields, comment=comment, thehive_url=thehive_url, api_key=api_key
+            # The description of a new alert says it all: the comment is for the follow-ups of an existing one
+            customFields=customFields, comment=None, thehive_url=thehive_url, api_key=api_key,
+            external_link=external_link
         )

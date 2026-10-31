@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework import routers
 from .api import DnsMonitoredViewSet, DnsTwistedViewSet, AlertViewSet, MISPViewSet, KeywordMonitoredViewSet, \
-    ThreatsMonitoredView
+    ThreatsMonitoredView, ThreatDetailView
 
 from .core import start_scheduler
 
@@ -14,6 +14,7 @@ router.register('api/dns_finder/misp', MISPViewSet, 'misp')
 
 urlpatterns = router.urls + [
     path('api/dns_finder/threats_monitored/', ThreatsMonitoredView.as_view(), name='threats_monitored'),
+    path('api/dns_finder/threats_monitored/<int:pk>/', ThreatDetailView.as_view(), name='threat_detail'),
 ]
 
 start_scheduler()

@@ -1,8 +1,6 @@
 import os
-import unittest
-from unittest.mock import patch, MagicMock
-from django.test import TestCase, override_settings
-from django.core.exceptions import ImproperlyConfigured
+from unittest.mock import patch
+from django.test import TestCase
 from django.conf import settings
 
 
@@ -158,7 +156,8 @@ class EnvironmentVariableConfigTest(TestCase):
         ]
         
         for input_val, expected in test_cases:
-            result = int(os.environ.get('EMAIL_PORT', input_val))
+            with patch.dict(os.environ, {'EMAIL_PORT': input_val}):
+                result = int(os.environ.get('EMAIL_PORT', 25))
             self.assertEqual(result, expected)
             self.assertIsInstance(result, int)
 

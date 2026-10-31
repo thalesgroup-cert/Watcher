@@ -1,6 +1,7 @@
 from django.test import TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
+from datetime import timedelta
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
@@ -96,7 +97,7 @@ class CVEAlertAPITest(APITestCase):
     def test_filter_by_severity(self):
         response = self.client.get('/api/cyber_watch/cves/?severity=CRITICAL')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = list(response.data)
+        data = response.data['results']
         self.assertTrue(all(c['severity'] == 'CRITICAL' for c in data))
 
     def test_filter_days(self):
@@ -143,7 +144,7 @@ class RansomwareVictimAPITest(APITestCase):
     def test_filter_by_country(self):
         response = self.client.get('/api/cyber_watch/ransomware/victims/?country=FR')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = list(response.data)
+        data = response.data['results']
         self.assertTrue(all('FR' in v['country'] for v in data))
 
     def test_filter_by_group(self):
@@ -152,7 +153,7 @@ class RansomwareVictimAPITest(APITestCase):
 
     def test_victim_serializer_has_group_name(self):
         response = self.client.get('/api/cyber_watch/ransomware/victims/')
-        data = list(response.data)
+        data = response.data['results']
         self.assertTrue(len(data) > 0)
         self.assertIn('group_name', data[0])
 
@@ -310,7 +311,7 @@ class WatchRuleAPITest(APITestCase):
     def test_list_watch_rules(self):
         response = self.client.get('/api/cyber_watch/watch-rules/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = list(response.data)
+        data = response.data['results']
         self.assertTrue(any(r['name'] == 'API Test Rule' for r in data))
 
     def test_create_watch_rule(self):
@@ -377,7 +378,7 @@ class WatchRuleHitTest(TestCase):
         client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         response = client.get('/api/cyber_watch/watch-rule-hits/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = list(response.data)
+        data = response.data['results']
         self.assertTrue(len(data) >= 1)
         self.assertIn('rule_name', data[0])
 
@@ -400,7 +401,7 @@ class WatchRuleLastEventFieldTest(APITestCase):
         """GET /api/cyber_watch/watch-rules/ must include last_event=null when no timeline events."""
         response = self.client.get('/api/cyber_watch/watch-rules/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = list(response.data)
+        results = response.data['results']
         self.assertTrue(len(results) >= 1)
         first = next(r for r in results if r['name'] == 'LastEventRule')
         self.assertIn('last_event', first)
@@ -408,3 +409,91 @@ class WatchRuleLastEventFieldTest(APITestCase):
         if last_event is not None:
             self.assertIn('action', last_event)
             self.assertIn('username', last_event)
+
+
+class CyberWatchPageAPITest(APITestCase):
+    """Filters, counters, preview / scan of rules, hit targets and statistics used by the Cyber Watch page."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='cwpage', password='pass', email='cwpage@t.com')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        now = timezone.now()
+        CVEAlert.objects.create(cve_id='CVE-2026-0001', description='Fortinet FortiOS remote code execution',
+                                severity='CRITICAL', cvss_score=9.8, published=now)
+        CVEAlert.objects.create(cve_id='CVE-2026-0002', description='WordPress plugin XSS', published=now - timedelta(days=40))
+        CVEAlert.objects.create(cve_id='CVE-2026-0003', description='Old Fortinet flaw', severity='HIGH', published=now, is_archived=True)
+        self.group = RansomwareGroup.objects.create(name='akira')
+        RansomwareVictim.objects.create(group=self.group, victim_name='Clinic Nord', country='FR', sector='Healthcare', attacked_at=now)
+        RansomwareVictim.objects.create(group=self.group, victim_name='Steel Corp', country='DE', sector='Manufacturing',
+                                        attacked_at=now - timedelta(days=2))
+        self.rule = WatchRule.objects.create(name='Edge', keywords=['fortinet'], exceptions=['old'], scope='cve')
+        self.hit = WatchRuleHit.objects.create(rule=self.rule, hit_type='cve', object_id='CVE-2026-0001',
+                                               hit_display='CVE-2026-0001 - Fortinet', matched_keyword='fortinet')
+
+    def results(self, url):
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response.data['results']
+
+    def test_cve_filters_and_hits_count(self):
+        rows = self.results('/api/cyber_watch/cves/?severity=critical,none')
+        self.assertEqual({r['cve_id'] for r in rows}, {'CVE-2026-0001', 'CVE-2026-0002'})
+        self.assertEqual(next(r for r in rows if r['cve_id'] == 'CVE-2026-0001')['hits_count'], 1)
+        self.assertEqual([r['cve_id'] for r in self.results('/api/cyber_watch/cves/?period=7d&search=fortinet')], ['CVE-2026-0001'])
+        self.assertEqual([r['cve_id'] for r in self.results('/api/cyber_watch/cves/?matched=no')], ['CVE-2026-0002'])
+        self.assertEqual([r['cve_id'] for r in self.results('/api/cyber_watch/cves/?status=archived')], ['CVE-2026-0003'])
+        self.assertEqual(len(self.results('/api/cyber_watch/cves/?status=all')), 3)
+
+    def test_victim_filters(self):
+        self.assertEqual([r['victim_name'] for r in self.results('/api/cyber_watch/ransomware/victims/?country=fr')], ['Clinic Nord'])
+        self.assertEqual([r['victim_name'] for r in self.results('/api/cyber_watch/ransomware/victims/?sector=manufacturing')], ['Steel Corp'])
+        rows = self.results(f'/api/cyber_watch/ransomware/victims/?group_id={self.group.id}&ordering=victim_name')
+        self.assertEqual([r['victim_name'] for r in rows], ['Clinic Nord', 'Steel Corp'])
+        self.assertEqual(self.client.get(f'/api/cyber_watch/ransomware/groups/{self.group.id}/').data['victim_count'], 2)
+
+    def test_preview_does_not_record(self):
+        response = self.client.post('/api/cyber_watch/watch-rules/preview/',
+                                    {'keywords': ['Fortinet', 'healthcare'], 'exceptions': ['old'], 'scope': 'both'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual((response.data['cves'], response.data['victims']), (1, 1))
+        self.assertEqual(response.data['victimSamples'][0]['label'], 'Clinic Nord')
+        self.assertEqual(WatchRuleHit.objects.count(), 1)
+        bad = self.client.post('/api/cyber_watch/watch-rules/preview/', {'keywords': [' ']}, format='json')
+        self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_scan_records_hits_once(self):
+        rule = WatchRule.objects.create(name='Health', keywords=['healthcare'], scope='ransomware')
+        self.assertEqual(self.client.post(f'/api/cyber_watch/watch-rules/{rule.id}/scan/').data, {'created': 1})
+        self.assertEqual(self.client.post(f'/api/cyber_watch/watch-rules/{rule.id}/scan/').data, {'created': 0})
+        row = next(r for r in self.results('/api/cyber_watch/watch-rules/') if r['id'] == rule.id)
+        self.assertEqual((row['hits_count'], row['open_hits_count']), (1, 1))
+        rule.is_active = False
+        rule.save()
+        self.assertEqual(self.client.post(f'/api/cyber_watch/watch-rules/{rule.id}/scan/').status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_hits_carry_their_target_and_archive_in_bulk(self):
+        WatchRuleHit.objects.create(rule=self.rule, hit_type='ransomware_victim', object_id='akira::Clinic Nord',
+                                    hit_display='Clinic Nord (akira) - FR', matched_keyword='clinic')
+        rows = {r['hit_type']: r for r in self.results('/api/cyber_watch/watch-rule-hits/')}
+        self.assertEqual(rows['cve']['target']['cvss_score'], 9.8)
+        self.assertEqual(rows['ransomware_victim']['target']['victim_name'], 'Clinic Nord')
+        self.assertEqual(self.client.get(f'/api/cyber_watch/watch-rule-hits/{self.hit.id}/').data['target']['cve_id'], 'CVE-2026-0001')
+        response = self.client.post('/api/cyber_watch/watch-rule-hits/bulk_update/',
+                                    {'ids': [self.hit.id], 'changes': {'is_archived': True}}, format='json')
+        self.assertEqual(response.data['succeeded'], 1)
+        self.assertEqual([r['object_id'] for r in self.results('/api/cyber_watch/watch-rule-hits/?status=archived')], ['CVE-2026-0001'])
+        self.assertEqual(self.results('/api/cyber_watch/cves/?search=0001')[0]['hits_count'], 0)
+
+    def test_statistics(self):
+        data = self.client.get('/api/cyber_watch/statistics/').data
+        self.assertEqual(data['cves']['critical7d'], 1)
+        self.assertEqual((data['cves']['matched'], data['victims']['matched']), (1, 0))
+        self.assertEqual(data['cves']['bySeverity'], {'CRITICAL': 1, 'NONE': 1})
+        self.assertEqual(len(data['cves']['perDay']), 30)
+        self.assertEqual(data['victims']['topGroups'], [{'id': self.group.id, 'name': 'akira', 'count': 2}])
+        self.assertEqual({c['name'] for c in data['victims']['byCountry']}, {'FR', 'DE'})
+        self.assertEqual(data['hits']['openCve'], 1)
+        self.assertEqual(data['rules']['byRule'][0]['name'], 'Edge')
+        self.client.credentials()
+        self.assertNotIn('rules', self.client.get('/api/cyber_watch/statistics/').data)

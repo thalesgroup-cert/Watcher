@@ -24,7 +24,13 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
+    # Same Node version as the frontend stage of Watcher/Dockerfile (Vite 8 needs a recent Node).
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
     - name: Install dependencies
       working-directory: ./Watcher/
       run: |
@@ -37,7 +43,12 @@ jobs:
         pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0
         npm install
         npx cypress install
-    
+
+    # Django serves the bundle built here (frontend/static/frontend/main.js and main.css), for the Cypress run below.
+    - name: Build the frontend
+      working-directory: ./Watcher/
+      run: npm run build
+
     - name: Run back-end tests
       working-directory: ./Watcher/Watcher
       run: python manage.py test

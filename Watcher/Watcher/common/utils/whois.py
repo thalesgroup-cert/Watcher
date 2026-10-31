@@ -2,8 +2,6 @@ import re
 import requests
 import time
 import logging
-from django.conf import settings
-from django.utils import timezone
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
@@ -93,7 +91,7 @@ class WhoisDiscovery:
             
             return ""
             
-        except Exception as e:
+        except Exception:
             return ""
     
     def get_expiration_date(self):
@@ -127,7 +125,7 @@ class WhoisDiscovery:
             
             return None
             
-        except Exception as e:
+        except Exception:
             return None
 
     def get_registration_date(self):
@@ -162,7 +160,7 @@ class WhoisDiscovery:
             
             return None
             
-        except Exception as e:
+        except Exception:
             return None
 
 
@@ -244,10 +242,11 @@ def perform_single_whois_lookup(domain):
                 logger.info(f"Successfully updated WHOIS data for {domain.domain_name}: {', '.join(update_info)}")
                 return True
             else:
-                logger.warning(f"No WHOIS data found for domain {domain.domain_name}")
+                logger.debug(f"No WHOIS data found for domain {domain.domain_name}")
                 return False
         else:
-            logger.error(f"Failed to fetch WHOIS data for domain {domain.domain_name}")
+            # A domain that is not registered has no WHOIS record: that is a finding, not an error of Watcher
+            logger.debug(f"Failed to fetch WHOIS data for domain {domain.domain_name}")
             return False
             
     except Exception as e:
@@ -277,7 +276,7 @@ def update_domain_registrar_info():
     for domain in domains_to_update:
         logger.debug(f"Processing WHOIS for domain: {domain.domain_name}")
         
-        success = perform_single_whois_lookup(domain)
+        perform_single_whois_lookup(domain)
         
         time.sleep(1)
     

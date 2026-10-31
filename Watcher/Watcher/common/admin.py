@@ -1,8 +1,6 @@
 from django.contrib import admin
 from .models import LegitimateDomain, PendingAction
-from django.utils import timezone
-from import_export import resources
-from import_export.admin import ImportExportModelAdmin, ExportMixin
+from import_export.admin import ImportExportModelAdmin
 
 
 @admin.register(LegitimateDomain)

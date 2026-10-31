@@ -1,14 +1,13 @@
 import logging
 import re
 import difflib
-import json
 from typing import List, Set
 from datetime import timedelta
 
 from django.utils import timezone
 from django.conf import settings
 
-from .models import TrendyWord, PostUrl, Summary
+from .models import TrendyWord, Summary
 from .model_manager import (
     get_ner_pipeline,
     get_summarizer_pipeline,
@@ -668,7 +667,7 @@ def generate_weekly_summary():
             summary_text = "\n".join(summary_lines).strip()
             logger.info(f"Weekly summary generated with {len(summaries_data)} entries")
 
-            summary_obj = Summary.objects.create(
+            Summary.objects.create(
                 type='weekly_summary',
                 keywords=', '.join(keywords_used),
                 summary_text=summary_text
@@ -911,7 +910,6 @@ def generate_breaking_news(trendy_word):
 
             top_products = [p for p, _ in sorted(products.items(), key=lambda x: -x[1])][:3]
             top_orgs = [o for o, _ in sorted(orgs.items(), key=lambda x: -x[1])][:2]
-            top_attackers = [a for a, _ in sorted(attackers.items(), key=lambda x: -x[1])][:2]
             cves = sorted(list(cves_set))
 
             joined = corpus.lower()
@@ -1023,14 +1021,6 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
         )
 
         # Generate summary
-        try:
-            input_tokens = len(tokenizer.encode(prompt))
-        except Exception:
-            input_tokens = len(prompt.split())
-
-        max_len = min(150, max(80, input_tokens // 2))
-        min_len = max(40, max_len // 2)
-
         try:
             result = None
         except Exception as e:

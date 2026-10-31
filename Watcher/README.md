@@ -231,6 +231,25 @@ The header help quick-link is configurable via environment variables:
     WATCHER_HELP_BUTTON_LABEL=API Docs
     WATCHER_HELP_BUTTON_URL=/api/docs/
 
+### Logs and Web Server
+
+Watcher is served by **Gunicorn** with **one worker and 16 threads, on purpose**: the scheduled jobs run inside the web process, so a second worker would run every job (and send every notification) twice. `GUNICORN_THREADS`, `GUNICORN_TIMEOUT` and `GUNICORN_LOG_LEVEL` tune it; do not raise the number of workers.
+
+Three logs are kept apart:
+- **Application log** (what Watcher detects, schedules and sends): console and `logs/<module>.log`. Each scheduled job ends with a `CRON TASK done` line and each notification with a `Notification …: slack=ok, email=no recipients` line. `TRACE_LEVEL` sets the level (`INFO` by default).
+- **Access log** (who did what): `logs/access.log`, one line per request with the user, the address, the method, the path, the status and the duration. `ACCESS_LOG_CONSOLE=1` also prints it on the console.
+- **Server log**: Gunicorn's own messages, on the console, prefixed `gunicorn:`.
+
+### Encryption Key of the Connectors
+
+The credentials of the connectors saved in the interface are encrypted in the database with the key `CONNECTORS_ENCRYPTION_KEY` (a Fernet key). **When it is empty, a key built into the code is used, which every installation shares: set your own** before saving credentials:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Changing the key later makes the credentials already saved unreadable: they have to be entered again.
+
 ### Corporate Proxy / Custom CA Certificates
 
 If Watcher runs behind a corporate proxy that intercepts or re-signs HTTPS traffic (SSL/TLS inspection), or must trust an internal Certificate Authority for internal services, drop the CA certificate(s) in `deployment/certificates/` alongside the existing `rootcafile.pem`.
@@ -416,17 +435,30 @@ Watcher currently provides hundreds of RSS cybersecurity sources ([Populate defa
 
 However, you can add your RSS Cybersecurity source to your Watcher instance:
 
-- First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0). 
+- First, make sure you have a URL leading to an RSS file (Atom 1.0, Atom 0.3, RSS 2.0, RSS 2.0 with Namespaces, RSS 1.0).
 - Your RSS file must be composed of several articles.
-- Please consider the use of https over http. 
+- Please consider the use of https over http.
 
-Connect to the `/admin` page:
+From the web interface (signed in, with the right to add sources):
 
-- Click on **Sources** in **THREATS_WATCHER** part.
-- Click on **ADD SOURCE**.
-- Fill **Url** text input.
-- Click on **SAVE**.
+- Go to **Threats Watcher** (`/#/threats_watcher`), **Sources** tab.
+- Click **Add**, then **RSS sources**.
+- Fill the feed URL, its country and its reliability (High 100 %, Medium 50 %, Low 20 %). Switch on **Add several, one per line** to paste a list; **Preview** shows what would be added.
+- Click **Add**. The source is read at the next run (every 30 minutes); its last fetch status shows in the list.
 
+You can still do it from the `/admin` page: **Sources** in the **THREATS_WATCHER** part, **ADD SOURCE**.
+
+
+## Monitored Keywords and Rules
+
+In **Threats Watcher > Monitored keywords**, each entry is either a **single word** or a **rule**. Watcher checks them against every article of the RSS sources it collects (every 30 minutes); nothing is searched anywhere else, so the words of a rule never leave Watcher.
+
+- **A single word** matches inside longer words, ignoring case and accents. Each new article that mentions it counts as a mention, and the entry rises from *warm* to *hot* and *super hot* as the mentions add up (the level applies to every entry).
+- **A rule** (tick *Rule: several words in the same article*) asks for **all** the words of "must contain all of" (logical AND), **at least one** of "and at least one of" (optional), and **none** of "never when it contains". Matching ignores case and accents, and can be limited to whole words (`apt` does not match `adapt`).
+
+A rule keeps each article it matched, to review and archive from its drawer, and notifies once per article. A new rule only applies to the articles collected after it was created. Rules can be paused, singly or in bulk.
+
+The notification **Keyword rule match** goes to Slack, Citadel and e-mail (the Threats Watcher subscribers who ticked *E-mail* and *Monitored Keywords*). Like every notification, it is **off until a superuser switches it on** in **Connectors > Notifications**.
 
 ## Manage Legitimate Domains
 
@@ -434,25 +466,26 @@ The **Legitimate Domains** module helps track company-approved domains, monitor 
 
 ### Add a Legitimate Domain
 
-1. Navigate to `/legitimate_domains` page
-2. Click **Add Legitimate Domain**
+1. Navigate to the `/#/legitimate_domains` page
+2. Click **Add domains**
 3. Fill in the following fields:
-   - **Domain**: Company-owned domain (e.g., `company.com`)
-   - **Legitimacy**: Classification status (Unknown, Legitimate...)
-   - **Domain Expiry**: Expiration date (YYYY-MM-DD)
-   - **Registrar**: Current registrar name
-   - **Repurchase**: Mark if domain needs renewal
-   - **Contact**: Responsible team/person
+   - **Domain name**: Company-owned domain (e.g., `company.com`); switch on **Add several, one per line** to paste a list
+   - **Ticket** and **Contact**: Reference and responsible team/person
+   - **Registered on**, **Domain expiry**, **Certificate expiry**: Dates (filled from RDAP / the certificate when left empty)
+   - **Repurchased**: Mark if the domain was bought back
+   - **Comments**
 
-4. Click **Save**
+4. Click **Add**
+
+Click a domain to open its details on the right (expiry, comments, MISP events, history of changes).
 
 ### Convert Monitored Site to Legitimate Domain
 
 From the **Website Monitoring** module:
-1. Go to `/site_monitoring`
-2. Click on the **blue cloud** next to a monitored domain
-3. Fill in legitimacy details in the modal
-4. Domain will be tracked in both modules
+1. Go to `/#/website_monitoring`
+2. Click a monitored website, then **Export** > **To Legitimate Domains** (or select several websites and use **Export** in the selection bar)
+3. Check the details in the dialog
+4. The domain moves to Legitimate Domains and stops being monitored as a malicious website
 
 ### RDAP Alerts for Legitimate Domains
 
@@ -461,7 +494,7 @@ Watcher automatically monitors RDAP/WHOIS changes for legitimate domains:
 - **Expiry date updates**: Notifications 30/15/7 days before expiration
 - **Status changes**: Tracks available/disabled/registered transitions
 
-Access alerts at: `/legitimate_domains` → **Alerts** tab
+Expiring domains and certificates are counted at the top of `/#/legitimate_domains` (a click filters the list) and on the dashboard.
 
 
 ## API Key Creation & Management
@@ -503,7 +536,7 @@ GET /api/data_leak/keyword/?page=1&page_size=1000
 - Pagination is implemented across all major API endpoints
 - Default page size is 100 items
 - Maximum page size is 1000 items
-- Most frontend actions (DataLeak.js, DnsFinder.js...) are compatible with this pagination system. Note: Threats Watcher module does not support pagination.
+- Every page of the web interface reads its lists through this pagination (with `ordering`, `search` and the filters of each list in the query string).
 
 ### Interactive API Documentation
 
@@ -867,16 +900,32 @@ There is a **blocklist** to prevent a **false positive trendy words** from reapp
 
 To add **1** word:
 
-- Go to the landing page.
-- Authenticate and Click on the "**Delete & Blocklist**" **button**.
+- Go to **Threats Watcher** (`/#/threats_watcher`) and authenticate.
+- Click the word (in the cloud or the list), then **Ban** in its details: it is added to the blocklist and removed from the trends.
 
 To add **several** words:
+
+- **Threats Watcher** > **Banned words** tab > **Add** > **Banned words**, one per line.
+
+Or from the **/admin** page:
 
 - Go to **/admin** page.
 - Click on **Trendy words**.
 - **Check** words that you want to remove & blocklist.
 - Click on **Action** dropdown.
 - Select "**Delete & Blocklist selected trendy words**".
+
+## Dashboard
+
+The home page (`/#/`) gathers the best of every module:
+
+- **Needs attention** (signed in): Cyber Watch matches to review, open DNS threats, data leaks to review, website changes, legitimate domains or certificates expiring within 30 days, and pending actions. Each card opens its module on the right list. Visitors who are not signed in see public figures instead.
+- The **breaking news** and the **weekly AI digest** of Threats Watcher.
+- **Trending words**, as a word cloud or as a **graph of the words linked by their articles** (two words are linked when the same articles mention them). Click a word to see its articles.
+- A **world map** with two layers: ransomware victims by country, and where the RSS sources come from. Click a country to list its victims or its sources.
+- The latest **critical and high CVEs** and the latest **ransomware victims**.
+
+Navigation is the sidebar on the left: a rail of icons that opens on hover, and stays open with the pin.
 
 ## CyberWatch Module
 
@@ -886,23 +935,48 @@ CyberWatch is a standalone threat intelligence module that continuously fetches,
 
 - Fetches CVEs from [cve.circl.lu](https://cve.circl.lu) on a 30-minute schedule.
 - Stores CVE ID, severity, CVSS score, full description, and external references.
-- Dedicated statistics panel with KPI cards for total CVEs, critical/high severity counts, and new items today.
+- **CVEs** tab: filter by severity (several at once, or "not scored yet"), publication date and whether a rule matched; each CVE opens with its description, references (NVD link) and the rules that matched it.
 
 ### Ransomware Intelligence
 
 - Pulls ransomware group and victim data from [ransomware.live](https://ransomware.live) and [ransomlook.io](https://ransomlook.io).
 - Stores victim name, ransomware group, country, sector, and attack date.
+- **Ransomware** tab: filter by group, country, sector and date; a victim opens with its group (victims posted, latest post, description).
 
 ### Watch Rule Engine
 
 Users can define keyword-based rules scoped to CVEs, ransomware victims, or both:
 
-1. Navigate to `/cyber_watch`.
-2. Click **Add Watch Rule**.
-3. Enter a keyword and choose the scope (CVEs / victims / both).
-4. Matches are recorded automatically and deduplicated.
+1. Navigate to `/#/cyber_watch`.
+2. Click **New watch rule**.
+3. Give it a name, choose what it watches (CVEs / ransomware victims / both), enter its keywords (one per line or separated by commas) and, if needed, exceptions. A preview shows what it would match in the data already collected.
+4. Keep **Also record the matches in the CVEs and victims already collected** checked to start with them; new CVEs and victims are checked as they come in.
+5. Matches land in the **Matches** tab, a triage inbox: open one to see why it matched, then archive it (the next one opens).
 
 Notifications fire across all four channels (Email, Slack, Citadel, TheHive) for each rule hit.
+
+## Monitored Pages
+
+**Website Monitoring > Pages** follows the text of precise web pages, such as the blog of a researcher that has no RSS feed. It does not replace the monitoring of suspicious domains: it works on its own list.
+
+For each page you give the address, a name, the share of the text that has to change for a notification (5 % by default), how often to look (15 minutes to a week, hourly by default), an optional CSS selector (only that part of the page is compared) and optional regular expressions of text to ignore.
+
+- Watcher extracts the text of the page and leaves out scripts, menus, footers, forms, hidden elements, **dates, hours and counters** ("3 hours ago", "1,204 views"), so that what changes by itself does not count.
+- The first check keeps a first version and notifies nothing. Each later check that finds a different text keeps a new **version** (50 by default, the oldest are deleted); a change at least as big as the threshold is notified.
+- A page opens in a drawer with its versions and a **diff** between any two of them (added lines in green, removed lines in red). *Check now* runs a check at once.
+- Only public `http(s)` addresses are visited: private, loopback and link-local addresses are refused, and so is a redirect that leads to one.
+
+The notification **Monitored page change** goes to Slack, Citadel and e-mail (the Website Monitoring subscribers who ticked *E-mail*) and shows a few shortened lines of the change. It is **off until a superuser switches it on** in **Connectors > Notifications**.
+
+## Screenshots
+
+Watcher can keep screenshots of web pages, taken by a headless browser that runs in its own container (`screenshotter`). That browser executes the code of the pages it visits, so it is isolated: its own network, shared with Watcher only (no database, no other service), a read-only filesystem, no capability, limited memory, and it refuses anything that is not a public `http(s)` address, including each image, script and redirect a page asks for.
+
+- **Monitored pages**: a screenshot is kept with every new version, so that a change can be compared **before / after** next to the text diff (*Text / Screenshots* in the drawer). A page can be left out in its form, and *Screenshot* takes one at once.
+- **Data leaks** and **legitimate domains**: a *Take a screenshot* button in the drawer (it needs the right to change the object). A leaked page is often deleted afterwards: the screenshot keeps what it looked like. Every capture is written in the application log with who asked for it, because it is a visit from Watcher.
+- Up to `SCREENSHOT_KEEP` (10) screenshots are kept per object. Some sites answer a robot with a "confirm you are human" page: Watcher does not try to get around it, and the screenshot then shows that page.
+
+The browser leaves from the address of the server, with an ordinary Chrome user agent. To make it leave through a dedicated proxy, set `SCREENSHOT_PROXY`. `SCREENSHOT_SERVICE_URL` points Watcher to the service; set it to an empty value to switch the screenshots off. The service is in the root `docker-compose.yml`; it is not part of the `deployment/` stack yet.
 
 ## UDRP Tracking
 
@@ -917,22 +991,13 @@ Automated UDRP (Uniform Domain-Name Dispute-Resolution Policy) case monitoring i
 
 A dedicated `/profile` route provides a centralised settings and preferences hub.
 
-### Account Settings
+### Overview
 - Displays user avatar, username, email, role badges (Superuser, Staff, groups), and group permissions.
-- Direct link to the password change page and logout button.
+- **Appearance**: avatar colour, and light or dark mode (also in the sidebar).
+- **Change password** in the page header; sign out from the bottom of the sidebar.
 
-### Theme Picker
-- All available themes displayed as cards with preview thumbnails.
-- The active theme is highlighted; selecting a new one applies it immediately and persists via `localStorage`.
-
-### Dashboard Layout Manager
-- All six module dashboards listed with a live **MiniGrid** preview of the current panel arrangement.
-- Each card shows the active preset name, panel count, and available presets.
-- Clicking a card opens a **Layout Presets & Editor** modal:
-  - *Presets* tab - named ready-made layouts (Default, Compact, Analytics).
-  - *Custom Editor* tab - free-form drag-and-drop editor.
-- A *Reset to Default* button restores the module's default preset.
-- Layout changes made in the profile page are reflected immediately on open dashboards without a page reload.
+### My activity
+- Everything you changed in Watcher, with the same filters as the Activity page.
 
 ## Connectors
 
@@ -1298,9 +1363,8 @@ The test suite covers all 6 main modules of Watcher:
   - `watcher/tests.py`
   - Module-specific test files for each component
 
-- **Front-End Tests**: Cypress framework for JavaScript testing
-  - Cypress tests for all 6 modules
-  - End-to-end testing scenarios
+- **Front-End Tests**:
+  - Cypress specs for every page (`cypress/e2e/`), with the API mocked
 
 ### Automated CI/CD Testing
 
@@ -1414,12 +1478,15 @@ From `/Watcher/Watcher/`, run the command below:
 
     npm run dev
 
-Let this command run in background. 
-Now, when modifying some frontend ReactJs files it will automatically build them into one file (`/Watcher/Watcher/frontend/static/frontend/main.js`).
+Let this command run in background.
+Now, when modifying the frontend (React 19 + TypeScript + MUI, in `/Watcher/Watcher/frontend/src`), Vite rebuilds it into one file (`/Watcher/Watcher/frontend/static/frontend/main.js`, with `main.css`) that Django serves.
 
-<span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the command below:</span>
+The code is organised by page: `features/<module>/` holds the API calls, the TanStack Query hooks and the components of one page (`features/dashboard` is the home page), `ui/` the shared building blocks (page header, tables, inspector, world map, charts) and `layouts/AppShell.tsx` the sidebar.
+
+<span style="color:red">**[IMPORTANT]** When **commit** you have to run **1 time** the commands below (type check + production build, then lint):</span>
 
     npm run build
+    npm run lint
 
 ## Migrations: Change the database schema
 Migrations are Django’s way of propagating changes you make to your models 

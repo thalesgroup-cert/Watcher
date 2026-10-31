@@ -1,826 +1,189 @@
-describe('Site Monitoring - E2E Test Suite', () => {
-  const setupIntercepts = () => {
-    cy.intercept('GET', '**/api/site_monitoring/site/**', {
-      statusCode: 200,
-      body: {
-        count: 3,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1,
-            domain_name: "test-malicious-site.com",
-            ip: "192.168.1.10",
-            ip_second: "192.168.1.11",
-            MX_records: ["mail.test-malicious-site.com"],
-            mail_A_record_ip: "192.168.1.12",
-            rtir: "SM-2025-001",
-            ticket_id: "240529-2e0a2",
-            registrar: "Test Registrar Inc",
-            legitimacy: 5,
-            expiry: "2025-12-31T23:59:59Z",
-            domain_expiry: "2026-06-30T23:59:59Z",
-            ip_monitoring: true,
-            content_monitoring: true,
-            mail_monitoring: true,
-            monitored: true,
-            takedown_request: true,
-            legal_team: false,
-            blocking_request: false,
-            misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440000']",
-            web_status: 200,
-            created_at: "2025-06-19T10:00:00Z",
-            last_event: {
-              username: "admin",
-              first_name: "Admin",
-              last_name: "User",
-              avatar_color: "#2196f3",
-              action: "updated",
-              timestamp: "2026-06-24T14:30:00Z"
-            }
-          },
-          {
-            id: 2,
-            domain_name: "e2e-suspicious-site.fr",
-            ip: "10.0.0.5",
-            ip_second: null,
-            MX_records: null,
-            mail_A_record_ip: null,
-            rtir: "SM-2025-002",
-            ticket_id: "240530-3f1b3",
-            registrar: "E2E Registrar",
-            legitimacy: 3,
-            expiry: "2025-11-30T23:59:59Z",
-            domain_expiry: "2025-08-15T23:59:59Z",
-            ip_monitoring: true,
-            content_monitoring: false,
-            mail_monitoring: true,
-            monitored: false,
-            takedown_request: false,
-            legal_team: true,
-            blocking_request: true,
-            misp_event_uuid: null,
-            web_status: null,
-            created_at: "2025-06-18T15:30:00Z",
-            last_event: null
-          },
-          {
-            id: 3,
-            domain_name: "test-phishing-site.org",
-            ip: "172.16.0.20",
-            ip_second: "172.16.0.21",
-            MX_records: ["mx1.test-phishing-site.org", "mx2.test-phishing-site.org"],
-            mail_A_record_ip: "172.16.0.22",
-            rtir: "SM-2025-003",
-            ticket_id: null,
-            registrar: "Phishing Registrar",
-            legitimacy: 6,
-            expiry: null,
-            domain_expiry: "2025-07-20T23:59:59Z",
-            ip_monitoring: false,
-            content_monitoring: true,
-            mail_monitoring: false,
-            monitored: true,
-            takedown_request: false,
-            legal_team: false,
-            blocking_request: true,
-            misp_event_uuid: "['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002']",
-            web_status: 403,
-            created_at: "2025-06-17T08:15:00Z",
-            last_event: null
-          }
-        ]
-      }
-    }).as('getSites');
+// Website Monitoring module: websites (KPI quick filters, filters / sort in the URL, drawer, add / edit / delete,
+// bulk change and exports), changes (triage, drawer, link to the website) and Insights. All API calls are mocked.
+describe('Website Monitoring', () => {
+  const USER = { id: 1, username: 'analyst', first_name: 'Ana', last_name: 'Lyst', email: '', is_superuser: true, is_staff: false, groups: [], permissions: [] };
+  const API = '/api/site_monitoring/';
+  const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString().slice(0, 19);
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-    cy.intercept('GET', '**/api/site_monitoring/alert/**', {
-      statusCode: 200,
-      body: {
-        count: 4,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1,
-            site: { id: 1, domain_name: "test-malicious-site.com" },
-            type: "IP address change detected",
-            new_ip: "192.168.1.11",
-            old_ip: "192.168.1.10",
-            new_ip_second: null,
-            old_ip_second: null,
-            new_MX_records: null,
-            old_MX_records: null,
-            new_mail_A_record_ip: null,
-            old_mail_A_record_ip: null,
-            difference_score: null,
-            status: true,
-            created_at: "2025-06-19T14:30:00Z"
-          },
-          {
-            id: 2,
-            site: { id: 2, domain_name: "e2e-suspicious-site.fr" },
-            type: "Web content change detected",
-            new_ip: null,
-            old_ip: null,
-            new_ip_second: null,
-            old_ip_second: null,
-            new_MX_records: null,
-            old_MX_records: null,
-            new_mail_A_record_ip: null,
-            old_mail_A_record_ip: null,
-            difference_score: 87.5,
-            status: true,
-            created_at: "2025-06-19T12:15:00Z"
-          },
-          {
-            id: 3,
-            site: { id: 1, domain_name: "test-malicious-site.com" },
-            type: "Mail change detected",
-            new_ip: null,
-            old_ip: null,
-            new_ip_second: null,
-            old_ip_second: null,
-            new_MX_records: ["new-mail.test-malicious-site.com"],
-            old_MX_records: ["mail.test-malicious-site.com"],
-            new_mail_A_record_ip: "192.168.1.13",
-            old_mail_A_record_ip: "192.168.1.12",
-            difference_score: null,
-            status: false,
-            created_at: "2025-06-18T16:45:00Z"
-          },
-          {
-            id: 4,
-            site: { id: 3, domain_name: "test-phishing-site.org" },
-            type: "RDAP change detected",
-            new_ip: null,
-            old_ip: null,
-            new_ip_second: null,
-            old_ip_second: null,
-            new_MX_records: null,
-            old_MX_records: null,
-            new_mail_A_record_ip: null,
-            old_mail_A_record_ip: null,
-            new_registrar: "New Registrar Corp",
-            old_registrar: "Phishing Registrar",
-            new_expiry_date: "2026-07-20T23:59:59Z",
-            old_expiry_date: "2025-07-20T23:59:59Z",
-            difference_score: null,
-            status: false,
-            created_at: "2025-06-17T10:20:00Z"
-          }
-        ]
-      }
-    }).as('getSiteAlerts');
-
-    // Mock CRUD operations
-    cy.intercept('POST', '**/api/site_monitoring/site/**', (req) => ({
-      statusCode: 201,
-      body: {
-        id: Date.now(),
-        ...req.body,
-        rtir: `SM-2025-${String(Date.now()).slice(-3)}`,
-        created_at: new Date().toISOString(),
-        monitored: false,
-        misp_event_uuid: null,
-        web_status: null,
-        ip: null,
-        ip_second: null,
-        MX_records: null,
-        mail_A_record_ip: null
-      }
-    })).as('addSite');
-
-    cy.intercept('DELETE', '**/api/site_monitoring/site/*', { statusCode: 204 }).as('deleteSite');
-
-    cy.intercept('PATCH', '**/api/site_monitoring/site/*', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), ...req.body }
-    })).as('patchSite');
-
-    cy.intercept('PATCH', '**/api/site_monitoring/alert/*', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), ...req.body }
-    })).as('updateSiteAlertStatus');
-
-    cy.intercept('POST', '**/api/site_monitoring/misp/**', {
-      statusCode: 200,
-      body: { message: 'Successfully exported to MISP', event_uuid: '550e8400-e29b-41d4-a716-446655440003' }
-    }).as('exportToMISP');
-  };
-
-  before(() => {
-    const credentials = Cypress.env('testCredentials');
-
-    setupIntercepts();
-
-    // Mock auth endpoints
-    cy.intercept('GET', '/api/auth/user/', {
-      statusCode: 200,
-      body: {
-        id: 1,
-        username: credentials.username,
-        first_name: credentials.firstName,
-        email: credentials.email,
-        is_superuser: true
-      }
-    }).as('getUser');
-
-    cy.intercept('POST', '/api/auth/login/', {
-      statusCode: 200,
-      body: {
-        token: 'mock-token-123456789',
-        user: {
-          id: 1,
-          username: credentials.username,
-          first_name: credentials.firstName,
-          email: credentials.email
-        }
-      }
-    }).as('login');
-
-    // Use the authentication helper
-    cy.authenticateWithTestUser();
-
-    // Navigate to Site Monitoring
-    cy.visit('/#/website_monitoring');
-    cy.get('.container-fluid', { timeout: 20000 }).should('exist');
-    cy.get('table, .card', { timeout: 20000 }).should('exist');
-    cy.log('getSites/getSiteAlerts verified via UI presence (fallback)');
-
-    cy.log('Authentication completed and navigated to Site Monitoring');
+  const site = (id, overrides = {}) => ({
+    id, domain_name: `phish-${id}.com`, ticket_id: null, rtir: id, ip: '203.0.113.10', ip_second: null, ip_monitoring: true,
+    mail_A_record_ip: null, MX_records: "['10 mx1.phish.com.', '20 mx2.phish.com.']", mail_monitoring: true, content_monitoring: true,
+    monitored: true, web_status: 200, server_banner: 'nginx', x_powered_by: null, registrar: 'NameCheap', legitimacy: 5,
+    takedown_request: false, legal_team: false, blocking_request: false, created_at: ago(9000), expiry: null,
+    domain_expiry: day(200), domain_created_at: day(-30), ssl_expiry: null, udrp_status: null, udrp_last_checked: null,
+    misp_event_uuid: [], last_event: null, alerts_count: 2, open_alerts_count: 1, last_alert_at: ago(60),
+    ...overrides,
   });
+  const SITES = [site(1), site(2, { legitimacy: 2, web_status: null, alerts_count: 0, open_alerts_count: 0, last_alert_at: null })];
+  const change = (id, overrides = {}) => ({
+    id, site: { id: 1, domain_name: 'phish-1.com', legitimacy: 5 }, type: 'IP address change detected', difference_score: null,
+    new_ip: '198.51.100.7', old_ip: '203.0.113.10', new_ip_second: null, old_ip_second: null, new_MX_records: null, old_MX_records: null,
+    new_mail_A_record_ip: null, old_mail_A_record_ip: null, new_registrar: null, old_registrar: null, new_expiry_date: null,
+    old_expiry_date: null, new_ssl_expiry: null, old_ssl_expiry: null, new_server_banner: null, old_server_banner: null,
+    new_x_powered_by: null, old_x_powered_by: null, status: true, created_at: ago(id), ...overrides,
+  });
+  const CHANGES = [change(11), change(12, { type: 'RDAP registrar change detected', new_ip: null, old_ip: null, old_registrar: 'GoDaddy', new_registrar: 'NameCheap' })];
+  const STATS = {
+    total: 2, malicious: 1, takedownRequests: 0, legalTeam: 0, blockingRequests: 0, newToday: 0, newThisWeek: 0, offline: 1, expiringSoon: 0,
+    byLegitimacy: { 5: 1, 2: 1 }, openAlerts: 2, archivedAlerts: 0,
+    alertsByKind: { hosting: 1, mail: 0, content: 0, registration: 1, certificate: 0, server: 0 },
+    alertsPerDay: Array.from({ length: 30 }, (_, i) => ({ date: day(i - 29), count: i % 3 })), topRegistrars: [{ name: 'NameCheap', count: 2 }],
+  };
+  const page = (results) => ({ count: results.length, next: null, previous: null, results });
+  const SUMMARY = (status, ids) => ({ succeeded: ids.length, skipped: 0, errors: 0, ok_status: status, results: ids.map((id) => ({ value: `phish-${id}.com`, status, reason: '', id })) });
 
   beforeEach(() => {
     cy.on('uncaught:exception', () => false);
-
-    setupIntercepts();
-
-    // Restore session data
-    cy.window().then((win) => {
-      const authData = Cypress.env('authData');
-      if (authData && authData.token) {
-        if (authData.token) win.localStorage.setItem('token', authData.token);
-        if (authData.user) win.localStorage.setItem('user', authData.user);
-      }
-    });
-
-    // Navigation check
-    cy.url().then((currentUrl) => {
-      if (!currentUrl.includes('/website_monitoring') || currentUrl.includes('about:blank')) {
-        cy.log('Redirecting back to Site Monitoring...');
-        cy.visit('/#/website_monitoring', { failOnStatusCode: false });
-        cy.wait(1000);
-      } else {
-        cy.log('Staying on Site Monitoring page');
-      }
-    });
-
-    cy.url().should('include', '/website_monitoring');
-    cy.get('.container-fluid', { timeout: 10000 }).should('exist');
-
-    cy.log('Page ready with session maintained');
+    cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
+    cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'bootstrap', preferences: {}, avatar_color: null } });
+    cy.intercept('GET', `${API}site/?*`, { statusCode: 200, body: page(SITES) }).as('sites');
+    cy.intercept('GET', `${API}site/1/`, { statusCode: 200, body: SITES[0] });
+    cy.intercept('GET', `${API}site/statistics/`, { statusCode: 200, body: STATS });
+    cy.intercept('GET', `${API}alert/?*`, { statusCode: 200, body: page(CHANGES) }).as('changes');
+    cy.intercept('GET', `${API}alert/11/`, { statusCode: 200, body: { ...CHANGES[0], site: SITES[0] } });
+    cy.intercept('GET', `${API}alert/12/`, { statusCode: 200, body: { ...CHANGES[1], site: SITES[0] } });
+    cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
+    cy.visit('/#/website_monitoring', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-site') });
+    cy.get('[data-testid="site-row"]', { timeout: 20000 }).should('have.length', 2);
   });
 
-  describe('Page Navigation and Access', () => {
-    it('should be on the correct Site Monitoring page', () => {
-      cy.url().should('include', '#/website_monitoring');
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
+  describe('websites', () => {
+    it('describes each website', () => {
+      cy.get('[data-testid="site-row"]').first().should('contain', 'phish-1.com').and('contain', 'NameCheap').and('contain', 'Malicious').and('contain', 'Online');
+      cy.get('[data-testid="site-row"]').eq(1).should('contain', 'Suspicious').and('contain', 'Offline');
     });
 
-    it('should display SiteStats dashboard', () => {
-      cy.get('.container-fluid', { timeout: 15000 }).should('exist');
-      
-      cy.get('.card.border-0.shadow-sm', { timeout: 15000 }).should('have.length.at.least', 4);
-      
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('TOTAL SITES') && bodyText.includes('MALICIOUS') && 
-            bodyText.includes('TAKEDOWN REQUESTS') && bodyText.includes('LEGAL TEAM')) {
-          cy.log('All stat cards found');
-        }
+    it('filters from the KPI cards, the toolbar and the column headers, all kept in the URL', () => {
+      cy.wait('@sites'); // the request of the first display, so that the next waits are the ones of the filters
+      cy.contains('button', 'Malicious').click();
+      cy.wait('@sites').its('request.url').should('include', 'legitimacy=5,6');
+      cy.location('hash').should('include', 'legitimacy=5%2C6');
+      cy.contains('button', 'Clear').click();
+      cy.get('[role="combobox"]').eq(1).click();
+      cy.contains('[role="option"]', 'Offline').click();
+      cy.wait('@sites').its('request.url').should('include', 'web=offline');
+      cy.get('[role="combobox"]').eq(3).click();
+      cy.contains('[role="option"]', 'Takedown requested').click();
+      cy.wait('@sites').its('request.url').should('include', 'action=takedown');
+      cy.contains('th [role="button"]', 'Changes to review').click();
+      cy.wait('@sites').its('request.url').should('include', 'ordering=open_alerts_count');
+    });
+
+    it('opens a website with its state, hosting and recent changes', () => {
+      cy.get('[data-testid="site-row"]').first().click();
+      cy.location('hash').should('include', 'site=1');
+      cy.wait('@changes').its('request.url').should('include', 'site=1').and('include', 'page_size=5');
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.contains('#site-drawer-title', 'phish-1.com');
+        cy.contains('10 mx1.phish.com., 20 mx2.phish.com.');
+        cy.contains('nginx');
+        cy.contains('Hosting (IP)').click();
+      });
+      cy.location('hash').should('include', 'tab=changes').and('include', 'change=11');
+    });
+
+    it('edits and deletes a website', () => {
+      cy.intercept('PATCH', `${API}site/1/`, (req) => req.reply({ statusCode: 200, body: { ...SITES[0], ...req.body } })).as('patch');
+      cy.intercept('DELETE', `${API}site/1/`, { statusCode: 204 }).as('delete');
+      cy.get('[data-testid="site-row"]').first().click();
+      cy.get('.MuiDrawer-paper').contains('button', 'Edit').click();
+      // The drawer is a dialog too: only the form and the confirmation are meant.
+      cy.get('[role="dialog"]:not(.MuiDrawer-paper)').within(() => {
+        cy.get('input[name="ticket_id"]').type('INC-42');
+        cy.contains('label', 'Takedown requested').click();
+        cy.contains('button', 'Save').click();
+      });
+      cy.wait('@patch').its('request.body').should('include', { ticket_id: 'INC-42', takedown_request: true, legitimacy: 5, domain_name: 'phish-1.com' });
+      cy.get('.MuiDrawer-paper').contains('button', 'Delete').click();
+      cy.get('[role="dialog"]:not(.MuiDrawer-paper)').contains('button', 'Delete').click();
+      cy.wait('@delete');
+    });
+
+    it('adds several websites; an unknown one is not checked', () => {
+      cy.intercept('POST', `${API}site/bulk_create/`, (req) => req.reply({ statusCode: 200, body: { ...SUMMARY('created', [3, 4]), dry_run: req.body.dry_run } })).as('bulkCreate');
+      cy.contains('button', 'Monitor websites').click();
+      cy.location('hash').should('include', 'dialog=add');
+      cy.get('[role="dialog"]').within(() => {
+        cy.contains('label', 'Add several, one per line').click();
+        cy.get('textarea[name="domain_name"]').type('a.com\nb.com');
+        cy.get('[role="combobox"]').click();
+      });
+      cy.contains('[role="option"]', 'Unknown').click();
+      cy.get('[role="dialog"]').within(() => {
+        cy.contains('A site of unknown legitimacy is not checked');
+        cy.contains('button', 'Monitor 2').click();
+      });
+      cy.wait('@bulkCreate').its('request.body').should((body) => {
+        expect(body.values).to.eq('a.com\nb.com');
+        expect(body.dry_run).to.eq(false);
+        expect(body.shared).to.include({ legitimacy: 1, ip_monitoring: false, content_monitoring: false, mail_monitoring: false });
       });
     });
 
-    it('should display TableManager filter controls', () => {
-      cy.get('button:contains("Reset to Default")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Saved Filters")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Save Filter")', { timeout: 10000 }).should('exist');
-    });
-
-    it('should load data automatically', () => {
-      cy.get('table', { timeout: 15000 }).should('exist');
-      cy.get('table').should('have.length.at.least', 1);
-      
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('test-malicious-site.com') || bodyText.includes('e2e-suspicious-site.fr') || 
-            bodyText.includes('test-phishing-site.org')) {
-          cy.log('Data loaded successfully');
-        } else {
-          cy.log('Tables exist but data may be loaded differently');
-        }
+    it('changes and exports the selection in bulk', () => {
+      cy.intercept('POST', `${API}site/bulk_update/`, { statusCode: 200, body: SUMMARY('updated', [1, 2]) }).as('bulkUpdate');
+      cy.intercept('POST', `${API}site/bulk_export_misp/`, { statusCode: 200, body: SUMMARY('exported', [1, 2]) }).as('bulkMisp');
+      cy.get('input[aria-label="Select the websites of this page"]').check();
+      cy.get('[role="region"][aria-label="Selection"]').contains('button', 'Change').click();
+      cy.get('[role="dialog"]').within(() => {
+        cy.contains('label', 'Legitimacy').click();
+        cy.contains('label', 'Takedown requested').click();
+        cy.contains('button', 'Apply to 2').click();
       });
+      cy.wait('@bulkUpdate').its('request.body').should('deep.equal', { ids: [1, 2], changes: { legitimacy: 5, takedown_request: true } });
+      cy.contains('[role="dialog"]', '2 updated').contains('button', 'Close').click();
+      cy.get('input[aria-label="Select the websites of this page"]').check();
+      cy.get('[role="region"][aria-label="Selection"]').contains('button', 'Export').click();
+      cy.contains('[role="menuitem"]', 'To MISP').click();
+      cy.wait('@bulkMisp').its('request.body').should('deep.equal', { ids: [1, 2] });
     });
 
-    it('should maintain session across navigation', () => {
-      cy.get('.navbar').should('exist');
-      
-      cy.get('a[href="/#/"], a:contains("Watcher"), .navbar-brand').first().click();
-      cy.url().should('include', '#/');
-      
-      cy.get('a:contains("Website Monitoring"), a[href*="website_monitoring"]').should('exist').click();
-      cy.url().should('include', 'website_monitoring');
-      
-      cy.get('.navbar').should('exist');
-    });
-  });
-
-  describe('Sites Display and Management', () => {
-    it('should display sites table structure', () => {
-      cy.get('table', { timeout: 10000 }).should('exist');
-      
-      cy.get('table').within(() => {
-        cy.get('thead').should('exist');
-        cy.get('tbody').should('exist');
-      });
-    });
-
-    it('should display sites data when available', () => {
-      cy.get('table tbody tr').should('have.length.at.least', 1);
-    });
-
-    it('should display TableManager features for sites', () => {
-      cy.contains('Showing', { timeout: 10000 }).should('exist');
-      cy.contains('Items per page').parent().find('select').should('exist');
-    });
-
-    it('should display Add New Site button', () => {
-      cy.get('button:contains("Add New Site"), button:contains("Add")').first().should('exist');
-    });
-
-    it('should open add site modal', () => {
-      cy.get('button:contains("Add New Site"), button:contains("Add")').first().click();
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal-title').should('exist');
-      cy.get('input[placeholder*="example"]').should('exist');
-      cy.get('button:contains("Close")').first().click();
-    });
-
-    it('should handle complete site addition workflow', () => {
-      cy.get('button:contains("Add New Site"), button:contains("Add")').first().click();
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      
-      cy.get('input[placeholder*="example"]').type('test-new-site.com');
-      cy.get('input[placeholder*="240529"], input[placeholder*="230509"]').first().type('E2E-TEST-001');
-      
-      cy.get('.modal button:contains("Add")').click();
-      
-      cy.wait('@addSite', { timeout: 10000 });
-      cy.wait(1000);
-    });
-
-    it('should display action buttons for authenticated users', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Edit"], i.material-icons:contains("edit")').should('exist');
-        cy.get('button[title*="Delete"], i.material-icons:contains("delete")').should('exist');
-        cy.get('button[title*="Export"], i.material-icons:contains("cloud_upload")').should('exist');
-      });
-    });
-
-    it('should handle site edit workflow', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
-      });
-      
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal-title').should('contain', 'Edit');
-      cy.get('button:contains("Close")').first().click();
-    });
-
-    it('should handle site deletion workflow', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Delete"], i.material-icons:contains("delete")').first().click();
-      });
-      
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal-title').should('contain', 'Action Requested');
-      cy.get('.modal-body').should('contain', 'delete');
-      cy.get('button:contains("Close")').first().click();
-    });
-
-    it('should display status badges correctly', () => {
-      cy.get('table tbody').within(() => {
-        cy.get('.badge').filter((index, el) => {
-          const text = Cypress.$(el).text();
-          return text.includes('Active') || text.includes('Pending');
-        }).should('exist');
-        
-        cy.get('.badge').filter((index, el) => {
-          const text = Cypress.$(el).text();
-          return text.includes('Online') || text.includes('Offline') || /^\d+$/.test(text);
-        }).should('exist');
-      });
-    });
-
-    it('should display domain expiry badges', () => {
-      cy.get('table tbody').then(($tbody) => {
-        const badges = $tbody.find('.badge').filter((index, el) => {
-          const text = Cypress.$(el).text();
-          return text.includes('Expired') || text.includes('Expiring Soon') || text.includes('Valid');
-        });
-        
-        if (badges.length > 0) {
-          cy.log('Domain expiry badges found');
-        }
-      });
-    });
-
-    it('should sort sites table', () => {
-      cy.get('table th:contains("Domain Name"), table th:contains("Domain")').first().click();
-      cy.wait(500);
-      cy.get('table th:contains("Domain Name"), table th:contains("Domain")').first().click();
-      cy.wait(500);
-      cy.log('Sorting toggled successfully');
+    it('moves a website to Legitimate Domains in one server step', () => {
+      cy.intercept('POST', `${API}site/bulk_export_legitimate/`, { statusCode: 200, body: SUMMARY('exported', [1]) }).as('legit');
+      cy.get('[data-testid="site-row"]').first().click();
+      cy.get('.MuiDrawer-paper').contains('button', 'Export').click();
+      cy.contains('[role="menuitem"]', 'To Legitimate Domains').click();
+      cy.get('[role="dialog"] textarea').first().should('have.value', 'Exported from Website Monitoring - Original legitimacy: Malicious (registered)');
+      cy.get('[role="dialog"]').contains('button', 'Add to Legitimate Domains').click();
+      cy.wait('@legit').its('request.body').should('deep.equal', { ids: [1], comment: 'Exported from Website Monitoring - Original legitimacy: Malicious (registered)' });
     });
   });
 
-  describe('Alerts Display and Management', () => {
-    it('should display alerts section for site', () => {
-      cy.get('table tbody tr').first().then(($tr) => {
-        const alertButton = $tr.find('button, .badge').filter((index, el) => {
-          const $el = Cypress.$(el);
-          return $el.text().includes('Alert') || $el.find('.badge').length > 0;
-        });
-        
-        if (alertButton.length > 0) {
-          cy.wrap(alertButton.first()).click();
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          cy.get('.modal-title').should('contain', 'Alerts for');
-          cy.get('button:contains("Close")').first().click();
-        } else {
-          cy.log('No alert button found, test skipped');
-        }
-      });
+  describe('changes', () => {
+    beforeEach(() => {
+      cy.contains('[role="tab"]', 'Changes').click();
+      cy.get('[data-testid="change-row"]').should('have.length', 2);
     });
 
-    it('should display alert tabs (Active/Archived)', () => {
-      cy.get('table tbody tr').first().then(($tr) => {
-        const alertButton = $tr.find('button, .badge').filter((index, el) => {
-          const $el = Cypress.$(el);
-          return $el.text().includes('Alert') || $el.find('.badge').length > 0;
-        });
-        
-        if (alertButton.length > 0) {
-          cy.wrap(alertButton.first()).click();
-          
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          
-          cy.get('.nav-tabs, .tabs').within(() => {
-            cy.get('.nav-link, .tab').should('have.length', 2);
-            cy.contains('Active').should('exist');
-            cy.contains('Archived').should('exist');
-          });
-          
-          cy.get('button:contains("Close")').first().click();
-        } else {
-          cy.log('No alert button found, test skipped');
-        }
-      });
+    it('opens on the changes to review and filters them', () => {
+      cy.wait('@changes').its('request.url').should('include', 'status=active');
+      cy.get('[data-testid="change-row"]').eq(1).should('contain', 'Registration').and('contain', 'GoDaddy to NameCheap');
+      cy.get('[role="combobox"]').eq(0).click();
+      cy.contains('[role="option"]', 'Mail servers').click();
+      cy.wait('@changes').its('request.url').should('include', 'kind=mail');
+      cy.location('hash').should('include', 'ckind=mail');
     });
 
-    it('should display alert action buttons', () => {
-      cy.get('table tbody tr').first().then(($tr) => {
-        const alertButton = $tr.find('button, .badge').filter((index, el) => {
-          const $el = Cypress.$(el);
-          return $el.text().includes('Alert') || $el.find('.badge').length > 0;
-        });
-        
-        if (alertButton.length > 0) {
-          cy.wrap(alertButton.first()).click();
-          
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          
-          cy.get('.modal').within(() => {
-            cy.get('button:contains("View Details"), button:contains("Details")').should('exist');
-            cy.get('button:contains("Disable"), button:contains("Enable")').should('exist');
-          });
-          
-          cy.get('button:contains("Close")').first().click();
-        } else {
-          cy.log('No alert button found, test skipped');
-        }
+    it('shows a change, archives it and moves on, then opens its website', () => {
+      cy.intercept('PATCH', `${API}alert/11/`, { statusCode: 200, body: {} }).as('archive');
+      cy.get('[data-testid="change-row"]').first().click();
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.get('[data-testid="change-diff"]').should('contain', '203.0.113.10').and('contain', '198.51.100.7');
+        cy.contains('button', 'Archive').click();
       });
-    });
-
-    it('should handle alert status change workflow', () => {
-      cy.get('table tbody tr').first().then(($tr) => {
-        const alertButton = $tr.find('button, .badge').filter((index, el) => {
-          const $el = Cypress.$(el);
-          return $el.text().includes('Alert') || $el.find('.badge').length > 0;
-        });
-        
-        if (alertButton.length > 0) {
-          cy.wrap(alertButton.first()).click();
-          
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          
-          cy.get('button:contains("Disable")').first().click();
-          
-          cy.get('.modal').should('have.length', 2);
-          cy.get('.modal').last().within(() => {
-            cy.get('.modal-body').should('contain', 'disable');
-            cy.get('button:contains("Close")').first().click();
-          });
-          
-          cy.get('button:contains("Close")').first().click();
-        } else {
-          cy.log('No alert button found, test skipped');
-        }
-      });
-    });
-
-    it('should display alert details modal', () => {
-      cy.get('table tbody tr').first().then(($tr) => {
-        const alertButton = $tr.find('button, .badge').filter((index, el) => {
-          const $el = Cypress.$(el);
-          return $el.text().includes('Alert') || $el.find('.badge').length > 0;
-        });
-        
-        if (alertButton.length > 0) {
-          cy.wrap(alertButton.first()).click();
-          
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          
-          cy.get('button:contains("View Details"), button:contains("Details")').first().click();
-          
-          cy.get('.modal').should('have.length', 2);
-          cy.get('.modal').last().within(() => {
-            cy.get('.modal-title').should('contain', 'Details');
-            cy.get('button:contains("Close")').first().click();
-          });
-          
-          cy.get('button:contains("Close")').first().click();
-        } else {
-          cy.log('No alert button found, test skipped');
-        }
-      });
+      cy.wait('@archive').its('request.body').should('deep.equal', { status: false });
+      cy.location('hash').should('include', 'change=12');
+      cy.get('.MuiDrawer-paper').contains('button', 'Website').click();
+      cy.location('hash').should('include', 'site=1').and('not.include', 'tab=');
+      cy.contains('#site-drawer-title', 'phish-1.com');
     });
   });
 
-  describe('MISP Export Functionality', () => {
-    it('should display MISP export button', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Export"], i.material-icons:contains("cloud_upload")').should('exist');
-      });
-    });
-
-    it('should display MISP status badges', () => {
-      cy.get('table tbody').within(() => {
-        cy.get('i.material-icons').filter((index, icon) => {
-          const text = Cypress.$(icon).text();
-          return text.includes('cloud') || text.includes('check') || text.includes('close');
-        }).should('exist');
-      });
-    });
-  });
-
-  describe('Site Details Modal', () => {
-    it('should display technical details modal', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button, .badge').filter((index, btn) => {
-          const text = Cypress.$(btn).text().toLowerCase();
-          return text.includes('detail') || text.includes('info') || text.includes('view') || text.includes('technical');
-        }).first().click({ force: true });
-      });
-      
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      
-      cy.get('.modal').within(() => {
-        cy.get('.modal-title, .modal-header').should('exist');
-        
-        cy.get('.modal-body').then(($body) => {
-          const bodyText = $body.text();
-          const hasTechnicalInfo = bodyText.includes('IP') || 
-                                   bodyText.includes('MX') || 
-                                   bodyText.includes('Takedown') ||
-                                   bodyText.includes('Domain');
-          expect(hasTechnicalInfo).to.be.true;
-        });
-      });
-      
-      cy.get('button:contains("Close")').first().click({ force: true });
-    });
-  });
-
-  describe('Statistics Dashboard', () => {
-    it('should display all stat cards', () => {
-      cy.get('.card.border-0.shadow-sm').should('have.length.at.least', 4);
-    });
-
-    it('should display correct stat card icons', () => {
-      cy.get('.card .material-icons').filter((index, icon) => {
-        const text = Cypress.$(icon).text();
-        return text.includes('link') || text.includes('dangerous') || 
-               text.includes('block') || text.includes('gavel');
-      }).should('have.length.at.least', 4);
-    });
-
-    it('should display stat card titles', () => {
-      cy.get('.card.border-0.shadow-sm').each(($card) => {
-        cy.wrap($card).within(() => {
-          cy.get('.text-uppercase').should('exist');
-        });
-      });
-      
-      cy.get('body').should('contain', 'TOTAL SITES');
-      cy.get('body').should('contain', 'MALICIOUS');
-      cy.get('body').should('contain', 'TAKEDOWN REQUESTS');
-      cy.get('body').should('contain', 'LEGAL TEAM');
-    });
-
-    it('should update stats based on filtered data', () => {
-      // Apply filter
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.get('input[placeholder*="Search"]').clear().type('malicious');
-      cy.wait(1000);
-      
-      cy.get('.card.border-0.shadow-sm').should('exist');
-    });
-  });
-
-  describe('Navigation and UI Tests', () => {
-    it('should test header navigation links', () => {
-      cy.get('.navbar, nav').should('exist');
-      cy.get('a:contains("Website Monitoring"), a[href*="website_monitoring"]').should('exist');
-      cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist');
-      cy.get('a:contains("DNS Threats Monitored"), a[href*="dns_finder"]').should('exist');
-    });
-
-    it('should verify layout structure specific to Site Monitoring', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('have.length.at.least', 2);
-      
-      cy.get('.card.border-0.shadow-sm').should('have.length.at.least', 4);
-      
-      cy.get('table', { timeout: 10000 }).should('exist');
-    });
-
-    it('should handle Bootstrap components correctly', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('exist');
-      cy.get('table.table').should('exist');
-      cy.get('.card').should('exist');
-    });
-  });
-
-  describe('Error Handling and Edge Cases', () => {
-    it('should handle API errors gracefully', () => {
-      cy.intercept('GET', '**/api/site_monitoring/site/**', {
-        statusCode: 500,
-        body: { error: 'Server Error' }
-      }).as('sitesError');
-      
-      cy.intercept('GET', '**/api/site_monitoring/alert/**', {
-        statusCode: 500,
-        body: { error: 'Server Error' }
-      }).as('alertsError');
-
-      cy.reload();
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-    });
-
-    it('should handle empty data states', () => {
-      cy.intercept('GET', '**/api/site_monitoring/site/**', {
-        statusCode: 200,
-        body: { count: 0, next: null, previous: null, results: [] }
-      }).as('emptySites');
-      
-      cy.intercept('GET', '**/api/site_monitoring/alert/**', {
-        statusCode: 200,
-        body: { count: 0, next: null, previous: null, results: [] }
-      }).as('emptyAlerts');
-
-      cy.reload();
-      cy.wait(['@emptySites', '@emptyAlerts']);
-      
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-      cy.get('table').should('exist');
-      
-      cy.get('table tbody').should('exist');
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        const hasEmptyState = 
-          bodyText.includes('No data') || 
-          bodyText.includes('No sites') ||
-          $body.find('tbody tr').length === 0 ||
-          bodyText.includes('0 entries');
-        
-        expect(hasEmptyState).to.be.true;
-      });
-    });
-  });
-
-  describe('Performance and Integration Tests', () => {
-    it('should load page within reasonable time', () => {
-      const startTime = Date.now();
-      cy.reload();
-      
-      cy.get('table', { timeout: 20000 }).should('exist').then(() => {
-        const loadTime = Date.now() - startTime;
-        expect(loadTime).to.be.lessThan(25000);
-      });
-    });
-
-    it('should complete basic workflow integration test', () => {
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-      cy.get('h4').should('have.length.at.least', 1);
-      cy.get('table').should('exist');
-      
-      cy.get('body').then(($body) => {
-        const buttons = $body.find('button');
-        cy.log(`Found ${buttons.length} interactive buttons`);
-        expect(buttons.length).to.be.greaterThan(5);
-      });
-    });
-
-    it('should verify Site Monitoring specific components', () => {
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        
-        const hasSites = bodyText.includes('Sites') || bodyText.includes('Domain');
-        const hasStats = bodyText.includes('TOTAL SITES');
-        const hasAlerts = bodyText.includes('Alert');
-        
-        if (hasSites) cy.log('Sites section found');
-        if (hasStats) cy.log('Stats section found');
-        if (hasAlerts) cy.log('Alerts functionality found');
-        
-        expect(hasSites || hasStats).to.be.true;
-      });
-    });
-
-    it('should verify all major components are loaded', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.card.border-0.shadow-sm').should('have.length.at.least', 4);
-      cy.get('table.table-striped, table.table').should('exist');
-      
-      cy.get('h4').should('exist');
-    });
-  });
-
-  after(() => {
-    cy.log('Starting Site Monitoring cleanup...');
-    
-    const authData = Cypress.env('authData');
-    if (authData && authData.token) {
-      // Clean up test sites
-      cy.request({
-        method: 'GET',
-        url: '/api/site_monitoring/site/',
-        headers: {
-          'Authorization': `Token ${authData.token}`
-        },
-        failOnStatusCode: false
-      }).then((response) => {
-        if (response.status === 200 && response.body && response.body.results) {
-          response.body.results.forEach((site) => {
-            if (site.domain_name.includes('test-') || site.domain_name.includes('e2e-')) {
-              cy.request({
-                method: 'DELETE',
-                url: `/api/site_monitoring/site/${site.id}/`,
-                headers: { 'Authorization': `Token ${authData.token}` },
-                failOnStatusCode: false
-              });
-            }
-          });
-        }
-      });
-    } else {
-      cy.log('No auth token available - skipping cleanup');
-    }
-
-    // Reset DB-stored preferences
-    if (authData && authData.token) {
-      cy.request({
-        method: 'PATCH',
-        url: '/api/auth/profile',
-        headers: { 'Authorization': `Token ${authData.token}` },
-        body: { preferences: {} },
-        failOnStatusCode: false
-      });
-    }
-
-    // Clear ephemeral localStorage/sessionStorage
-    cy.window().then((win) => {
-      win.localStorage.clear();
-      win.sessionStorage.clear();
-    });
-    
-    cy.log('Site Monitoring cleanup completed');
+  it('shows the insights and filters from them', () => {
+    cy.contains('[role="tab"]', 'Insights').click();
+    cy.get('[data-testid="per-day-chart"] svg').should('exist');
+    cy.get('button[aria-label="Show the registration changes"]').click();
+    cy.location('hash').should('include', 'tab=changes').and('include', 'ckind=registration');
   });
 });

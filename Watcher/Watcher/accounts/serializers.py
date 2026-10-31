@@ -1,10 +1,19 @@
-from abc import ABC
 
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from .core import THEME_CHOICES, validate_avatar
 from .models import UserProfile
+
+
+# Avatar of the profile: the config is checked by core.validate_avatar
+class AvatarField(serializers.JSONField):
+    def to_internal_value(self, data):
+        try:
+            return validate_avatar(super().to_internal_value(data))
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
 
 
 # User Serializer
@@ -25,9 +34,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 # UserProfile Serializer
 class UserProfileSerializer(serializers.ModelSerializer):
+    theme = serializers.ChoiceField(choices=THEME_CHOICES, allow_blank=True, required=False)
+    avatar = AvatarField(required=False, allow_null=True)
+
     class Meta:
         model = UserProfile
-        fields = ('theme', 'preferences', 'avatar_color')
+        fields = ('theme', 'preferences', 'avatar_color', 'avatar')
 
 
 # Login Serializer

@@ -19,7 +19,7 @@ services:
     ports:
       - "127.0.0.1:${WATCHER_PORT}:9002"
     restart: always
-    command: bash -c 'update-ca-certificates && python manage.py runserver 0.0.0.0:9002'
+    command: bash -c 'update-ca-certificates && exec gunicorn watcher.wsgi:application'
     env_file:
       - ${WATCHER_PATH}/.env
       - ./.env

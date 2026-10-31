@@ -57,7 +57,6 @@ def connector_decrypt(value: str) -> str:
 
 
 def _get_registry() -> dict:
-    global _REGISTRY
     if _REGISTRY:
         return _REGISTRY
 
@@ -469,6 +468,11 @@ def get_citadel_config() -> dict:
     }
 
 
+def _split_tags(value: str) -> list:
+    """Tags of a comma separated setting, also when it was saved as the text of a list: ['a', 'b']."""
+    return [tag for tag in (t.strip("[]'\" ") for t in (value or '').split(',')) if tag]
+
+
 def get_thehive_config() -> dict:
     tags = get_config_value('thehive', 'THE_HIVE_TAGS')
     return {
@@ -477,18 +481,12 @@ def get_thehive_config() -> dict:
         'verify_ssl': _as_bool(get_config_value('thehive', 'THE_HIVE_VERIFY_SSL')),
         'custom_field': get_config_value('thehive', 'THE_HIVE_CUSTOM_FIELD'),
         'email_sender': get_config_value('thehive', 'THE_HIVE_EMAIL_SENDER'),
-        'tags': tags.split(',') if tags else [],
+        'tags': _split_tags(tags),
     }
 
 
 def get_misp_config() -> dict:
-    tags = get_config_value('misp', 'MISP_TAGS')
-
-    if tags:
-        clean_tags = [t.strip("[]'\" ") for t in tags.split(',')]
-        tags_list = [t for t in clean_tags if t]
-    else:
-        tags_list = []
+    tags_list = _split_tags(get_config_value('misp', 'MISP_TAGS'))
     return {
         'url': get_config_value('misp', 'MISP_URL'),
         'key': get_config_value('misp', 'MISP_KEY'),

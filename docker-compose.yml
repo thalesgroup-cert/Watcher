@@ -67,6 +67,34 @@ services:
       retries: 10
       start_period: 30s
 
+  # Takes the screenshots of the monitored pages (Website monitoring > Pages). It runs the code of the pages it visits:
+  # it has its own network, shared with Watcher only (no database, no other service), a read-only filesystem, no
+  # capability, no privilege escalation and limited memory. Set SCREENSHOT_SERVICE_URL to "" on `watcher` to switch it off.
+  screenshotter:
+    container_name: screenshotter
+    build:
+      context: ./screenshotter
+    image: watcher-screenshotter:latest
+    restart: unless-stopped
+    networks:
+      - screenshots
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 256
+    environment:
+      TZ: ${TZ}
+      # To leave from another address, e.g. a dedicated proxy: SCREENSHOT_PROXY=http://proxy.example:3128
+      SCREENSHOT_PROXY: "${SCREENSHOT_PROXY:-}"
+      SCREENSHOT_USER_AGENT: "${SCREENSHOT_USER_AGENT:-}"
+      SCREENSHOT_MAX_HEIGHT: "${SCREENSHOT_MAX_HEIGHT:-6000}"
+      SCREENSHOT_LOAD_TIMEOUT: "${SCREENSHOT_LOAD_TIMEOUT:-30}"
+
   watcher:
     container_name: watcher
     image: ghcr.io/thalesgroup-cert/watcher:latest
@@ -81,13 +109,15 @@ services:
     networks:
       default:
         ipv4_address: 10.10.10.6
+      screenshots: {}
     tty: true
     env_file:
       - .env
     environment:
       http_proxy: "${HTTP_PROXY:-}"
       https_proxy: "${HTTPS_PROXY:-}"
-      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.6,10.10.10.7,certstream"
+      no_proxy: "10.10.10.3,10.10.10.5,10.10.10.6,10.10.10.7,certstream,screenshotter"
+      SCREENSHOT_SERVICE_URL: "${SCREENSHOT_SERVICE_URL-http://screenshotter:8080}"
     ports:
       - "9002:9002"
     healthcheck:
@@ -103,6 +133,8 @@ networks:
       driver: default
       config:
         - subnet: 10.10.10.0/24
+  # Watcher and the screenshot service only
+  screenshots: {}
 
 volumes:
   db_data: {}

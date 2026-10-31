@@ -1,15 +1,17 @@
 from unittest.mock import patch, MagicMock
-from django.test import TestCase, TransactionTestCase
-from django.contrib.auth.models import User
+from django.test import TestCase, TransactionTestCase, SimpleTestCase, override_settings
+from django.contrib.auth.models import User, Permission
 from django.utils import timezone
 from datetime import timedelta, date
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from knox.models import AuthToken
-from site_monitoring.models import Site, Alert, Subscriber
-from site_monitoring.core import monitoring_init, create_rdap_alert, create_banner_alert, send_website_monitoring_notifications
-from site_monitoring.serializers import SiteSerializer, AlertSerializer
-import uuid
+from site_monitoring.models import Site, Alert, Subscriber, MonitoredPage, PageVersion, PageScreenshot
+from site_monitoring.core import monitoring_init, create_rdap_alert, create_banner_alert, create_alert
+from common.core import _join_records, SCREENSHOT_MAX_BYTES, capture_page, screenshots_configured
+from connectors.models import NotificationSetting
+from site_monitoring import core
+import requests
 
 class ModelTest(TestCase):
     """Test all models."""
@@ -91,12 +93,9 @@ class ModelTest(TestCase):
     def test_subscriber_functionality(self):
         """Test subscriber creation and defaults."""
         user = User.objects.create_user("testuser", "test@test.com", "pass")
-        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
+        subscriber = Subscriber.objects.create(user_rec=user, email=True)
         self.assertEqual(subscriber.user_rec, user)
         self.assertTrue(subscriber.email)
-        self.assertTrue(subscriber.slack)
-        self.assertFalse(subscriber.thehive)
-        self.assertFalse(subscriber.citadel)
         self.assertIn(user.username, str(subscriber))
 
 
@@ -431,7 +430,7 @@ class RDAPWhoisTest(TestCase):
         mock_whois.return_value = mock_instance
         site = Site.objects.create(domain_name="whois-test.com")
         from site_monitoring.core import perform_site_rdap_lookup
-        result = perform_site_rdap_lookup(site)
+        perform_site_rdap_lookup(site)
         site.refresh_from_db()
         self.assertIsNotNone(site.registrar)
 
@@ -552,7 +551,6 @@ class CheckMailTest(TestCase):
     DOMAIN = "mail-pool.test"
 
     def _check(self, site, mail_ips):
-        import dns.resolver
         from site_monitoring.core import check_mail
 
         answers = {} if mail_ips is None else {("mail." + self.DOMAIN, "A"): mail_ips}
@@ -1009,3 +1007,617 @@ class SiteInitProgressTest(APITestCase):
         self.client.credentials()
         self.assertIn(self.client.get(self.URL + 'init_progress/').status_code,
                       (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+
+
+class SitePageAPITest(APITestCase):
+    """Site / alert list filters, counters and statistics used by the Website Monitoring page."""
+
+    SITES = '/api/site_monitoring/site/'
+    ALERTS = '/api/site_monitoring/alert/'
+
+    def setUp(self):
+        _, token = AuthToken.objects.create(User.objects.create_superuser(username='site_page', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        today = timezone.now().date()
+        self.online = Site.objects.create(domain_name='online.com', legitimacy=5, monitored=True, web_status=200,
+                                          takedown_request=True, registrar='Gandi', domain_expiry=today + timedelta(days=10))
+        self.offline = Site.objects.create(domain_name='offline.com', legitimacy=2, monitored=True, web_status=None,
+                                           domain_expiry=today - timedelta(days=1))
+        self.pending = Site.objects.create(domain_name='pending.com', legitimacy=1, monitored=False)
+        self.ip_alert = Alert.objects.create(site=self.online, type='IP address change detected')
+        self.mail_alert = Alert.objects.create(site=self.online, type='Mail record + Web content changes detected', status=False)
+        self.rdap_alert = Alert.objects.create(site=self.offline, type='RDAP registrar change detected',
+                                               created_at=timezone.now() - timedelta(days=10))
+
+    def names(self, query=''):
+        response = self.client.get(self.SITES + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return sorted(r['domain_name'] for r in response.data['results'])
+
+    def alert_ids(self, query=''):
+        response = self.client.get(self.ALERTS + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return sorted(r['id'] for r in response.data['results'])
+
+    def test_site_filters(self):
+        self.assertEqual(self.names('?legitimacy=5,6'), ['online.com'])
+        self.assertEqual(self.names('?web=online'), ['online.com'])
+        self.assertEqual(self.names('?web=offline'), ['offline.com'])
+        self.assertEqual(self.names('?web=pending'), ['pending.com'])
+        self.assertEqual(self.names('?expiry=expired'), ['offline.com'])
+        self.assertEqual(self.names('?expiry=expiring_soon'), ['online.com'])
+        self.assertEqual(self.names('?action=takedown'), ['online.com'])
+        self.assertEqual(self.names('?action=none'), ['offline.com', 'pending.com'])
+        self.assertEqual(self.names('?search=gandi'), ['online.com'])
+
+    def test_sites_carry_their_alert_counts(self):
+        rows = self.client.get(self.SITES + '?ordering=-alerts_count').data['results']
+        self.assertEqual((rows[0]['domain_name'], rows[0]['alerts_count'], rows[0]['open_alerts_count']), ('online.com', 2, 1))
+        self.assertIsNotNone(rows[0]['last_alert_at'])
+
+    def test_alert_filters_and_light_rows(self):
+        self.assertEqual(self.alert_ids('?status=active'), sorted([self.ip_alert.id, self.rdap_alert.id]))
+        self.assertEqual(self.alert_ids('?status=archived'), [self.mail_alert.id])
+        self.assertEqual(self.alert_ids('?kind=mail'), [self.mail_alert.id])
+        self.assertEqual(self.alert_ids('?kind=content'), [self.mail_alert.id])
+        self.assertEqual(self.alert_ids('?kind=registration'), [self.rdap_alert.id])
+        self.assertEqual(self.alert_ids('?period=7d'), sorted([self.ip_alert.id, self.mail_alert.id]))
+        self.assertEqual(self.alert_ids('?search=offline'), [self.rdap_alert.id])
+        row = self.client.get(self.ALERTS + '?kind=hosting').data['results'][0]
+        self.assertEqual(row['site'], {'id': self.online.id, 'domain_name': 'online.com', 'legitimacy': 5})
+        detail = self.client.get(self.ALERTS + f'{self.ip_alert.id}/').data
+        self.assertEqual(detail['site']['registrar'], 'Gandi')
+
+    def test_archiving_a_change_is_recorded_in_its_history(self):
+        from timeline.models import TimelineEvent
+        self.client.patch(self.ALERTS + f'{self.ip_alert.id}/', {'status': False}, format='json')
+        event = TimelineEvent.objects.get(object_id=self.ip_alert.id, content_type__app_label='site_monitoring',
+                                          content_type__model='alert', action='updated')
+        self.assertEqual(event.diff, {'status': {'old': True, 'new': False}})
+
+    def test_statistics(self):
+        stats = self.client.get(self.SITES + 'statistics/').data
+        self.assertEqual((stats['total'], stats['malicious'], stats['offline'], stats['expiringSoon']), (3, 1, 1, 1))
+        self.assertEqual((stats['openAlerts'], stats['archivedAlerts']), (2, 1))
+        self.assertEqual(stats['byLegitimacy'], {'5': 1, '2': 1, '1': 1})
+        self.assertEqual(stats['alertsByKind']['mail'], 1)
+        self.assertEqual(stats['alertsByKind']['hosting'], 1)
+        self.assertEqual(len(stats['alertsPerDay']), 30)
+        self.assertEqual(stats['alertsPerDay'][-1]['count'], 2)
+        self.assertEqual(stats['topRegistrars'], [{'name': 'Gandi', 'count': 1}])
+
+
+# Mail alert notification
+class MailAlertNotificationTest(TestCase):
+    """The mail fields of an alert are written after it is created: the notification has to carry them."""
+
+    @patch('site_monitoring.core.time.sleep')
+    @patch('site_monitoring.core.send_website_monitoring_notifications')
+    def test_notification_carries_the_mx_records_stored_on_the_alert(self, send, _sleep):
+        site = Site.objects.create(domain_name='mailnotif.example', monitored=True, mail_monitoring=True)
+        # check_mail has already stored the MX it found; the site object handed to create_alert is the stale one
+        Site.objects.filter(pk=site.pk).update(MX_records=['10 mx.mailnotif.example.'])
+
+        create_alert(8, site, None, None, None)
+
+        alert_data = send.call_args.args[1]
+        self.assertEqual(alert_data['new_MX_records'], ['10 mx.mailnotif.example.'])
+
+    @patch('site_monitoring.core.time.sleep')
+    @patch('site_monitoring.core.send_website_monitoring_notifications')
+    def test_nothing_is_added_when_the_alert_has_no_mail_data(self, send, _sleep):
+        site = Site.objects.create(domain_name='nomail.example', monitored=True, mail_monitoring=True)
+
+        create_alert(8, site, None, None, None)
+
+        self.assertFalse(send.call_args.args[1].get('new_MX_records'))
+
+
+class JoinRecordsTest(TestCase):
+    def test_a_list_is_shown_on_one_line(self):
+        self.assertEqual(_join_records(['10 mx1.example.', '20 mx2.example.']), '10 mx1.example., 20 mx2.example.')
+
+    def test_empty_values_stay_empty(self):
+        self.assertIsNone(_join_records([]))
+        self.assertIsNone(_join_records(None))
+
+    def test_a_text_is_left_alone(self):
+        self.assertEqual(_join_records('mx.example.'), 'mx.example.')
+
+
+# Monitored pages
+def _html(*paragraphs, extra=''):
+    return ('<html><head><title>t</title><script>var x = 1;</script></head><body><nav>Home About</nav>'
+            + ''.join(f'<p>{p}</p>' for p in paragraphs) + extra + '<footer>© 2026</footer></body></html>').encode()
+
+
+class ExtractTextTest(SimpleTestCase):
+    def test_scripts_menus_and_footers_are_not_part_of_the_text(self):
+        self.assertEqual(core.extract_page_text(_html('First post', 'Second post')), 'First post\nSecond post')
+
+    def test_dates_hours_and_counters_do_not_count_as_a_change(self):
+        first = core.extract_page_text(_html('Post of 2026-10-29 12:30', 'Read 3 hours ago', '1,204 views', 'Content'))
+        second = core.extract_page_text(_html('Post of 2026-10-30 08:05', 'Read 5 hours ago', '1,310 views', 'Content'))
+        self.assertEqual(first, second)
+        self.assertEqual(first, 'Post of\nRead\nContent')
+
+    def test_written_out_dates_are_ignored_too(self):
+        self.assertEqual(core.extract_page_text(_html('Published 29 October 2026', 'October 30, 2026', 'Text')), 'Published\nText')
+
+    def test_a_css_selector_keeps_only_that_part(self):
+        body = _html('Outside', extra='<article><p>Inside</p></article>')
+        self.assertEqual(core.extract_page_text(body, 'article'), 'Inside')
+
+    def test_a_selector_that_matches_nothing_falls_back_to_the_whole_page(self):
+        self.assertEqual(core.extract_page_text(_html('Text'), '#missing'), 'Text')
+
+    def test_the_patterns_of_the_page_are_removed(self):
+        self.assertEqual(core.extract_page_text(_html('Ticket ABC-123 open', 'Body'), ignore_patterns=r'ABC-\d+'),
+                         'Ticket open\nBody')
+
+    def test_an_invalid_pattern_never_stops_the_check(self):
+        self.assertEqual(core.extract_page_text(_html('Body'), ignore_patterns='(unclosed'), 'Body')
+
+    def test_hidden_elements_and_comments_are_left_out(self):
+        body = b'<body><p hidden>secret</p><!-- comment --><p>Seen</p></body>'
+        self.assertEqual(core.extract_page_text(body), 'Seen')
+
+    def test_invalid_patterns_are_refused_with_a_message(self):
+        with self.assertRaises(ValueError):
+            core.compile_ignore_patterns('ok\n(unclosed')
+        with self.assertRaises(ValueError):
+            core.compile_ignore_patterns('a' * 201)
+
+
+class CompareTest(SimpleTestCase):
+    def test_same_text_is_zero_and_different_text_is_a_hundred(self):
+        self.assertEqual(core.compare_texts('a\nb', 'a\nb')[0], 0.0)
+        self.assertEqual(core.compare_texts('aaa\nbbb', 'xxx\nyyy')[0], 100.0)
+
+    def test_a_small_addition_is_a_small_ratio(self):
+        old = '\n'.join(f'line number {i} of the article' for i in range(40))
+        ratio, added, removed = core.compare_texts(old, old + '\nOne new sentence')
+        self.assertTrue(0 < ratio < 5, ratio)
+        self.assertEqual((added, removed), (['One new sentence'], []))
+
+    def test_the_summary_is_short(self):
+        added = [f'new line {i} ' + 'x' * 400 for i in range(10)]
+        summary = core.summarize_change(added, [])
+        self.assertEqual(len(summary['added']), core.PAGE_SUMMARY_LINES)
+        self.assertEqual(summary['more_added'], 4)
+        self.assertTrue(all(len(line) <= core.PAGE_SUMMARY_WIDTH for line in summary['added']))
+
+    def test_the_rows_of_a_diff_cut_the_long_unchanged_parts(self):
+        old = '\n'.join(f'same {i}' for i in range(30))
+        rows = core.diff_rows(old, old + '\nnew')
+        self.assertEqual([r['kind'] for r in rows], ['skip', 'same', 'same', 'same', 'add'])
+        self.assertEqual(rows[0]['text'], '27')
+
+
+class AddressTest(SimpleTestCase):
+    def test_a_private_address_is_refused(self):
+        for url in ('http://127.0.0.1/', 'http://10.0.0.5/admin', 'http://localhost/', 'ftp://example.com/'):
+            with self.subTest(url=url), self.assertRaises(core.PageError):
+                core.fetch_page(url)
+
+    def test_a_redirect_to_a_private_address_is_refused(self):
+        class Redirect:
+            is_redirect = True
+            status_code = 302
+            headers = {'Location': 'http://127.0.0.1/secret'}
+            def close(self): pass
+
+        with patch.object(core, '_is_public', side_effect=lambda host: host != '127.0.0.1'), \
+                patch('site_monitoring.core.requests.get', return_value=Redirect()):
+            with self.assertRaises(core.PageError):
+                core.fetch_page('https://blog.example.org/')
+
+
+class CheckPageTest(TestCase):
+    def setUp(self):
+        self.page = MonitoredPage.objects.create(url='https://blog.example.org/', name='Blog', threshold=10)
+
+    def _check(self, body, status=200):
+        with patch.object(core, 'fetch_page', return_value=(status, body)), \
+                patch('site_monitoring.core.notify_page_change') as notify:
+            version = core.check_page(MonitoredPage.objects.get(pk=self.page.pk))
+        return version, notify
+
+    def test_the_first_check_keeps_a_version_and_notifies_nothing(self):
+        version, notify = self._check(_html('Hello'))
+        self.assertIsNotNone(version)
+        self.assertIsNone(version.change_ratio)
+        notify.assert_not_called()
+
+    def test_an_unchanged_page_adds_no_version(self):
+        self._check(_html('Hello'))
+        version, _ = self._check(_html('Hello'))
+        self.assertIsNone(version)
+        self.assertEqual(PageVersion.objects.count(), 1)
+
+    def test_noise_alone_adds_no_version(self):
+        self._check(_html('Hello', 'Updated 2026-10-29 10:00'))
+        version, _ = self._check(_html('Hello', 'Updated 2026-10-30 11:12'))
+        self.assertIsNone(version)
+
+    def test_a_big_change_is_kept_and_notified(self):
+        self._check(_html('Hello'))
+        version, notify = self._check(_html('Something else entirely', 'with more text'))
+        self.assertGreaterEqual(version.change_ratio, 10)
+        notify.assert_called_once()
+        self.assertTrue(PageVersion.objects.get(pk=version.pk).notified)
+
+    def test_a_small_change_is_kept_but_not_notified(self):
+        long_text = [f'paragraph {i} with enough words to weigh something' for i in range(60)]
+        self._check(_html(*long_text))
+        version, notify = self._check(_html(*long_text, 'a short new line'))
+        self.assertLess(version.change_ratio, 10)
+        notify.assert_not_called()
+        self.assertEqual(PageVersion.objects.count(), 2)
+
+    def test_the_status_of_the_page_is_recorded(self):
+        self._check(None, status=404)
+        self.page.refresh_from_db()
+        self.assertEqual(self.page.last_status, 404)
+        self.assertIsNotNone(self.page.last_checked)
+        self.assertEqual(PageVersion.objects.count(), 0)
+
+    def test_an_unreachable_page_is_recorded_without_a_version(self):
+        with patch.object(core, 'fetch_page', side_effect=core.PageError('unreachable')):
+            self.assertIsNone(core.check_page(self.page))
+        self.page.refresh_from_db()
+        self.assertIsNone(self.page.last_status)
+        self.assertIsNotNone(self.page.last_checked)
+
+    def test_only_the_newest_versions_are_kept(self):
+        MonitoredPage.objects.filter(pk=self.page.pk).update(retention=3)
+        for number in range(6):
+            self._check(_html(f'Version {number} ' + 'text ' * (number + 1) + 'x' * number * 50))
+        self.assertEqual(PageVersion.objects.filter(page=self.page).count(), 3)
+
+    def test_a_failing_notification_does_not_lose_the_version(self):
+        self._check(_html('Hello'))
+        with patch.object(core, 'fetch_page', return_value=(200, _html('Entirely different words here'))), \
+                patch('site_monitoring.core.notify_page_change', side_effect=RuntimeError('smtp down')):
+            with self.assertRaises(RuntimeError):
+                core.check_page(MonitoredPage.objects.get(pk=self.page.pk))
+        self.assertEqual(PageVersion.objects.count(), 2)
+
+
+class DuePagesTest(TestCase):
+    def test_a_page_is_due_after_its_interval(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        now = timezone.now()
+        never = MonitoredPage.objects.create(url='https://a.example.org/')
+        recent = MonitoredPage.objects.create(url='https://b.example.org/', last_checked=now - timedelta(minutes=10))
+        old = MonitoredPage.objects.create(url='https://c.example.org/', last_checked=now - timedelta(minutes=90))
+        paused = MonitoredPage.objects.create(url='https://d.example.org/', is_active=False)
+        due = core.due_pages(now)
+        self.assertEqual({p.pk for p in due}, {never.pk, old.pk})
+        self.assertNotIn(recent, due)
+        self.assertNotIn(paused, due)
+
+
+class NotificationTest(TestCase):
+    def setUp(self):
+        self.page = MonitoredPage.objects.create(url='https://blog.example.org/', name='Blog <b>')
+        self.version = PageVersion.objects.create(page=self.page, text='x', content_hash='h', size=1, change_ratio=12.5)
+        self.summary = {'added': ['New <script>alert(1)</script> & more'], 'removed': ['Old line'],
+                        'more_added': 2, 'more_removed': 0}
+
+    def test_the_text_of_the_page_is_escaped_for_each_channel(self):
+        from site_monitoring.core import _page_context
+        slack = _page_context(self.page, self.version, self.summary, 'slack')
+        citadel = _page_context(self.page, self.version, self.summary, 'citadel')
+        self.assertIn('&lt;script&gt;', slack['added_text'])
+        self.assertNotIn('<script>', slack['added_text'])
+        self.assertIn('&lt;script&gt;', citadel['added_text'])
+        self.assertIn('<br>', citadel['added_text'])
+        self.assertEqual(citadel['page_name'], 'Blog &lt;b&gt;')
+
+    def test_the_context_says_how_much_changed_and_how_many_lines_are_left_out(self):
+        from site_monitoring.core import _page_context
+        context = _page_context(self.page, self.version, self.summary, 'slack')
+        self.assertEqual(context['change_percent'], '12.5 %')
+        self.assertIn('… and 2 more', context['added_text'])
+        self.assertEqual(context['removed_text'], '• Old line')
+
+    def test_one_failing_channel_does_not_stop_the_next_ones(self):
+        from site_monitoring import core
+        sent = []
+        with patch.object(core, '_send_page_slack', side_effect=RuntimeError('boom')), \
+                patch.object(core, '_send_page_citadel', lambda *a: sent.append('citadel')), \
+                patch.object(core, '_send_page_email', lambda *a: sent.append('email')):
+            with self.assertLogs('watcher.site_monitoring', level='INFO') as logs:
+                core.notify_page_change(self.page, self.version, self.summary)
+        self.assertEqual(sent, ['citadel', 'email'])
+        self.assertIn('slack=failed', logs.output[-1])
+        self.assertEqual(logs.records[-1].levelname, 'WARNING')
+
+    def test_the_email_goes_to_the_subscribers_who_ticked_email(self):
+        from site_monitoring import core
+        from site_monitoring.models import Subscriber
+        for name, wants in (('wants', True), ('declines', False)):
+            Subscriber.objects.create(user_rec=User.objects.create_user(name, f'{name}@example.com'), email=wants)
+        with patch('common.utils.send_email_notifications.send_email_notifications') as send:
+            core._send_page_email(self.page, self.version, self.summary)
+            send.assert_not_called()  # a notification is off until a superuser switches it on
+            NotificationSetting.objects.create(notification_type='page_change', channel='email', enabled=True)
+            core._send_page_email(self.page, self.version, self.summary)
+        self.assertEqual(send.call_args.args[2], ['wants@example.com'])
+        self.assertNotIn('<script>', send.call_args.args[1])
+
+
+class PageApiTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user('analyst', 'analyst@example.com', 'pass')
+        self.client.force_authenticate(self.user)
+        self.page = MonitoredPage.objects.create(url='https://blog.example.org/', name='Blog')
+        self.old = PageVersion.objects.create(page=self.page, text='one\ntwo', content_hash='a', size=7)
+        self.new = PageVersion.objects.create(page=self.page, text='one\nthree', content_hash='b', size=9,
+                                              change_ratio=40.0)
+
+    def _allow(self, *codenames):
+        self.user.user_permissions.add(*Permission.objects.filter(codename__in=codenames))
+        self.user = User.objects.get(pk=self.user.pk)
+        self.client.force_authenticate(self.user)
+
+    def test_the_list_shows_the_history_figures(self):
+        row = self.client.get('/api/site_monitoring/page/').json()['results'][0]
+        self.assertEqual((row['versions_count'], row['last_ratio']), (2, 40.0))
+
+    def test_creating_a_page_needs_the_permission(self):
+        self.assertEqual(self.client.post('/api/site_monitoring/page/', {'url': 'https://x.example.org/'}).status_code, 403)
+        self._allow('add_monitoredpage')
+        self.assertEqual(self.client.post('/api/site_monitoring/page/', {'url': 'https://x.example.org/'}).status_code, 201)
+
+    def test_the_input_is_validated(self):
+        self._allow('add_monitoredpage')
+        for payload in ({'url': 'ftp://x.example.org/'}, {'url': 'https://x.example.org/', 'threshold': 0},
+                        {'url': 'https://x.example.org/', 'check_interval': 1},
+                        {'url': 'https://x.example.org/', 'ignore_patterns': '(oops'},
+                        {'url': 'https://x.example.org/', 'css_selector': 'div['}):
+            with self.subTest(payload=payload):
+                self.assertEqual(self.client.post('/api/site_monitoring/page/', payload).status_code, 400)
+
+    def test_anonymous_visitors_see_nothing(self):
+        self.assertIn(APIClient().get('/api/site_monitoring/page/').status_code, (401, 403))
+
+    def test_versions_come_newest_first_without_their_text(self):
+        data = self.client.get(f'/api/site_monitoring/page/{self.page.pk}/versions/').json()
+        self.assertEqual([v['id'] for v in data], [self.new.pk, self.old.pk])
+        self.assertNotIn('text', data[0])
+
+    def test_one_version_gives_its_text(self):
+        data = self.client.get(f'/api/site_monitoring/page/{self.page.pk}/versions/{self.old.pk}/').json()
+        self.assertEqual(data['text'], 'one\ntwo')
+
+    def test_a_version_of_another_page_is_not_found(self):
+        other = MonitoredPage.objects.create(url='https://other.example.org/')
+        foreign = PageVersion.objects.create(page=other, text='z', content_hash='z', size=1)
+        self.assertEqual(self.client.get(f'/api/site_monitoring/page/{self.page.pk}/versions/{foreign.pk}/').status_code, 404)
+
+    def test_the_diff_compares_the_last_two_versions_by_default(self):
+        data = self.client.get(f'/api/site_monitoring/page/{self.page.pk}/diff/').json()
+        self.assertEqual([(r['kind'], r['text']) for r in data['rows']],
+                         [('same', 'one'), ('remove', 'two'), ('add', 'three')])
+        self.assertEqual((data['from']['id'], data['to']['id']), (self.old.pk, self.new.pk))
+
+    def test_the_diff_can_compare_chosen_versions(self):
+        url = f'/api/site_monitoring/page/{self.page.pk}/diff/?from={self.new.pk}&to={self.old.pk}'
+        self.assertEqual(self.client.get(url).json()['rows'][-1], {'kind': 'add', 'text': 'two'})
+
+    def test_a_page_with_one_version_has_nothing_to_compare(self):
+        other = MonitoredPage.objects.create(url='https://other.example.org/')
+        PageVersion.objects.create(page=other, text='z', content_hash='z', size=1)
+        self.assertEqual(self.client.get(f'/api/site_monitoring/page/{other.pk}/diff/').status_code, 400)
+
+    def test_check_now_runs_a_check(self):
+        self._allow('add_monitoredpage')
+        with patch('site_monitoring.api.check_page', return_value=None) as check:
+            response = self.client.post(f'/api/site_monitoring/page/{self.page.pk}/check/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['changed'])
+        check.assert_called_once()
+
+    def test_pages_can_be_paused_in_bulk(self):
+        self._allow('change_monitoredpage')
+        response = self.client.post('/api/site_monitoring/page/bulk_update/',
+                                    {'ids': [self.page.pk], 'changes': {'is_active': False}}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.page.refresh_from_db()
+        self.assertFalse(self.page.is_active)
+
+
+# Screenshots of the monitored pages
+SERVICE = 'http://screenshotter:8080'
+JPEG = b'\xff\xd8\xff\xe0fake-jpeg-bytes'
+
+
+def _plain_html(*paragraphs):
+    return ('<html><body>' + ''.join(f'<p>{p}</p>' for p in paragraphs) + '</body></html>').encode()
+
+
+def _answer(status=200, content=JPEG, text=''):
+    response = MagicMock()
+    response.status_code, response.content, response.text = status, content, text
+    return response
+
+
+@override_settings(SCREENSHOT_SERVICE_URL=SERVICE)
+class CaptureTest(TestCase):
+    def test_the_address_of_the_page_is_sent_to_the_service_without_a_proxy(self):
+        with patch('common.core.requests.post', return_value=_answer()) as post:
+            self.assertEqual(capture_page('https://blog.example.org/'), JPEG)
+        self.assertEqual(post.call_args.args[0], SERVICE + '/screenshot')
+        self.assertEqual(post.call_args.kwargs['json'], {'url': 'https://blog.example.org/'})
+        self.assertEqual(post.call_args.kwargs['proxies'], {'http': None, 'https': None})
+
+    @override_settings(SCREENSHOT_SERVICE_URL='')
+    def test_without_the_service_nothing_is_sent(self):
+        with patch('common.core.requests.post') as post:
+            self.assertIsNone(capture_page('https://blog.example.org/'))
+        post.assert_not_called()
+        self.assertFalse(screenshots_configured())
+
+    def test_a_refusal_a_failure_or_a_silent_service_gives_nothing_and_is_logged(self):
+        cases = (_answer(400, b'', 'address not allowed'), _answer(502, b'', 'capture failed'),
+                 requests.exceptions.ConnectionError('down'), requests.exceptions.Timeout('slow'))
+        for case in cases:
+            kwargs = {'side_effect': case} if isinstance(case, Exception) else {'return_value': case}
+            with self.subTest(case=str(case)[:30]), patch('common.core.requests.post', **kwargs):
+                with self.assertLogs('watcher.common', level='WARNING'):
+                    self.assertIsNone(capture_page('https://blog.example.org/'))
+
+    def test_a_screenshot_that_is_too_big_is_not_kept(self):
+        big = _answer(content=b'x' * (SCREENSHOT_MAX_BYTES + 1))
+        with patch('common.core.requests.post', return_value=big):
+            with self.assertLogs('watcher.common', level='WARNING'):
+                self.assertIsNone(capture_page('https://blog.example.org/'))
+
+    def test_a_new_screenshot_replaces_the_one_of_a_version(self):
+        page = MonitoredPage.objects.create(url='https://blog.example.org/')
+        version = PageVersion.objects.create(page=page, text='a', content_hash='a', size=1)
+        for image in (b'first', b'second'):
+            with patch('common.core.requests.post', return_value=_answer(content=image)):
+                self.assertTrue(core.capture_for_version(page, version))
+        self.assertEqual(PageScreenshot.objects.count(), 1)
+        self.assertEqual(bytes(PageScreenshot.objects.get().image), b'second')
+
+
+@override_settings(SCREENSHOT_SERVICE_URL=SERVICE)
+class CheckPageScreenshotTest(TestCase):
+    def setUp(self):
+        self.page = MonitoredPage.objects.create(url='https://blog.example.org/', threshold=10)
+
+    def _check(self, body):
+        with patch.object(core, 'fetch_page', return_value=(200, body)), \
+                patch('site_monitoring.core.notify_page_change'):
+            return core.check_page(MonitoredPage.objects.get(pk=self.page.pk))
+
+    def test_every_new_version_gets_a_screenshot_so_that_there_is_always_a_before(self):
+        with patch('common.core.requests.post', return_value=_answer()) as post:
+            first = self._check(_plain_html('Hello'))
+            second = self._check(_plain_html('Something else entirely', 'with more text'))
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(set(PageScreenshot.objects.values_list('version_id', flat=True)), {first.pk, second.pk})
+
+    def test_an_unchanged_page_is_not_captured_again(self):
+        with patch('common.core.requests.post', return_value=_answer()) as post:
+            self._check(_plain_html('Hello'))
+            self._check(_plain_html('Hello'))
+        self.assertEqual(post.call_count, 1)
+
+    def test_a_page_can_be_left_out(self):
+        MonitoredPage.objects.filter(pk=self.page.pk).update(capture_screenshots=False)
+        with patch('common.core.requests.post') as post:
+            self._check(_plain_html('Hello'))
+        post.assert_not_called()
+
+    def test_a_service_that_fails_does_not_lose_the_version(self):
+        with patch('common.core.requests.post', side_effect=requests.exceptions.ConnectionError('down')):
+            version = self._check(_plain_html('Hello'))
+        self.assertIsNotNone(version)
+        self.assertEqual(PageScreenshot.objects.count(), 0)
+
+    def test_an_unexpected_error_does_not_lose_the_version_nor_the_notification(self):
+        self._check(_plain_html('Hello'))
+        with patch('site_monitoring.core.capture_for_version', side_effect=RuntimeError('disk full')), \
+                patch.object(core, 'fetch_page', return_value=(200, _plain_html('Entirely different words here', 'and more'))), \
+                patch('site_monitoring.core.notify_page_change') as notify:
+            with self.assertLogs('watcher.site_monitoring', level='ERROR'):
+                version = core.check_page(MonitoredPage.objects.get(pk=self.page.pk))
+        self.assertIsNotNone(version)
+        notify.assert_called_once()
+
+    def test_the_screenshots_of_the_versions_that_are_trimmed_go_with_them(self):
+        MonitoredPage.objects.filter(pk=self.page.pk).update(retention=2)
+        with patch('common.core.requests.post', return_value=_answer()):
+            for number in range(5):
+                self._check(_plain_html(f'Version {number} ' + 'text ' * (number + 1) + 'x' * number * 50))
+        self.assertEqual(PageVersion.objects.filter(page=self.page).count(), 2)
+        self.assertEqual(PageScreenshot.objects.count(), 2)
+
+
+@override_settings(SCREENSHOT_SERVICE_URL=SERVICE)
+class ScreenshotApiTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user('analyst', 'analyst@example.com', 'pass')
+        self.client.force_authenticate(self.user)
+        self.page = MonitoredPage.objects.create(url='https://blog.example.org/', name='Blog')
+        self.old = PageVersion.objects.create(page=self.page, text='one', content_hash='a', size=3)
+        self.new = PageVersion.objects.create(page=self.page, text='two', content_hash='b', size=3, change_ratio=40.0)
+        PageScreenshot.objects.create(version=self.old, image=JPEG, size=len(JPEG))
+
+    def _allow(self, *codenames):
+        self.user.user_permissions.add(*Permission.objects.filter(codename__in=codenames))
+        self.user = User.objects.get(pk=self.user.pk)
+        self.client.force_authenticate(self.user)
+
+    def _url(self, suffix=''):
+        return f'/api/site_monitoring/page/{self.page.pk}/{suffix}'
+
+    def test_the_versions_say_which_ones_have_a_screenshot(self):
+        data = {v['id']: v['has_screenshot'] for v in self.client.get(self._url('versions/')).json()}
+        self.assertEqual(data, {self.old.pk: True, self.new.pk: False})
+
+    def test_the_diff_says_it_too(self):
+        data = self.client.get(self._url('diff/')).json()
+        self.assertEqual((data['from']['has_screenshot'], data['to']['has_screenshot']), (True, False))
+
+    def test_the_image_of_a_version_is_served_as_a_jpeg(self):
+        response = self.client.get(self._url(f'versions/{self.old.pk}/screenshot/'), HTTP_ACCEPT='image/avif,image/webp,*/*')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'image/jpeg')
+        self.assertEqual(response.content, JPEG)
+
+    def test_a_version_without_screenshot_is_not_found(self):
+        self.assertEqual(self.client.get(self._url(f'versions/{self.new.pk}/screenshot/')).status_code, 404)
+
+    def test_the_image_of_another_page_is_not_reachable_through_this_one(self):
+        other = MonitoredPage.objects.create(url='https://other.example.org/')
+        foreign = PageVersion.objects.create(page=other, text='z', content_hash='z', size=1)
+        PageScreenshot.objects.create(version=foreign, image=b'secret', size=6)
+        self.assertEqual(self.client.get(self._url(f'versions/{foreign.pk}/screenshot/')).status_code, 404)
+
+    def test_the_images_are_not_public(self):
+        self.assertIn(APIClient().get(self._url(f'versions/{self.old.pk}/screenshot/')).status_code, (401, 403))
+
+    def test_listing_the_versions_does_not_read_the_images(self):
+        with self.assertNumQueries(2):  # the page, then its versions
+            self.client.get(self._url('versions/'))
+
+    def test_a_manual_capture_is_kept_with_the_newest_version(self):
+        self._allow('add_monitoredpage')
+        with patch('common.core.requests.post', return_value=_answer(content=b'manual')):
+            response = self.client.post(self._url('screenshot/'))
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['has_screenshot'], True)
+        self.assertEqual(bytes(PageScreenshot.objects.get(version=self.new).image), b'manual')
+
+    def test_a_manual_capture_needs_the_permission(self):
+        self.assertEqual(self.client.post(self._url('screenshot/')).status_code, 403)
+
+    @override_settings(SCREENSHOT_SERVICE_URL='')
+    def test_a_manual_capture_says_when_the_service_is_not_configured(self):
+        self._allow('add_monitoredpage')
+        self.assertEqual(self.client.post(self._url('screenshot/')).status_code, 503)
+
+    def test_a_manual_capture_says_when_the_service_fails(self):
+        self._allow('add_monitoredpage')
+        with patch('common.core.requests.post', side_effect=requests.exceptions.ConnectionError('down')):
+            self.assertEqual(self.client.post(self._url('screenshot/')).status_code, 502)
+
+    def test_a_page_without_version_cannot_be_captured(self):
+        self._allow('add_monitoredpage')
+        empty = MonitoredPage.objects.create(url='https://empty.example.org/')
+        self.assertEqual(self.client.post(f'/api/site_monitoring/page/{empty.pk}/screenshot/').status_code, 400)
+
+    def test_a_page_can_be_left_out_of_the_screenshots(self):
+        self._allow('change_monitoredpage')
+        response = self.client.patch(self._url(), {'capture_screenshots': False}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(response.json()['capture_screenshots'])

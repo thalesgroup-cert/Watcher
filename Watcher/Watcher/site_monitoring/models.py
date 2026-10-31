@@ -82,7 +82,6 @@ class Site(models.Model):
         Auto-update legitimacy when domain becomes registered (registrar found)
         """
         if self.registrar:
-            old_legitimacy = self.legitimacy
             if self.legitimacy == 6:
                 self.legitimacy = 5
                 return True
@@ -182,15 +181,77 @@ class Subscriber(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
     email = models.BooleanField(default=False, verbose_name="E-mail")
-    thehive = models.BooleanField(default=False, verbose_name="TheHive")
-    slack = models.BooleanField(default=False, verbose_name="Slack")
-    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     class Meta:
         verbose_name_plural = 'subscribers'
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+
+class MonitoredPage(models.Model):
+    """
+    A precise web page (a researcher's blog without RSS feed, a vendor advisory page…) whose text is watched.
+    Each time the text changes a :model:`site_monitoring.PageVersion` is kept; a change at least as big as
+    `threshold` is notified. Independent from :model:`site_monitoring.Site`, which watches a whole domain.
+    """
+    url = models.URLField(max_length=700, unique=True)
+    name = models.CharField(max_length=150, blank=True, default='')
+    css_selector = models.CharField(
+        max_length=200, blank=True, default='',
+        help_text="Only the text of this part of the page is compared (e.g. 'article', '#content'); empty: the whole page")
+    ignore_patterns = models.TextField(
+        blank=True, default='', help_text="One regular expression per line: matching text is ignored (counters, dates…)")
+    threshold = models.PositiveSmallIntegerField(
+        default=5, help_text="Share of the text (in %) that has to change for a notification")
+    check_interval = models.PositiveIntegerField(default=60, help_text="Minutes between two checks")
+    retention = models.PositiveIntegerField(default=50, help_text="Number of versions kept")
+    capture_screenshots = models.BooleanField(
+        default=True, help_text="Take a screenshot of the page at each new version (needs the screenshot service)")
+    is_active = models.BooleanField(default=True)
+
+    last_checked = models.DateTimeField(blank=True, null=True)
+    last_status = models.IntegerField(blank=True, null=True, help_text="HTTP status of the last check, None: unreachable")
+    last_changed = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['name', 'url']
+
+    def __str__(self):
+        return self.name or self.url
+
+
+class PageVersion(models.Model):
+    """The extracted text of a monitored page, kept each time it differs from the previous version."""
+    page = models.ForeignKey(MonitoredPage, on_delete=models.CASCADE, related_name='versions')
+    created_at = models.DateTimeField(default=timezone.now)
+    text = models.TextField()
+    content_hash = models.CharField(max_length=64)
+    size = models.PositiveIntegerField(default=0)
+    # Share (%) of the text that differs from the version before; None for the first version
+    change_ratio = models.FloatField(blank=True, null=True)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f'{self.page_id} @ {self.created_at:%Y-%m-%d %H:%M}'
+
+
+class PageScreenshot(models.Model):
+    """
+    The screenshot of a monitored page when a version was kept (a JPEG, taken by the screenshot service). Kept apart
+    from the version so that listing versions never reads the images; deleted with its version.
+    """
+    version = models.OneToOneField(PageVersion, on_delete=models.CASCADE, related_name='screenshot')
+    image = models.BinaryField(editable=False)
+    size = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f'screenshot of version {self.version_id} ({self.size // 1024} KB)'
 
 
 @receiver(post_delete, sender=Site)

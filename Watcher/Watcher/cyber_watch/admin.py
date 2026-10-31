@@ -44,9 +44,9 @@ class WatchRuleHitAdmin(admin.ModelAdmin):
 
 @admin.register(Subscriber)
 class SubscriberAdmin(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel',
+    list_display = ('user_rec', 'created_at', 'email',
                     'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits')
-    list_filter  = ('email', 'thehive', 'slack', 'citadel',
+    list_filter  = ('email',
                     'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits')
     search_fields = ('user_rec__username',)
     readonly_fields = ['created_at']
@@ -54,12 +54,13 @@ class SubscriberAdmin(admin.ModelAdmin):
         (None, {
             'fields': ('user_rec', 'created_at'),
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber.",
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive "
+                           "are set once for the whole instance under Connectors > Notifications.",
         }),
         ('Subscription Types', {
             'fields': ('notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits'),
-            'description': "Choose which event types trigger a notification.",
+            'description': "Choose which kinds of e-mail this subscriber receives. Slack, Citadel and TheHive ignore these boxes (see Connectors > Notifications).",
         }),
     )

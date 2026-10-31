@@ -79,7 +79,7 @@ class CertStreamClient:
             self.http_proxy = os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy')
             self.https_proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
             if self.http_proxy or self.https_proxy:
-                logger.info(f"Using proxy for external CertStream connection")
+                logger.info("Using proxy for external CertStream connection")
 
     @staticmethod
     def _bypass_proxy_env(hostname):

@@ -1,6 +1,6 @@
 # coding=utf-8
 import logging
-from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber, MonitoredKeyword
+from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber, MonitoredKeyword, KeywordHit
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
@@ -8,13 +8,11 @@ from datetime import datetime
 import calendar
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
-from nltk.tokenize import word_tokenize
 import feedparser
 import requests
 import re
 from django.db import close_old_connections
 from common.core import send_app_specific_notifications
-from django.db.models import Q
 from urllib.parse import urlparse
 from .model_manager import get_ner_pipeline
 
@@ -24,6 +22,12 @@ from .summary_manager import (
     generate_breaking_news,
     generate_trendy_word_summary
 )
+from types import SimpleNamespace
+import functools
+import hashlib
+import unicodedata
+import html
+import common.utils.job_log as job_log
 
 # Configure logger
 logger = logging.getLogger('watcher.threats_watcher')
@@ -182,10 +186,8 @@ def main_watch():
     logger.info("Fetched last posts.")
     tokenize_count_urls()
     logger.info("Tokenized words.")
-    # print("POSTS Before Banned : ", posts_words)
     remove_banned_words()
     logger.info("Removed banned words.")
-    # print("POSTS Without Banned Words : ", posts_without_banned)
 
     focus_five_letters()
     focus_on_top(settings.WORDS_OCCURRENCE)
@@ -218,17 +220,26 @@ def load_feeds():
 
 
 def _update_source_status(url, status_code):
-    """Write last_status_code and last_checked for a Source row (fire-and-forget)."""
+    """
+    Write last_status_code and last_checked for a Source row (fire-and-forget).
+
+    :return: the logging function to use for a problem on this feed: a warning when the answer is new, debug when the
+        feed was already answering the same way at the previous check (a feed that blocks Watcher would otherwise be
+        reported at every cycle).
+    """
     source_id = sources_by_url.get(url)
     if source_id is None:
-        return
+        return logger.warning
     try:
+        previous = Source.objects.filter(pk=source_id).values_list('last_status_code', flat=True).first()
         Source.objects.filter(pk=source_id).update(
             last_status_code=status_code,
             last_checked=timezone.now(),
         )
+        return logger.debug if previous == status_code else logger.warning
     except Exception as exc:
         logger.debug(f"Could not update status for source {url}: {exc}")
+        return logger.warning
 
 
 def fetch_last_posts(nb_max_post):
@@ -246,31 +257,26 @@ def fetch_last_posts(nb_max_post):
     for url in rss_urls:
         try:
             feed_content = requests.get(url, headers=HEADERS, timeout=10, verify=True)
-            _update_source_status(url, feed_content.status_code)
+            report = _update_source_status(url, feed_content.status_code)
             if feed_content.status_code // 100 == 2:
                 feeds.append(feedparser.parse(feed_content.content))
             else:
-                logger.warning(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
+                report(f"Feed: {url} => Error: Status code: {feed_content.status_code}")
         except requests.exceptions.SSLError:
-            logger.warning("SSL certificate error for %s (skipping)", url)
-            _update_source_status(url, 0)
+            _update_source_status(url, 0)("SSL certificate error for %s (skipping)", url)
         except requests.exceptions.ProxyError as e:
             detail = re.search(r'(\d{3}\s+\w[\w ]*)', str(e))
             code_str = f" [{detail.group(1).strip()}]" if detail else ""
-            logger.error("Feed unreachable through proxy%s: %s", code_str, url)
-            _update_source_status(url, 0)
+            _update_source_status(url, 0)("Feed unreachable through proxy%s: %s", code_str, url)
         except requests.exceptions.ConnectionError:
-            logger.error("Connection failed for %s", url)
-            _update_source_status(url, 0)
+            _update_source_status(url, 0)("Connection failed for %s", url)
         except requests.exceptions.Timeout:
-            logger.warning("Timeout fetching %s", url)
-            _update_source_status(url, 0)
+            _update_source_status(url, 0)("Timeout fetching %s", url)
         except requests.exceptions.RequestException as e:
-            logger.error("Error fetching %s: %s", url, type(e).__name__)
-            _update_source_status(url, 0)
+            _update_source_status(url, 0)("Error fetching %s: %s", url, type(e).__name__)
 
     # Fetch monitored keywords once for efficiency
-    monitored_keywords = list(MonitoredKeyword.objects.all())
+    monitored_keywords = list(MonitoredKeyword.objects.filter(is_active=True))
 
     # Pre-fetch seen posturl URLs per monitored keyword to avoid double-counting
     mk_seen_urls: dict[int, set] = {}
@@ -293,13 +299,15 @@ def fetch_last_posts(nb_max_post):
                 title_raw = entry.get('title') or entry.get('summary') or entry.get('description') or (entry.get('guid') if isinstance(entry.get('guid'), str) else None) or link or ""
                 title_clean = re.sub(r'<[^>]+>', '', title_raw).replace(u'\xa0', u' ').strip()
 
-                # Check if any MonitoredKeyword appears in the post title/content (case-insensitive)
+                # Check which MonitoredKeyword the post title/content matches (a word, or a rule of several words;
+                # case and accents are ignored)
                 if monitored_keywords and title_clean:
                     content_raw = entry.get('content', [{}])[0].get('value', '') if entry.get('content') else (entry.get('summary', '') or entry.get('description', '') or '')
                     content_clean = re.sub(r'<[^>]+>', '', content_raw).strip()
-                    post_text = (title_clean + " " + content_clean).lower()
+                    post_text = normalize_text(title_clean + " " + content_clean)
                     for mk in monitored_keywords:
-                        if mk.name.lower() in post_text:
+                        words = match_keyword(mk, post_text, normalized=True)
+                        if words is not None:
                             # Only count a new occurrence if this article URL hasn't been
                             # linked before (prevents inflated counts from repeated CRON runs).
                             if link and link in mk_seen_urls.get(mk.id, set()):
@@ -314,6 +322,14 @@ def fetch_last_posts(nb_max_post):
                                 mk.posturls.add(post_obj)
                                 mk_seen_urls[mk.id].add(link)  # update local cache
                             logger.info(f"MonitoredKeyword '{mk.name}' detected - occurrences: {mk.occurrences}, level: {mk.level}")
+                            # A rule keeps the article to be reviewed, and tells the subscribers which one it was
+                            if mk.is_rule and link:
+                                try:
+                                    hit = record_keyword_hit(mk, title_clean, link, words)
+                                    if hit:
+                                        notify_keyword_rule_hit(hit)
+                                except Exception as exc:  # a rule that fails must not stop the collection
+                                    logger.error(f"Keyword rule '{mk.name}': {type(exc).__name__}: {exc}")
 
                 if link and title_clean:
                     tmp_posts[title_clean] = link
@@ -602,16 +618,12 @@ def reliability_score():
 
 def send_threats_watcher_notifications(content):
     """
-    Send notifications for Threats Watcher events to all enabled subscribers.
+    Send notifications for Threats Watcher events.
     Detects notification type from content and prepares the context for downstream handlers.
+    Slack, Citadel and TheHive follow the instance settings (Connectors > Notifications); the email goes to the
+    subscribers who ticked E-mail and asked for this kind of notification.
     """
-    subscribers = Subscriber.objects.filter(
-        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
-    )
-
-    if not subscribers.exists():
-        logger.warning(f"{timezone.now()} - No subscribers for Threats Watcher, no message sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     context_data = {}
     subscription_type = 'trendy_words'
@@ -656,7 +668,153 @@ def send_threats_watcher_notifications(content):
     else:
         subscribers = subscribers.filter(notify_trendy_words=True)
 
-    if not subscribers.exists():
-        return
-
     send_app_specific_notifications('threats_watcher', context_data, subscribers)
+
+
+# Monitored keywords: matching against the articles. A keyword is a single word (its name) or a rule: all the words of
+# `all_of`, one of `any_of` when given, none of `exceptions`.
+def normalize_text(text):
+    """Lower case, without accents: 'Électricité' and 'electricite' are the same word."""
+    decomposed = unicodedata.normalize('NFKD', str(text or ''))
+    return ''.join(c for c in decomposed if not unicodedata.combining(c)).casefold()
+
+
+@functools.lru_cache(maxsize=2048)
+def _whole_word(word):
+    # Not preceded or followed by a letter or a digit: 'apt' is not found in 'adapt' nor in 'APT29', but in 'APT-29'
+    return re.compile(r'(?<![^\W_])' + re.escape(word) + r'(?![^\W_])')
+
+
+@functools.lru_cache(maxsize=4096)
+def _normalized_word(word):
+    return normalize_text(word)
+
+
+def _found(word, haystack, whole_words):
+    word = _normalized_word(word)
+    if not word:
+        return False
+    return _whole_word(word).search(haystack) is not None if whole_words else word in haystack
+
+
+def match_rule(rule, text, normalized=False):
+    """
+    The words of the rule found in `text`, or None when the article does not match.
+
+    :param rule: anything with all_of, any_of, exceptions and whole_words.
+    :param text: title and content of the article.
+    :param normalized: `text` already went through `normalize_text` (done once per article when it is checked against
+        many keywords).
+    :return: the matched words (all of `all_of`, plus those of `any_of` that were found) or None.
+    """
+    haystack = text if normalized else normalize_text(text)
+    if any(_found(word, haystack, rule.whole_words) for word in rule.exceptions):
+        return None
+    required = [word for word in rule.all_of if _found(word, haystack, rule.whole_words)]
+    if len(required) != len(rule.all_of):
+        return None
+    optional = [word for word in rule.any_of if _found(word, haystack, rule.whole_words)]
+    if rule.any_of and not optional:
+        return None
+    if not rule.all_of and not rule.any_of:
+        return None
+    return required + optional
+
+
+def match_keyword(keyword, text, normalized=False):
+    """The words of a monitored keyword found in `text` (its name when it is a single word), or None."""
+    if keyword.is_rule:
+        return match_rule(keyword, text, normalized)
+    return match_rule(SimpleNamespace(all_of=[keyword.name], any_of=[], exceptions=keyword.exceptions,
+                                      whole_words=keyword.whole_words), text, normalized)
+
+
+def record_keyword_hit(keyword, title, link, words):
+    """
+    Keep the article that a rule matched, to be reviewed.
+
+    :return: the new KeywordHit, or None when this article was already kept for this keyword.
+    """
+    digest = hashlib.sha256(link.encode('utf-8')).hexdigest()
+    hit, created = KeywordHit.objects.get_or_create(
+        keyword=keyword, url_hash=digest,
+        defaults={'url': link[:1000], 'title': (title or '')[:500], 'matched': words})
+    if created:
+        logger.info(f"Keyword rule '{keyword.name}' matched: {hit.title or hit.url} ({', '.join(words)})")
+    return hit if created else None
+
+
+# Monitored keywords: notification of an article that matched a rule (Slack, Citadel, e-mail). The title of an article
+# comes from a feed: it is escaped for each channel.
+RULE_NOTIFICATION = 'article_rule_hit'
+
+
+def _slack_escape(text):
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _rule_context(hit, channel):
+    from connectors.notifications import get_type
+
+    escape = {'slack': _slack_escape, 'citadel': html.escape}.get(channel, lambda text: text)
+    one_line = lambda text: ' '.join(str(text).split())
+    return {
+        'rule_name': escape(one_line(hit.keyword.name)),
+        'article_title': escape(one_line(hit.title or hit.url)),
+        'article_url': escape(hit.url),
+        'matched_words': escape(', '.join(hit.matched)),
+        'details_url': getattr(settings, 'WATCHER_URL', '') + get_type(RULE_NOTIFICATION).url_suffix,
+    }
+
+
+def _send_rule_slack(hit):
+    from common.utils.send_slack_messages import send_slack_message
+    from connectors.core import get_slack_config
+    from connectors.notifications import is_enabled, render_message
+
+    if is_enabled(RULE_NOTIFICATION, 'slack'):
+        send_slack_message(render_message(RULE_NOTIFICATION, 'slack', _rule_context(hit, 'slack')),
+                           get_slack_config()['channel'], app_name='keyword_rules')
+
+
+def _send_rule_citadel(hit):
+    from common.utils.send_citadel_messages import send_citadel_message
+    from connectors.core import get_citadel_config
+    from connectors.notifications import is_enabled, render_message
+
+    if is_enabled(RULE_NOTIFICATION, 'citadel'):
+        body = render_message(RULE_NOTIFICATION, 'citadel', _rule_context(hit, 'citadel'))
+        send_citadel_message(
+            content={'msgtype': 'm.text', 'body': body, 'format': 'org.matrix.custom.html', 'formatted_body': body},
+            room_id=get_citadel_config()['room_id'], app_name='keyword_rules')
+
+
+def _send_rule_email(hit):
+    from common.mail_template.article_rule_template import get_article_rule_template
+    from common.utils.send_email_notifications import send_email_notifications
+    from connectors.notifications import email_subject, is_enabled
+    from .models import Subscriber
+
+    if not is_enabled(RULE_NOTIFICATION, 'email'):
+        return
+    recipients = [s.user_rec.email for s in Subscriber.objects.filter(email=True, notify_monitored_keywords=True)
+                  if s.user_rec.email]
+    if not recipients:
+        job_log.note_channel('no recipients')
+        return
+    context = _rule_context(hit, 'email')
+    subject = email_subject(RULE_NOTIFICATION, {'rule_name': context['rule_name'].replace('\n', ' ')})
+    send_email_notifications(subject, get_article_rule_template(context), recipients, app_name='keyword_rules')
+
+
+def notify_keyword_rule_hit(hit):
+    """Tell the channels that an article matched a keyword rule. A channel that fails does not stop the next ones."""
+    report = {}
+    for channel, send in (('slack', _send_rule_slack), ('citadel', _send_rule_citadel), ('email', _send_rule_email)):
+        try:
+            report[channel] = job_log.run_channel(channel, lambda send=send: send(hit))
+        except Exception as exc:
+            report[channel] = f"failed ({str(exc)[:110]})"
+    problems = any(status.startswith('failed') for status in report.values())
+    logger.log(logging.WARNING if problems else logging.INFO,
+               f"Notification keyword rule #{hit.keyword_id}: " + ', '.join(f"{c}={s}" for c, s in report.items()))

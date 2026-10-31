@@ -16,16 +16,16 @@ def custom_titled_filter(title):
 
 @admin.register(Subscriber)
 class Subscriber(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
-    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    list_display = ('user_rec', 'created_at', 'email')
+    list_filter = ('email',) 
     search_fields = ('user_rec__username',)
     fieldsets = (
         (None, { 
             'fields': ('user_rec', 'created_at')
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber."
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive are set once for the whole instance under Connectors > Notifications."
         }),
     )
 

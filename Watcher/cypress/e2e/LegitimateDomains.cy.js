@@ -1,792 +1,225 @@
-describe('Legitimate Domains - E2E Test Suite', () => {
-  const setupIntercepts = () => {
-    cy.intercept('GET', '**/api/common/legitimate_domains/**', {
-      statusCode: 200,
-      body: {
-        count: 4,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1,
-            domain_name: "watcher-company.com",
-            ticket_id: "240529-1a2b3",
-            contact: "IT Team - it@watcher.com",
-            expiry: "2026-12-31T23:59:59Z",
-            repurchased: true,
-            comments: "Main corporate domain - critical asset",
-            created_at: "2025-06-19T10:00:00Z",
-            last_event: {
-              username: "admin",
-              first_name: "Admin",
-              last_name: "User",
-              avatar_color: "#2196f3",
-              action: "updated",
-              timestamp: "2026-06-24T14:30:00Z"
-            }
-          },
-          {
-            id: 2,
-            domain_name: "watcher-backup.fr",
-            ticket_id: "240530-4c5d6",
-            contact: "Security Team",
-            expiry: "2025-11-15T23:59:59Z",
-            repurchased: false,
-            comments: "Backup domain for disaster recovery",
-            created_at: "2025-06-18T15:30:00Z",
-            last_event: null
-          },
-          {
-            id: 3,
-            domain_name: "old-watcher-domain.org",
-            ticket_id: null,
-            contact: "John Doe - john@watcher.com",
-            expiry: "2025-10-20T23:59:59Z",
-            repurchased: false,
-            comments: "Expiring soon - decision pending on renewal",
-            created_at: "2025-06-17T08:15:00Z",
-            last_event: null
-          },
-          {
-            id: 4,
-            domain_name: "expired-watcher.net",
-            ticket_id: "240528-7e8f9",
-            contact: "Legal Team",
-            expiry: "2025-05-01T23:59:59Z",
-            repurchased: false,
-            comments: "Expired - needs immediate attention",
-            created_at: "2025-06-16T12:00:00Z",
-            last_event: null
-          }
-        ]
-      }
-    }).as('getDomains');
+// Legitimate Domains module: list with KPI quick filters, filters / sort in the URL, detail drawer, add / edit /
+// delete, "one per line" add, bulk actions, MISP export, Insights tab and the public view. All API calls are mocked.
+describe('Legitimate Domains', () => {
+  const USER = { id: 1, username: 'analyst', first_name: 'Ana', last_name: 'Lyst', email: '', is_superuser: true, is_staff: false, groups: [], permissions: [] };
+  const API = '/api/common/legitimate_domains/';
 
-    // Mock CRUD operations
-    cy.intercept('POST', '**/api/common/legitimate_domains/**', (req) => ({
-      statusCode: 201,
-      body: {
-        id: Date.now(),
-        ...req.body,
-        created_at: new Date().toISOString()
-      }
-    })).as('addDomain');
-
-    cy.intercept('DELETE', '**/api/common/legitimate_domains/*', { statusCode: 204 }).as('deleteDomain');
-
-    cy.intercept('PATCH', '**/api/common/legitimate_domains/*', (req) => ({
-      statusCode: 200,
-      body: { id: parseInt(req.url.split('/').pop()), ...req.body }
-    })).as('patchDomain');
+  const day = (offset) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
   };
 
-  before(() => {
-    const credentials = Cypress.env('testCredentials');
-
-    setupIntercepts();
-
-    // Mock auth endpoints
-    cy.intercept('GET', '/api/auth/user/', {
-      statusCode: 200,
-      body: {
-        id: 1,
-        username: credentials.username,
-        first_name: credentials.firstName,
-        email: credentials.email,
-        is_superuser: true
-      }
-    }).as('getUser');
-
-    cy.intercept('POST', '/api/auth/login/', {
-      statusCode: 200,
-      body: {
-        token: 'mock-token-123456789',
-        user: {
-          id: 1,
-          username: credentials.username,
-          first_name: credentials.firstName,
-          email: credentials.email
-        }
-      }
-    }).as('login');
-
-    // Use the authentication helper
-    cy.authenticateWithTestUser();
-
-    // Navigate to Legitimate Domains
-    cy.visit('/#/legitimate_domains');
-    cy.get('.container-fluid', { timeout: 20000 }).should('exist');
-    cy.log('getDomains alias verified via UI presence (fallback)');
-
-    cy.log('Authentication completed and navigated to Legitimate Domains');
+  const DOMAINS = [
+    {
+      id: 1, domain_name: 'watcher-company.com', ticket_id: '240529-1a2b3', contact: 'IT team', created_at: `${day(-30)}T10:00:00`,
+      domain_created_at: '2010-03-01T00:00:00', expiry: day(-3), ssl_expiry: day(12), repurchased: true,
+      comments: 'Main corporate domain', misp_event_uuid: ['5f1c2d3e-0000-4000-8000-000000000001'],
+      last_event: { username: 'analyst', first_name: 'Ana', last_name: 'Lyst', avatar_color: null, action: 'updated', timestamp: `${day(-1)}T09:00:00` },
+    },
+    {
+      id: 2, domain_name: 'watcher-backup.fr', ticket_id: '', contact: '', created_at: `${day(-10)}T10:00:00`,
+      domain_created_at: null, expiry: day(200), ssl_expiry: null, repurchased: false, comments: '', misp_event_uuid: [], last_event: null,
+    },
+  ];
+  const PAGE = { count: 2, next: null, previous: null, results: DOMAINS };
+  const STATS = {
+    total: 2, repurchased: 1, expired: 1, expiringSoon: 0, noExpiry: 0, sslExpired: 0, sslExpiringSoon: 1, sslNoExpiry: 1,
+    newToday: 0, newThisWeek: 0, topTlds: [{ tld: '.com', count: 1 }, { tld: '.fr', count: 1 }],
+    upcoming: Array.from({ length: 12 }, (_, i) => ({ month: day(i * 30).slice(0, 7), domains: i === 6 ? 1 : 0, certificates: i === 0 ? 1 : 0 })),
+  };
+  const SUMMARY = (status, n) => ({
+    succeeded: n, skipped: 0, errors: 0, ok_status: status,
+    results: DOMAINS.slice(0, n).map((d) => ({ value: d.domain_name, status, reason: '', id: d.id })),
   });
 
-  beforeEach(() => {
+  const mockApi = (user = USER) => {
     cy.on('uncaught:exception', () => false);
+    if (user) cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: user });
+    else cy.intercept('GET', '/api/auth/user', { statusCode: 401, body: { detail: 'Authentication credentials were not provided.' } });
+    cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'bootstrap', preferences: {}, avatar_color: null } });
+    cy.intercept('GET', `${API}?*`, { statusCode: 200, body: PAGE }).as('list');
+    cy.intercept('GET', `${API}statistics/`, { statusCode: 200, body: STATS }).as('stats');
+    cy.intercept('GET', `${API}1/`, { statusCode: 200, body: DOMAINS[0] }).as('detail');
+    cy.intercept('GET', '/api/timeline/events/?*', {
+      statusCode: 200,
+      body: [{
+        id: 9, content_type: 'common.legitimatedomain', object_id: 1, action: 'updated', action_label: 'Updated', user: 1,
+        username: 'analyst', first_name: 'Ana', last_name: 'Lyst', avatar_color: null, timestamp: `${day(-1)}T09:00:00`,
+        diff: { contact: { old: '', new: 'IT team' } }, object_repr: 'watcher-company.com',
+      }],
+    }).as('history');
+  };
 
-    setupIntercepts();
+  const visit = (path = '') =>
+    cy.visit(`/#/legitimate_domains${path}`, { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-legit') });
 
-    // Restore session data
-    cy.window().then((win) => {
-      const authData = Cypress.env('authData');
-      if (authData && authData.token) {
-        if (authData.token) win.localStorage.setItem('token', authData.token);
-        if (authData.user) win.localStorage.setItem('user', authData.user);
-      }
-    });
-
-    // Navigation check
-    cy.url().then((currentUrl) => {
-      if (!currentUrl.includes('/legitimate_domains') || currentUrl.includes('about:blank')) {
-        cy.log('Redirecting back to Legitimate Domains...');
-        cy.visit('/#/legitimate_domains', { failOnStatusCode: false });
-        cy.wait(1000);
-      } else {
-        cy.log('Staying on Legitimate Domains page');
-      }
-    });
-
-    cy.url().should('include', '/legitimate_domains');
-    cy.get('.container-fluid', { timeout: 10000 }).should('exist');
-
-    cy.log('Page ready with session maintained');
-  });
-
-  describe('Page Navigation and Access', () => {
-    it('should be on the correct Legitimate Domains page', () => {
-      cy.url().should('include', '#/legitimate_domains');
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-    });
-
-    it('should display LegitimateStats dashboard', () => {
-      cy.get('.container-fluid', { timeout: 15000 }).should('exist');
-
-      cy.get('.card.border-0.shadow-sm', { timeout: 15000 }).should('have.length', 4);
-
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('TOTAL DOMAINS') && bodyText.includes('REPURCHASED') &&
-            bodyText.includes('EXPIRED') && bodyText.includes('EXPIRING SOON')) {
-          cy.log('All stat cards found');
-        }
-      });
-    });
-
-    it('should display TableManager filter controls', () => {
-      cy.get('button:contains("Reset to Default")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Saved Filters")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Save Filter")', { timeout: 10000 }).should('exist');
-    });
-
-    it('should load data automatically', () => {
-      cy.get('table', { timeout: 15000 }).should('exist');
-      cy.get('table').should('have.length.at.least', 1);
-
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('watcher-company.com') || bodyText.includes('watcher-backup.fr') ||
-            bodyText.includes('old-watcher-domain.org')) {
-          cy.log('Data loaded successfully');
-        } else {
-          cy.log('Tables exist but data may be loaded differently');
-        }
-      });
-    });
-
-    it('should maintain session across navigation', () => {
-      cy.get('.navbar').should('exist');
-
-      cy.get('a[href="/#/"], a:contains("Watcher"), .navbar-brand').first().click();
-      cy.url().should('include', '#/');
-
-      cy.get('a:contains("Legitimate Domains"), a[href*="legitimate_domains"]').should('exist').click();
-      cy.url().should('include', 'legitimate_domains');
-
-      cy.get('.navbar').should('exist');
-    });
-  });
-
-  describe('Statistics Dashboard', () => {
-    it('should display all stat cards', () => {
-      cy.get('.card.border-0.shadow-sm').should('have.length', 4);
-    });
-
-    it('should display correct stat card icons', () => {
-      cy.get('.container-fluid .card.border-0.shadow-sm .material-icons').then(($icons) => {
-        const iconTexts = $icons.toArray().map(icon => Cypress.$(icon).text());
-        const validIcons = iconTexts.filter(text => 
-          text.includes('link') || text.includes('check_circle') ||
-          text.includes('error') || text.includes('warning')
-        );
-        expect(validIcons.length).to.equal(4);
-      });
-    });
-
-    it('should display stat card titles', () => {
-      cy.get('.card.border-0.shadow-sm').each(($card) => {
-        cy.wrap($card).within(() => {
-          cy.get('.text-uppercase').should('exist');
-        });
-      });
-
-      cy.get('body').should('contain', 'TOTAL DOMAINS');
-      cy.get('body').should('contain', 'REPURCHASED');
-      cy.get('body').should('contain', 'EXPIRED');
-      cy.get('body').should('contain', 'EXPIRING SOON');
-    });
-
-    it('should update stats based on filtered data', () => {
-      // Apply filter
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.get('input[placeholder*="Search"]').clear().type('watcher-company');
-      cy.wait(1000);
-
-      cy.get('.card.border-0.shadow-sm').should('exist');
-    });
-
-    it('should display correct statistics counts', () => {
-      cy.get('.card.border-0.shadow-sm').first().within(() => {
-        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
-          const num = parseInt(text.trim().replace(/,/g, ''));
-          cy.log(`Total domains count: ${num}`);
-          expect(num).to.be.at.least(0);
-        });
-      });
-
-      cy.get('.card.border-0.shadow-sm').eq(1).within(() => {
-        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
-          const num = parseInt(text.trim().replace(/,/g, ''));
-          cy.log(`Repurchased domains count: ${num}`);
-          expect(num).to.be.at.least(0);
-        });
-      });
-
-      cy.get('.card.border-0.shadow-sm').eq(2).within(() => {
-        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
-          const num = parseInt(text.trim().replace(/,/g, ''));
-          cy.log(`Expired domains count: ${num}`);
-          expect(num).to.be.at.least(0);
-        });
-      });
-
-      cy.get('.card.border-0.shadow-sm').eq(3).within(() => {
-        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
-          const num = parseInt(text.trim().replace(/,/g, ''));
-          cy.log(`Expiring soon domains count: ${num}`);
-          expect(num).to.be.at.least(0);
-        });
-      });
-    });
-  });
-
-  describe('Domains Display and Management', () => {
-    it('should display domains table structure', () => {
-      cy.get('table', { timeout: 10000 }).should('exist');
-
-      cy.get('table').within(() => {
-        cy.get('thead').should('exist');
-        cy.get('tbody').should('exist');
-      });
-    });
-
-    it('should display table headers correctly', () => {
-      cy.get('table thead').within(() => {
-        cy.get('th').should('contain', 'Domain Name');
-        cy.get('th').should('contain', 'Ticket ID');
-        cy.get('th').should('contain', 'Contact');
-        cy.get('th').should('contain', 'Expiry');
-        cy.get('th').should('contain', 'Repurchased');
-        cy.get('th').should('contain', 'Comments');
-      });
-    });
-
-    it('should display domains data when available', () => {
-      cy.get('table tbody tr').should('have.length.at.least', 1);
-      
-      cy.get('tbody').then(($tbody) => {
-        const text = $tbody.text();
-        const hasTestDomain = text.includes('watcher') || text.includes('test-') || text.includes('.com') || text.includes('.fr');
-        expect(hasTestDomain).to.be.true;
-      });
-    });
-
-    it('should display TableManager features', () => {
-      cy.contains('Showing', { timeout: 10000 }).should('exist');
-      cy.contains('Items per page').parent().find('select').should('exist');
-    });
-
-    it('should display Add New Domain button', () => {
-      cy.get('button:contains("Add New Domain"), button:contains("Add")').first().should('exist');
-    });
-
-    it('should open add domain modal', () => {
-      cy.get('button:contains("Add New Domain"), button:contains("Add")').first().click();
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal-title').should('contain', 'Add New Domain');
-      cy.get('input[placeholder*="example.com"]').should('exist');
-      cy.get('button:contains("Close")').first().click();
-    });
-
-    it('should handle complete domain addition workflow', () => {
-      cy.get('button:contains("Add New Domain"), button:contains("Add")').first().click();
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-
-      cy.get('.modal input[placeholder*="example.com"]').first().type('test-new-legitimate-domain.com');
-      cy.get('.modal input[placeholder*="240529"]').first().type('E2E-TEST-001');
-      cy.get('.modal input[placeholder*="IT Team"]').first().type('E2E Test Team');
-      cy.get('.modal textarea[placeholder*="Add notes"]').first().type('This is a test domain for E2E testing purposes');
-
-      cy.get('.modal button:contains("Add")').click();
-
-      cy.wait('@addDomain', { timeout: 10000 });
-      cy.wait(1000);
-    });
-
-    it('should display action buttons for authenticated users', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Edit"], i.material-icons:contains("edit")').should('exist');
-        cy.get('button[title*="Delete"], i.material-icons:contains("delete")').should('exist');
-      });
-    });
-
-    it('should handle domain edit workflow', () => {
-      cy.get('table tbody').then(($tbody) => {
-        const $matchingRow = $tbody.find('td').filter((i, td) => {
-          return Cypress.$(td).text().trim() === 'watcher-company.com';
-        }).closest('tr');
-    
-        if ($matchingRow.length) {
-          cy.wrap($matchingRow).within(() => {
-            cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
-          });
-    
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          cy.get('.modal-title').should('contain', 'Edit Domain');
-          cy.get('.modal input[placeholder*="example.com"]').first().invoke('val').should('equal', 'watcher-company.com');
-          cy.get('button:contains("Close")').first().click();
-        } else {
-          cy.get('table tbody tr').first().then(($tr) => {
-            const domainFromRow = $tr.find('td').first().text().trim();
-    
-            cy.wrap($tr).within(() => {
-              cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
-            });
-    
-            cy.get('.modal', { timeout: 10000 }).should('be.visible');
-            cy.get('.modal-title').should('contain', 'Edit Domain');
-            cy.get('.modal input[placeholder*="example.com"]').first().invoke('val').should('equal', domainFromRow);
-            cy.get('button:contains("Close")').first().click();
-          });
-        }
-      });
-    });    
-    
-    it('should handle domain deletion workflow', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Delete"], i.material-icons:contains("delete")').first().click();
-      });
-
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal-title').should('contain', 'Action Requested');
-      cy.get('.modal-body').should('contain', 'delete');
-      cy.get('button:contains("Close")').first().click();
-    });
-
-    it('should display expiry badges', () => {
-      cy.get('table tbody').then(($tbody) => {
-        const badges = $tbody.find('.badge').toArray().filter(el => {
-          const text = Cypress.$(el).text();
-          return text.includes('Expired') || text.includes('Expiring Soon') || text.includes('Valid');
-        });
-
-        if (badges.length > 0) {
-          cy.log('Expiry badges found');
-        }
-      });
-    });
-
-    it('should sort domains table', () => {
-      cy.get('table th:contains("Domain Name")').click();
-      cy.wait(500);
-      cy.get('table th:contains("Domain Name")').click();
-      cy.wait(500);
-      cy.log('Sorting toggled successfully');
-    });
-
-    it('should display comments in table', () => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('td').then(($cells) => {
-          const cellTexts = $cells.toArray().map(cell => Cypress.$(cell).text());
-          const hasComment = cellTexts.some(text => 
-            text.includes('Main corporate domain') || text.length > 0
-          );
-          expect(hasComment).to.be.true;
-        });
-      });
-    });
-  });
-
-  describe('Domain Edit Modal Features', () => {
+  describe('signed in', () => {
     beforeEach(() => {
-      cy.get('table tbody tr').first().within(() => {
-        cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
-      });
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
+      mockApi();
+      visit();
+      cy.get('[data-testid="domain-row"]', { timeout: 20000 }).should('have.length', 2);
     });
 
-    afterEach(() => {
-      cy.get('button:contains("Close")').first().click();
+    it('shows the KPI cards and filters the list from them', () => {
+      cy.wait('@list'); // the request of the first display, so that the next waits are the ones of the filters
+      cy.contains('button', 'Expired').should('contain', '1').click();
+      cy.wait('@list').its('request.url').should('include', 'status=expired');
+      cy.location('hash').should('include', 'status=expired');
+      cy.contains('button', 'Expired').should('have.attr', 'aria-pressed', 'true');
+      cy.contains('button', 'Certificates to renew').should('contain', '1').click();
+      cy.location('hash').should('include', 'ssl=attention').and('not.include', 'status=');
     });
 
-    it('should display all edit form fields', () => {
-      cy.get('.modal').within(() => {
-        cy.get('input[placeholder*="example.com"]').should('exist');
-        cy.get('input[placeholder*="240529"]').should('exist');
-        cy.get('input[placeholder*="IT Team"]').should('exist');
-        cy.get('input[type="checkbox"]').should('exist');
-        cy.get('textarea[placeholder*="Add notes"]').should('exist');
+    it('describes each domain', () => {
+      cy.get('[data-testid="domain-row"]').first().within(() => {
+        cy.contains('watcher-company.com');
+        cy.contains('IT team - #240529-1a2b3');
+        cy.contains(/^Expired /);
+        cy.get('[aria-label="Repurchased"]').should('exist');
+        cy.get('[aria-label="Has comments"]').should('exist');
       });
+      cy.get('[data-testid="domain-row"]').eq(1).should('contain', 'Not detected yet');
     });
 
-    it('should display DayPickerInput for expiry date', () => {
-      cy.get('.modal').within(() => {
-        cy.get('.DayPickerInput, input[placeholder*="2025"]').should('exist');
-      });
+    it('puts search, filters, sort and page size in the request and the URL', () => {
+      cy.wait('@list'); // the request of the first display
+      cy.get('input[aria-label="Search domains"]').type('watcher');
+      cy.wait('@list').its('request.url').should('include', 'search=watcher');
+      cy.location('hash').should('include', 'q=watcher');
+
+      cy.get('[role="combobox"]').first().click();
+      cy.contains('[role="option"]', 'Needs attention').click();
+      cy.wait('@list').its('request.url').should('include', 'status=attention');
+
+      cy.contains('th [role="button"]', /^Domain$/).click();
+      cy.wait('@list').its('request.url').should('include', 'ordering=domain_name');
+      cy.location('hash').should('include', 'sort=domain_name');
+
+      cy.contains('button', 'Clear').click();
+      cy.location('hash').should('not.include', 'q=').and('not.include', 'status=');
     });
 
-    it('should handle repurchased toggle switch', () => {
-      cy.get('.modal').within(() => {
-        cy.get('input[type="checkbox"]').click({ force: true });
-        cy.wait(500);
-        cy.get('input[type="checkbox"]').click({ force: true });
+    it('opens a domain in the drawer, with its details and history', () => {
+      cy.get('[data-testid="domain-row"]').first().click();
+      cy.location('hash').should('include', 'domain=1');
+      cy.wait('@history').its('request.url').should('include', 'content_type=common.legitimatedomain').and('include', 'object_id=1');
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.contains('#domain-drawer-title', 'watcher-company.com');
+        cy.contains('Main corporate domain');
+        cy.contains('5f1c2d3e-0000-4000-8000-000000000001');
+        cy.get('[data-testid="event-diff"]').should('contain', 'IT team');
+        cy.get('button[aria-label="Close details"]').click();
       });
+      cy.get('.MuiDrawer-paper:visible').should('not.exist');
+      cy.location('hash').should('not.include', 'domain=');
     });
 
-    it('should validate required fields', () => {
-      cy.get('.modal').within(() => {
-        cy.get('input[placeholder*="example.com"]').clear();
-        cy.get('button:contains("Update")').click();
-      });
+    it('opens the drawer from a link', () => {
+      visit('?domain=1');
+      cy.contains('#domain-drawer-title', 'watcher-company.com', { timeout: 20000 });
+    });
 
-      cy.get('.modal').should('be.visible');
+    it('adds a domain', () => {
+      cy.intercept('POST', API, (req) => req.reply({ statusCode: 201, body: { ...DOMAINS[1], id: 3, ...req.body } })).as('create');
+      cy.contains('button', 'Add domains').click();
+      cy.location('hash').should('include', 'dialog=add');
+      cy.get('[role="dialog"]').within(() => {
+        cy.get('input[name="domain_name"]').type('new-domain.com');
+        cy.get('input[name="ticket_id"]').type('bad ticket');
+        cy.contains('Letters, digits, dashes and dots only');
+        cy.contains('button', 'Add domain').should('be.disabled');
+        cy.get('input[name="ticket_id"]').clear().type('T-1');
+        cy.get('[aria-label="Domain expiry shortcuts"]').contains('+1 year').click();
+        cy.contains('button', 'Add domain').click();
+      });
+      cy.wait('@create').its('request.body').should((body) => {
+        expect(body.domain_name).to.eq('new-domain.com');
+        expect(body.ticket_id).to.eq('T-1');
+        expect(body.expiry).to.match(/^\d{4}-\d{2}-\d{2}$/);
+        expect(body.ssl_expiry).to.eq(null);
+      });
+      cy.get('[role="dialog"]').should('not.exist');
+      cy.location('hash').should('not.include', 'dialog=');
+    });
+
+    it('adds several domains, one per line, with a preview', () => {
+      cy.intercept('POST', `${API}bulk_create/`, (req) =>
+        req.reply({ statusCode: 200, body: { ...SUMMARY('created', 2), dry_run: req.body.dry_run } }),
+      ).as('bulkCreate');
+      cy.contains('button', 'Add domains').click();
+      cy.contains('label', 'Add several, one per line').click();
+      cy.get('textarea[name="domain_name"]').type('a.com\nb.com\nA.com');
+      cy.contains('2 domains detected');
+      cy.contains('button', 'Preview').click();
+      cy.wait('@bulkCreate').its('request.body').should('deep.include', { values: 'a.com\nb.com\nA.com', dry_run: true });
+      cy.contains('[role="dialog"]', 'Preview only').contains('button', 'Close').click();
+      cy.contains('button', 'Add 2 domains').click();
+      cy.wait('@bulkCreate').its('request.body.dry_run').should('eq', false);
+      cy.contains('[role="dialog"]', '2 created').contains('button', 'Close').click();
+      cy.get('[role="dialog"]').should('not.exist');
+    });
+
+    it('edits, exports and deletes from the drawer', () => {
+      cy.intercept('PATCH', `${API}1/`, (req) => req.reply({ statusCode: 200, body: { ...DOMAINS[0], ...req.body } })).as('patch');
+      cy.intercept('POST', `${API}misp/`, { statusCode: 200, body: { message: 'Exported', misp_event_uuid: 'x' } }).as('misp');
+      cy.intercept('DELETE', `${API}1/`, { statusCode: 204 }).as('delete');
+      cy.get('[data-testid="domain-row"]').first().click();
+
+      cy.get('.MuiDrawer-paper').contains('button', 'Edit').click();
+      cy.get('[role="dialog"] input[name="contact"]').clear().type('SOC');
+      cy.get('[role="dialog"]').contains('button', 'Save').click();
+      cy.wait('@patch').its('request.body').should('include', { contact: 'SOC', domain_name: 'watcher-company.com' });
+
+      cy.get('.MuiDrawer-paper').contains('button', 'Export to MISP').click();
+      cy.get('[role="dialog"]').contains('button', 'Update MISP event').click();
+      cy.wait('@misp').its('request.body').should('deep.equal', { id: 1, event_uuid: '5f1c2d3e-0000-4000-8000-000000000001' });
+
+      cy.get('.MuiDrawer-paper').contains('button', 'Delete').click();
+      // The drawer is a dialog too: only the confirmation is meant.
+      cy.get('[role="dialog"]:not(.MuiDrawer-paper)').contains('button', 'Delete').click();
+      cy.wait('@delete');
+      cy.get('.MuiDrawer-paper:visible').should('not.exist');
+    });
+
+    it('runs bulk actions on the selection', () => {
+      cy.intercept('POST', `${API}bulk_update/`, { statusCode: 200, body: SUMMARY('updated', 2) }).as('bulkUpdate');
+      cy.intercept('POST', `${API}bulk_delete/`, { statusCode: 200, body: SUMMARY('deleted', 2) }).as('bulkDelete');
+      cy.get('input[aria-label="Select the legitimate domains of this page"]').check();
+      cy.get('[role="region"][aria-label="Selection"]').should('contain', '2 selected').contains('button', 'Mark repurchased').click();
+      cy.wait('@bulkUpdate').its('request.body').should('deep.equal', { ids: [1, 2], changes: { repurchased: true } });
+      cy.contains('[role="dialog"]', '2 updated').contains('button', 'Close').click();
+      cy.get('[role="region"][aria-label="Selection"]').should('not.exist');
+
+      cy.get('input[aria-label="Select watcher-backup.fr"]').check();
+      cy.get('[role="region"][aria-label="Selection"]').contains('button', 'Delete').click();
+      cy.get('[role="dialog"]').contains('button', 'Delete 1').click();
+      cy.wait('@bulkDelete').its('request.body').should('deep.equal', { ids: [2] });
+    });
+
+    it('shows the insights and links them to the list', () => {
+      cy.contains('[role="tab"]', 'Insights').click();
+      cy.location('hash').should('include', 'tab=insights');
+      cy.get('[data-testid="upcoming-chart"] svg').should('exist');
+      cy.contains('li', '.com').should('contain', '1');
+      cy.get('button[aria-label^="Certificate: 1 expiring soon"]').click();
+      cy.location('hash').should('include', 'ssl=expiring_soon').and('not.include', 'tab=');
     });
   });
 
-  describe('Domain Add Modal Features', () => {
-    beforeEach(() => {
-      cy.get('button:contains("Add New Domain"), button:contains("Add")').first().click();
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-    });
-
-    afterEach(() => {
-      cy.get('button:contains("Close")').first().click();
-    });
-
-    it('should display all add form fields', () => {
-      cy.get('.modal').within(() => {
-        cy.get('input[placeholder*="example.com"]').should('exist');
-        cy.get('input[placeholder*="240529"]').should('exist');
-        cy.get('input[placeholder*="IT Team"]').should('exist');
-        cy.get('input[type="checkbox"]').should('exist');
-        cy.get('textarea[placeholder*="Add notes"]').should('exist');
+  describe('public view', () => {
+    it('is read-only and hides the internal columns', () => {
+      mockApi(null);
+      cy.visit('/#/legitimate_domains');
+      cy.get('[data-testid="domain-row"]', { timeout: 20000 }).should('have.length', 2);
+      cy.contains('button', 'Add domains').should('not.exist');
+      cy.get('input[type="checkbox"]').should('not.exist');
+      cy.contains('th', 'Repurchased').should('not.exist');
+      cy.get('[data-testid="domain-row"]').first().click();
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.contains('button', 'Edit').should('not.exist');
+        cy.contains('History').should('not.exist');
       });
     });
-
-    it('should have empty fields by default', () => {
-      cy.get('.modal').within(() => {
-        cy.get('input[placeholder*="example.com"]').should('have.value', '');
-        cy.get('input[placeholder*="240529"]').should('have.value', '');
-        cy.get('textarea[placeholder*="Add notes"]').should('have.value', '');
-      });
-    });
-
-    it('should validate required domain name field', () => {
-      cy.get('.modal').within(() => {
-        cy.get('button:contains("Add")').click();
-      });
-
-      cy.get('.modal').should('be.visible');
-    });
-
-    it('should handle maxLength for comments', () => {
-      const longText = 'a'.repeat(400);
-      cy.get('.modal').within(() => {
-        cy.get('textarea[placeholder*="Add notes"]').type(longText);
-        cy.get('textarea[placeholder*="Add notes"]').invoke('val').should('have.length', 300);
-      });
-    });
-  });
-
-  describe('Filtering and Search', () => {
-    it('should handle search filter', () => {
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.wait(500);
-      
-      cy.get('input[placeholder*="Search"]').clear().type('watcher');
-      cy.wait(1500);
-
-      cy.get('table tbody tr').should('have.length.at.least', 1);
-      
-      cy.get('tbody').then(($tbody) => {
-        const text = $tbody.text().toLowerCase();
-        expect(text).to.include('watcher');
-      });
-    });
-
-    it('should handle repurchased filter', () => {
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.get('select').filter((index, el) => {
-        const label = Cypress.$(el).closest('.col-12, .col-md-2').find('label').text();
-        return label.includes('Repurchased');
-      }).select('true');
-      cy.wait(1000);
-
-      cy.get('table tbody tr').should('have.length', 1);
-      cy.get('tbody').should('contain', 'watcher-company.com');
-    });
-
-    it('should handle expiry status filter', () => {
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.wait(500);
-      
-      cy.get('select').filter((index, el) => {
-        const label = Cypress.$(el).closest('.col-12, .col-md-2').find('label').text();
-        return label.includes('Expiry Status');
-      }).select('expired');
-      cy.wait(1500);
-
-      cy.get('table tbody tr').should('have.length.at.least', 1);
-    });
-
-    it('should handle date range filter', () => {
-      cy.get('button:contains("Show Filters")').first().click();
-      cy.get('select').filter((index, el) => {
-        const label = Cypress.$(el).closest('.col-12, .col-md-4').find('label').text();
-        return label.includes('Created');
-      }).select('30d');
-      cy.wait(1000);
-
-      cy.get('table tbody tr').should('have.length.at.least', 1);
-    });
-
-  });
-
-  describe('Data Interaction and Workflow', () => {
-    it('should handle repurchased status change workflow', () => {
-      cy.get('table tbody tr').eq(1).within(() => {
-        cy.get('button[title*="Edit"], i.material-icons:contains("edit")').first().click();
-      });
-
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-      cy.get('.modal input[type="checkbox"]').click({ force: true });
-      cy.get('.modal button:contains("Update")').click();
-
-      cy.wait('@patchDomain', { timeout: 10000 });
-    });
-
-    it('should verify filtered data propagation to stats', () => {
-      // Apply global filter
-      cy.get('button:contains("Show Filters")').first().click({ force: true });
-      cy.wait(1000);
-      
-      cy.get('input[placeholder*="Search"]').clear().type('watcher');
-      cy.wait(2000);
-
-      cy.get('table tbody tr').should('have.length.at.least', 1);
-
-      cy.get('.card.border-0.shadow-sm').first().within(() => {
-        cy.get('.text-white.fw-bold').first().invoke('text').then((text) => {
-          const num = parseInt(text.replace(/,/g, ''));
-          cy.log(`Filtered domains count: ${num}`);
-          expect(num).to.be.at.least(0);
-          if (num > 0) {
-            cy.log('Stats updated correctly with filter');
-          } else {
-            cy.log('Stats show 0 - filter may not affect stats display');
-          }
-        });
-      });
-    });
-  });
-
-  describe('Navigation and UI Tests', () => {
-    it('should test header navigation links', () => {
-      cy.get('.navbar, nav').should('exist');
-      cy.get('a:contains("Website Monitoring"), a[href*="website_monitoring"]').should('exist');
-      cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist');
-      cy.get('a:contains("DNS Threats Monitored"), a[href*="dns_finder"]').should('exist');
-      cy.get('a:contains("Legitimate Domains"), a[href*="legitimate_domains"]').should('exist');
-    });
-
-    it('should verify layout structure specific to Legitimate Domains', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('have.length.at.least', 1);
-
-      cy.get('.card.border-0.shadow-sm').should('have.length', 4);
-
-      cy.get('table', { timeout: 10000 }).should('exist');
-    });
-
-    it('should handle Bootstrap components correctly', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('exist');
-      cy.get('table.table').should('exist');
-      cy.get('.card').should('exist');
-    });
-  });
-
-  describe('Error Handling and Edge Cases', () => {
-    it('should handle API errors gracefully', () => {
-      cy.intercept('GET', '/api/common/legitimate_domains/', {
-        statusCode: 500,
-        body: { error: 'Server Error' }
-      }).as('domainsError');
-
-      cy.reload();
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-    });
-
-    it('should handle invalid date input', () => {
-      cy.get('button:contains("Add New Domain"), button:contains("Add")').first().click();
-      cy.get('.modal', { timeout: 10000 }).should('be.visible');
-
-      cy.get('.modal input[placeholder*="example.com"]').first().type('test-invalid-date.com');
-      
-      cy.get('.modal .DayPickerInput input').first().type('invalid-date');
-      
-      cy.get('.modal button:contains("Close")').first().click({ force: true });
-      cy.wait(500);
-    });
-  });
-
-  describe('Performance and Integration Tests', () => {
-    it('should load page within reasonable time', () => {
-      const startTime = Date.now();
-      cy.reload();
-      
-      cy.get('table', { timeout: 20000 }).should('exist').then(() => {
-        const loadTime = Date.now() - startTime;
-        expect(loadTime).to.be.lessThan(25000);
-      });
-    });
-
-    it('should complete basic workflow integration test', () => {
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-      cy.get('.card.border-0.shadow-sm').should('have.length', 4);
-      cy.get('table').should('exist');
-
-      cy.get('body').then(($body) => {
-        const buttons = $body.find('button');
-        cy.log(`Found ${buttons.length} interactive buttons`);
-        expect(buttons.length).to.be.greaterThan(5);
-      });
-    });
-
-    it('should verify Legitimate Domains specific components', () => {
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-
-        const hasDomains = bodyText.includes('Domain Name') || bodyText.includes('watcher');
-        const hasStats = bodyText.includes('TOTAL DOMAINS');
-        const hasRepurchased = bodyText.includes('REPURCHASED');
-        const hasExpiry = bodyText.includes('EXPIRING SOON');
-
-        if (hasDomains) cy.log('Domains section found');
-        if (hasStats) cy.log('Stats section found');
-        if (hasRepurchased) cy.log('Repurchased tracking found');
-        if (hasExpiry) cy.log('Expiry tracking found');
-
-        expect(hasDomains && hasStats).to.be.true;
-      });
-    });
-  });
-
-  describe('TableManager Advanced Features', () => {
-    it('should test filter save functionality', () => {
-      cy.get('button:contains("Save Filter")').click();
-      cy.get('.modal', { timeout: 5000 }).should('be.visible');
-      cy.get('.modal input[type="text"]').type('Test Legitimate Filter');
-      cy.get('.modal button:contains("Save Filter")').click();
-      cy.wait(500);
-
-      cy.get('button:contains("Saved Filters")').should('contain', '(1)');
-    });
-
-    it('should test items per page change', () => {
-      cy.contains('Items per page').parent().find('select').as('itemsPerPage');
-      
-      cy.get('@itemsPerPage').should('exist');
-      cy.get('@itemsPerPage').select('10');
-      cy.wait(1000);
-      
-      cy.get('table tbody tr').should('have.length.at.most', 10);
-    });
-
-    it('should test pagination if more than 5 items', () => {
-      cy.get('body').then(($body) => {
-        const paginationButtons = $body.find('button').toArray().filter(btn => {
-          const text = Cypress.$(btn).text();
-          return text.includes('Next') || text.includes('Previous') || /^\d+$/.test(text);
-        });
-
-        if (paginationButtons.length > 0) {
-          cy.log('Pagination controls found');
-        }
-      });
-    });
-  });
-
-  after(() => {
-    cy.log('Starting Legitimate Domains cleanup...');
-
-    const authData = Cypress.env('authData');
-    if (authData && authData.token) {
-      cy.request({
-        method: 'GET',
-        url: '/api/common/legitimate_domains/',
-        headers: {
-          'Authorization': `Token ${authData.token}`
-        },
-        failOnStatusCode: false
-      }).then((response) => {
-        if (response.status === 200 && response.body && response.body.results) {
-          response.body.results.forEach((domain) => {
-            if (domain.domain_name.includes('test-') || domain.domain_name.includes('e2e-')) {
-              cy.request({
-                method: 'DELETE',
-                url: `/api/common/legitimate_domains/${domain.id}/`,
-                headers: { 'Authorization': `Token ${authData.token}` },
-                failOnStatusCode: false
-              });
-            }
-          });
-        }
-      });
-    } else {
-      cy.log('No auth token available - skipping cleanup');
-    }
-
-    // Reset DB-stored preferences
-    if (authData && authData.token) {
-      cy.request({
-        method: 'PATCH',
-        url: '/api/auth/profile',
-        headers: { 'Authorization': `Token ${authData.token}` },
-        body: { preferences: {} },
-        failOnStatusCode: false
-      });
-    }
-
-    // Clear ephemeral localStorage/sessionStorage
-    cy.window().then((win) => {
-      win.localStorage.clear();
-      win.sessionStorage.clear();
-    });
-
-    cy.log('Legitimate Domains cleanup completed');
   });
 });

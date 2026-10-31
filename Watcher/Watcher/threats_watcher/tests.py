@@ -1,15 +1,21 @@
 import time
 import uuid
-from unittest.mock import patch, MagicMock
-from django.test import TestCase, TransactionTestCase
-from django.contrib.auth.models import User
+from datetime import timedelta
+from unittest.mock import patch
+from django.test import TestCase, TransactionTestCase, SimpleTestCase
+from django.contrib.auth.models import User, Permission
 from django.utils import timezone
 from django.urls import reverse
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from knox.models import AuthToken
-from threats_watcher.models import Source, PostUrl, TrendyWord, BannedWord, Subscriber, Summary, MonitoredKeyword
-from threats_watcher.serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer
+from threats_watcher.models import (Source, PostUrl, TrendyWord, BannedWord, Subscriber, Summary, MonitoredKeyword,
+                                    KeywordHit)
+from threats_watcher.serializers import SummarySerializer
+from threats_watcher import core
+from types import SimpleNamespace
+from connectors.models import NotificationSetting
+import feedparser
 
 
 class ModelTest(TransactionTestCase):
@@ -85,12 +91,9 @@ class ModelTest(TransactionTestCase):
         """Test Subscriber model."""
         unique_id = str(uuid.uuid4())[:8]
         user = User.objects.create_user(f"user{unique_id}", "test@test.com", "pass")
-        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
+        subscriber = Subscriber.objects.create(user_rec=user, email=True)
         
         self.assertTrue(subscriber.email)
-        self.assertTrue(subscriber.slack)
-        self.assertFalse(subscriber.thehive)
-        self.assertFalse(subscriber.citadel)
         self.assertIn(f"user{unique_id}", str(subscriber))
 
 
@@ -345,7 +348,7 @@ class SourceSerializerLastEventTest(APITestCase):
         """GET /api/threats_watcher/source/ must expose last_status_code, last_checked, last_event."""
         response = self.client.get('/api/threats_watcher/source/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = list(response.data)
+        results = response.data['results']
         self.assertTrue(len(results) >= 1, "Expected at least one Source in the response")
         first = results[0]
         self.assertIn('last_status_code', first)
@@ -410,7 +413,7 @@ class PerformanceTest(TestCase):
             old_word.save()
             
             # Recent word
-            recent_word = TrendyWord.objects.create(name=f"recent-{unique_id}")
+            TrendyWord.objects.create(name=f"recent-{unique_id}")
             
             try:
                 cleanup()
@@ -552,3 +555,368 @@ class ThreatsWatcherBulkTest(APITestCase):
         response = self._post(self.BANNED_URL + 'bulk_delete/', {'ids': [a.pk, b.pk, 999999]})
         self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1), response.data)
         self.assertFalse(BannedWord.objects.filter(pk__in=[a.pk, b.pk]).exists())
+
+
+class ThreatsWatcherPageAPITest(APITestCase):
+    """List filters, light rows, ban action and statistics used by the Threats Watcher page."""
+
+    WORDS = '/api/threats_watcher/trendyword/'
+
+    def setUp(self):
+        _, token = AuthToken.objects.create(User.objects.create_superuser(username='tw_page', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        old = timezone.now() - timedelta(days=10)
+        self.post_a = PostUrl.objects.create(url='https://cert.example/a')
+        self.post_b = PostUrl.objects.create(url='https://blog.example/b', created_at=old)
+        # Created with one occurrence, then updated without signals: from 3 occurrences the post_save signal
+        # writes an AI summary (loads the language model).
+        self.ransom = TrendyWord.objects.create(name='ransomware', occurrences=1, score=90)
+        self.phish = TrendyWord.objects.create(name='phishing', occurrences=1, score=20, created_at=old)
+        TrendyWord.objects.filter(pk=self.ransom.pk).update(occurrences=12)
+        TrendyWord.objects.filter(pk=self.phish.pk).update(occurrences=3)
+        self.ransom.posturls.add(self.post_a, self.post_b)
+        self.phish.posturls.add(self.post_b)
+        Source.objects.create(url='https://cert.example/feed', confident=1, country='France', country_code='FR', last_status_code=200)
+        Source.objects.create(url='https://blog.example/feed', confident=3, country='France', country_code='FR', last_status_code=404)
+        Source.objects.create(url='https://news.example/feed', confident=2, country='Germany', country_code='DE')
+        self.keyword = MonitoredKeyword.objects.create(name='Ransomware', occurrences=4, last_seen=timezone.now())
+        self.keyword.posturls.add(self.post_a)
+
+    def names(self, url, query=''):
+        response = self.client.get(url + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return sorted(r.get('name') or r.get('url') for r in response.data['results'])
+
+    def test_word_graph_links_words_by_shared_articles(self):
+        lone = TrendyWord.objects.create(name='botnet', occurrences=1)
+        self.client.credentials()  # Public, like the trends.
+        data = self.client.get(self.WORDS + 'graph/').data
+        self.assertEqual([n['name'] for n in data['nodes']], ['ransomware', 'phishing', 'botnet'])
+        self.assertEqual(data['links'], [{'source': self.ransom.id, 'target': self.phish.id, 'weight': 1}])
+        self.assertEqual(next(n for n in data['nodes'] if n['id'] == lone.id)['posts_count'], 0)
+        self.assertEqual([n['name'] for n in self.client.get(self.WORDS + 'graph/?period=7d').data['nodes']], ['ransomware', 'botnet'])
+
+    def test_word_filters_and_light_rows(self):
+        self.assertEqual(self.names(self.WORDS, '?confidence=high'), ['ransomware'])
+        self.assertEqual(self.names(self.WORDS, '?confidence=low'), ['phishing'])
+        self.assertEqual(self.names(self.WORDS, '?period=7d'), ['ransomware'])
+        self.assertEqual(self.names(self.WORDS, '?search=phish'), ['phishing'])
+        row = self.client.get(self.WORDS + '?ordering=-posts_count').data['results'][0]
+        self.assertEqual((row['name'], row['posts_count']), ('ransomware', 2))
+        self.assertNotIn('posturls', row)
+
+    def test_word_detail_lists_its_articles(self):
+        detail = self.client.get(self.WORDS + f'{self.ransom.id}/').data
+        self.assertEqual([p['url'] for p in detail['posts']], ['https://cert.example/a', 'https://blog.example/b'])
+        self.assertTrue(detail['monitored'])
+
+    def test_ban_moves_the_word_to_the_banned_words(self):
+        response = self.client.post(self.WORDS + f'{self.phish.id}/ban/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(BannedWord.objects.filter(name='phishing').exists())
+        self.assertFalse(TrendyWord.objects.filter(pk=self.phish.pk).exists())
+
+    def test_ban_needs_both_rights(self):
+        _, token = AuthToken.objects.create(User.objects.create_user(username='tw_reader', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.assertEqual(self.client.post(self.WORDS + f'{self.phish.id}/ban/').status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(TrendyWord.objects.filter(pk=self.phish.pk).exists())
+
+    def test_source_filters(self):
+        sources = '/api/threats_watcher/source/'
+        self.assertEqual(self.names(sources, '?confidence=1'), ['https://cert.example/feed'])
+        self.assertEqual(self.names(sources, '?status=failing'), ['https://blog.example/feed'])
+        self.assertEqual(self.names(sources, '?status=unchecked'), ['https://news.example/feed'])
+        self.assertEqual(self.names(sources, '?search=germany'), ['https://news.example/feed'])
+
+    def test_monitored_keyword_rows_count_their_articles(self):
+        row = self.client.get('/api/threats_watcher/monitored-keywords/?seen=yes').data['results'][0]
+        self.assertEqual((row['name'], row['posts_count']), ('Ransomware', 1))
+        self.assertNotIn('posturls', row)
+        detail = self.client.get(f'/api/threats_watcher/monitored-keywords/{self.keyword.id}/').data
+        self.assertEqual(detail['posts'][0]['url'], 'https://cert.example/a')
+
+    def test_statistics(self):
+        stats = self.client.get('/api/threats_watcher/source/statistics/').data
+        self.assertEqual((stats['totalWords'], stats['totalSources'], stats['failingSources'], stats['monitoredSeen']), (2, 3, 1, 1))
+        self.assertEqual(stats['sourcesByCountry'][0], {'code': 'FR', 'country': 'France', 'count': 2})
+        self.assertEqual(stats['sourcesByConfidence'], {'1': 1, '2': 1, '3': 1})
+        self.assertEqual(len(stats['wordsPerDay']), 30)
+        self.assertEqual(stats['wordsPerDay'][-1]['count'], 1)
+        self.assertEqual(stats['articlesPerDay'][-1]['count'], 1)
+
+
+# Problems of the feeds in the log
+class FeedProblemLoggingTest(TestCase):
+    def setUp(self):
+        self.source = Source.objects.create(url='https://blocked.example/feed/')
+        core.sources_by_url = {self.source.url: self.source.id}
+
+    def _report(self, status_code):
+        with patch.object(core.logger, 'warning') as warning, patch.object(core.logger, 'debug') as debug:
+            core._update_source_status(self.source.url, status_code)('problem')
+        return warning.called, debug.called
+
+    def test_a_feed_that_starts_failing_is_a_warning(self):
+        self.assertEqual(self._report(403), (True, False))
+
+    def test_the_same_failure_at_the_next_check_is_only_debug(self):
+        self._report(403)
+        self.assertEqual(self._report(403), (False, True))
+
+    def test_a_different_failure_is_a_warning_again(self):
+        self._report(403)
+        self.assertEqual(self._report(0), (True, False))
+
+    def test_the_status_is_still_recorded(self):
+        self._report(403)
+        self.source.refresh_from_db()
+        self.assertEqual(self.source.last_status_code, 403)
+
+
+# Monitored keywords written as rules
+def _rule(all_of=(), any_of=(), exceptions=(), whole_words=True):
+    return SimpleNamespace(all_of=list(all_of), any_of=list(any_of), exceptions=list(exceptions), whole_words=whole_words)
+
+
+class MatchTest(SimpleTestCase):
+    def test_every_word_of_all_of_has_to_be_there(self):
+        rule = _rule(all_of=['Lazarus', 'Acme'])
+        self.assertEqual(core.match_rule(rule, 'Lazarus targets Acme Corp'), ['Lazarus', 'Acme'])
+        self.assertIsNone(core.match_rule(rule, 'Lazarus targets someone else'))
+        self.assertIsNone(core.match_rule(rule, 'Acme was not attacked'))
+
+    def test_the_order_and_the_distance_of_the_words_do_not_matter(self):
+        self.assertIsNotNone(core.match_rule(_rule(all_of=['a1', 'b2']), 'b2 ... many words later ... a1'))
+
+    def test_any_of_asks_for_one_more_word_among_several(self):
+        rule = _rule(all_of=['Lazarus'], any_of=['Acme', 'Globex'])
+        self.assertEqual(core.match_rule(rule, 'Lazarus and Globex'), ['Lazarus', 'Globex'])
+        self.assertIsNone(core.match_rule(rule, 'Lazarus alone'))
+
+    def test_any_of_alone_is_an_or(self):
+        rule = _rule(any_of=['Acme', 'Globex'])
+        self.assertIsNotNone(core.match_rule(rule, 'about Globex'))
+        self.assertIsNone(core.match_rule(rule, 'about nobody'))
+
+    def test_an_exception_cancels_the_match(self):
+        self.assertIsNone(core.match_rule(_rule(all_of=['Lazarus'], exceptions=['webinar']), 'Lazarus webinar tomorrow'))
+
+    def test_case_and_accents_are_ignored(self):
+        self.assertIsNotNone(core.match_rule(_rule(all_of=['électricité', 'GROUPE']), 'Le groupe Electricite de Test'))
+
+    def test_whole_words_do_not_match_inside_a_longer_word(self):
+        rule = _rule(all_of=['apt'])
+        self.assertIsNone(core.match_rule(rule, 'The patch was adapted'))
+        self.assertIsNone(core.match_rule(rule, 'APT29 is active'))
+        self.assertIsNotNone(core.match_rule(rule, 'An APT-29 campaign'))
+        self.assertIsNotNone(core.match_rule(rule, 'the (APT) group'))
+
+    def test_substring_mode_finds_a_word_inside_another(self):
+        self.assertIsNotNone(core.match_rule(_rule(all_of=['apt'], whole_words=False), 'The patch was adapted'))
+
+    def test_a_rule_without_words_matches_nothing(self):
+        self.assertIsNone(core.match_rule(_rule(), 'anything'))
+
+    def test_regex_characters_in_a_word_are_taken_literally(self):
+        self.assertIsNotNone(core.match_rule(_rule(all_of=['c++']), 'written in C++ again'))
+        self.assertIsNone(core.match_rule(_rule(all_of=['a.b']), 'axb'))
+
+    def test_a_text_that_is_already_normalized_is_not_normalized_again(self):
+        text = core.normalize_text('Électricité de France')
+        self.assertIsNotNone(core.match_rule(_rule(all_of=['electricite']), text, normalized=True))
+
+
+class MatchKeywordTest(TestCase):
+    def test_a_single_word_keyword_behaves_as_before(self):
+        keyword = MonitoredKeyword.objects.create(name='Acme')
+        self.assertEqual(core.match_keyword(keyword, 'The acmeCorp breach'), ['Acme'])  # a part of a word counts
+        self.assertIsNone(core.match_keyword(keyword, 'Nothing here'))
+
+    def test_a_single_word_keyword_can_ask_for_whole_words_and_have_exceptions(self):
+        keyword = MonitoredKeyword.objects.create(name='apt', whole_words=True, exceptions=['adapt'])
+        self.assertIsNone(core.match_keyword(keyword, 'It was adapted'))
+        self.assertIsNotNone(core.match_keyword(keyword, 'A new APT-28 campaign'))
+
+    def test_a_rule_ignores_its_name(self):
+        keyword = MonitoredKeyword.objects.create(name='Actor and partner', all_of=['Lazarus', 'Acme'])
+        self.assertTrue(keyword.is_rule)
+        self.assertIsNone(core.match_keyword(keyword, 'An article about Actor and partner'))
+        self.assertEqual(core.match_keyword(keyword, 'Lazarus hits Acme'), ['Lazarus', 'Acme'])
+
+    def test_the_words_are_cleaned_when_saved(self):
+        keyword = MonitoredKeyword.objects.create(name='Clean', all_of=[' Lazarus ', 'lazarus', '', 'Acme'])
+        self.assertEqual(keyword.all_of, ['Lazarus', 'Acme'])
+
+
+FEED = """<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>
+<item><title>Lazarus group targets Acme</title><link>https://blog.example.org/one</link><description>Details</description></item>
+<item><title>Lazarus alone</title><link>https://blog.example.org/two</link><description>Nothing about the partner</description></item>
+<item><title>A report</title><link>https://blog.example.org/three</link><description>The Lazarus activity against Acme grows</description></item>
+</channel></rss>"""
+
+
+class CollectionTest(TestCase):
+    """The articles of the feeds are checked as they are collected, and nothing is searched anywhere else."""
+
+    def setUp(self):
+        self.rule = MonitoredKeyword.objects.create(name='Actor and partner', all_of=['Lazarus', 'Acme'])
+        self.word = MonitoredKeyword.objects.create(name='Lazarus')
+
+    def _collect(self):
+        core.rss_urls, core.feeds = [], [feedparser.parse(FEED)]
+        with patch('threats_watcher.core.notify_keyword_rule_hit') as notify, \
+                patch('requests.get', side_effect=AssertionError('no request is expected')):
+            core.fetch_last_posts(10)
+        return notify
+
+    def test_the_matching_articles_of_a_feed_are_kept_and_notified_for_a_rule(self):
+        notify = self._collect()
+        self.assertEqual(sorted(KeywordHit.objects.values_list('url', flat=True)),
+                         ['https://blog.example.org/one', 'https://blog.example.org/three'])
+        self.assertEqual(notify.call_count, 2)
+
+    def test_every_keyword_counts_its_mentions_and_has_a_level(self):
+        self._collect()
+        self.rule.refresh_from_db()
+        self.word.refresh_from_db()
+        self.assertEqual(self.rule.occurrences, 2)
+        self.assertEqual(self.word.occurrences, 3)
+        self.assertEqual(self.word.level, 'hot')
+        self.assertEqual(self.rule.posturls.count(), 2)
+
+    def test_a_single_word_keeps_no_hit_to_review(self):
+        self._collect()
+        self.assertFalse(KeywordHit.objects.filter(keyword=self.word).exists())
+
+    def test_the_next_collection_does_not_count_or_notify_again(self):
+        self._collect()
+        notify = self._collect()
+        notify.assert_not_called()
+        self.rule.refresh_from_db()
+        self.assertEqual((self.rule.occurrences, KeywordHit.objects.count()), (2, 2))
+
+    def test_a_paused_keyword_is_left_alone(self):
+        MonitoredKeyword.objects.filter(pk=self.rule.pk).update(is_active=False)
+        notify = self._collect()
+        notify.assert_not_called()
+        self.assertEqual(KeywordHit.objects.count(), 0)
+
+    def test_a_failing_notification_does_not_stop_the_collection(self):
+        core.rss_urls, core.feeds = [], [feedparser.parse(FEED)]
+        with patch('threats_watcher.core.notify_keyword_rule_hit', side_effect=RuntimeError('boom')):
+            core.fetch_last_posts(10)
+        self.assertEqual(KeywordHit.objects.count(), 2)
+        self.assertIn('Lazarus group targets Acme', core.posts)
+
+
+class NotificationTest(TestCase):
+    def setUp(self):
+        keyword = MonitoredKeyword.objects.create(name='Rule <b>', all_of=['Lazarus'])
+        self.hit = KeywordHit.objects.create(keyword=keyword, url='https://blog.example.org/a', url_hash='h',
+                                             title='New <script>x</script> & more', matched=['Lazarus'])
+
+    def test_the_title_is_escaped_for_each_channel(self):
+        from threats_watcher.core import _rule_context
+        self.assertIn('&lt;script&gt;', _rule_context(self.hit, 'slack')['article_title'])
+        self.assertIn('&lt;script&gt;', _rule_context(self.hit, 'citadel')['article_title'])
+        self.assertEqual(_rule_context(self.hit, 'citadel')['rule_name'], 'Rule &lt;b&gt;')
+
+    def test_the_email_goes_to_the_subscribers_of_monitored_keywords(self):
+        from threats_watcher import core
+        for name, email, keywords in (('yes', True, True), ('no_keywords', True, False), ('no_email', False, True)):
+            Subscriber.objects.create(user_rec=User.objects.create_user(name, f'{name}@example.com'), email=email,
+                                      notify_monitored_keywords=keywords)
+        with patch('common.utils.send_email_notifications.send_email_notifications') as send:
+            core._send_rule_email(self.hit)
+            send.assert_not_called()  # off until a superuser switches it on
+            NotificationSetting.objects.create(notification_type='article_rule_hit', channel='email', enabled=True)
+            core._send_rule_email(self.hit)
+        self.assertEqual(send.call_args.args[2], ['yes@example.com'])
+        self.assertNotIn('<script>', send.call_args.args[1])
+
+    def test_a_failing_channel_does_not_stop_the_next_ones(self):
+        from threats_watcher import core
+        sent = []
+        with patch.object(core, '_send_rule_slack', side_effect=RuntimeError('boom')), \
+                patch.object(core, '_send_rule_citadel', lambda hit: sent.append('citadel')), \
+                patch.object(core, '_send_rule_email', lambda hit: sent.append('email')):
+            with self.assertLogs('watcher.threats_watcher', level='INFO') as logs:
+                core.notify_keyword_rule_hit(self.hit)
+        self.assertEqual(sent, ['citadel', 'email'])
+        self.assertEqual(logs.records[-1].levelname, 'WARNING')
+
+
+class KeywordRuleApiTest(TestCase):
+    URL = '/api/threats_watcher/monitored-keywords/'
+    HITS = '/api/threats_watcher/keyword-hits/'
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user('analyst', 'analyst@example.com', 'pass')
+        self.client.force_authenticate(self.user)
+        self.rule = MonitoredKeyword.objects.create(name='Actor and partner', all_of=['Lazarus', 'Acme'])
+        self.word = MonitoredKeyword.objects.create(name='Ransomware')
+        self.hit = KeywordHit.objects.create(keyword=self.rule, url='https://x.example/1', url_hash='a', title='One',
+                                             matched=['Lazarus', 'Acme'])
+        KeywordHit.objects.create(keyword=self.rule, url='https://x.example/2', url_hash='b', title='Two',
+                                  matched=['Lazarus', 'Acme'], is_archived=True)
+
+    def _allow(self, *codenames):
+        self.user.user_permissions.add(*Permission.objects.filter(codename__in=codenames))
+        self.user = User.objects.get(pk=self.user.pk)
+        self.client.force_authenticate(self.user)
+
+    def _row(self, name):
+        return next(r for r in self.client.get(self.URL).json()['results'] if r['name'] == name)
+
+    def test_the_hits_are_not_public(self):
+        self.assertIn(APIClient().get(self.HITS).status_code, (401, 403))
+
+    def test_the_list_tells_rules_from_single_words_and_counts_the_hits(self):
+        rule, word = self._row('Actor and partner'), self._row('Ransomware')
+        self.assertEqual((rule['is_rule'], rule['hits_count'], rule['open_hits_count']), (True, 2, 1))
+        self.assertEqual((word['is_rule'], word['hits_count']), (False, 0))
+        self.assertEqual(rule['all_of'], ['Lazarus', 'Acme'])
+
+    def test_the_list_can_be_limited_to_rules_or_to_words(self):
+        names = lambda kind: [r['name'] for r in self.client.get(self.URL, {'kind': kind}).json()['results']]
+        self.assertEqual(names('rule'), ['Actor and partner'])
+        self.assertEqual(names('word'), ['Ransomware'])
+
+    def test_a_rule_is_created_like_a_keyword(self):
+        self._allow('add_monitoredkeyword')
+        payload = {'name': 'New rule', 'all_of': ['a1', 'b2'], 'whole_words': True}
+        response = self.client.post(self.URL, payload, format='json')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(response.json()['is_rule'])
+
+    def test_a_single_word_keyword_is_created_as_before(self):
+        self._allow('add_monitoredkeyword')
+        response = self.client.post(self.URL, {'name': 'newword'}, format='json')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual((response.json()['is_rule'], response.json()['is_active']), (False, True))
+
+    def test_the_words_of_a_rule_are_validated(self):
+        self._allow('add_monitoredkeyword')
+        self.assertEqual(self.client.post(self.URL, {'name': 'Bad', 'all_of': 'text'}, format='json').status_code, 400)
+        self.assertEqual(self.client.post(self.URL, {'name': 'Long', 'all_of': ['x' * 151]}, format='json').status_code, 400)
+
+    def test_a_keyword_can_be_paused_in_bulk(self):
+        self._allow('change_monitoredkeyword')
+        response = self.client.post(f'{self.URL}bulk_update/', {'ids': [self.rule.pk], 'changes': {'is_active': False}}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.rule.refresh_from_db()
+        self.assertFalse(self.rule.is_active)
+
+    def test_the_hits_can_be_filtered_by_keyword_and_state(self):
+        self.assertEqual(len(self.client.get(self.HITS, {'keyword': self.rule.pk}).json()['results']), 2)
+        self.assertEqual([h['title'] for h in self.client.get(self.HITS, {'status': 'active'}).json()['results']], ['One'])
+
+    def test_a_hit_can_be_archived_but_nothing_else_changes(self):
+        self._allow('change_keywordhit')
+        response = self.client.patch(f'{self.HITS}{self.hit.pk}/',
+                                     {'is_archived': True, 'title': 'Changed', 'url': 'https://evil.example/'}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.hit.refresh_from_db()
+        self.assertEqual((self.hit.is_archived, self.hit.title, self.hit.url), (True, 'One', 'https://x.example/1'))

@@ -200,6 +200,13 @@ class MonitoredKeyword(models.Model):
     posturls    = models.ManyToManyField(PostUrl, blank=True,
                                          help_text="RSS article URLs where this keyword was detected")
     created_at  = models.DateTimeField(default=timezone.now)
+    # A keyword is the word in `name`. Written as a rule, `name` is only its label and the words below decide: an
+    # article must contain ALL of `all_of` (logical AND) and, when given, one of `any_of`, and none of `exceptions`.
+    all_of = models.JSONField(default=list, blank=True, help_text="Rule: words that must ALL be in the article")
+    any_of = models.JSONField(default=list, blank=True, help_text="Rule: when given, at least one of these must be in the article too")
+    exceptions = models.JSONField(default=list, blank=True, help_text="Words whose presence cancels a match")
+    whole_words = models.BooleanField(default=False, help_text="Match whole words only ('apt' does not match 'adapt')")
+    is_active = models.BooleanField(default=True)
     timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='monitoredkeyword')
 
     class Meta:
@@ -207,6 +214,28 @@ class MonitoredKeyword(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.level})"
+
+    @property
+    def is_rule(self):
+        """Written as a rule (several words), not as a single word."""
+        return bool(self.all_of or self.any_of)
+
+    @staticmethod
+    def _clean_words(words):
+        """Strip each word, drop the empty ones and the duplicates (case ignored)."""
+        seen, result = set(), []
+        for word in words if isinstance(words, list) else []:
+            word = str(word).strip()
+            if word and word.lower() not in seen:
+                seen.add(word.lower())
+                result.append(word)
+        return result
+
+    def save(self, *args, **kwargs):
+        self.all_of = self._clean_words(self.all_of)
+        self.any_of = self._clean_words(self.any_of)
+        self.exceptions = self._clean_words(self.exceptions)
+        super().save(*args, **kwargs)
 
     def update_level(self):
         """Auto-escalate level based on occurrence count."""
@@ -226,9 +255,6 @@ class Subscriber(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
     email = models.BooleanField(default=False, verbose_name="E-mail")
-    thehive = models.BooleanField(default=False, verbose_name="TheHive")
-    slack = models.BooleanField(default=False, verbose_name="Slack")
-    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     notify_trendy_words = models.BooleanField(default=True, verbose_name="Trendy Words")
     notify_monitored_keywords = models.BooleanField(default=True, verbose_name="Monitored Keywords")
@@ -240,3 +266,26 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+
+class KeywordHit(models.Model):
+    """
+    An article that matched a monitored keyword written as a rule (`all_of` / `any_of`), kept to be reviewed and archived.
+    The text of the article is not kept.
+    """
+    keyword = models.ForeignKey('MonitoredKeyword', on_delete=models.CASCADE, related_name='hits')
+    url = models.URLField(max_length=1000)
+    # A URL is too long to be unique in MySQL: its SHA-256 is
+    url_hash = models.CharField(max_length=64)
+    title = models.CharField(max_length=500, blank=True, default='')
+    # The words of the rule that were found, for the review
+    matched = models.JSONField(default=list)
+    hit_at = models.DateTimeField(default=timezone.now)
+    is_archived = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-hit_at', '-id']
+        unique_together = [['keyword', 'url_hash']]
+
+    def __str__(self):
+        return f'{self.keyword_id}: {self.title or self.url}'

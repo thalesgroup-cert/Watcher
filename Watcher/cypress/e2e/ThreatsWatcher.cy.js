@@ -1,971 +1,199 @@
-describe('Threats Watcher - E2E Test Suite', () => {
-  before(() => {
-    const credentials = Cypress.env('testCredentials');
+// Threats Watcher (home page): trends (briefing, KPI quick filters, word cloud, word drawer with the AI summary, monitor /
+// ban / delete), monitored keywords, RSS sources (bulk reliability), banned words, Insights and the anonymous view.
+// All API calls are mocked.
+describe('Threats Watcher', () => {
+  const USER = { id: 1, username: 'analyst', first_name: 'Ana', last_name: 'Lyst', email: '', is_superuser: true, is_staff: false, groups: [], permissions: [] };
+  const API = '/api/threats_watcher/';
+  const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString().slice(0, 19);
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
-    // Setup API mocks
-    cy.intercept('GET', '**/api/threats_watcher/trendyword/**', {
-      statusCode: 200,
-      body: {
-        count: 3,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1, name: "test-malware", occurrences: 45,
-            score: 92.5,
-            posturls: [
-              "https://watcher.com/malware-report,2025-06-19T14:30:00Z",
-              "https://watcher.com/malware-analysis,2025-06-19T12:15:00Z"
-            ],
-            created_at: "2025-06-19T10:00:00Z"
-          },
-          {
-            id: 2, name: "e2e-ransomware", occurrences: 32,
-            score: 80.0,
-            posturls: [
-              "https://watcher.com/ransomware-attack,2025-06-19T11:20:00Z",
-              "https://watcher.com/ransomware-news,2025-06-18T09:30:00Z"
-            ],
-            created_at: "2025-06-18T15:30:00Z"
-          },
-          {
-            id: 3, name: "test-phishing", occurrences: 28,
-            score: 67.3,
-            posturls: [
-              "https://watcher.com/phishing-campaign,2025-06-19T08:45:00Z",
-              "https://watcher.com/phishing-trends,2025-06-18T14:20:00Z"
-            ],
-            created_at: "2025-06-17T08:15:00Z"
-          }
-        ]
-      }
-    }).as('getTrendyWords');
+  const NAMES = ['lockbit', 'ivanti', 'cve-2026-1234', 'phishing', 'fortinet', 'akira', 'citrix', 'ransomware', 'botnet', 'apt29', 'zero-day', 'exchange'];
+  const WORDS = NAMES.map((name, i) => ({ id: i + 1, name, occurrences: 40 - i * 3, score: [100, 74, 50, 20][i % 4], created_at: ago(i * 500), posts_count: 40 - i * 3 }));
+  const POSTS = Array.from({ length: 6 }, (_, i) => ({ url: `https://www.cert.example/advisory-${i}`, created_at: ago(i * 1500) }));
+  const KEYWORDS = [
+    { id: 1, name: 'acme', level: 'hot', level_display: 'Hot', threshold: 3, last_seen: ago(90), occurrences: 4, posts_count: 4, created_at: ago(20000), last_event: null },
+    { id: 2, name: 'acme-corp', level: 'warm', level_display: 'Warm', threshold: 1, last_seen: null, occurrences: 0, posts_count: 0, created_at: ago(9000), last_event: null },
+  ];
+  const SOURCES = [
+    { id: 1, url: 'https://www.cert.ssi.gouv.fr/feed/', confident: 1, country: 'France', country_code: 'FR', last_status_code: 200, last_checked: ago(20), created_at: ago(50000), last_event: null },
+    { id: 2, url: 'https://blog.example.com/rss', confident: 3, country: 'United States', country_code: 'US', last_status_code: 404, last_checked: ago(20), created_at: ago(30000), last_event: null },
+    { id: 3, url: 'https://news.example.org/feed', confident: 2, country: 'Germany', country_code: 'DE', last_status_code: null, last_checked: null, created_at: ago(10), last_event: null },
+  ];
+  const BANNED = [{ id: 1, name: 'newsletter', created_at: ago(5000), last_event: null }];
+  const STATS = {
+    totalWords: 12, newToday: 2, newThisWeek: 7, totalSources: 3, failingSources: 1, bannedWords: 1, monitoredKeywords: 2, monitoredSeen: 1,
+    monitoredByLevel: { hot: 1, warm: 1 }, topWords: WORDS.slice(0, 8).map(({ name, occurrences }) => ({ name, occurrences })),
+    wordsPerDay: Array.from({ length: 30 }, (_, i) => ({ date: day(i - 29), count: i % 4 })),
+    articlesPerDay: Array.from({ length: 30 }, (_, i) => ({ date: day(i - 29), count: 20 + (i % 7) * 5 })),
+    sourcesByCountry: [{ code: 'FR', country: 'France', count: 1 }, { code: 'US', country: 'United States', count: 1 }, { code: 'DE', country: 'Germany', count: 1 }],
+    sourcesByConfidence: { 1: 1, 2: 1, 3: 1 },
+  };
+  // Same shape as summary_manager.py: one "• summary" line per topic, then an indented line of details.
+  const WEEKLY = {
+    id: 1, type: 'weekly_summary', keywords: '', created_at: ago(3000), updated_at: ago(3000),
+    summary_text: [
+      '• Ivanti patched an actively exploited flaw in Connect Secure that lets attackers run code without signing in.',
+      '  Products: Connect Secure, Policy Secure | CVEs: CVE-2026-1234 (https://nvd.nist.gov/vuln/detail/CVE-2026-1234)',
+      '',
+      '• LockBit claimed attacks on three hospitals this week.',
+      '  Threat actors: LockBit',
+      '',
+      '• A phishing campaign abuses fake invoices to spread a loader.',
+    ].join('\n'),
+  };
+  const BREAKING = { id: 2, type: 'breaking_news', keywords: 'ivanti', summary_text: 'Ivanti zero-day exploited in the wild.', created_at: ago(60), updated_at: ago(60) };
+  const WORD_SUMMARY = { id: 3, type: 'trendy_word_summary', keywords: 'lockbit', summary_text: 'LockBit claimed three new victims.', created_at: ago(1), updated_at: ago(1) };
+  const page = (results) => ({ count: results.length, next: null, previous: null, results });
+  // `cy.wait` hands back the first request nobody waited for yet (the page load); a filter is checked on the last one.
+  const expectLastRequest = (alias, text) => cy.get(`@${alias}.all`).should((calls) => expect(calls.at(-1).request.url).to.include(text));
+  // Set once the word summary is written, from then on the summaries list returns it.
+  let summarized = false;
 
-    cy.intercept('GET', '**/api/threats_watcher/bannedword/**', {
-      statusCode: 200,
-      body: {
-        count: 2,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1, name: "test-spam", created_at: "2025-06-19T10:00:00Z",
-            last_event: {
-              username: "admin",
-              first_name: "Admin",
-              last_name: "User",
-              avatar_color: "#2196f3",
-              action: "updated",
-              timestamp: "2026-06-24T14:30:00Z"
-            }
-          },
-          { id: 2, name: "e2e-advertisement", created_at: "2025-06-18T15:30:00Z", last_event: null }
-        ]
-      }
-    }).as('getBannedWords');
+  const mockApi = () => {
+    summarized = false;
+    cy.intercept('GET', `${API}trendyword/?*`, { statusCode: 200, body: page(WORDS) }).as('words');
+    cy.intercept('GET', `${API}trendyword/1/`, { statusCode: 200, body: { ...WORDS[0], posts: POSTS, monitored: false } });
+    cy.intercept('GET', `${API}summary/?*`, (req) => {
+      const byType = { weekly_summary: [WEEKLY], breaking_news: [BREAKING] };
+      req.reply({ statusCode: 200, body: summarized ? [WORD_SUMMARY] : (byType[req.query.type] ?? []) });
+    });
+    cy.intercept('GET', `${API}monitored-keywords/?*`, { statusCode: 200, body: page(KEYWORDS) }).as('keywords');
+    cy.intercept('GET', `${API}monitored-keywords/1/`, { statusCode: 200, body: { ...KEYWORDS[0], posts: POSTS.slice(0, 4) } });
+    cy.intercept('GET', `${API}source/?*`, { statusCode: 200, body: page(SOURCES) }).as('sources');
+    // Declared after the list: `source/?*` also matches `source/statistics/`, and the last intercept wins.
+    cy.intercept('GET', `${API}source/statistics/`, { statusCode: 200, body: STATS });
+    cy.intercept('GET', `${API}source/2/`, { statusCode: 200, body: SOURCES[1] });
+    cy.intercept('GET', `${API}bannedword/?*`, { statusCode: 200, body: page(BANNED) });
+    cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
+  };
 
-    cy.intercept('GET', '**/api/threats_watcher/summary/**type=weekly_summary**', {
-      statusCode: 200,
-      body: {
-        count: 0,
-        next: null,
-        previous: null,
-        results: []
-      }
-    }).as('getWeeklySummary');
+  describe('signed in', () => {
+    beforeEach(() => {
+      cy.on('uncaught:exception', () => false);
+      cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
+      cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'bootstrap', preferences: {}, avatar_color: null } });
+      mockApi();
+      cy.visit('/#/threats_watcher', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-threats') });
+      cy.get('[data-testid="word-row"]', { timeout: 20000 }).should('have.length', 12);
+    });
 
-    cy.intercept('GET', '**/api/threats_watcher/summary/**type=breaking_news**', {
-      statusCode: 200,
-      body: {
-        count: 0,
-        next: null,
-        previous: null,
-        results: []
-      }
-    }).as('getBreakingNews');
-
-    // Mock CRUD operations
-    cy.intercept('POST', '**/api/threats_watcher/bannedword/**', (req) => ({
-      statusCode: 201, body: { id: Date.now(), ...req.body, created_at: new Date().toISOString() }
-    })).as('addBannedWord');
-
-    cy.intercept('DELETE', '**/api/threats_watcher/trendyword/*', { statusCode: 204 }).as('deleteTrendyWord');
-
-    // Statistics carousel intercepts
-    cy.intercept('GET', '**/api/threats_watcher/source/statistics/**', {
-      statusCode: 200,
-      body: {
-        totalWords: 3,
-        newToday: 1,
-        newThisWeek: 3,
-        totalSources: 5,
-        bannedWords: 2,
-        monitoredKeywords: 2
-      }
-    }).as('getThreatsStats');
-
-    cy.intercept('GET', '**/api/cyber_watch/ransomware/victims/**', {
-      statusCode: 200,
-      body: {
-        count: 2,
-        next: null,
-        previous: null,
-        results: [
-          { id: 1, post_title: 'Victim Corp A', gang_name: 'LockBit', published: '2025-06-19T10:00:00Z', country: 'FR', activity: 'Finance' },
-          { id: 2, post_title: 'Victim Corp B', gang_name: 'BlackCat', published: '2025-06-18T12:00:00Z', country: 'US', activity: 'Healthcare' }
-        ]
-      }
-    }).as('getRansomwareVictims');
-
-    cy.intercept('GET', '**/api/cyber_watch/cves/**', {
-      statusCode: 200,
-      body: {
-        count: 1,
-        next: null,
-        previous: null,
-        results: [
-          { id: 1, cve_id: 'CVE-2025-1234', description: 'Test CVE', cvss: 8.5, published: '2025-06-19T10:00:00Z' }
-        ]
-      }
-    }).as('getCVEs');
-
-    cy.intercept('GET', '**/api/cyber_watch/watch-rule-hits/**', {
-      statusCode: 200,
-      body: { count: 0, next: null, previous: null, results: [] }
-    }).as('getWatchRuleHits');
-
-    // Mock auth endpoints with test credentials
-    cy.intercept('GET', '/api/auth/user/', {
-      statusCode: 200, 
-      body: { 
-        id: 1, 
-        username: credentials.username, 
-        first_name: credentials.firstName, 
-        email: credentials.email, 
-        is_superuser: true 
-      }
-    }).as('getUser');
-
-    cy.intercept('POST', '/api/auth/login/', {
-      statusCode: 200, 
-      body: { 
-        token: 'mock-token-123456789',
-        user: { 
-          id: 1, 
-          username: credentials.username, 
-          first_name: credentials.firstName, 
-          email: credentials.email 
-        } 
-      }
-    }).as('login');
-
-    // Authenticate inline with extended URL timeout (avoids 4000ms default in commands.js)
-    cy.visit('/#/login');
-    cy.get('input[type="text"], input[name="username"]', { timeout: 15000 })
-      .should('be.visible').type(credentials.username);
-    cy.get('input[type="password"], input[name="password"]')
-      .should('be.visible').type(credentials.password);
-    cy.get('button[type="submit"], button:contains("Login")')
-      .should('not.be.disabled').click();
-    cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
-    cy.get('.navbar', { timeout: 15000 }).should('exist');
-    cy.window().then((win) => {
-      const token = win.localStorage.getItem('token') || win.sessionStorage.getItem('token');
-      Cypress.env('authData', {
-        token: token || 'mock-token-123456789',
-        user: win.localStorage.getItem('user') || null,
-        isAuthenticated: true,
+    it('shows the breaking news and the weekly digest, with real links only', () => {
+      cy.get('[data-testid="breaking-news"]').should('contain', 'Ivanti zero-day exploited in the wild.');
+      cy.get('[data-testid="weekly-summary"]').within(() => {
+        cy.contains('a', 'CVE-2026-1234').should('have.attr', 'href', 'https://nvd.nist.gov/vuln/detail/CVE-2026-1234');
+        cy.get('li').should('have.length', 2);
+        cy.contains('button', 'Read the whole digest - 3 topics').click();
+        cy.get('li').should('have.length', 3);
       });
     });
 
-    // Navigate to ThreatsWatcher
-    cy.visit('/#/');
-    cy.wait('@getTrendyWords', { timeout: 15000 });
-    
-    cy.log('Authentication completed and navigated to Threats Watcher');
+    it('filters from the KPI cards and the search, all kept in the URL', () => {
+      cy.contains('button', 'New today').click();
+      expectLastRequest('words', 'period=today');
+      cy.location('hash').should('include', 'period=today');
+      cy.contains('button', 'Trending words').click();
+      cy.location('hash').should('not.include', 'period=');
+      cy.get('input[aria-label="Search words"]').type('lock');
+      expectLastRequest('words', 'search=lock');
+    });
+
+    it('opens a word from the cloud, writes its summary, then monitors and bans it', () => {
+      cy.intercept('GET', `${API}summary/by-keyword/lockbit/`, (req) => {
+        summarized = true;
+        req.reply({ statusCode: 200, body: WORD_SUMMARY });
+      }).as('summarize');
+      cy.intercept('POST', `${API}monitored-keywords/`, (req) => req.reply({ statusCode: 201, body: { ...KEYWORDS[1], id: 9, ...req.body } })).as('monitor');
+      cy.intercept('POST', `${API}trendyword/1/ban/`, { statusCode: 200, body: { detail: 'banned' } }).as('ban');
+      cy.get('[data-testid="word-cloud"] [aria-label^="lockbit,"]').click();
+      cy.location('hash').should('include', 'word=1');
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.get('[data-testid="word-articles"] a').should('have.length', 6);
+        cy.get('[data-testid="mentions-chart"] svg').should('exist');
+        cy.contains('button', 'Summarize the articles').click();
+      });
+      cy.wait('@summarize');
+      cy.get('.MuiDrawer-paper').should('contain', 'LockBit claimed three new victims.');
+      cy.get('.MuiDrawer-paper').contains('button', 'Monitor').click();
+      cy.wait('@monitor').its('request.body').should('deep.equal', { name: 'lockbit', level: 'warm' });
+      cy.get('.MuiDrawer-paper').contains('button', 'Ban').click();
+      cy.contains('[role="dialog"]', 'Ban “lockbit”?').contains('button', /^Ban$/).click();
+      cy.wait('@ban');
+      cy.location('hash').should('not.include', 'word=');
+    });
+
+    it('filters, opens and adds monitored keywords', () => {
+      cy.intercept('POST', `${API}monitored-keywords/`, (req) => req.reply({ statusCode: 201, body: { ...KEYWORDS[1], id: 9, ...req.body } })).as('add');
+      cy.contains('[role="tab"]', 'Monitored keywords').click();
+      cy.get('[data-testid="keyword-row"]').should('have.length', 2).first().should('contain', 'Hot');
+      cy.get('[role="combobox"]').eq(0).click();
+      cy.contains('[role="option"]', 'Hot').click();
+      expectLastRequest('keywords', 'level=hot');
+      cy.location('hash').should('include', 'klevel=hot');
+      cy.contains('button', 'Clear').click();
+      cy.get('[data-testid="keyword-row"]').first().click();
+      cy.location('hash').should('include', 'keyword=1');
+      cy.get('[data-testid="keyword-articles"] a').should('have.length', 4);
+      cy.get('body').type('{esc}');
+      cy.contains('button', /^Add$/).click();
+      cy.contains('[role="menuitem"]', 'Monitored keywords').click();
+      cy.location('hash').should('include', 'dialog=add-keyword');
+      cy.get('[role="dialog"]').within(() => {
+        cy.get('input[name="name"]').type('acme-labs');
+        cy.contains('button', 'Super hot').click();
+        cy.contains('button', /^Add$/).click();
+      });
+      cy.wait('@add').its('request.body').should('deep.equal', { name: 'acme-labs', level: 'super_hot' });
+    });
+
+    it('lists the sources with their reliability and changes it in bulk', () => {
+      cy.intercept('POST', `${API}source/bulk_update/`, (req) =>
+        req.reply({ statusCode: 200, body: { succeeded: 2, skipped: 0, errors: 0, ok_status: 'updated', results: req.body.ids.map((id) => ({ value: String(id), status: 'updated', reason: '', id })) } }),
+      ).as('bulkUpdate');
+      cy.contains('[role="tab"]', 'Sources').click();
+      // 1 is the most reliable source (core.get_confidence_score).
+      cy.get('[data-testid="source-row"]').eq(0).should('contain', 'cert.ssi.gouv.fr').and('contain', 'High - 100%').and('contain', 'OK');
+      cy.get('[data-testid="source-row"]').eq(1).should('contain', 'Low - 20%').and('contain', 'HTTP 404');
+      cy.get('[role="combobox"]').eq(1).click();
+      cy.contains('[role="option"]', 'Failing').click();
+      expectLastRequest('sources', 'status=failing');
+      cy.contains('button', 'Clear').click();
+      cy.get('[data-testid="source-row"]').eq(0).find('input[type="checkbox"]').check();
+      cy.get('[data-testid="source-row"]').eq(1).find('input[type="checkbox"]').check();
+      cy.contains('button', 'Set reliability…').click();
+      cy.contains('[role="menuitem"]', 'Medium').click();
+      cy.wait('@bulkUpdate').its('request.body').should('deep.equal', { ids: [1, 2], changes: { confident: 2 } });
+    });
+
+    it('unbans a word', () => {
+      cy.intercept('DELETE', `${API}bannedword/1/`, { statusCode: 204 }).as('unban');
+      cy.contains('[role="tab"]', 'Banned words').click();
+      cy.get('[data-testid="banned-row"]').first().click();
+      cy.get('.MuiDrawer-paper').contains('button', 'Unban').click();
+      cy.contains('[role="dialog"]', 'Unban this word?').contains('button', 'Unban').click();
+      cy.wait('@unban');
+    });
+
+    it('shows the insights and filters from them', () => {
+      cy.contains('[role="tab"]', 'Insights').click();
+      cy.get('[data-testid="articles-chart"] svg').should('exist');
+      cy.get('[data-testid="words-chart"] svg').should('exist');
+      cy.get('button[aria-label="Show ivanti in the trends"]').click();
+      cy.location('hash').should('include', 'q=ivanti').and('not.include', 'tab=');
+      cy.contains('[role="tab"]', 'Insights').click();
+      cy.get('button[aria-label="Show the sources of Germany"]').click();
+      cy.location('hash').should('include', 'tab=sources').and('include', 'scountry=DE');
+    });
   });
 
-  beforeEach(() => {
+  it('is read only for an anonymous visitor', () => {
     cy.on('uncaught:exception', () => false);
-
-    // Restore session data
-    cy.window().then((win) => {
-      const authData = Cypress.env('authData');
-      if (authData && authData.token) {
-        if (authData.token) win.localStorage.setItem('token', authData.token);
-        if (authData.user) win.localStorage.setItem('user', authData.user);
-      }
-    });
-
-    // Navigation check
-    cy.url().then((currentUrl) => {
-      if (!currentUrl.includes('/#/') || currentUrl.includes('/data_leak') || currentUrl.includes('/website_monitoring') || currentUrl.includes('/dns_finder')) {
-        cy.log('Redirecting back to Threats Watcher homepage...');
-        cy.visit('/#/', { failOnStatusCode: false });
-        cy.wait(1000);
-      } else {
-        cy.log('Staying on Threats Watcher homepage');
-      }
-    });
-
-    cy.url().should('include', '#/');
-    cy.log('Page ready with session maintained');
-  });
-
-  describe('Page Navigation and Access', () => {
-    it('should be on the correct Threats Watcher homepage', () => {
-      cy.url().should('include', '#/');
-      cy.get('body').should('be.visible');
-    });
-
-    it('should display main sections', () => {
-      cy.get('.container-fluid.mt-3, .container-fluid', { timeout: 15000 })
-        .first()
-        .should('exist');
-      
-      cy.contains('.card-header', 'Word List', { timeout: 15000 }).closest('.card.h-100.shadow-sm').should('exist').within(() => {
-        cy.get('table', { timeout: 10000 }).should('exist');
-      });
-    });
-
-    it('should load data automatically', () => {
-      cy.get('.container-fluid', { timeout: 15000 }).should('exist');
-      cy.get('.row').should('have.length.at.least', 1);
-      
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('test-malware') || bodyText.includes('e2e-ransomware') || bodyText.includes('test-phishing')) {
-          cy.log('Trendy words data loaded successfully');
-        } else {
-          cy.log('Components exist but data may be loaded differently');
-        }
-      });
-    });
-
-    it('should maintain session across navigation', () => {
-      cy.get('.navbar').should('exist');
-      cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist').click();
-      cy.url().should('include', 'data_leak');
-      cy.get('a[href="/#/"], a:contains("Watcher"), .navbar-brand').first().click();
-      cy.url().should('include', '#/');
-      cy.get('.navbar').should('exist');
-    });
-  });
-
-  describe('Word Cloud Display and Interaction', () => {
-    it('should display word cloud component', () => {
-      cy.contains('.card-header', 'Word Cloud', { timeout: 15000 }).closest('.card.h-100.shadow-sm')
-        .should('exist')
-        .within(() => {
-          cy.get('svg, canvas, div', { timeout: 10000 }).should('exist');
-        });
-    });
-
-    it('should handle word cloud interactions', () => {
-      cy.contains('.card-header', 'Word Cloud', { timeout: 15000 }).closest('.card.h-100.shadow-sm').should('exist');
-      
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('text, span, div').filter((index, element) => {
-          const text = Cypress.$(element).text().toLowerCase();
-          return text.includes('test-malware') || text.includes('e2e-ransomware') || text.includes('test-phishing');
-        });
-        
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements.first()).should('be.visible');
-          cy.log('Word cloud elements found and visible');
-        } else {
-          cy.log('Word cloud may be rendered differently');
-        }
-      });
-    });
-
-    it('should display word tooltips on hover', () => {
-      cy.get('body').then(($body) => {
-        const tooltipElements = $body.find('[title*="Number of times"], [title*="times"], [title*="caught"]');
-        if (tooltipElements.length > 0) {
-          cy.log('Word tooltips with occurrence count found');
-          cy.wrap(tooltipElements.first()).should('have.attr', 'title');
-        } else {
-          cy.log('Tooltips may work differently');
-        }
-      });
-    });
-
-    it('should verify ResizableContainer functionality', () => {
-      cy.contains('.card-header', 'Sources & Summary', { timeout: 10000 }).closest('.card.h-100.shadow-sm')
-        .should('exist')
-        .then(($card) => {
-          cy.log('Trend & Sources panel found');
-        });
-    });
-  });
-
-  describe('Word List Display and Management', () => {
-    it('should display trendy words table', () => {
-      cy.contains('.card-header', 'Word List', { timeout: 15000 }).should('exist');
-      cy.get('table', { timeout: 15000 }).should('exist');
-      
-      cy.get('table').first().within(() => {
-        cy.get('thead').should('exist');
-        cy.get('tbody').should('exist');
-      });
-    });
-
-    it('should display trendy words data when available', () => {
-      cy.get('table', { timeout: 15000 }).should('exist');
-      
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('test-malware') || bodyText.includes('e2e-ransomware') || bodyText.includes('test-phishing')) {
-          cy.log('Trendy words data found in table');
-          cy.get('table tbody tr').should('have.length.at.least', 1);
-        } else {
-          cy.log('Trendy words data may be loaded in different format');
-          cy.get('table tbody').should('exist');
-        }
-      });
-    });
-
-    it('should display word statistics correctly', () => {
-      cy.get('table thead').first().within(() => {
-        cy.get('th').should('contain', 'Name');
-        cy.get('th').should('contain', 'Caught');
-        cy.get('th').should('contain', 'Reliability');
-        cy.get('th').should('contain', 'Found');
-      });
-    });
-
-    it('should display TableManager filter controls', () => {
-      cy.get('button:contains("Reset to Default")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Saved Filters")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")', { timeout: 10000 }).should('exist');
-      cy.get('button:contains("Save Filter")', { timeout: 10000 }).should('exist');
-    });
-
-    it('should handle TableManager filter visibility toggle', () => {
-      cy.get('button:contains("Show Filters"), button:contains("Hide Filters")')
-        .first()
-        .should('be.visible')
-        .wait(500)
-        .click({ force: true });
-      
-      cy.wait(1000);
-      
-      cy.get('body').then(($body) => {
-        const hasFilters = $body.find('.card.mb-3.shadow-sm.border-0').length > 0;
-        if (hasFilters) {
-          cy.log('Filters panel toggled successfully');
-        } else {
-          cy.log('Filters may be hidden or have different class structure');
-        }
-      });
-    });
-
-    it('should handle word deletion and blocklist workflow', () => {
-      cy.get('table tbody tr', { timeout: 10000 }).should('have.length.at.least', 1);
-      cy.wait(1000);
-
-      cy.get('body').then(($body) => {
-        const deleteButtons = $body.find('button:contains("Delete"), button:contains("BlockList")');
-        if (deleteButtons.length > 0) {
-          cy.wrap(deleteButtons.first())
-            .scrollIntoView()
-            .wait(500)
-            .click({ force: true });
-          
-          cy.get('.modal', { timeout: 10000 }).should('be.visible');
-          cy.get('.modal').within(() => {
-            cy.get('.modal-title').should('contain', 'Action Requested');
-            cy.get('.modal-body').should('exist');
-          });
-          cy.get('button:contains("Close"), button:contains("Cancel")').first().click({ force: true });
-          cy.wait(500);
-        } else {
-          cy.log('No Delete/BlockList buttons found');
-        }
-      });
-    });
-
-    it('should handle word click for post URLs display', () => {
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td h5, td').filter((index, element) => {
-          const text = Cypress.$(element).text().toLowerCase();
-          return text.includes('test-malware') || text.includes('e2e-ransomware') || text.includes('test-phishing');
-        });
-        
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements.first()).click();
-          cy.log('Word clicked successfully');
-        } else {
-          cy.log('No clickable word elements found');
-        }
-      });
-    });
-
-    it('should verify items per page selector', () => {
-      cy.contains('Items per page').parent().find('select').should('exist');
-    });
-  });
-
-  describe('Post URLs Display and Management', () => {
-    it('should display post URLs section', () => {
-      cy.get('.row').should('have.length.at.least', 2);
-      
-      cy.get('body').then(($body) => {
-        if ($body.text().includes('Article') || $body.text().includes('related to')) {
-          cy.log('PostUrls section found');
-        } else {
-          cy.log('PostUrls section may be hidden initially');
-        }
-      });
-    });
-
-    it('should display articles table when word is selected', () => {
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td, h5').filter((index, element) => {
-          const text = Cypress.$(element).text().toLowerCase();
-          return text.includes('test-malware') || text.includes('e2e-ransomware');
-        });
-        
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements.first()).click();
-          cy.wait(500);
-          
-          cy.get('body').then(($body2) => {
-            if ($body2.text().includes('Domain Name') || $body2.text().includes('Data')) {
-              cy.get('table').should('contain', 'Domain Name');
-              cy.get('table').should('contain', 'Data');
-              cy.get('table').should('contain', 'Found');
-            }
-          });
-        }
-      });
-    });
-
-    it('should display WordSummary when word is selected', () => {
-      cy.intercept('GET', '/api/threats_watcher/summary/?type=trendy_word_summary&keyword=*', {
-        statusCode: 200,
-        body: []
-      }).as('getWordSummary');
-
-      cy.intercept('GET', '/api/threats_watcher/summary/by-keyword/*', {
-        statusCode: 404,
-        body: { error: 'not_found', message: 'Keyword not found' }
-      }).as('generateWordSummary');
-
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td h5').filter((index, element) => {
-          const text = Cypress.$(element).text().toLowerCase();
-          return text.includes('test-malware');
-        });
-        
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements.first()).click();
-          cy.wait(1000);
-          
-          cy.get('.card.bg-secondary.border-0.shadow-lg').should('exist').within(() => {
-            cy.get('.bg-primary').should('contain', 'Word Summary for');
-          });
-        }
-      });
-    });
-
-    it('should handle clear visited articles functionality', () => {
-      cy.get('body').then(($body) => {
-        const clearButtons = $body.find('button').filter((_, el) =>
-          Cypress.$(el).text().includes('Clear visited article(s)')
-        );
-        if (clearButtons.length > 0) {
-          // Button may be clipped by overflow:hidden parent — existence is sufficient
-          cy.wrap(clearButtons.first()).should('exist');
-          cy.log('Clear visited articles button found');
-        } else {
-          cy.log('Clear button not found (requires a word to be selected first)');
-        }
-      });
-    });
-
-    it('should handle localStorage for visited URLs', () => {
-      cy.window().then((win) => {
-        win.localStorage.removeItem('viewedUrls');
-      });
-
-      cy.get('body').then(($body) => {
-        const wordEl = $body.find('td h5').filter((_, el) =>
-          Cypress.$(el).text().toLowerCase().includes('test-malware')
-        );
-        if (wordEl.length > 0) {
-          cy.wrap(wordEl.first()).click();
-          cy.wait(1000);
-        }
-      });
-
-      // Target PostUrls table via its unique "Domain Name" column header
-      cy.get('body').then(($body) => {
-        const domainHeader = $body.find('th').filter((_, el) =>
-          Cypress.$(el).text().trim() === 'Domain Name'
-        );
-        if (domainHeader.length > 0) {
-          cy.wrap(domainHeader.first())
-            .closest('table')
-            .find('tbody tr')
-            .first()
-            .then(($tr) => {
-              if ($tr.length > 0 && $tr.find('td[colspan]').length === 0) {
-                cy.wrap($tr).click({ force: true });
-                cy.window().its('localStorage').invoke('getItem', 'viewedUrls').should('not.be.null');
-              } else {
-                cy.log('PostUrls table is empty — skipping viewedUrls check');
-              }
-            });
-        } else {
-          cy.log('PostUrls table not visible — skipping viewedUrls check');
-        }
-      });
-    });
-
-    it('should verify ResizableContainer for PostUrls and WordSummary', () => {
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td h5').first();
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements).click();
-          cy.wait(500);
-          
-          cy.contains('.card-header', 'Trend & Sources').closest('.card.h-100.shadow-sm').should('exist');
-        }
-      });
-    });
-  });
-
-  describe('Trend Chart Display and Visualization', () => {
-    it('should display trend chart section', () => {
-      cy.get('.row').should('have.length.at.least', 2);
-      
-      cy.get('.row').then(($rows) => {
-        if ($rows.length >= 3) {
-          cy.log('Chart section structure found');
-        } else {
-          cy.log('Chart section may have different structure');
-        }
-      });
-    });
-
-    it('should render chart canvas when data is available', () => {
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td, h5').filter((index, element) => {
-          const text = Cypress.$(element).text().toLowerCase();
-          return text.includes('test-malware') || text.includes('e2e-ransomware');
-        });
-        
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements.first()).click();
-          cy.wait(500);
-          
-          cy.get('body').then(($body2) => {
-            const canvasElements = $body2.find('canvas#myChart');
-            if (canvasElements.length > 0) {
-              cy.get('canvas#myChart').should('be.visible');
-              cy.log('Trend chart canvas found');
-            } else {
-              cy.log('Chart canvas may be rendered conditionally');
-            }
-          });
-        }
-      });
-    });
-
-    it('should display chart with correct styling', () => {
-      cy.get('body').then(($body) => {
-        const canvasElements = $body.find('canvas#myChart');
-        if (canvasElements.length > 0) {
-          cy.get('canvas#myChart').should('have.css', 'background-color');
-          cy.get('canvas#myChart').should('have.css', 'border-radius');
-          cy.log('Chart styling verified');
-        } else {
-          cy.log('Chart canvas not visible (appears after word selection)');
-        }
-      });
-    });
-  });
-
-  describe('WeeklyBreaking Component', () => {
-    it('should handle WeeklyBreaking minimize/maximize', () => {
-      cy.get('body').then(($body) => {
-        const minimizeIcon = $body.find('.material-icons:contains("expand_more")');
-        const bubbleIcon = $body.find('.position-fixed .material-icons:contains("description"), .position-fixed .material-icons:contains("bolt")');
-        
-        if (minimizeIcon.length > 0) {
-          cy.wrap(minimizeIcon.first()).click();
-          cy.wait(500);
-          cy.log('WeeklyBreaking minimized');
-        } else if (bubbleIcon.length > 0) {
-          cy.wrap(bubbleIcon.first()).click();
-          cy.wait(500);
-          cy.log('WeeklyBreaking expanded');
-        }
-      });
-    });
-  });
-
-  describe('Data Interaction and Workflow', () => {
-    it('should handle complete word selection workflow', () => {
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td h5').filter((index, element) => {
-          const text = Cypress.$(element).text().toLowerCase();
-          return text.includes('test-malware') || text.includes('e2e-ransomware') || text.includes('test-phishing');
-        });
-        
-        if (wordElements.length > 0) {
-          cy.wait(500);
-          cy.wrap(wordElements.first()).click({ force: true });
-          cy.wait(1000);
-          
-          cy.get('body').then(($body2) => {
-            const bodyText = $body2.text();
-            
-            if (bodyText.includes('Article') || bodyText.includes('related to')) {
-              cy.log('PostUrls section appeared successfully');
-            } else {
-              cy.log('PostUrls section may not have appeared or has different text');
-            }
-            
-            const canvasElements = $body2.find('canvas');
-            if (canvasElements.length > 0) {
-              cy.log('Complete workflow successful - chart appeared');
-            } else {
-              cy.log('Chart may not be visible or rendered differently');
-            }
-          });
-        } else {
-          cy.log('No clickable word elements found for workflow test');
-        }
-      });
-    });
-
-    it('should handle complete workflow with WordSummary', () => {
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td h5').first();
-        
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements).click();
-          cy.wait(1000);
-          
-          cy.get('body').then(($body2) => {
-            const hasWordSummary = $body2.text().includes('Word Summary for');
-            const hasPostUrls = $body2.text().includes('Article') || $body2.text().includes('Domain Name');
-            const hasChart = $body2.find('canvas#myChart').length > 0;
-            
-            if (hasWordSummary) cy.log('WordSummary displayed');
-            if (hasPostUrls) cy.log('PostUrls displayed');
-            if (hasChart) cy.log('Trend chart displayed');
-          });
-        }
-      });
-    });
-  });
-
-  describe('Navigation and UI Tests', () => {
-    it('should test header navigation links', () => {
-      cy.get('.navbar, nav').should('exist');
-      cy.get('a:contains("Website Monitoring"), a[href*="website_monitoring"]').should('exist');
-      cy.get('a:contains("Data Leak"), a[href*="data_leak"]').should('exist');
-      cy.get('a:contains("DNS Threats Monitored"), a[href*="dns_finder"]').should('exist');
-    });
-
-    it('should verify layout structure specific to Threats Watcher', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('have.length.at.least', 1);
-      
-      cy.get('.card.h-100.shadow-sm', { timeout: 10000 }).should('exist');
-      
-      cy.get('table', { timeout: 10000 }).should('exist');
-    });
-
-    it('should handle Bootstrap components correctly', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('exist');
-      cy.get('table.table').should('exist');
-    });
-
-    it('should verify ResizableContainer divider interactions', () => {
-      cy.contains('.card-header', 'Sources & Summary').closest('.card.h-100.shadow-sm').should('exist').then(($card) => {
-        cy.log('Sources & Summary panel found - PanelGrid layout verified');
-      });
-    });
-  });
-
-  describe('Error Handling and Edge Cases', () => {
-    it('should handle API errors gracefully', () => {
-      cy.intercept('GET', '/api/threats_watcher/trendyword/', { statusCode: 500, body: { error: 'Server Error' } }).as('trendyWordsError');
-      cy.reload();
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-    });
-
-    it('should handle empty data states', () => {
-      cy.intercept('GET', '/api/threats_watcher/trendyword/', { statusCode: 200, body: [] }).as('emptyTrendyWords');
-      cy.reload();
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-      cy.get('table').should('exist');
-    });
-
-    it('should handle WordSummary errors', () => {
-      cy.intercept('GET', '/api/threats_watcher/summary/?type=trendy_word_summary&keyword=*', {
-        statusCode: 200,
-        body: []
-      });
-
-      cy.intercept('GET', '/api/threats_watcher/summary/by-keyword/*', {
-        statusCode: 404,
-        body: { error: 'not_found', message: 'Keyword not found', posts_count: 0 }
-      });
-
-      cy.get('body').then(($body) => {
-        const wordElements = $body.find('td h5').first();
-        if (wordElements.length > 0) {
-          cy.wrap(wordElements).click();
-          cy.wait(1000);
-          
-          cy.get('body').then(($body2) => {
-            if ($body2.text().includes('Keyword Not Found')) {
-              cy.log('WordSummary error state handled correctly');
-            }
-          });
-        }
-      });
-    });
-  });
-
-  describe('Performance and Integration Tests', () => {
-    it('should load page within reasonable time', () => {
-      const startTime = Date.now();
-      cy.reload();
-      
-      cy.get('.container-fluid', { timeout: 20000 }).should('exist').then(() => {
-        const loadTime = Date.now() - startTime;
-        expect(loadTime).to.be.lessThan(25000);
-      });
-    });
-
-    it('should complete basic workflow integration test', () => {
-      cy.get('body').should('be.visible');
-      cy.get('.container-fluid').should('exist');
-      cy.get('.row').should('have.length.at.least', 1);
-      cy.get('table').should('exist');
-      
-      cy.get('body').then(($body) => {
-        const buttons = $body.find('button');
-        if (buttons.length > 0) {
-          cy.log(`Found ${buttons.length} interactive buttons`);
-        }
-      });
-    });
-
-    it('should verify Threats Watcher specific components', () => {
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        if (bodyText.includes('Trendy Words') || bodyText.includes('test-malware') || bodyText.includes('Article') || bodyText.includes('Clear visited')) {
-          cy.log('Threats Watcher specific components found');
-        } else {
-          cy.log('Threats Watcher components may be loaded differently');
-        }
-      });
-    });
-
-    it('should verify all major components are loaded', () => {
-      cy.get('.container-fluid').should('exist');
-      cy.get('.card.h-100.shadow-sm').should('have.length.at.least', 1);
-      cy.get('table').should('exist');
-      cy.contains('.card-header', 'Word List').should('exist');
-      
-      cy.get('body').then(($body) => {
-        const hasWeeklyBreaking = $body.find('.position-fixed').length > 0;
-        if (hasWeeklyBreaking) {
-          cy.log('WeeklyBreaking component loaded');
-        }
-      });
-    });
-  });
-
-  describe('TableManager Features', () => {
-    it('should test filter save functionality', () => {
-      cy.wait(2000);
-      
-      cy.get('button:contains("Save Filter")').first()
-        .should('be.visible')
-        .scrollIntoView()
-        .wait(500)
-        .click({ force: true });
-      
-      cy.wait(1000);
-      
-      cy.get('.modal', { timeout: 10000 })
-        .should('exist')
-        .and('have.class', 'show');
-      
-      cy.get('.modal').should('have.css', 'opacity', '1');
-      
-      cy.get('.modal input[type="text"]')
-        .should('be.visible')
-        .type('Test Filter E2E', { force: true });
-      
-      cy.get('.modal button:contains("Save Filter")')
-        .should('be.visible')
-        .click({ force: true });
-      
-      cy.wait(1000);
-      
-      cy.get('button:contains("Saved Filters")').should('contain', '(1)');
-    });
-
-    it('should test pagination if more than 5 items', () => {
-      cy.get('body').then(($body) => {
-        const pagination = $body.find('.pagination');
-        if (pagination.length > 0) {
-          cy.get('.pagination button:contains("Next")').should('exist');
-          cy.log('Pagination controls found');
-        } else {
-          cy.log('Not enough items for pagination');
-        }
-      });
-    });
-  });
-
-  after(() => {
-    cy.log('Starting Threats Watcher cleanup...');
-    
-    const authData = Cypress.env('authData');
-    if (authData && authData.token) {
-      // Clean up test banned words
-      cy.request({
-        method: 'GET',
-        url: '/api/threats_watcher/bannedword/',
-        headers: {
-          'Authorization': `Token ${authData.token}`
-        },
-        failOnStatusCode: false
-      }).then((response) => {
-        if (response.status === 200 && response.body && response.body.results) {
-          response.body.results.forEach((word) => {
-            if (word.name.includes('test-') || word.name.includes('e2e-') || word.name.includes('Test ')) {
-              cy.request({
-                method: 'DELETE',
-                url: `/api/threats_watcher/bannedword/${word.id}/`,
-                headers: { 'Authorization': `Token ${authData.token}` },
-                failOnStatusCode: false
-              });
-            }
-          });
-        }
-      });
-
-      // Clean up test trendy words
-      cy.request({
-        method: 'GET',
-        url: '/api/threats_watcher/trendyword/',
-        headers: {
-          'Authorization': `Token ${authData.token}`
-        },
-        failOnStatusCode: false
-      }).then((response) => {
-        if (response.status === 200 && response.body && response.body.results) {
-          response.body.results.forEach((word) => {
-            if (word.name.includes('test-') || word.name.includes('e2e-')) {
-              cy.request({
-                method: 'DELETE',
-                url: `/api/threats_watcher/trendyword/${word.id}/`,
-                headers: { 'Authorization': `Token ${authData.token}` },
-                failOnStatusCode: false
-              });
-            }
-          });
-        }
-      });
-    } else {
-      cy.log('No auth token available - skipping cleanup');
-    }
-
-    // Reset DB-stored preferences
-    if (authData && authData.token) {
-      cy.request({
-        method: 'PATCH',
-        url: '/api/auth/profile',
-        headers: { 'Authorization': `Token ${authData.token}` },
-        body: { preferences: {} },
-        failOnStatusCode: false
-      });
-    }
-
-    // Clear ephemeral localStorage/sessionStorage
-    cy.window().then((win) => {
-      win.localStorage.clear();
-      win.sessionStorage.clear();
-    });
-    
-    cy.log('Threats Watcher cleanup completed');
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  describe('Statistics Dashboard (Carousel)', () => {
-    it('should display the Statistics panel', () => {
-      cy.contains('.card-header', 'Statistics', { timeout: 15000 })
-        .closest('.card.h-100.shadow-sm')
-        .should('exist');
-    });
-
-    it('should display KPI cards inside the statistics panel', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('.card.border-0.shadow-sm', { timeout: 10000 }).should('have.length.at.least', 3);
-        });
-    });
-
-    it('should display KPI values in stat cards', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('.card.border-0.shadow-sm').first().within(() => {
-            cy.get('.text-white.fw-bold').should('exist');
-          });
-        });
-    });
-
-    it('should display carousel navigation dots', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          // Carousel has nav dot buttons
-          cy.get('button[style*="border-radius"], [class*="dot"], [class*="indicator"]').should('have.length.at.least', 2);
-        });
-    });
-
-    it('should display slide label for Threats Watcher stats', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.contains('Threats Watcher').should('exist');
-        });
-    });
-
-    it('should display progress bar at the bottom of stats card', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          cy.get('[style*="position: absolute"], .position-absolute').should('exist');
-        });
-    });
-
-    it('should display Ransomware label on second slide', () => {
-      cy.contains('.card-header', 'Statistics')
-        .closest('.card.h-100.shadow-sm')
-        .within(() => {
-          // Navigate to second dot
-          cy.get('button[style*="border-radius"]').eq(1).click({ force: true });
-          cy.wait(600);
-          cy.contains('Ransomware').should('exist');
-        });
-    });
+    cy.intercept('GET', '/api/auth/user', { statusCode: 401, body: { detail: 'Authentication credentials were not provided.' } });
+    mockApi();
+    cy.visit('/#/threats_watcher');
+    cy.get('[data-testid="word-row"]', { timeout: 20000 }).should('have.length', 12);
+    cy.contains('[role="tab"]', 'Banned words').should('not.exist');
+    cy.contains('button', /^Add$/).should('not.exist');
+    cy.get('[data-testid="word-row"]').first().click();
+    cy.get('.MuiDrawer-paper').contains('button', /^(Monitor|Ban|Delete)$/).should('not.exist');
   });
 });

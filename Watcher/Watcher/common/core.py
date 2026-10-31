@@ -22,14 +22,18 @@ from .mail_template.dns_finder_cert_transparency import get_dns_finder_cert_tran
 from .mail_template.dns_finder_group_template import get_dns_finder_group_template
 from .mail_template.dns_finder_dangling_template import get_dns_finder_dangling_template
 from .mail_template.cyber_watch_template import get_cyber_watch_template
-from .mail_template.udrp_template import get_udrp_template
 from .utils.send_thehive_alerts import send_thehive_alert
+from .utils.job_log import job_count, logged_job, note_channel, report_channel, reported_notification, run_channel
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 from connectors.core import get_thehive_config, get_slack_config, get_citadel_config
+# One line: docs/build_the_docs.sh comments out the `from connectors` lines one by one.
+from connectors.notifications import email_subject, find_type, is_enabled, render_message, render_per_alert, render_thehive_title, thehive_meta
 import tldextract
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
 from django.db import close_old_connections
+from .models import Screenshot
+import requests
 
 
 # Configure logger
@@ -83,7 +87,6 @@ def generate_ref():
     ref = datetime.now().strftime("%y%m%d") + "-" + str(token_hex(3))[:5]
     return ref
 
-SUBJECT_TAG_SITE_MONITORING = getattr(settings, 'SUBJECT_TAG_SITE_MONITORING', '')
 
 # Dangling DNS verdict wording shared by every channel
 DANGLING_STATUS_DETAILS = {
@@ -91,694 +94,257 @@ DANGLING_STATUS_DETAILS = {
     'Suspected': "Suspected - vulnerable provider matched, HTTP verification inconclusive",
 }
 
-# Configuration for Slack
-APP_CONFIG_SLACK = {
-    'threats_watcher': {
-        'content_template': (
-            "*[THREATS WATCHER - WARNING] 🔥 Trendy Threats Detected 🔥*\n\n"
-            "Dear team,\n\n"
-            "Please find the new trendy word(s) detected below:\n\n"
-            "{words_list}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/',
-    },
-    'threats_watcher_weeklysummary': {
-        'content_template': (
-            "*📊 Cyber Threat Intelligence Report 📊*\n\n"
-            "Dear team, here is the weekly threat intelligence summary:\n\n"
-            "{summary_text}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/',
-    },
-
-    'threats_watcher_breakingnews': {
-        'content_template': (
-            "*🚨 Critical Threat Alert 🚨*\n\n"
-            "Dear team, Watcher has detected a new critical threat alert. Please review the breaking news summary below:\n\n"
-            "{summary_text}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/',
-    },
-    'data_leak': {
-        'content_template': (
-            "*[DATA LEAK - ALERT #{alert_pk}] 🔔 Data Leak Detected: {keyword_name} 🔔*\n\n"
-            "Dear team,\n\n"
-            "New Data Leakage Alert for {keyword_name} keyword:\n\n"
-            "*• Keyword:* {keyword_name}\n"
-            "*• Source:* {url}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#data_leak',
-    },
-    'data_leak_group': {
-        'content_template': (
-            "*[{alerts_number} ALERTS] 🚨 Data Leak 🚨*\n\n"
-            "Dear team,\n\n"
-            "*{alerts_number}* new data leakage alerts have been detected for the keyword *{keyword}*\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#data_leak',
-    },
-    'website_monitoring': {
-        'content_template': (
-            f"*[{SUBJECT_TAG_SITE_MONITORING}" "{ticket_id}] 🔔 {alert_type} on {domain_name_sanitized} 🔔*\n\n"
-            "Dear team,\n\n"
-            "Please find the new incident detected below:\n\n"
-            "*• Difference Score:* {difference_score}\n"
-            "*• New Ip:* {new_ip}\n"
-            "*• Old Ip:* {old_ip}\n"
-            "*• New Ip Second:* {new_ip_second}\n"
-            "*• Old IP Second:* {old_ip_second}\n"
-            "*• New MX Records:* {new_mx_records}\n"
-            "*• Old MX Records:* {old_mx_records}\n"            
-            "*• New Mail Server:* {new_mail_A_record_ip}\n"
-            "*• Old Mail Server:* {old_mail_A_record_ip}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/website_monitoring/',
-    },
-    'dns_finder': {
-        'content_template': (
-            "*[DNS Threats Monitored - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨*\n\n"
-            "Dear team,\n\n"
-            "New Twisted DNS found: \n\n"
-            "*• Twisted DNS:* {dns_domain_name_sanitized}\n"
-            "*• Corporate Keyword:* {alert.dns_twisted.keyword_monitored}\n"
-            "*• Corporate DNS:* {alert.dns_twisted.dns_monitored}\n"
-            "*• Fuzzer:* {alert.dns_twisted.fuzzer}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/dns_finder/',
-    },
-    'dns_finder_group': {
-        'content_template': (
-            "*[{alerts_number} ALERTS] 🚨 DNS Threats Monitored 🚨*\n\n"
-            "Dear team,\n\n"
-            "*{alerts_number}* New DNS Twisted Alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/dns_finder/',
-    },
-    'dns_finder_dangling': {
-        'content_template': (
-            "*[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ {takeover_status} Subdomain Takeover: {subdomain} ⚠️*\n\n"
-            "Dear team,\n\n"
-            "A monitored subdomain may be vulnerable to takeover:\n\n"
-            "*• Status:* {takeover_status_detail}\n"
-            "*• Subdomain:* {subdomain}\n"
-            "*• Corporate DNS:* {parent_domain}\n"
-            "*• CNAME Target:* {cname_target}\n"
-            "*• Provider:* {provider}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/dns_finder/',
-    },
-    'cyber_watch_new_cve': {
-        'content_template': (
-            "*[CYBER WATCH - NEW CVE] 🛡️ {cve_id} detected ({severity})*\n\n"
-            "Dear team,\n\n"
-            "A new CVE has been fetched:\n\n"
-            "*• CVE ID:* {cve_id}\n"
-            "*• Severity:* {severity}\n"
-            "*• CVSS Score:* {cvss_score}\n"
-            "*• Description:* {description}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'cyber_watch_cve_hit': {
-        'content_template': (
-            "*[CYBER WATCH - CVE HIT] 🎯 Rule '{rule_name}' matched {cve_id}*\n\n"
-            "Dear team,\n\n"
-            "A CVE watch rule has been triggered:\n\n"
-            "*• Rule:* {rule_name}\n"
-            "*• CVE ID:* {cve_id}\n"
-            "*• Keyword:* {keyword}\n"
-            "*• Severity:* {severity}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'cyber_watch_new_victim': {
-        'content_template': (
-            "*[CYBER WATCH - NEW VICTIM] 🏴‍☠️ {victim_name} ({group_name})*\n\n"
-            "Dear team,\n\n"
-            "A new ransomware victim has been detected:\n\n"
-            "*• Victim:* {victim_name}\n"
-            "*• Group:* {group_name}\n"
-            "*• Country:* {country}\n"
-            "*• Sector:* {sector}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'cyber_watch_victim_hit': {
-        'content_template': (
-            "*[CYBER WATCH - VICTIM HIT] 🎯 Rule '{rule_name}' matched {victim_name} ({group_name})*\n\n"
-            "Dear team,\n\n"
-            "A ransomware victim watch rule has been triggered:\n\n"
-            "*• Rule:* {rule_name}\n"
-            "*• Victim:* {victim_name}\n"
-            "*• Group:* {group_name}\n"
-            "*• Sector:* {sector}\n"
-            "*• Country:* {country}\n"
-            "*• Matched Keyword:* {keyword}\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'udrp_decision': {
-        'content_template': (
-            "*[UDRP DECISION] ⚖️ {domain_name_sanitized}*\n\n"
-            "Dear team,\n\n"
-            "A UDRP decision has been detected for a monitored domain:\n\n"
-            "*• Domain:* {domain_name_sanitized}\n"
-            "*• Decision:* {decision_label}\n"
-            "*• Date:* {date}\n"
-            "*• Ticket:* {ticket}\n"
-            "*• Source:* udrpsearch.com\n\n"
-            "Please, find more details <{details_url}|here>."
-        ),
-        'url_suffix': '#/website_monitoring/',
-    },
-}
-
-# Configuration for Citadel 
-APP_CONFIG_CITADEL = {
-    'threats_watcher': {
-        'content_template': (
-            "<p><strong><h4>[THREATS WATCHER - WARNING] 🔥 Trendy Threats Detected 🔥</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>Please find the new trendy word(s) detected below:</p>"
-            "<ul><strong>{words_list}</strong></ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/',
-    },
-    'threats_watcher_weeklysummary': {
-        'content_template': (
-            "<p><strong><h4>📊 Cyber Threat Intelligence Report 📊</h4></strong></p>"
-            "<p>Dear team, here is the weekly threat intelligence summary:</p>"
-            "<p>{summary_text}</p>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/',
-    },
-    'threats_watcher_breakingnews': {
-        'content_template': (
-            "<p><strong><h4>🚨 Critical Threat Alert 🚨</h4></strong></p>"
-            "<p>Dear team, Watcher has detected a new critical threat alert. Please review the breaking news summary below:</p>"
-            "<p>{summary_text}</p>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/',
-    },
-    'data_leak': {
-        'content_template': (
-            "<p><strong><h4>[DATA LEAK - ALERT #{alert_pk}] 🔔 Data Leak Detected: {keyword_name} 🔔</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>New Data Leakage Alert for {keyword_name} keyword:</p>"
-            "<ul>"
-            "<li><strong>Keyword:</strong> {keyword_name}</li>"
-            "<li><strong>Source:</strong> {url}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#data_leak',
-    },
-    'data_leak_group': {
-        'content_template': (
-            "<p><strong><h4>[{alerts_number} ALERTS] 🚨 Data Leak 🚨</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p><strong>{alerts_number}</strong> new data leakage alerts have been detected for the keyword <strong>{keyword}</strong>.</p>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#data_leak',
-    },
-    'website_monitoring': {
-        'content_template': (
-            f"<p><strong><h4>[{SUBJECT_TAG_SITE_MONITORING}{{ticket_id}}] 🔔 {{alert_type}} on {{domain_name_sanitized}} 🔔</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>Please find the new incident detected below:</p>"
-            "<ul>"
-            "<li><strong>Difference Score:</strong> {difference_score}</li>"
-            "<li><strong>New Ip:</strong> {new_ip}</li>"
-            "<li><strong>Old Ip:</strong> {old_ip}</li>"
-            "<li><strong>New Ip Second:</strong> {new_ip_second}</li>"
-            "<li><strong>Old IP Second:</strong> {old_ip_second}</li>"
-            "<li><strong>New MX Records:</strong> {new_mx_records}</li>"
-            "<li><strong>Old MX Records:</strong> {old_mx_records}</li>"            
-            "<li><strong>New Mail Server:</strong> {new_mail_A_record_ip}</li>"
-            "<li><strong>Old Mail Server:</strong> {old_mail_A_record_ip}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/website_monitoring/',
-    },
-    'dns_finder': {
-        'content_template': (
-            "<p><strong><h4>[DNS Threats Monitored - ALERT #{alert.pk}] 🚨 Suspicious DNS Detected: {dns_domain_name_sanitized} 🚨</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>New Twisted DNS found:</p>"
-            "<ul>"
-            "<li><strong>Twisted DNS:</strong> {dns_domain_name_sanitized}</li>"
-            "<li><strong>Corporate Keyword:</strong> {alert.dns_twisted.keyword_monitored}</li>"
-            "<li><strong>Corporate DNS:</strong> {alert.dns_twisted.dns_monitored}</li>"
-            "<li><strong>Fuzzer:</strong> {alert.dns_twisted.fuzzer}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/dns_finder/',
-    },
-    'dns_finder_group': {
-        'content_template': (
-            "<p><strong><h4>[{alerts_number} ALERTS] 🚨 DNS Threats Monitored 🚨</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p><strong>{alerts_number}</strong> New DNS Twisted Alerts for <strong>{dns_domain_name_sanitized_group}</strong> asset.</p>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/dns_finder/',
-    },
-    'dns_finder_dangling': {
-        'content_template': (
-            "<p><strong><h4>[DNS Threats Monitored - DANGLING DNS ALERT #{alert.pk}] ⚠️ {takeover_status} Subdomain Takeover: {subdomain} ⚠️</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A monitored subdomain may be vulnerable to takeover:</p>"
-            "<ul>"
-            "<li><strong>Status:</strong> {takeover_status_detail}</li>"
-            "<li><strong>Subdomain:</strong> {subdomain}</li>"
-            "<li><strong>Corporate DNS:</strong> {parent_domain}</li>"
-            "<li><strong>CNAME Target:</strong> {cname_target}</li>"
-            "<li><strong>Provider:</strong> {provider}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/dns_finder/',
-    },
-    'cyber_watch_new_cve': {
-        'content_template': (
-            "<p><strong><h4>[CYBER WATCH - NEW CVE] 🛡️ {cve_id} detected ({severity})</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A new CVE has been fetched:</p>"
-            "<ul>"
-            "<li><strong>CVE ID:</strong> {cve_id}</li>"
-            "<li><strong>Severity:</strong> {severity}</li>"
-            "<li><strong>CVSS Score:</strong> {cvss_score}</li>"
-            "<li><strong>Description:</strong> {description}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'cyber_watch_cve_hit': {
-        'content_template': (
-            "<p><strong><h4>[CYBER WATCH - CVE HIT] 🎯 Rule '{rule_name}' matched {cve_id}</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A CVE watch rule has been triggered:</p>"
-            "<ul>"
-            "<li><strong>Rule:</strong> {rule_name}</li>"
-            "<li><strong>CVE ID:</strong> {cve_id}</li>"
-            "<li><strong>Keyword:</strong> {keyword}</li>"
-            "<li><strong>Severity:</strong> {severity}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'cyber_watch_new_victim': {
-        'content_template': (
-            "<p><strong><h4>[CYBER WATCH - NEW VICTIM] 🏴‍☠️ {victim_name} ({group_name})</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A new ransomware victim has been detected:</p>"
-            "<ul>"
-            "<li><strong>Victim:</strong> {victim_name}</li>"
-            "<li><strong>Group:</strong> {group_name}</li>"
-            "<li><strong>Country:</strong> {country}</li>"
-            "<li><strong>Sector:</strong> {sector}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'cyber_watch_victim_hit': {
-        'content_template': (
-            "<p><strong><h4>[CYBER WATCH - VICTIM HIT] 🎯 Rule '{rule_name}' matched {victim_name} ({group_name})</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A ransomware victim watch rule has been triggered:</p>"
-            "<ul>"
-            "<li><strong>Rule:</strong> {rule_name}</li>"
-            "<li><strong>Victim:</strong> {victim_name}</li>"
-            "<li><strong>Group:</strong> {group_name}</li>"
-            "<li><strong>Sector:</strong> {sector}</li>"
-            "<li><strong>Country:</strong> {country}</li>"
-            "<li><strong>Matched Keyword:</strong> {keyword}</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/cyber_watch',
-    },
-    'udrp_decision': {
-        'content_template': (
-            "<p><strong><h4>[UDRP DECISION] ⚖️ {domain_name_sanitized}</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A UDRP decision has been detected for a monitored domain:</p>"
-            "<ul>"
-            "<li><strong>Domain:</strong> {domain_name_sanitized}</li>"
-            "<li><strong>Decision:</strong> {decision_label}</li>"
-            "<li><strong>Date:</strong> {date}</li>"
-            "<li><strong>Ticket:</strong> {ticket}</li>"
-            "<li><strong>Source:</strong> udrpsearch.com</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/website_monitoring/',
-    },
-    'udrp_decision': {
-        'content_template': (
-            "<p><strong><h4>[UDRP DECISION] ⚖️ {domain_name_sanitized}</h4></strong></p>"
-            "<p>Dear team,</p>"
-            "<p>A UDRP decision has been detected for a monitored domain:</p>"
-            "<ul>"
-            "<li><strong>Domain:</strong> {domain_name_sanitized}</li>"
-            "<li><strong>Decision:</strong> {decision_label}</li>"
-            "<li><strong>Date:</strong> {date}</li>"
-            "<li><strong>Ticket:</strong> {ticket}</li>"
-            "<li><strong>Source:</strong> udrpsearch.com</li>"
-            "</ul>"
-            "<p>Please, find more details <a href='{details_url}'>here</a>.</p>"
-        ),
-        'url_suffix': '#/website_monitoring/',
-    },
-}
+def _join_records(value):
+    """DNS records are stored as a list; a message or an observable shows them on one line."""
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(item) for item in value) or None
+    return value
 
 
-# Configuration for TheHive
-APP_CONFIG_THEHIVE = {
-    'threats_watcher': {
-        'title': "Threats Watcher buzzword detected",
-        'description_template': (
-            "**Alert:**\n"
-            "**The following trendy words were detected:**\n"
-            "{words_list}"
-        ),
-        'severity': 1,
-        'tlp': 1,
-        'pap': 1,
-    },
-    'data_leak': {
-        'title': "New Data Leakage - Alert #{alert_pk} for {keyword_name} keyword",
-        'description_template': (
-            "**Alert:**\n"
-            "**New data leak detected:**\n"
-            "*Keyword:* {keyword_name}\n"
-            "*Source:* {url}\n"
-        ),
-        'severity': 1,
-        'tlp': 1,
-        'pap': 1,
-    },
-    'website_monitoring': {
-        'title': "Website Monitoring Detected - {alert_type} on {domain_name_sanitized}",
-        'description_template': (
-            "**Alert:**\n"
-            "**New website monitoring incident detected:**\n"
-            "*Type of alert:* {alert_type}\n"
-            "*Domain name:* {domain_name_sanitized}\n"
-            "*• Difference Score:* {difference_score}\n"
-            "*• New Ip:* {new_ip}\n"
-            "*• Old Ip:* {old_ip}\n"
-            "*• New Ip Second:* {new_ip_second}\n"
-            "*• Old IP Second:* {old_ip_second}\n"
-            "*• New MX Records:* {new_mx_records}\n"
-            "*• Old MX Records:* {old_mx_records}\n"
-            "*• New Mail Server:* {new_mail_A_record_ip}\n"
-            "*• Old Mail Server:* {old_mail_A_record_ip}\n"
-        ),
-        'severity': 1,
-        'tlp': 1,
-        'pap': 1,
-    },
-    'dns_finder': {
-        'title': "New Twisted DNS found - {dns_domain_name_sanitized}",
-        'description_template': (
-            "**Alert:**\n"
-            "**New Twisted DNS found:**\n"
-            "*Twisted DNS:* {dns_domain_name_sanitized}\n"
-            "*Corporate Keyword:* {alert.dns_twisted.keyword_monitored}\n"
-            "*Corporate DNS:* {alert.dns_twisted.dns_monitored}\n"
-            "*Fuzzer:* {alert.dns_twisted.fuzzer}\n"
-        ),
-        'severity': 1,
-        'tlp': 1,
-        'pap': 1,
-    },
-    'dns_finder_dangling': {
-        'title': "{takeover_status} Subdomain Takeover - {subdomain}",
-        'description_template': (
-            "**Alert:**\n"
-            "**Possible subdomain takeover detected:**\n"
-            "*Status:* {takeover_status_detail}\n"
-            "*Subdomain:* {subdomain}\n"
-            "*Corporate DNS:* {parent_domain}\n"
-            "*CNAME Target:* {cname_target}\n"
-            "*Provider:* {provider}\n"
-        ),
-        'severity': 2,
-        'tlp': 2,
-        'pap': 2,
-    },
-    'cyber_watch_new_cve': {
-        'title': "New CVE - {cve_id} | Severity: {severity} | CVSS: {cvss_score}",
-        'description_template': (
-            "## CyberWatch - New CVE Detected\n\n"
-            "| Field | Value |\n"
-            "|-------|-------|\n"
-            "| **CVE ID** | {cve_id} |\n"
-            "| **Severity** | {severity} |\n"
-            "| **CVSS Score** | {cvss_score} |\n\n"
-            "### Description\n\n"
-            "{description}\n\n"
-        ),
-        'severity': 1,
-        'tlp': 1,
-        'pap': 1,
-    },
-    'cyber_watch_cve_hit': {
-        'title': "CVE Rule Hit - {rule_name} matched {cve_id} [{severity}]",
-        'description_template': (
-            "## CyberWatch - CVE Watch Rule Triggered\n\n"
-            "| Field | Value |\n"
-            "|-------|-------|\n"
-            "| **Rule** | {rule_name} |\n"
-            "| **CVE ID** | {cve_id} |\n"
-            "| **Matched Keyword** | {keyword} |\n"
-            "| **Severity** | {severity} |\n\n"
-        ),
-        'severity': 2,
-        'tlp': 2,
-        'pap': 2,
-    },
-    'cyber_watch_new_victim': {
-        'title': "New Ransomware Victim - {victim_name} | {group_name} | {sector}",
-        'description_template': (
-            "## CyberWatch - New Ransomware Victim Detected\n\n"
-            "| Field | Value |\n"
-            "|-------|-------|\n"
-            "| **Victim** | {victim_name} |\n"
-            "| **Group** | {group_name} |\n"
-            "| **Country** | {country} |\n"
-            "| **Sector** | {sector} |\n\n"
-        ),
-        'severity': 1,
-        'tlp': 1,
-        'pap': 1,
-    },
-    'cyber_watch_victim_hit': {
-        'title': "Victim Rule Hit - {rule_name} matched {victim_name} ({group_name})",
-        'description_template': (
-            "## CyberWatch - Ransomware Victim Watch Rule Triggered\n\n"
-            "| Field | Value |\n"
-            "|-------|-------|\n"
-            "| **Rule triggered** | {rule_name} |\n"
-            "| **Victim** | {victim_name} |\n"
-            "| **Group** | {group_name} |\n"
-            "| **Sector** | {sector} |\n"
-            "| **Country** | {country} |\n"
-            "| **Matched keyword** | {keyword} |\n\n"
-        ),
-        'severity': 2,
-        'tlp': 2,
-        'pap': 2,
-    },
-}
+_DOMAIN_MODULES = ('dns_finder', 'dns_finder_dangling', 'website_monitoring')
+# Tags that only make sense on an alert about a domain
+_DOMAIN_TAGS = ('impersonation', 'malicious domain', 'typosquatting')
+_NO_VALUE = ('', 'none', 'n/a', 'unknown')
+_SEVERITY_LEVELS = {'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
 
 
-# Configuration for Email
-APP_CONFIG_EMAIL = {
-    'threats_watcher': {
-        'subject': "[WARNING] Threats Watcher buzzword detected",
-        'template_func': get_threats_watcher_template,
-    },
-    'threats_watcher_weeklysummary': {
-        'subject': "[REPORT] Weekly Cyber Threat Intelligence Summary",
-        'template_func': get_threats_watcher_weeklysummary_template,
-    },
-    'threats_watcher_breakingnews': {
-        'subject': "[ALERT] Breaking News – Critical Threat Detected",
-        'template_func': get_threats_watcher_breakingnews_template,
-    },
-    'data_leak': {
-        'subject': "[ALERT #{alert_pk}] Data Leak",
-        'template_func': get_data_leak_template,
-    },
-    'data_leak_group': {
-        'subject': "[{alerts_number} ALERTS] Data Leak",
-        'template_func': get_data_leak_group_template,
-    },
-    'website_monitoring': {
-        'subject': '[' + SUBJECT_TAG_SITE_MONITORING + '{ticket_id}] {alert_type} on {domain_name_sanitized}',
-        'template_func': get_site_monitoring_template,
-    },
-    'dns_finder': {
-        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored",
-        'template_func': get_dns_finder_template,
-    },
-    'dns_finder_cert_transparency': {
-        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored",
-        'template_func': get_dns_finder_cert_transparency_template,
-    },
-    'dns_finder_group': {
-        'subject': "[{alerts_number} ALERTS] DNS Threats Monitored",
-        'template_func': get_dns_finder_group_template,
-    },
-    'dns_finder_dangling': {
-        'subject': "[ALERT #{alert.pk}] DNS Threats Monitored - Dangling Subdomain ({takeover_status})",
-        'template_func': get_dns_finder_dangling_template,
-    },
-    'cyber_watch_new_cve': {
-        'subject': "New CVE - {cve_id} ({severity})",
-        'template_func': get_cyber_watch_template,
-    },
-    'cyber_watch_cve_hit': {
-        'subject': "Rule Hit - {rule_name} matched {cve_id} [{severity}]",
-        'template_func': get_cyber_watch_template,
-    },
-    'cyber_watch_new_victim': {
-        'subject': "New Ransomware Victim - {victim_name} | {group_name}",
-        'template_func': get_cyber_watch_template,
-    },
-    'cyber_watch_victim_hit': {
-        'subject': "Rule Hit - {rule_name} matched {victim_name} ({group_name})",
-        'template_func': get_cyber_watch_template,
-    },
-    'udrp_decision': {
-        'subject': "[UDRP DECISION] {domain_name_sanitized}",
-        'template_func': get_udrp_template,
-    },
-}
+def _clean(value):
+    """A value as text, or '' when the module had nothing to say."""
+    text = '' if value is None else str(value).strip()
+    return '' if text.lower() in _NO_VALUE else text
+
+
+def _obs(data_type, data, message, ioc=False, tags=None):
+    """
+    An observable of a TheHive alert. `ioc` is for what Watcher flags as suspicious (a domain, a URL, an address);
+    everything else it knows about the detection is context. `message` is the sentence shown in the list of observables.
+    """
+    return {"dataType": data_type, "data": data, "message": message, "ioc": ioc, "tags": tags or []}
+
+
+def watcher_object_url(app_name, context_data):
+    """
+    Link to the object of a detection in Watcher: the page opens on it. None when it cannot be told, and the
+    notification then links to the page of the module.
+    """
+    base = settings.WATCHER_URL.rstrip('/') + '/#/'
+    try:
+        if app_name == 'data_leak':
+            alert = context_data.get('alert')
+            return f"{base}data_leak?alert={alert.pk}" if alert else None
+        if app_name in ('dns_finder', 'dns_finder_dangling'):
+            alert = context_data.get('alert')
+            return f"{base}dns_finder?tab=threats&threat={alert.pk}" if alert else None
+        if app_name == 'website_monitoring':
+            site = context_data.get('site')
+            change_id = (context_data.get('alert_data') or {}).get('id')
+            if change_id:
+                return f"{base}website_monitoring?tab=changes&change={change_id}"
+            return f"{base}website_monitoring?site={site.pk}" if site else None
+        if app_name == 'cyber_watch':
+            from cyber_watch.models import CVEAlert, RansomwareVictim
+            kind = context_data.get('notification_type')
+            if kind in ('new_cve', 'cve_hit'):
+                cve = CVEAlert.objects.filter(cve_id=context_data.get('cve_id')).first()
+                return f"{base}cyber_watch?tab=cves&cve={cve.pk}" if cve else None
+            if kind in ('new_victim', 'victim_hit'):
+                victim = RansomwareVictim.objects.filter(
+                    victim_name=context_data.get('victim_name'), group__name=context_data.get('group_name')).first()
+                return f"{base}cyber_watch?tab=ransomware&victim={victim.pk}" if victim else None
+    except Exception as exc:
+        logger.warning(f"Could not build the link to the {app_name} object: {exc}")
+    return None
+
+
+def _defang(value):
+    """A domain written so that no client turns it into a link: example[.]com. None when there is none."""
+    text = _clean(value)
+    return text.replace('.', '[.]') if text else None
+
+
+def _cve_title_parts(severity, cvss_score=None):
+    """The pieces of a CVE title that exist: a severity or a score the source does not give is left out."""
+    severity, cvss_score = _clean(severity), _clean(cvss_score)
+    return {
+        'severity_suffix': f" ({severity})" if severity else '',
+        'severity_bracket': f" [{severity}]" if severity else '',
+        'severity_part': f" | Severity: {severity}" if severity else '',
+        'cvss_part': f" | CVSS: {cvss_score}" if cvss_score else '',
+    }
+
+
+def thehive_alert_tags(app_name, context_data, base_tags):
+    """
+    Tags of a TheHive alert: the configured ones (the domain ones only on alerts about a domain), the module, and what
+    Watcher knows about the detection.
+    """
+    tags = [tag for tag in base_tags if app_name in _DOMAIN_MODULES or tag.lower() not in _DOMAIN_TAGS]
+    tags.append(f"module:{app_name.replace('_dangling', '')}")
+
+    def add(prefix, value):
+        value = _clean(value)
+        if value:
+            tags.append(f"{prefix}:{value}")
+
+    if app_name == 'cyber_watch':
+        for prefix, key in (('severity', 'severity'), ('group', 'group_name'), ('sector', 'sector'),
+                            ('country', 'country'), ('rule', 'rule_name'), ('keyword', 'keyword')):
+            add(prefix, context_data.get(key))
+    elif app_name == 'data_leak':
+        alert = context_data.get('alert')
+        add('keyword', alert.keyword.name if alert and alert.keyword else None)
+    elif app_name in ('dns_finder', 'dns_finder_dangling'):
+        twisted = getattr(context_data.get('alert'), 'dns_twisted', None)
+        if twisted is not None:
+            add('fuzzer', twisted.fuzzer)
+            add('keyword', twisted.keyword_monitored.name if twisted.keyword_monitored else None)
+            add('corporate_domain', twisted.dns_monitored.domain_name if twisted.dns_monitored else None)
+            add('provider', getattr(twisted, 'provider', None))
+
+    unique = []
+    for tag in tags:
+        if tag and tag not in unique:
+            unique.append(tag)
+    return unique
+
+
+def thehive_severity_for(app_name, context_data, default):
+    """Severity of a TheHive alert (1 low to 4 critical): the notification's, raised when the detection is worse."""
+    if app_name == 'cyber_watch':
+        level = _SEVERITY_LEVELS.get(str(context_data.get('severity', '')).upper())
+        return max(default, level) if level else default
+    if app_name == 'website_monitoring':
+        legitimacy = getattr(context_data.get('site'), 'legitimacy', None) or 0
+        if legitimacy >= 5:
+            return max(default, 3)
+        if legitimacy >= 3:
+            return max(default, 2)
+    return default
+
+
+def thehive_comment(app_name, context_data):
+    """What changed, for the comment added to an alert that already exists. None when there is nothing to say."""
+    if app_name != 'website_monitoring':
+        return None
+    site = context_data.get('site')
+    alert_data = context_data.get('alert_data') or {}
+    if not site:
+        return None
+    lines = [f"**{alert_data.get('type') or 'Change detected'}** on {site.domain_name.replace('.', '[.]')}"]
+    for label, key in (('IP address', 'ip'), ('Second IP address', 'ip_second'),
+                       ('Mail server address', 'mail_A_record_ip'), ('MX records', 'MX_records')):
+        old = _clean(_join_records(alert_data.get('old_' + key)))
+        new = _clean(_join_records(alert_data.get('new_' + key)))
+        if old and new:
+            lines.append(f"- {label}: {old} -> {new}")
+        elif new:
+            lines.append(f"- {label}: {new} (new)")
+        elif old:
+            lines.append(f"- {label}: {old} (no longer there)")
+    score = _clean(alert_data.get('difference_score'))
+    if score:
+        lines.append(f"- Content difference score: {score}")
+    return '\n'.join(lines)
 
 
 def collect_observables(app_name, context_data):
     """
-    Collect observables based on app and context data.
+    Observables of a TheHive alert. Only a suspicious domain, URL or address is an indicator; the victim, group,
+    sector, country or keyword of a detection are context and go in the tags of the alert instead.
     """
     observables = []
 
     if app_name == 'threats_watcher':
         email_words = context_data.get('email_words', [])
         for word in email_words:
-            clean_word = re.sub(r'<[^>]*>', '', word) 
-            if re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', clean_word): 
-                observables.append({"dataType": "domain", "data": clean_word})
+            clean_word = re.sub(r'<[^>]*>', '', word)
+            if re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', clean_word):
+                observables.append(_obs("domain", clean_word, "Domain trending in the monitored sources"))
             else:
-                observables.append({"dataType": "other", "data": clean_word})
+                observables.append(_obs("other", clean_word, "Word trending in the monitored sources"))
 
     elif app_name == 'website_monitoring':
         site = context_data.get('site')
         alert_data = context_data.get('alert_data', {})
-        alert_type = alert_data.get('type') 
+        alert_type = alert_data.get('type')
         if site:
-            domain_tag = f"domain_name:{site.domain_name}" 
-            observable = {"dataType": "domain", "data": site.domain_name, "tags": [domain_tag]}
-            observables.append(observable)
-            if alert_data.get('new_ip'):
-                observable = {"dataType": "ip", "data": alert_data['new_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:new_ip"]}
-                observables.append(observable)
-            if alert_data.get('old_ip'):
-                observable = {"dataType": "ip", "data": alert_data['old_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:old_ip"]}
-                observables.append(observable)
-            if alert_data.get('new_ip_second'):
-                observable = {"dataType": "ip", "data": alert_data['new_ip_second'], "tags": [domain_tag, f"type:{alert_type}", "details:new_ip_second"]}
-                observables.append(observable)
-            if alert_data.get('old_ip_second'):
-                observable = {"dataType": "ip", "data": alert_data['old_ip_second'], "tags": [domain_tag, f"type:{alert_type}", "details:old_ip_second"]}
-                observables.append(observable)
-            if alert_data.get('new_MX_records'):
-                observable = {"dataType": "other", "data": alert_data['new_MX_records'], "tags": [domain_tag, f"type:{alert_type}", "details:new_MX_records"]}
-                observables.append(observable)
-            if alert_data.get('old_MX_records'):
-                observable = {"dataType": "other", "data": alert_data['old_MX_records'], "tags": [domain_tag, f"type:{alert_type}", "details:old_MX_records"]}
-                observables.append(observable)
-            if alert_data.get('new_mail_A_record_ip'):
-                observable = {"dataType": "ip", "data": alert_data['new_mail_A_record_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:new_mail_A_record_ip"]}
-                observables.append(observable)
-            if alert_data.get('old_mail_A_record_ip'):
-                observable = {"dataType": "ip", "data": alert_data['old_mail_A_record_ip'], "tags": [domain_tag, f"type:{alert_type}", "details:old_mail_A_record_ip"]}
-                observables.append(observable)
+            domain = site.domain_name
+            domain_tag = f"domain_name:{domain}"
+            legitimacy = site.get_legitimacy_display() if site.legitimacy else 'legitimacy not assessed'
+            observables.append(_obs("domain", domain, f"Domain under surveillance ({legitimacy})",
+                                    ioc=(site.legitimacy or 0) >= 3, tags=[domain_tag]))
+            # (key of the alert, type, what it is, is it an indicator)
+            changes = (
+                ('new_ip', 'ip', f"New IP address of {domain}", True),
+                ('old_ip', 'ip', f"Previous IP address of {domain}", False),
+                ('new_ip_second', 'ip', f"New second IP address of {domain}", True),
+                ('old_ip_second', 'ip', f"Previous second IP address of {domain}", False),
+                ('new_MX_records', 'other', f"New MX records of {domain}", False),
+                ('old_MX_records', 'other', f"Previous MX records of {domain}", False),
+                ('new_mail_A_record_ip', 'ip', f"New mail server address of {domain}", True),
+                ('old_mail_A_record_ip', 'ip', f"Previous mail server address of {domain}", False),
+            )
+            for key, data_type, message, ioc in changes:
+                value = _join_records(alert_data.get(key))
+                if value:
+                    observables.append(_obs(data_type, value, message, ioc=ioc,
+                                            tags=[domain_tag, f"type:{alert_type}", f"details:{key}"]))
 
     elif app_name == 'data_leak':
         alert = context_data.get('alert')
         if alert:
-            observable = {"dataType": "url", "data": alert.url, "tags": []}
-            if alert.keyword:
-                observable["tags"].append(f"keyword:{alert.keyword.name}")
-            observables.append(observable)
+            keyword = alert.keyword.name if alert.keyword else None
+            observables.append(_obs("url", alert.url, f"Page matching the keyword '{keyword}'" if keyword
+                                    else "Page matching a monitored keyword",
+                                    tags=[f"keyword:{keyword}"] if keyword else []))
 
     elif app_name == 'dns_finder':
         alert = context_data.get('alert')
         if alert and alert.dns_twisted:
-            subdomain = alert.dns_twisted.domain_name
-            
+            twisted = alert.dns_twisted
+            subdomain = twisted.domain_name
+
             extracted = tldextract.extract(subdomain)
             domain_part = extracted.domain
             suffix_part = extracted.suffix
-            
+
             if domain_part and suffix_part:
                 parent_domain = f"{domain_part}.{suffix_part}"
-                
-                subdomain_observable = {"dataType": "domain", "data": subdomain, "tags": []}
-                
-                if alert.dns_twisted.fuzzer:
-                    subdomain_observable["tags"].append(f"fuzzer:{alert.dns_twisted.fuzzer}")
-                if alert.dns_twisted.dns_monitored:
-                    subdomain_observable["tags"].append(f"corporate_dns:{alert.dns_twisted.dns_monitored.domain_name}")
-                if alert.dns_twisted.keyword_monitored:
-                    subdomain_observable["tags"].append(f"corporate_keyword:{alert.dns_twisted.keyword_monitored.name}")
-                
+
+                reasons = []
+                if twisted.keyword_monitored:
+                    reasons.append(f"contains the corporate keyword '{twisted.keyword_monitored.name}'")
+                if twisted.dns_monitored:
+                    reasons.append(f"looks like {twisted.dns_monitored.domain_name}")
+                if twisted.fuzzer:
+                    reasons.append(f"generated by the '{twisted.fuzzer}' permutation")
+                message = "Suspicious domain" + (": " + ", ".join(reasons) if reasons else "")
+
+                subdomain_observable = _obs("domain", subdomain, message, ioc=True)
+                if twisted.fuzzer:
+                    subdomain_observable["tags"].append(f"fuzzer:{twisted.fuzzer}")
+                if twisted.dns_monitored:
+                    subdomain_observable["tags"].append(f"corporate_dns:{twisted.dns_monitored.domain_name}")
+                if twisted.keyword_monitored:
+                    subdomain_observable["tags"].append(f"corporate_keyword:{twisted.keyword_monitored.name}")
+
                 subdomain_observable["tags"].append(f"parent_domain:{parent_domain}")
                 subdomain_observable["tags"].append(f"subdomain:{subdomain}")
 
                 observables.append(subdomain_observable)
-                
+
                 if subdomain != parent_domain:
-                    parent_observable = {
-                        "dataType": "domain", 
-                        "data": parent_domain, 
-                        "tags": [
-                            f"parent_domain:{parent_domain}",
-                            "domain_type:parent"
-                        ]
-                    }
-                    observables.append(parent_observable)
+                    observables.append(_obs("domain", parent_domain, f"Registrable domain of {subdomain}",
+                                            tags=[f"parent_domain:{parent_domain}", "domain_type:parent"]))
 
     elif app_name == 'dns_finder_dangling':
         alert = context_data.get('alert')
         if alert and alert.dns_twisted:
             dns_twisted = alert.dns_twisted
-            observable = {"dataType": "domain", "data": dns_twisted.domain_name, "tags": []}
+            message = "Corporate subdomain whose CNAME points to a resource that may be claimed"
+            if dns_twisted.cname_target:
+                message += f" ({dns_twisted.cname_target})"
+            observable = _obs("domain", dns_twisted.domain_name, message)
             if dns_twisted.provider:
                 observable["tags"].append(f"provider:{dns_twisted.provider}")
             if dns_twisted.cname_target:
@@ -793,26 +359,14 @@ def collect_observables(app_name, context_data):
             cve_id = context_data.get('cve_id', '')
             severity = context_data.get('severity', 'N/A')
             if cve_id:
-                observables.append({"dataType": "other", "data": cve_id, "tags": ["cve", f"severity:{severity}"]})
-            keyword = context_data.get('keyword', '')
-            if keyword and notification_type == 'cve_hit':
-                observables.append({"dataType": "other", "data": keyword, "tags": ["matched-keyword", "cve-watch-rule"]})
+                observables.append(_obs("other", cve_id, f"{cve_id} ({severity})", tags=["cve", f"severity:{severity}"]))
         elif notification_type in ('new_victim', 'victim_hit'):
             victim_name = context_data.get('victim_name', '')
-            group_name = context_data.get('group_name', '')
-            sector = context_data.get('sector', '')
-            country = context_data.get('country', '')
-            keyword = context_data.get('keyword', '')
+            group_name = _clean(context_data.get('group_name', ''))
             if victim_name:
-                observables.append({"dataType": "other", "data": victim_name, "tags": ["ransomware-victim", f"group:{group_name}"]})
-            if group_name:
-                observables.append({"dataType": "other", "data": group_name, "tags": ["ransomware-group"]})
-            if sector and sector != 'N/A':
-                observables.append({"dataType": "other", "data": sector, "tags": ["victim-sector"]})
-            if country and country != 'N/A':
-                observables.append({"dataType": "other", "data": country, "tags": ["victim-country"]})
-            if keyword and notification_type == 'victim_hit':
-                observables.append({"dataType": "other", "data": keyword, "tags": ["matched-keyword", "victim-watch-rule"]})
+                message = "Ransomware victim" + (f" claimed by {group_name}" if group_name else "")
+                observables.append(_obs("other", victim_name, message,
+                                        tags=["ransomware-victim"] + ([f"group:{group_name}"] if group_name else [])))
 
     observables = [observable for observable in observables if observable['data'] is not None and observable['data'] != 'None']
 
@@ -827,10 +381,68 @@ def remove_html_tags(text):
     return re.sub(clean, '', text)
 
 
+def _notification_label(app_name, context_data):
+    """Names the alert a notification is about, for the line of the log that reports how it went."""
+    alert = context_data.get('alert')
+    if app_name == 'data_leak':
+        return f"data_leak #{alert.pk} ({alert.keyword})"
+    if app_name in ('dns_finder', 'dns_finder_dangling'):
+        return f"{app_name} #{alert.pk} ({alert.dns_twisted.domain_name})"
+    if app_name == 'website_monitoring':
+        site, change = context_data.get('site'), (context_data.get('alert_data') or {}).get('id')
+        return f"website_monitoring {'#%s ' % change if change else ''}({site.domain_name})"
+    if app_name == 'cyber_watch':
+        subject = context_data.get('cve_id') or context_data.get('victim_name') or ''
+        return f"cyber_watch {context_data.get('notification_type', '')} ({subject})"
+    if app_name == 'threats_watcher':
+        return f"threats_watcher {context_data.get('notification_type', 'regular')}"
+    if app_name == 'data_leak_group':
+        return f"data_leak_group ({context_data.get('keyword')}, {context_data.get('alerts_number')} alerts)"
+    if app_name == 'dns_finder_group':
+        return f"dns_finder_group ({getattr(context_data.get('dns_monitored'), 'domain_name', '')})"
+    return app_name
+
+
+def citadel_content(type_id, ctx):
+    """
+    A Citadel (Matrix) message: the HTML of the notification, and the same text without markup in `body`, which is what
+    a client or a notification preview shows when it does not display HTML.
+    """
+    html = render_message(type_id, 'citadel', ctx).replace('\n', '<br>')
+    text = (html.replace('</td><td>', ': ').replace('</tr>', '\n').replace('</h4>', '\n')
+            .replace('</p>', '\n').replace('<br>', '\n'))
+    return {
+        "msgtype": "m.text",
+        "format": "org.matrix.custom.html",
+        "body": remove_html_tags(unescape(text)).strip(),
+        "formatted_body": html,
+    }
+
+
+def _send_channel(type_id, channel, app_name, send):
+    """
+    Run `send` when the instance has `channel` switched on for this notification (Connectors > Notifications).
+    A failing channel is logged and does not stop the next one.
+    """
+    try:
+        # The gate is inside the try: before the notification tables are migrated the query fails, and that must not
+        # reach the scheduler job that called us.
+        if not is_enabled(type_id, channel):
+            report_channel(channel, 'off')
+            return
+        run_channel(channel, send)
+    except Exception as exc:
+        logger.error(f"Could not read the setting or send the {type_id} notification on {channel} for {app_name}: {exc}")
+
+
+@reported_notification(_notification_label, logger)
 def send_app_specific_notifications(app_name, context_data, subscribers):
     """
     Send notifications based on app type (Slack, Citadel, TheHive, Email).
     Collect observables, format content, and send to respective channels.
+
+    Slack, Citadel and TheHive go out when the instance has them switched on for this notification. The email goes
+    out when its switch is on, to the `subscribers` who ticked E-mail.
     """
     template_key = app_name
 
@@ -858,16 +470,13 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
         else:
             template_key = 'cyber_watch_new_cve'
 
-    app_config_slack = APP_CONFIG_SLACK.get(template_key)
-    app_config_citadel = APP_CONFIG_CITADEL.get(template_key)
-    app_config_thehive = APP_CONFIG_THEHIVE.get(template_key) or APP_CONFIG_THEHIVE.get(app_name)
-    app_config_email = APP_CONFIG_EMAIL.get(template_key) or APP_CONFIG_EMAIL.get(app_name)
-
-    if not app_config_slack or not app_config_citadel or not app_config_thehive or not app_config_email:
+    ntype = find_type(template_key)
+    if ntype is None:
         return
 
-    if not subscribers.exists():
-        return
+    # A certstream alert has its own email layout, and its own email switch.
+    email_type = template_key
+    object_link = watcher_object_url(app_name, context_data)
 
     observables = collect_observables(app_name, context_data)
 
@@ -875,13 +484,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
     thehive_url = _thehive_cfg['url']
     api_key = _thehive_cfg['key']
 
-    def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
-        """Helper to format and send notification based on the channel."""
-        if subscribers.filter(**subscribers_filter).exists():
-            content = content_template.format(**kwargs)
-            send_func(content)
-
-    thehive_severity = app_config_thehive['severity']
+    thehive_severity = ntype.thehive_meta.get('severity', 1)
 
     try:
         common_data = {}
@@ -893,13 +496,10 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 summary_text = context_data.get('summary_text', '')
                 if not summary_text:
                     return
-                email_conf = APP_CONFIG_EMAIL['threats_watcher_weeklysummary']
-                subject = email_conf['subject']
-                template_func = email_conf['template_func']
-                email_body = template_func(summary_text)
+                email_body = get_threats_watcher_weeklysummary_template(summary_text)
                 common_data = {
                     'summary_text': summary_text,
-                    'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                    'details_url': settings.WATCHER_URL + ntype.url_suffix,
                     'app_name': 'threats_watcher'
                 }
 
@@ -909,15 +509,12 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 summary_text = context_data.get('summary_text', '')
                 if not keyword or not summary_text:
                     return
-                email_conf = APP_CONFIG_EMAIL['threats_watcher_breakingnews']
-                subject = email_conf['subject']
-                template_func = email_conf['template_func']
-                email_body = template_func(summary_text)
+                email_body = get_threats_watcher_breakingnews_template(summary_text)
                 common_data = {
                     'keyword': keyword,
                     'occurrences': occurrences,
                     'summary_text': summary_text,
-                    'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                    'details_url': settings.WATCHER_URL + ntype.url_suffix,
                     'app_name': 'threats_watcher'
                 }
 
@@ -925,14 +522,11 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 words_list = '\n'.join([remove_html_tags(unescape(word)) for word in context_data.get('email_words', [])])
                 if not words_list:
                     return
-                email_conf = APP_CONFIG_EMAIL['threats_watcher']
-                subject = email_conf['subject']
-                template_func = email_conf['template_func']
                 email_words = context_data.get('email_words', [])
-                email_body = template_func(settings.WORDS_OCCURRENCE, email_words)
+                email_body = get_threats_watcher_template(settings.WORDS_OCCURRENCE, email_words)
                 common_data = {
                     'words_list': words_list,
-                    'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                    'details_url': settings.WATCHER_URL + ntype.url_suffix,
                     'app_name': 'threats_watcher'
                 }
 
@@ -952,18 +546,17 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 'old_ip': alert_data.get('old_ip', None),
                 'new_ip_second': alert_data.get('new_ip_second', None),
                 'old_ip_second': alert_data.get('old_ip_second', None),
-                'new_mx_records': alert_data.get('new_MX_records', None),
-                'old_mx_records': alert_data.get('old_MX_records', None),
+                'new_mx_records': _join_records(alert_data.get('new_MX_records')),
+                'old_mx_records': _join_records(alert_data.get('old_MX_records')),
                 'new_mail_A_record_ip': alert_data.get('new_mail_A_record_ip', None),
                 'old_mail_A_record_ip': alert_data.get('old_mail_A_record_ip', None),
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'website_monitoring'
             }
 
-            email_words = context_data.get('alert', [])
             website_url = site.domain_name
             alert_id = alert_data.get('id', '-')
-            email_body = get_site_monitoring_template(website_url, alert_id, alert_data)
+            email_body = get_site_monitoring_template(website_url, alert_id, alert_data, link_url=object_link)
 
 
         elif app_name == 'data_leak':
@@ -971,36 +564,35 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
             if not alert:
                 return
-            
+
             common_data = {
                 'alert_pk': alert.pk,
                 'keyword_name': alert.keyword.name,
                 'url': alert.url,
                 'content': alert.content[:200],
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'data_leak'
             }
-            email_words = context_data.get('alert', [])
-            email_body = get_data_leak_template(alert)
+            email_body = get_data_leak_template(alert, link_url=object_link)
 
 
         elif app_name == 'dns_finder':
             alert = context_data.get('alert')
 
             if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
-                logger.warning(f"No valid alert data found or DNS Twisted information missing.")
+                logger.warning("No valid alert data found or DNS Twisted information missing.")
                 return
 
             subdomain = alert.dns_twisted.domain_name
             dns_domain_name_sanitized = (
-                getattr(alert.dns_twisted, 'dns_domain_name_sanitized', None) or 
+                getattr(alert.dns_twisted, 'dns_domain_name_sanitized', None) or
                 alert.dns_twisted.domain_name.replace('.', '[.]')
             )
 
-            if subscribers.filter(thehive=True).exists() and app_config_thehive:
+            # Its own closure: a failure here (or a domain without a valid suffix) must not cancel the other channels.
+            def send_dns_finder_thehive():
                 current_time = timezone.now()
                 extracted = tldextract.extract(subdomain)
-                subdomain_part = extracted.subdomain
                 domain_part = extracted.domain
                 suffix_part = extracted.suffix
 
@@ -1009,7 +601,6 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     return
 
                 parent_domain = f"{domain_part}.{suffix_part}"
-                is_parent_domain = (not subdomain_part)
 
                 observables_dns = collect_observables('dns_finder', context_data)
                 parent_site = Site.objects.filter(domain_name=parent_domain).first()
@@ -1021,7 +612,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 if parent_site and parent_site.ticket_id:
                     ticket_id = parent_site.ticket_id
                     logger.info(f"Found parent domain {parent_domain} in Site model with ticket_id: {ticket_id}")
-                    
+
                     alert_type, alert_item = search_thehive_for_ticket_id(
                         ticket_id, thehive_url, api_key, "alert"
                     )
@@ -1032,14 +623,14 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     )
                     if isinstance(case_item, list):
                         case_item = case_item[0] if case_item else None
-                    
+
                     if case_item:
                         existing_item = case_item
                         item_type = "case"
                     elif alert_item:
                         existing_item = alert_item
                         item_type = "alert"
-                
+
                 # Step 2: Search by observables in TheHive
                 if not existing_item:
                     item_type, item_obj = search_thehive_for_observable(
@@ -1051,16 +642,23 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
                 # Step 3: If still not found, use generated ticket_id
                 if not ticket_id:
-                    ticket_id = generate_ref() 
+                    ticket_id = generate_ref()
 
                 current_time_str = current_time.strftime("%H:%M:%S")
                 current_date_str = current_time.strftime("%Y-%m-%d")
 
-                comment = (
-                    f"A change was processed by dns_finder at {current_time_str} on {current_date_str}.\n\n"
-                    f"A new subdomain has been detected: {subdomain}, associated with the parent domain {parent_domain}.\n\n"
-                    "The associated observables have been handled in the dedicated section."
-                )
+                twisted = alert.dns_twisted
+                comment_lines = [
+                    f"New suspicious domain: **{subdomain.replace('.', '[.]')}** "
+                    f"(parent domain {parent_domain.replace('.', '[.]')}), {current_date_str} {current_time_str}."
+                ]
+                if twisted.keyword_monitored:
+                    comment_lines.append(f"- Matches the corporate keyword: {twisted.keyword_monitored.name}")
+                if twisted.dns_monitored:
+                    comment_lines.append(f"- Matches the corporate domain: {_defang(twisted.dns_monitored.domain_name)}")
+                if twisted.fuzzer:
+                    comment_lines.append(f"- Detection method: {twisted.fuzzer}")
+                comment = "\n".join(comment_lines)
 
                 # Update or create
                 if existing_item:
@@ -1077,43 +675,49 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     )
                 else:
                     logger.info(f"Creating new alert for parent domain {parent_domain}")
+                    meta = thehive_meta('dns_finder')
+                    thehive_ctx = {
+                        'subdomain': subdomain,
+                        'subdomain_sanitized': subdomain.replace('.', '[.]'),
+                        'parent_domain': parent_domain,
+                        'parent_domain_sanitized': parent_domain.replace('.', '[.]'),
+                        'keyword': alert.dns_twisted.keyword_monitored.name if alert.dns_twisted.keyword_monitored else None,
+                        'corporate_dns_sanitized': _defang(getattr(alert.dns_twisted.dns_monitored, 'domain_name', None)),
+                        'fuzzer': alert.dns_twisted.fuzzer or None,
+                        'details_url': settings.WATCHER_URL + ntype.url_suffix,
+                        'object_url': watcher_object_url('dns_finder', context_data) or settings.WATCHER_URL + ntype.url_suffix,
+                    }
                     create_new_alert(
                         ticket_id=ticket_id,
-                        title=f"New Twisted DNS found - {parent_domain}",
-                        description=(
-                            f"**Alert:**\n"
-                            f"**New Twisted DNS Found:**\n"
-                            f"Subdomain: {subdomain}\n"
-                            f"Parent Domain: {parent_domain}\n"
-                            f"Corporate Keyword: {getattr(alert.dns_twisted, 'keyword_monitored', 'N/A')}\n"
-                            f"Corporate DNS: {getattr(alert.dns_twisted, 'dns_monitored', 'N/A')}\n"
-                            f"Fuzzer: {getattr(alert.dns_twisted, 'fuzzer', 'N/A')}\n"
-                        ),
-                        severity=app_config_thehive['severity'],
-                        tlp=app_config_thehive['tlp'],
-                        pap=app_config_thehive['pap'],
-                        tags=[
-                            f"Detected fuzzer: {getattr(alert.dns_twisted, 'fuzzer', 'unknown')}",
-                            f"Detected keyword: {getattr(alert.dns_twisted.keyword_monitored, 'name', 'unknown') if alert.dns_twisted.keyword_monitored else 'unknown'}",
-                        ] + _thehive_cfg['tags'],
+                        title=render_thehive_title('dns_finder', thehive_ctx),
+                        description=render_message('dns_finder', 'thehive', thehive_ctx),
+                        severity=meta['severity'],
+                        tlp=meta['tlp'],
+                        pap=meta['pap'],
+                        tags=thehive_alert_tags('dns_finder', context_data, _thehive_cfg['tags']),
                         app_name='dns_finder',
                         observables=observables_dns,
                         customFields={
                             _thehive_cfg['custom_field']: {"string": ticket_id},
                             "email-sender": {"string": _thehive_cfg['email_sender']},
                         },
-                        comment=comment,
+                        # The description says it all; the comment is for the follow-ups of an existing alert
+                        comment=None,
+                        external_link=thehive_ctx['object_url'],
                         thehive_url=thehive_url,
                         api_key=api_key,
                         parent_domain=parent_domain,
                         subdomain=subdomain
                     )
 
+            _send_channel('dns_finder', 'thehive', app_name, send_dns_finder_thehive)
+
             source = context_data.get('source')
             if source in ('certstream_keyword', 'print_callback'):
-                email_body = get_dns_finder_cert_transparency_template(alert)
+                email_body = get_dns_finder_cert_transparency_template(alert, link_url=object_link)
+                email_type = 'dns_finder_cert_transparency'
             elif source in ('dnstwist', 'check_dnstwist'):
-                email_body = get_dns_finder_template(alert)
+                email_body = get_dns_finder_template(alert, link_url=object_link)
             else:
                 logger.warning(f"Unknown source '{source}' for alert.")
                 email_body = "Alert with no specific model defined."
@@ -1121,14 +725,15 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             common_data = {
                 'alert': alert,
                 'dns_domain_name_sanitized': dns_domain_name_sanitized,
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'corporate_dns_sanitized': _defang(getattr(alert.dns_twisted.dns_monitored, 'domain_name', None)),
+                'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'dns_finder'
             }
 
         elif app_name == 'cyber_watch':
             notification_type = context_data.get('notification_type', '')
-            details_url = settings.WATCHER_URL + app_config_slack['url_suffix']
-            email_body = get_cyber_watch_template(context_data)
+            details_url = settings.WATCHER_URL + ntype.url_suffix
+            email_body = get_cyber_watch_template(context_data, link_url=object_link)
 
             if notification_type == 'new_cve':
                 cve_id = context_data.get('cve_id', 'N/A')
@@ -1145,6 +750,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     'event_summary': event_summary,
                     'details_url': details_url,
                     'app_name': 'cyber_watch',
+                    **_cve_title_parts(severity, cvss_score),
                 }
             elif notification_type == 'cve_hit':
                 cve_id = context_data.get('cve_id', 'N/A')
@@ -1161,6 +767,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     'event_summary': event_summary,
                     'details_url': details_url,
                     'app_name': 'cyber_watch',
+                    **_cve_title_parts(severity),
                 }
             elif notification_type == 'new_victim':
                 victim_name = context_data.get('victim_name', 'N/A')
@@ -1214,135 +821,103 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             common_data = {
                 'alert': alert,
                 'subdomain': dns_twisted.domain_name,
+                'subdomain_sanitized': _defang(dns_twisted.domain_name),
                 'parent_domain': dns_twisted.dns_monitored.domain_name if dns_twisted.dns_monitored else 'N/A',
+                'parent_domain_sanitized': _defang(getattr(dns_twisted.dns_monitored, 'domain_name', None)),
                 'cname_target': dns_twisted.cname_target or 'N/A',
+                'cname_target_sanitized': _defang(dns_twisted.cname_target),
                 'provider': dns_twisted.provider or 'Unknown',
                 'takeover_status': takeover_status,
                 'takeover_status_detail': DANGLING_STATUS_DETAILS[takeover_status],
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'dns_finder_dangling'
             }
             # An unverified (suspected) takeover is filed below a proven one
             if takeover_status == 'Suspected':
                 thehive_severity = 1
-            email_body = get_dns_finder_dangling_template(alert)
-
-
-        send_notification(
-            channel="slack",
-            content_template=app_config_slack['content_template'],
-            subscribers_filter={'slack': True},
-            send_func=lambda content: send_slack_message(content, get_slack_config()['channel'], app_name),
-            **common_data
-        )
-
-        citadel_title = app_config_citadel.get('title', f"[{app_name.upper()}] Incident Alert")
-        send_notification(
-            channel="citadel",
-            content_template=app_config_citadel['content_template'],
-            subscribers_filter={'citadel': True},
-            send_func=lambda content: send_citadel_message(
-                content={  
-                    "msgtype": "m.text",
-                    "format": "org.matrix.custom.html",
-                    "body": citadel_title + " - New Incident Alert", 
-                    "formatted_body": content.replace('\n', '<br>')  
-                },
-                room_id=get_citadel_config()['room_id'],
-                app_name=common_data.get('app_name')  
-            ),
-            title=citadel_title,
-            **common_data
-        )
-
-        if app_config_thehive and app_name != 'dns_finder':
-            formatted_title = app_config_thehive['title'].format(**common_data)
-
-            domain_name = common_data.get('domain_name')
-            if domain_name:
-                try:
-                    site = Site.objects.get(domain_name=domain_name)
-                except Site.DoesNotExist:
-                    logger.error(f"Site with domain_name {domain_name} not found.")
-                    return
-
-                ticket_id = site.ticket_id
-
-                send_notification(
-                    channel="thehive",
-                    content_template=app_config_thehive['description_template'],
-                    subscribers_filter={'thehive': True},
-                    send_func=lambda content: send_thehive_alert(
-                        title=formatted_title,
-                        description=content,
-                        severity=thehive_severity,
-                        tlp=app_config_thehive['tlp'],
-                        pap=app_config_thehive['pap'],
-                        tags=_thehive_cfg['tags'],
-                        customFields=app_config_thehive.get('customFields'),
-                        app_name=app_name,
-                        domain_name=site.domain_name,
-                        observables=observables
-                    ),
-                    **common_data
-                )
-            else:
-                if subscribers.filter(thehive=True).exists():
-                    send_thehive_alert(
-                        title=formatted_title,
-                        description=app_config_thehive['description_template'].format(**common_data),
-                        severity=thehive_severity,
-                        tlp=app_config_thehive['tlp'],
-                        pap=app_config_thehive['pap'],
-                        tags=_thehive_cfg['tags'],
-                        app_name=app_name,
-                        domain_name=None,
-                        observables=observables,
-                        customFields=app_config_thehive.get('customFields'),
-                        thehive_url=thehive_url,
-                        api_key=api_key
-                    )
-
-        if app_config_email:
-            email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
-
-            if email_list:
-                if app_name == 'threats_watcher':
-                    notification_type = context_data.get('notification_type', 'regular')
-                    if notification_type in ('weeklysummary', 'breakingnews'):
-                        email_subject = subject.format(**common_data)
-                    else:
-                        email_subject = app_config_email['subject'].format(**common_data)
-                else:
-                    email_subject = app_config_email['subject'].format(**common_data)
-
-                send_email_notifications(email_subject, email_body, email_list, app_name)
-            else:
-                pass
+            email_body = get_dns_finder_dangling_template(alert, link_url=object_link)
 
     except Exception as e:
         logger.error(f"Error sending notifications for {app_name}: {str(e)}")
+        return
+
+    common_data['object_url'] = object_link or common_data.get('details_url')
+
+    _send_channel(template_key, 'slack', app_name, lambda: send_slack_message(
+        render_message(template_key, 'slack', common_data), get_slack_config()['channel'], app_name))
+
+    _send_channel(template_key, 'citadel', app_name, lambda: send_citadel_message(
+        content=citadel_content(template_key, common_data),
+        room_id=get_citadel_config()['room_id'],
+        app_name=common_data.get('app_name')
+    ))
+
+    def send_thehive():
+        formatted_title = render_thehive_title(template_key, common_data)
+        th_tags = thehive_alert_tags(app_name, context_data, _thehive_cfg['tags'])
+        th_severity = thehive_severity_for(app_name, context_data, thehive_severity)
+        th_comment = thehive_comment(app_name, context_data)
+        th_link = common_data.get('object_url') or common_data.get('details_url')
+        description = render_message(template_key, 'thehive', common_data)
+        domain_name = common_data.get('domain_name')
+        if domain_name:
+            site = Site.objects.filter(domain_name=domain_name).first()
+            if site is None:
+                logger.error(f"Site with domain_name {domain_name} not found.")
+                return
+            send_thehive_alert(
+                title=formatted_title,
+                description=description,
+                severity=th_severity,
+                tlp=ntype.thehive_meta['tlp'],
+                pap=ntype.thehive_meta['pap'],
+                tags=th_tags,
+                customFields=None,
+                app_name=app_name,
+                domain_name=site.domain_name,
+                observables=observables,
+                comment=th_comment,
+                external_link=th_link
+            )
+        else:
+            send_thehive_alert(
+                title=formatted_title,
+                description=description,
+                severity=th_severity,
+                tlp=ntype.thehive_meta['tlp'],
+                pap=ntype.thehive_meta['pap'],
+                tags=th_tags,
+                app_name=app_name,
+                domain_name=None,
+                observables=observables,
+                customFields=None,
+                thehive_url=thehive_url,
+                api_key=api_key,
+                external_link=th_link
+            )
+
+    # DNS Finder opens its own TheHive alert above (with the search for the parent domain).
+    if 'thehive' in ntype.channels and app_name != 'dns_finder':
+        _send_channel(template_key, 'thehive', app_name, send_thehive)
+
+    def send_email():
+        email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
+        if not email_list:
+            note_channel('no recipients')
+            return
+        send_email_notifications(email_subject(email_type, common_data), email_body, email_list, app_name)
+
+    _send_channel(email_type, 'email', app_name, send_email)
 
 
+@reported_notification(_notification_label, logger)
 def send_app_specific_notifications_group(app_name, context_data, subscribers):
     """
-    Send group notifications based on app type (Slack, Citadel, Email).
+    Send group notifications based on app type (Slack, Citadel, Email), when the instance has them switched on.
     """
-    app_config_slack = APP_CONFIG_SLACK.get(app_name)
-    app_config_citadel = APP_CONFIG_CITADEL.get(app_name)
-    app_config_email = APP_CONFIG_EMAIL.get(app_name)
-
-    if not (app_config_slack or app_config_citadel or app_config_email):
+    ntype = find_type(app_name)
+    if ntype is None:
         return
-
-    if not subscribers.exists():
-        return
-
-    def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
-        """Helper to format and send notification based on the channel."""
-        if subscribers.filter(**subscribers_filter).exists():
-            content = content_template.format(**kwargs)
-            send_func(content)
 
     try:
         common_data = {}
@@ -1353,196 +928,130 @@ def send_app_specific_notifications_group(app_name, context_data, subscribers):
 
             if not keyword:
                 return
-            
+
             common_data = {
                 'alerts_number': alerts_number,
                 'keyword': keyword,
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'data_leak_group'
             }
-            email_words = [keyword, alerts_number]
-            email_body = get_data_leak_group_template
 
         elif app_name == 'dns_finder_group':
             dns_monitored = context_data.get('dns_monitored')
             alerts_number = context_data.get('alerts_number')
-            
+
             if not dns_monitored or not alerts_number or not dns_monitored.domain_name:
                 return
 
             common_data = {
                 'alerts_number': alerts_number,
                 'dns_domain_name_sanitized_group': dns_monitored.domain_name.replace('.', '[.]'),
-                'details_url': settings.WATCHER_URL + app_config_slack['url_suffix'],
+                'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'dns_finder_group',
             }
-            email_words = [dns_monitored, alerts_number]
-            email_body = get_dns_finder_group_template
-
-        # Sending Slack notifications
-        send_notification(
-            channel="slack",
-            content_template=app_config_slack['content_template'],
-            subscribers_filter={'slack': True},
-            send_func=lambda content: send_slack_message(content, get_slack_config()['channel'], app_name),
-            **common_data
-        )
-
-        # Sending Citadel notifications
-        citadel_title = app_config_citadel.get('title', f"[{app_name.upper()}] Incident Alert")
-        send_notification(
-            channel="citadel",
-            content_template=app_config_citadel['content_template'],
-            subscribers_filter={'citadel': True},
-            send_func=lambda content: send_citadel_message(
-                content={
-                    "msgtype": "m.text",
-                    "format": "org.matrix.custom.html",
-                    "body": citadel_title + " - New Incident Alert",
-                    "formatted_body": content.replace('\n', '<br>')
-                },
-                room_id=get_citadel_config()['room_id'],
-                app_name=common_data.get('app_name')
-            ),
-            title=citadel_title,
-            **common_data
-        )
-
-        if app_config_email:
-            email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
-
-            if email_list:
-                try:
-                    email_subject = app_config_email['subject'].format(**common_data)
-
-                    if app_name == 'data_leak_group':
-                        email_body = get_data_leak_group_template(keyword, alerts_number)  
-                    elif app_name == 'dns_finder_group':
-                        email_body = get_dns_finder_group_template(dns_monitored, alerts_number)
-                    else:
-                        logger.warning(f"Unknown app_name for group email: {app_name}")
-                        return
-
-                    if not isinstance(email_body, str):
-                        logger.error(f"Email body is not a string for {app_name}: {type(email_body)}")
-                        return
-
-                    send_email_notifications(email_subject, email_body, email_list, app_name)
-
-                except Exception as e:
-                    logger.error(f"Error sending group email for {app_name}: {e}")
-                    return
 
     except Exception as e:
         logger.error(f"Error sending group notifications for {app_name}: {str(e)}")
+        return
+
+    _send_channel(app_name, 'slack', app_name, lambda: send_slack_message(
+        render_message(app_name, 'slack', common_data), get_slack_config()['channel'], app_name))
+
+    _send_channel(app_name, 'citadel', app_name, lambda: send_citadel_message(
+        content=citadel_content(app_name, common_data),
+        room_id=get_citadel_config()['room_id'],
+        app_name=common_data.get('app_name')
+    ))
+
+    def send_email():
+        email_list = [subscriber.user_rec.email for subscriber in subscribers.filter(email=True)]
+        if not email_list:
+            note_channel('no recipients')
+            return
+        if app_name == 'data_leak_group':
+            email_body = get_data_leak_group_template(common_data['keyword'], common_data['alerts_number'])
+        else:
+            email_body = get_dns_finder_group_template(context_data['dns_monitored'], common_data['alerts_number'])
+        send_email_notifications(email_subject(app_name, common_data), email_body, email_list, app_name)
+
+    _send_channel(app_name, 'email', app_name, send_email)
 
 
 def send_only_thehive_notifications(app_name, context_data, subscribers):
     """
-    Send notifications only to TheHive based on app type.
-    Collect observables, format the notification content, and send them to respective channels.
+    Open one TheHive alert for an alert of a group notification (the group message itself goes out on the other
+    channels). Only when the instance has TheHive switched on for this notification; `subscribers` is not used, it is
+    kept so the callers do not change.
     """
-    app_config_thehive = APP_CONFIG_THEHIVE.get(app_name)
-
-    if not app_config_thehive:
+    ntype = find_type(app_name)
+    if ntype is None or 'thehive' not in ntype.channels:
+        return
+    try:
+        if not is_enabled(app_name, 'thehive'):
+            return
+    except Exception as exc:
+        logger.error(f"Could not read the TheHive setting of the {app_name} notification: {exc}")
         return
 
-    if not subscribers.exists():
-        return
-    
     observables = collect_observables(app_name, context_data)
-
     _thehive_cfg = get_thehive_config()
-    thehive_url = _thehive_cfg['url']
-    api_key = _thehive_cfg['key']
-
-    def send_notification(channel, content_template, subscribers_filter, send_func, **kwargs):
-        if subscribers.filter(**subscribers_filter).exists():
-            content = content_template.format(**kwargs)
-            send_func(content)
 
     try:
-        common_data = {}
-        if app_name == 'data_leak':
-            alert = context_data.get('alert')
+        alert = context_data.get('alert')
 
+        if app_name == 'data_leak':
             if not alert:
                 return
-            
             common_data = {
                 'alert_pk': alert.pk,
                 'keyword_name': alert.keyword.name,
                 'url': alert.url,
                 'content': alert.content[:200],
                 'details_url': settings.WATCHER_URL,
+                'object_url': watcher_object_url('data_leak', context_data) or settings.WATCHER_URL,
                 'app_name': 'data_leak'
             }
+            title = render_thehive_title(app_name, common_data)
+            description = render_message(app_name, 'thehive', common_data)
 
         elif app_name == 'dns_finder':
-            alert = context_data.get('alert')
-
             if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
                 return
-
             common_data = {
                 'alert': alert,
                 'dns_domain_name_sanitized': alert.dns_twisted.domain_name.replace('.', '[.]'),
+                'corporate_dns_sanitized': _defang(getattr(alert.dns_twisted.dns_monitored, 'domain_name', None)),
                 'details_url': settings.WATCHER_URL,
+                'object_url': watcher_object_url('dns_finder', context_data) or settings.WATCHER_URL,
                 'app_name': 'dns_finder'
             }
+            title, description = render_per_alert(app_name, common_data)
 
-        if app_config_thehive:
-            formatted_title = app_config_thehive['title'].format(**common_data)
+        else:
+            return
 
-            domain_name = common_data.get('domain_name')
-            if domain_name:
-                try:
-                    site = Site.objects.get(domain_name=domain_name)
-                except Site.DoesNotExist:
-                    logger.error(f"Site with domain_name {domain_name} not found.")
-                    return
-
-                ticket_id = site.ticket_id
-
-                send_notification(
-                    channel="thehive",
-                    content_template=app_config_thehive['description_template'],
-                    subscribers_filter={'thehive': True},
-                    send_func=lambda content: send_thehive_alert(
-                        title=formatted_title,
-                        description=content,
-                        severity=app_config_thehive['severity'],
-                        tlp=app_config_thehive['tlp'],
-                        pap=app_config_thehive['pap'],
-                        tags=_thehive_cfg['tags'],
-                        customFields=app_config_thehive.get('customFields'),
-                        app_name=app_name,
-                        domain_name=site.domain_name,
-                        observables=observables
-                    ),
-                    **common_data
-                )
-            else:
-                if subscribers.filter(thehive=True).exists():
-                    send_thehive_alert(
-                        title=formatted_title,
-                        description=app_config_thehive['description_template'].format(**common_data),
-                        severity=app_config_thehive['severity'],
-                        tlp=app_config_thehive['tlp'],
-                        pap=app_config_thehive['pap'],
-                        tags=_thehive_cfg['tags'],
-                        app_name=app_name,
-                        domain_name=None,
-                        observables=observables,
-                        customFields=app_config_thehive.get('customFields'),
-                        thehive_url=thehive_url,
-                        api_key=api_key
-                    )
+        meta = thehive_meta(app_name)
+        send_thehive_alert(
+            title=title,
+            description=description,
+            severity=meta['severity'],
+            tlp=meta['tlp'],
+            pap=meta['pap'],
+            tags=thehive_alert_tags(app_name, context_data, _thehive_cfg['tags']),
+            app_name=app_name,
+            domain_name=None,
+            observables=observables,
+            customFields=None,
+            thehive_url=_thehive_cfg['url'],
+            api_key=_thehive_cfg['key'],
+            external_link=common_data.get('object_url') or common_data.get('details_url')
+        )
 
     except Exception as e:
         logger.error(f"Error sending TheHive notifications for {app_name}: {str(e)}")
 
 
+@logged_job("RDAP/WHOIS lookup for legitimate domains", logger)
 def update_legitimate_domains_rdap_data():
     """
     Update RDAP/WHOIS data for legitimate domains.
@@ -1554,6 +1063,7 @@ def update_legitimate_domains_rdap_data():
 
     for domain in domains:
         try:
+            job_count('domains')
             from .utils.rdap import RDAPDiscovery
             rdap = RDAPDiscovery(domain.domain_name)
             method = "RDAP"
@@ -1562,7 +1072,9 @@ def update_legitimate_domains_rdap_data():
                 from .utils.whois import WhoisDiscovery
                 whois = WhoisDiscovery(domain.domain_name)
                 if not whois.fetch_whois_data():
-                    logger.warning(f"No RDAP/WHOIS data found for {domain.domain_name}")
+                    # An unregistered domain has no record: counted in the summary of the job
+                    job_count('without_data')
+                    logger.debug(f"No RDAP/WHOIS data found for {domain.domain_name}")
                     continue
 
                 rdap = whois
@@ -1618,48 +1130,15 @@ def update_legitimate_domains_rdap_data():
             # Save only if there are updates
             if updated_fields:
                 domain.save(update_fields=updated_fields)
+                job_count('updated')
                 logger.info(f"Successfully updated {domain.domain_name}: {', '.join(updated_fields)}")
 
         except Exception as e:
+            job_count('errors')
             logger.error(f"Error processing {domain.domain_name}: {str(e)}")
 
 
-def update_legitimate_domains_ssl_data():
-    """
-    Update SSL certificate expiry for all legitimate domains.
-
-    Runs every 6 hours via the scheduler (separate from the 2-minute RDAP job
-    so SSL checks do not flood logs or timeout unnecessarily).
-    """
-    close_old_connections()
-    logger.info("CRON TASK: SSL Certificate Check for Legitimate Domains")
-    from .utils.ssl_checker import SSLCertificateChecker
-    
-    for domain in domains:
-        try:
-            checker = SSLCertificateChecker(domain.domain_name)
-            
-            if checker.fetch_certificate():
-                ssl_expiry = checker.get_expiration_date()
-                
-                if ssl_expiry:
-                    # Only update if different
-                    if str(domain.ssl_expiry) != ssl_expiry:
-                        old_ssl_expiry = domain.ssl_expiry
-                        domain.ssl_expiry = ssl_expiry
-                        domain.save(update_fields=['ssl_expiry'])
-                        
-                        logger.info(f"Updated SSL expiry for {domain.domain_name}: {old_ssl_expiry} → {ssl_expiry}")
-                else:
-                    logger.warning(f"Could not extract SSL expiry date for {domain.domain_name}")
-            else:
-                logger.debug(f"No SSL certificate found for {domain.domain_name}")
-                
-        except Exception as e:
-            logger.error(f"Error checking SSL for {domain.domain_name}: {str(e)}")
-
-
-
+@logged_job("RDAP/WHOIS lookup for monitored sites", logger)
 def update_monitored_sites_rdap_data():
     """
     Update RDAP/WHOIS data for monitored sites.
@@ -1672,6 +1151,7 @@ def update_monitored_sites_rdap_data():
     for site in sites:
         try:
             from .utils.rdap import RDAPDiscovery
+            job_count('sites')
             rdap = RDAPDiscovery(site.domain_name)
             method = "RDAP"
 
@@ -1679,7 +1159,8 @@ def update_monitored_sites_rdap_data():
                 from .utils.whois import WhoisDiscovery
                 whois = WhoisDiscovery(site.domain_name)
                 if not whois.fetch_whois_data():
-                    logger.warning(f"No RDAP/WHOIS data found for {site.domain_name}")
+                    job_count('without_data')
+                    logger.debug(f"No RDAP/WHOIS data found for {site.domain_name}")
                     continue
 
                 rdap = whois
@@ -1753,11 +1234,13 @@ def update_monitored_sites_rdap_data():
 
             if updated:
                 site.save()
+                job_count('updated')
                 logger.info(f"Successfully updated {method} data for {site.domain_name}: {', '.join(update_info)}")
             else:
                 logger.debug(f"No updates needed for {site.domain_name}")
 
         except Exception as e:
+            job_count('errors')
             logger.error(f"Error processing {site.domain_name}: {str(e)}")
 
 
@@ -1772,3 +1255,63 @@ def update_all_ssl_certificates():
     
     success_count = update_all_sites_ssl_certificates()
     logger.info(f"SSL certificate check completed: {success_count} sites updated")
+
+
+# Screenshots of web pages, for every module: the client of the `screenshotter` container (a headless browser on its own
+# network that refuses everything that is not a public http(s) address) and the keeping of what it answers.
+# A screenshot bigger than this is not kept: the service already limits the height of the page it captures
+SCREENSHOT_MAX_BYTES = 3 * 1024 * 1024
+
+
+def screenshots_configured():
+    return bool(getattr(settings, 'SCREENSHOT_SERVICE_URL', ''))
+
+
+def screenshots_kept_per_object():
+    return max(1, int(getattr(settings, 'SCREENSHOT_KEEP', 10)))
+
+
+def capture_page(url):
+    """The JPEG of a page, or None when the service is off, refuses the address or fails (said in the log)."""
+    if not screenshots_configured():
+        return None
+    try:
+        # The service is on a private network: no proxy between it and Watcher
+        response = requests.post(settings.SCREENSHOT_SERVICE_URL.rstrip('/') + '/screenshot', json={'url': url},
+                                 timeout=settings.SCREENSHOT_TIMEOUT, proxies={'http': None, 'https': None})
+    except requests.exceptions.RequestException as exc:
+        logger.warning(f"Screenshot of {url}: the service did not answer ({type(exc).__name__})")
+        return None
+    if response.status_code != 200:
+        logger.warning(f"Screenshot of {url}: the service answered {response.status_code} ({response.text[:60]})")
+        return None
+    if len(response.content) > SCREENSHOT_MAX_BYTES:
+        logger.warning(f"Screenshot of {url}: {len(response.content) // 1024} KB, too big to keep")
+        return None
+    return response.content
+
+
+def take_screenshot(target, target_id, url, user=None):
+    """
+    Take a screenshot of a page for an object and keep it; only the newest ones of an object are kept. Every capture is a
+    visit from Watcher: it is logged with who asked for it.
+
+    :param target: kind of object, `app.model` (e.g. `data_leak.alert`).
+    :return: the Screenshot, or None when it could not be taken.
+    """
+    image = capture_page(url)
+    if image is None:
+        return None
+    user = user if getattr(user, 'pk', None) else None
+    shot = Screenshot.objects.create(target=target, target_id=target_id, url=url[:1000], image=image, size=len(image),
+                                     taken_by=user)
+    old = list(Screenshot.objects.filter(target=target, target_id=target_id).values_list('id', flat=True)[screenshots_kept_per_object():])
+    if old:
+        Screenshot.objects.filter(id__in=old).delete()
+    logger.info(f"Screenshot of {url} ({target} #{target_id}) taken by {user.get_username() if user else '-'}")
+    return shot
+
+
+def forget_screenshots(target, target_id):
+    """Delete the screenshots of an object that goes away."""
+    Screenshot.objects.filter(target=target, target_id=target_id).delete()
