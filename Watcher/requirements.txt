@@ -24,7 +24,7 @@ nltk==3.10.3
 python-tlsh==4.5.0
 
 # Networking and DNS Utilities
-dnspython==2.8.0
+dnspython==2.9.0
 dnstwist==20250130
 # certstream==1.12  # Replaced by internal certstream-server-go + websocket-client
 websocket-client==1.9.0
