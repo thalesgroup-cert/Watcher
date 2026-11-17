@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     services:
       mysql:
@@ -34,7 +34,7 @@ jobs:
         
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0
+        pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchvision==0.28.0 torchaudio==2.11.0
         npm install
         npx cypress install
     
