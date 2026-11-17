@@ -10,9 +10,9 @@ DEFINITION = {
     'version': '1.0.0',
     'author': 'Thales CERT',
     'fields': [
-        {'name': 'API_KEY', 'label': 'API Key', 'type': 'password', 'settings_key': 'OPENAI_API_KEY', 'required': True},
-        {'name': 'MODEL_NAME', 'label': 'Model Name', 'type': 'text', 'settings_key': 'OPENAI_MODEL', 'required': True},
-        {'name': 'BASE_URL', 'label': 'Custom Base URL (Optional)', 'type': 'text', 'settings_key': 'OPENAI_BASE_URL', 'required': False},
+        {'name': 'OPENAI_API_KEY', 'label': 'API Key', 'type': 'password', 'settings_key': 'OPENAI_API_KEY', 'required': True, 'placeholder': 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx'},
+        {'name': 'OPENAI_MODEL', 'label': 'Model Name', 'type': 'text', 'settings_key': 'OPENAI_MODEL', 'required': True, 'placeholder': 'openai/gpt-4o-mini'},
+        {'name': 'OPENAI_BASE_URL', 'label': 'Base URL (Optional)', 'type': 'text', 'settings_key': 'OPENAI_BASE_URL', 'required': False, 'litellm_provider': 'openai', 'placeholder': 'Enter the custom base URL with this mention: https://your-custom-base_url.com/v1'},
     ],
 }
 

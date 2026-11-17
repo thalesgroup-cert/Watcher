@@ -6,6 +6,7 @@ import pkgutil
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.utils import timezone
+from functools import lru_cache
 
 logger = logging.getLogger('watcher.connectors')
 
@@ -125,6 +126,19 @@ def _ensure_connectors_seeded() -> None:
     _connectors_seeded = True
 
 
+@lru_cache(maxsize=None)
+def litellm_default_api_base(provider: str) -> str:
+    """Return the API URL that LiteLLM uses for a provider when no api_base is given, or '' if unavailable."""
+    try:
+        from litellm.types.utils import LlmProviders
+        from litellm.utils import ProviderConfigManager
+        info = ProviderConfigManager.get_provider_model_info(model=None, provider=LlmProviders(provider))
+        url = (info.get_api_base() if info else None) or ''
+    except Exception:
+        return ''
+    return url
+
+
 def _resolve_raw(connector_id: str, field: dict) -> str:
     """Return the stored (possibly encrypted) raw value for a field."""
     from .models import ConnectorOverride
@@ -137,6 +151,8 @@ def _resolve_raw(connector_id: str, field: dict) -> str:
         pass
     # Fallback to settings.py / env
     value = _get_settings_value(field)
+    if not value and field.get('litellm_provider'):
+        value = litellm_default_api_base(field['litellm_provider'])
     if value and _is_sensitive(field['name']):
         return connector_encrypt(value)
     return value
@@ -190,6 +206,10 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
         else:
             display_value = raw
 
+        provider = field.get('litellm_provider')
+        from_default = bool(provider) and bool(raw) and field['name'] not in override_dict \
+            and raw == litellm_default_api_base(provider)
+
         fields_out.append({
             'name': field['name'],
             'label': field.get('label', field['name']),
@@ -197,6 +217,9 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
             'value': display_value,
             'sensitive': sensitive,
             'required': field.get('required', False),
+            'placeholder': field.get('placeholder', ''),
+            'from_default': from_default,
+            'has_default': bool(provider),
             'overridden': field['name'] in override_dict and field['name'] not in auto_seeded,
         })
 
@@ -252,12 +275,16 @@ def save_connector_overrides(connector_id: str, fields: dict) -> None:
     if definition.get('readonly'):
         raise PermissionError(f"Connector '{connector_id}' is read-only and cannot be overridden")
     known_names = {f['name'] for f in definition.get('fields', [])}
+    field_defs = {f['name']: f for f in definition.get('fields', [])}
 
     obj, created = ConnectorOverride.objects.get_or_create(connector_id=connector_id)
 
     to_store = {}
     for name, value in fields.items():
         if name not in known_names:
+            continue
+        provider = field_defs[name].get('litellm_provider')
+        if provider and value and value == litellm_default_api_base(provider) and name not in obj.overrides:
             continue
         # Untouched masked placeholder - keep the existing stored value as-is.
         if value == '••••••••':

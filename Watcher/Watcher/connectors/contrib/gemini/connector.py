@@ -10,9 +10,9 @@ DEFINITION = {
     'version': '1.0.0',
     'author': 'Thales CERT',
     'fields': [
-        {'name': 'API_KEY', 'label': 'API Key', 'type': 'password', 'settings_key': 'GEMINI_API_KEY', 'required': True},
-        {'name': 'MODEL_NAME', 'label': 'Model Name (e.g. gemini/gemini-1.5-pro)', 'type': 'text', 'settings_key': 'GEMINI_MODEL', 'required': True},
-        {'name': 'BASE_URL', 'label': 'Custom Base URL (Optional)', 'type': 'text', 'settings_key': 'GEMINI_BASE_URL', 'required': False},
+        {'name': 'GEMINI_API_KEY', 'label': 'API Key', 'type': 'password', 'settings_key': 'GEMINI_API_KEY', 'required': True, 'placeholder': 'AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'},
+        {'name': 'GEMINI_MODEL', 'label': 'Model Name', 'type': 'text', 'settings_key': 'GEMINI_MODEL', 'required': True, 'placeholder': 'gemini/gemini-2.5-flash'},
+        {'name': 'GEMINI_BASE_URL', 'label': 'Base URL (Optional)', 'type': 'text', 'settings_key': 'GEMINI_BASE_URL', 'required': False, 'litellm_provider': 'gemini', 'placeholder': 'https://your-custom-base_url.com/v1beta'},
     ],
 }
 

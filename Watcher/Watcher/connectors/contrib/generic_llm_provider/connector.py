@@ -12,9 +12,9 @@ DEFINITION = {
     'version': '1.0.0',
     'author': 'Thales CERT',
     'fields': [
-        {'name': 'API_KEY', 'label': 'API Key', 'type': 'password', 'settings_key': 'GENERIC_LLM_KEY', 'required': True},
-        {'name': 'BASE_URL', 'label': 'Base URL', 'type': 'text', 'settings_key': 'GENERIC_LLM_URL', 'required': True},
-        {'name': 'MODEL_NAME', 'label': 'Model Name', 'type': 'text', 'settings_key': 'GENERIC_LLM_MODEL', 'required': True},
+        {'name': 'GENERIC_LLM_KEY', 'label': 'API Key', 'type': 'password', 'settings_key': 'GENERIC_LLM_KEY', 'required': True, 'placeholder': 'your-api-key'},
+        {'name': 'GENERIC_LLM_MODEL', 'label': 'Model Name', 'type': 'text', 'settings_key': 'GENERIC_LLM_MODEL', 'required': True, 'placeholder': 'provider/your-model-name'},
+        {'name': 'GENERIC_LLM_URL', 'label': 'Base URL', 'type': 'text', 'settings_key': 'GENERIC_LLM_URL', 'required': True, 'placeholder': 'https://llm.example.com/v1'},
     ],
 }
 

@@ -1,10 +1,12 @@
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
+
+import connectors.core as core_mod
 
 from connectors.models import ConnectorOverride, ConnectorHealthCheck
 from connectors.core import (
@@ -624,6 +626,7 @@ class WeeklyHealthCheckJobTest(TestCase):
         actions = PendingAction.objects.filter(action_type='connector_health_check')
         self.assertEqual(actions.count(), 2)
 
+
 class DefaultLLMConfigurationTest(TestCase):
     """Tests for default LLM selection exclusivity and API endpoint."""
 
@@ -681,11 +684,12 @@ class CommonLLMHealthCheckTest(TestCase):
     """common_health_check is shared by every LiteLLM connector (openai, anthropic, gemini, ollama, generic)."""
 
     DEFINITION = {
+        'id': 'openai',
         'name': 'Test Provider',
         'fields': [
-            {'name': 'API_KEY', 'label': 'API Key', 'required': True},
-            {'name': 'MODEL_NAME', 'label': 'Model Name', 'required': True},
-            {'name': 'BASE_URL', 'label': 'Base URL', 'required': False},
+            {'name': 'OPENAI_API_KEY', 'label': 'API Key', 'required': True},
+            {'name': 'OPENAI_MODEL', 'label': 'Model Name', 'required': True},
+            {'name': 'OPENAI_BASE_URL', 'label': 'Base URL', 'required': False},
         ],
     }
 
@@ -699,46 +703,46 @@ class CommonLLMHealthCheckTest(TestCase):
             return common_health_check(self._plain(values), self.DEFINITION), mock_completion
 
     def test_missing_required_field_does_not_call_the_api(self):
-        result, mock_completion = self._run({'API_KEY': 'key'})
+        result, mock_completion = self._run({'OPENAI_API_KEY': 'key'})
         self.assertFalse(result['success'])
         self.assertIn('Model Name', result['message'])
         mock_completion.assert_not_called()
 
     def test_success_with_valid_response(self):
-        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'gpt-test'}, return_value=MagicMock())
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'gpt-test'}, return_value=MagicMock())
         self.assertTrue(result['success'])
         self.assertIn('Test Provider', result['message'])
         self.assertIn('gpt-test', result['message'])
 
     def test_base_url_is_passed_only_when_set(self):
-        _, mock_completion = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, return_value=MagicMock())
+        _, mock_completion = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, return_value=MagicMock())
         self.assertNotIn('api_base', mock_completion.call_args.kwargs)
         _, mock_completion = self._run(
-            {'API_KEY': 'key', 'MODEL_NAME': 'm', 'BASE_URL': 'http://llm.local'}, return_value=MagicMock()
+            {'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm', 'OPENAI_BASE_URL': 'http://llm.local'}, return_value=MagicMock()
         )
         self.assertEqual(mock_completion.call_args.kwargs['api_base'], 'http://llm.local')
 
     def test_empty_response_is_a_failure(self):
-        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, return_value=None)
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, return_value=None)
         self.assertFalse(result['success'])
         self.assertIn('Empty response', result['message'])
 
     def test_authentication_error_message(self):
         import litellm
         error = litellm.AuthenticationError(message="bad key", llm_provider="openai", model="m")
-        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, side_effect=error)
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, side_effect=error)
         self.assertFalse(result['success'])
         self.assertIn('Invalid API Key', result['message'])
 
     def test_connection_error_message(self):
         import litellm
         error = litellm.APIConnectionError(message="unreachable", llm_provider="openai", model="m")
-        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, side_effect=error)
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, side_effect=error)
         self.assertFalse(result['success'])
         self.assertIn('Connection error', result['message'])
 
     def test_unexpected_error_is_reported(self):
-        result, _ = self._run({'API_KEY': 'key', 'MODEL_NAME': 'm'}, side_effect=Exception("boom"))
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, side_effect=Exception("boom"))
         self.assertFalse(result['success'])
         self.assertIn('boom', result['message'])
 
@@ -751,6 +755,14 @@ class CommonLLMHealthCheckTest(TestCase):
                 result = module.health_check(self._plain({}))
             self.assertTrue(result['success'], connector)
             mock_common.assert_called_once()
+
+    def test_litellm_default_url_is_not_sent(self):
+        with patch('connectors.contrib.common_llm.litellm_default_api_base', return_value='https://api.openai.com/v1'):
+            _, mock_completion = self._run(
+                {'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm', 'OPENAI_BASE_URL': 'https://api.openai.com/v1'},
+                return_value=MagicMock(),
+            )
+        self.assertNotIn('api_base', mock_completion.call_args.kwargs)
 
 
 class CitadelHealthCheckTest(TestCase):
@@ -798,3 +810,138 @@ class CitadelHealthCheckTest(TestCase):
             result = health_check(self._plain({}))
         self.assertFalse(result['success'])
         mock_get.assert_not_called()
+
+
+LITELLM_OPENAI_URL = 'https://api.openai.com/v1'
+
+
+class LiteLLMDefaultBaseUrlTest(TestCase):
+    """BASE_URL of an LLM connector falls back to the official API URL known by LiteLLM."""
+
+    def setUp(self):
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+        ConnectorOverride.objects.filter(connector_id='openai').delete()
+        patcher = patch.object(core_mod, 'litellm_default_api_base', return_value=LITELLM_OPENAI_URL)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _base_url(self):
+        connector = core_mod.get_connector_by_id('openai')
+        return next(f for f in connector['fields'] if f['name'] == 'OPENAI_BASE_URL')
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_shows_litellm_default_when_nothing_is_configured(self):
+        field = self._base_url()
+        self.assertEqual(field['value'], LITELLM_OPENAI_URL)
+        self.assertTrue(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='https://env.example.com/v1')
+    def test_env_value_takes_precedence(self):
+        field = self._base_url()
+        self.assertEqual(field['value'], 'https://env.example.com/v1')
+        self.assertFalse(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_manual_value_takes_precedence(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': 'https://custom.example.com/v1'})
+        field = self._base_url()
+        self.assertEqual(field['value'], 'https://custom.example.com/v1')
+        self.assertFalse(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_cleared_value_stays_empty(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': ''})
+        field = self._base_url()
+        self.assertEqual(field['value'], '')
+        self.assertFalse(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_unchanged_default_is_not_stored(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': LITELLM_OPENAI_URL})
+        overrides = ConnectorOverride.objects.get(connector_id='openai').overrides
+        self.assertNotIn('OPENAI_BASE_URL', overrides)
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_reset_restores_litellm_default(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': 'https://custom.example.com/v1'})
+        core_mod.reset_connector_field('openai', 'OPENAI_BASE_URL')
+        field = self._base_url()
+        self.assertEqual(field['value'], LITELLM_OPENAI_URL)
+        self.assertTrue(field['from_default'])
+
+
+class LiteLLMDefaultApiBaseFunctionTest(TestCase):
+    """litellm_default_api_base itself, against the installed LiteLLM version."""
+
+    def setUp(self):
+        core_mod.litellm_default_api_base.cache_clear()
+        self.addCleanup(core_mod.litellm_default_api_base.cache_clear)
+
+    def test_returns_empty_string_when_litellm_lookup_fails(self):
+        with patch('litellm.utils.ProviderConfigManager.get_provider_model_info', side_effect=RuntimeError):
+            self.assertEqual(core_mod.litellm_default_api_base('openai'), '')
+
+
+class LLMFieldsTableTest(TestCase):
+    """LLM_FIELDS must match the field names declared by each LLM connector."""
+
+    def setUp(self):
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+
+    def test_llm_fields_match_connector_definitions(self):
+        from connectors.contrib.common_llm import LLM_FIELDS
+        for connector_id, fields in LLM_FIELDS.items():
+            names = {f['name'] for f in get_connector_by_id(connector_id)['fields']}
+            for name in fields.values():
+                self.assertIn(name, names, f"{connector_id}: field {name} not found")
+
+
+class RenameLLMFieldsMigrationTest(TestCase):
+    """Migration 0006 renames the LLM connector fields stored before 3.8.0."""
+
+    def setUp(self):
+        import importlib
+        self.migration = importlib.import_module('connectors.migrations.0006_rename_llm_connector_fields')
+
+        class _FakeApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                return ConnectorOverride
+
+        self.apps = _FakeApps()
+
+    def test_old_names_are_renamed_and_values_kept(self):
+        secret = connector_encrypt('sk-old')
+        ConnectorOverride.objects.create(
+            connector_id='openai',
+            overrides={'API_KEY': secret, 'MODEL_NAME': 'openai/gpt-4o-mini', 'BASE_URL': 'https://custom.example.com/v1'},
+            auto_seeded_fields=['MODEL_NAME'],
+        )
+        self.migration.rename_llm_fields(self.apps, None)
+
+        obj = ConnectorOverride.objects.get(connector_id='openai')
+        self.assertEqual(obj.overrides, {
+            'OPENAI_API_KEY': secret,
+            'OPENAI_MODEL': 'openai/gpt-4o-mini',
+            'OPENAI_BASE_URL': 'https://custom.example.com/v1',
+        })
+        self.assertEqual(obj.auto_seeded_fields, ['OPENAI_MODEL'])
+
+    def test_value_already_saved_under_new_name_is_kept(self):
+        ConnectorOverride.objects.create(
+            connector_id='ollama',
+            overrides={'BASE_URL': 'http://old:11434', 'OLLAMA_API_URL': 'http://new:11434'},
+        )
+        self.migration.rename_llm_fields(self.apps, None)
+
+        obj = ConnectorOverride.objects.get(connector_id='ollama')
+        self.assertEqual(obj.overrides, {'OLLAMA_API_URL': 'http://new:11434'})
+
+    def test_reverse_restores_old_names(self):
+        ConnectorOverride.objects.create(connector_id='gemini', overrides={'GEMINI_MODEL': 'gemini/gemini-2.5-flash'})
+        self.migration.restore_llm_fields(self.apps, None)
+
+        obj = ConnectorOverride.objects.get(connector_id='gemini')
+        self.assertEqual(obj.overrides, {'MODEL_NAME': 'gemini/gemini-2.5-flash'})

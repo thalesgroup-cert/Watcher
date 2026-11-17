@@ -42,7 +42,7 @@ Watcher is a Django & React JS platform designed to discover and monitor emergin
 
 Watcher empowers your security operations with comprehensive threat detection and monitoring:
 
-- **AI-Driven Threat Intelligence** - Transform raw threat data into actionable intelligence with the LLM of your choice (OpenAI, Anthropic, Gemini, Ollama or any OpenAI-compatible endpoint), with an automatic fallback to a local model. Get a weekly report clustering the top threats by severity, real-time breaking news alerts with impact level, targeted sectors, threat actors and CVEs, and on-demand summaries for any security keyword. Any summary can be regenerated on demand.
+- **AI-Driven Threat Intelligence** - Transform raw threat data into actionable intelligence with the LLM of your choice (OpenAI, Anthropic, Gemini, Ollama or any endpoint supported by LiteLLM), with an automatic fallback to a local model. Get a weekly report clustering the top threats by severity, real-time breaking news alerts with impact level, targeted sectors, threat actors and CVEs, and on-demand summaries for any security keyword. Any summary can be regenerated on demand.
 
 - **CVE & Ransomware Intelligence** - Continuously fetch, correlate, and surface external threat data: CVEs from [cve.circl.lu](https://cve.circl.lu), ransomware victims and groups from [ransomware.live](https://ransomware.live) and [ransomlook.io](https://ransomlook.io). Define keyword-based Watch Rules to get alerted when specific threats match your organisation's context.
 

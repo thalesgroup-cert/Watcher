@@ -7,84 +7,30 @@ logger = logging.getLogger(__name__)
 class LLMRouter:
     """Central router that dispatches requests via LiteLLM based on active Watcher connectors."""
     
-    def _get_llm_config(self, connector_id: str):
-        """Fetches the configuration dynamically from Watcher's database or fallbacks to Django settings (.env)."""
-        from connectors.models import ConnectorOverride 
-        config = {}
-        
-        try:
-            override = ConnectorOverride.objects.get(connector_id=connector_id)
-            if override.overrides:
-                config = override.overrides
-        except ConnectorOverride.DoesNotExist:
-            pass
+    def _get_llm_config(self, connector_id: str) -> dict:
+        """Read the connector's API key, model and base URL as the Connectors page resolves them (saved value, .env, LiteLLM default)."""
+        from connectors.contrib.common_llm import LLM_FIELDS
+        from connectors.core import get_config_value
 
-        if not config:
-            if connector_id == 'generic_llm_provider':
-                config = {
-                    'MODEL_NAME': getattr(settings, 'GENERIC_LLM_MODEL', ''),
-                    'API_KEY': getattr(settings, 'GENERIC_LLM_KEY', ''),
-                    'BASE_URL': getattr(settings, 'GENERIC_LLM_URL', '')
-                }
-            elif connector_id == 'ollama':
-                config = {
-                    'MODEL_NAME': getattr(settings, 'OLLAMA_MODEL', ''),
-                    'API_KEY': getattr(settings, 'OLLAMA_API_KEY', 'ollama'),
-                    'BASE_URL': getattr(settings, 'OLLAMA_BASE_URL', '')
-                }
-            elif connector_id == 'openai':
-                config = {
-                    'MODEL_NAME': getattr(settings, 'OPENAI_MODEL', ''),
-                    'API_KEY': getattr(settings, 'OPENAI_API_KEY', ''),
-                    'BASE_URL': getattr(settings, 'OPENAI_BASE_URL', '')
-                }
-            elif connector_id == 'anthropic':
-                config = {
-                    'MODEL_NAME': getattr(settings, 'ANTHROPIC_MODEL', ''),
-                    'API_KEY': getattr(settings, 'ANTHROPIC_API_KEY', ''),
-                    'BASE_URL': getattr(settings, 'ANTHROPIC_BASE_URL', '')
-                }
-            elif connector_id == 'gemini':
-                config = {
-                    'MODEL_NAME': getattr(settings, 'GEMINI_MODEL', ''),
-                    'API_KEY': getattr(settings, 'GEMINI_API_KEY', ''),
-                    'BASE_URL': getattr(settings, 'GEMINI_BASE_URL', '')
-                }
-                
-        return config
-
-    def _decrypt_api_key(self, api_key: str) -> str:
-        """Decrypts the API key if it's encrypted with Fernet (starts with gAAA)."""
-        if not api_key or not api_key.startswith('gAAA'):
-            return api_key
-            
-        try:
-            from cryptography.fernet import Fernet
-            
-            fernet_key = settings.CONNECTORS_ENCRYPTION_KEY
-            cipher_suite = Fernet(fernet_key)
-            
-            decrypted_text = cipher_suite.decrypt(api_key.encode('utf-8')).decode('utf-8')
-            return decrypted_text
-            
-        except Exception as e:
-            logger.warning(f"Could not decrypt API key: {e}")
-            return api_key
+        fields = LLM_FIELDS.get(connector_id)
+        if not fields:
+            return {}
+        return {role: get_config_value(connector_id, name) for role, name in fields.items()}
 
     def _call_litellm(self, prompt: str, connector_id: str, **kwargs) -> str:
         """Prepares and executes the request to any LLM via LiteLLM."""
         config = self._get_llm_config(connector_id)
         
         if not config:
-            raise LLMGatewayError(f"Connector '{connector_id}' is not configured in Watcher.")
+            raise LLMGatewayError(f"Connector '{connector_id}' is not an LLM connector configured in Watcher.")
 
-        model = config.get('MODEL_NAME')
+        model = config.get('model')
         self.model_used = model
-        api_key = self._decrypt_api_key(config.get('API_KEY'))
-        base_url = config.get('BASE_URL')
+        api_key = config.get('api_key')
+        base_url = config.get('base_url')
 
         if not model:
-            raise LLMGatewayError(f"The MODEL_NAME field is missing for {connector_id}.")
+            raise LLMGatewayError(f"The model name is missing for {connector_id}.")
 
         call_kwargs = {
             "model": model,
@@ -94,7 +40,9 @@ class LLMRouter:
         
         if api_key:
             call_kwargs["api_key"] = api_key
-        if base_url:
+
+        from connectors.core import litellm_default_api_base
+        if base_url and base_url != litellm_default_api_base(connector_id):
             call_kwargs["api_base"] = base_url
 
         import os

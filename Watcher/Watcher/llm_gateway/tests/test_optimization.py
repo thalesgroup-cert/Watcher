@@ -5,7 +5,6 @@ from unittest.mock import patch
 from llm_gateway.utils.log_pruner import LogPruner
 from llm_gateway.utils.token_manager import TokenManager
 from llm_gateway.utils.prompt_builder import PromptBuilder
-from llm_gateway.services.analyzer import SecurityAnalyzerService
 from llm_gateway.router import LLMRouter
 from llm_gateway.exceptions import LLMConnectionError
 from connectors.core import connector_encrypt
@@ -73,64 +72,6 @@ class OptimizationTests(TestCase):
         self.assertIn("brute_force_attempt", prompt)
 
 
-    @patch('llm_gateway.services.analyzer.SecurityAnalyzerService._call_remote_llm')
-    def test_analyzer_successful_remote_analysis(self, mock_call_remote):
-        """Test that the analysis via the remote connector succeeds."""
-        mock_call_remote.return_value = "Analysis complete: No threat detected."
-        
-        service = SecurityAnalyzerService()
-        result = service.analyze([{"event": "normal_login"}], active_connector_id="openai_llm")
-        
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(result["source"], "openai_llm")
-        self.assertEqual(result["analysis"], "Analysis complete: No threat detected.")
-        mock_call_remote.assert_called_once()
-
-    @patch('llm_gateway.services.analyzer.SecurityAnalyzerService._call_local_fallback')
-    @patch('llm_gateway.services.analyzer.SecurityAnalyzerService._call_remote_llm')
-    def test_analyzer_triggers_fallback_on_failure(self, mock_call_remote, mock_call_fallback):
-        """Test that the system falls back to the local model if the remote API fails."""
-        mock_call_remote.side_effect = Exception("API Down or Invalid Key")
-        mock_call_fallback.return_value = "Local fallback analysis."
-        
-        service = SecurityAnalyzerService()
-        result = service.analyze([{"event": "login_failed"}], active_connector_id="broken_llm")
-        
-        self.assertEqual(result["status"], "degraded")
-        self.assertEqual(result["source"], "local_fallback")
-        self.assertEqual(result["analysis"], "Local fallback analysis.")
-        mock_call_remote.assert_called_once()
-        mock_call_fallback.assert_called_once()
-
-
-class RouterApiKeyDecryptionTests(TestCase):
-    """Test the Fernet decryption of API keys in the router and the analyzer."""
-
-    def test_router_decrypts_fernet_key(self):
-        encrypted = connector_encrypt("sk-secret")
-        self.assertTrue(encrypted.startswith("gAAA"))
-        self.assertEqual(LLMRouter()._decrypt_api_key(encrypted), "sk-secret")
-
-    def test_router_keeps_plain_key(self):
-        self.assertEqual(LLMRouter()._decrypt_api_key("sk-plain"), "sk-plain")
-
-    def test_router_handles_empty_key(self):
-        self.assertEqual(LLMRouter()._decrypt_api_key(""), "")
-        self.assertIsNone(LLMRouter()._decrypt_api_key(None))
-
-    def test_router_returns_raw_value_when_decryption_fails(self):
-        self.assertEqual(LLMRouter()._decrypt_api_key("gAAA-not-a-valid-token"), "gAAA-not-a-valid-token")
-
-    def test_analyzer_decrypts_fernet_key(self):
-        encrypted = connector_encrypt("sk-secret")
-        self.assertEqual(SecurityAnalyzerService()._decrypt_api_key(encrypted), "sk-secret")
-
-    def test_analyzer_keeps_plain_key_and_handles_invalid_token(self):
-        service = SecurityAnalyzerService()
-        self.assertEqual(service._decrypt_api_key("sk-plain"), "sk-plain")
-        self.assertEqual(service._decrypt_api_key("gAAA-invalid"), "gAAA-invalid")
-
-
 class RouterGenerateTextTests(TestCase):
     """Test generate_text: the router is APIs-only and returns None instead of raising."""
 
@@ -174,16 +115,30 @@ class RouterGenerateTextTests(TestCase):
 
 
 class RouterConfigTests(TestCase):
-    """Test the connector configuration lookup, including the generic_llm_provider rename."""
+    """The router reads the LLM connector fields through connectors.core, like the Connectors page."""
+
+    def setUp(self):
+        import connectors.core as core_mod
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
 
     def test_generic_llm_provider_falls_back_to_generic_settings(self):
         with self.settings(GENERIC_LLM_MODEL='m', GENERIC_LLM_KEY='k', GENERIC_LLM_URL='http://u'):
             config = LLMRouter()._get_llm_config('generic_llm_provider')
-        self.assertEqual(config, {'MODEL_NAME': 'm', 'API_KEY': 'k', 'BASE_URL': 'http://u'})
+        self.assertEqual(config, {'model': 'm', 'api_key': 'k', 'base_url': 'http://u'})
 
     def test_database_override_takes_precedence_over_settings(self):
         from connectors.models import ConnectorOverride
-        ConnectorOverride.objects.create(connector_id='generic_llm_provider', overrides={'MODEL_NAME': 'db-model'})
+        ConnectorOverride.objects.create(connector_id='generic_llm_provider', overrides={'GENERIC_LLM_MODEL': 'db-model'})
         with self.settings(GENERIC_LLM_MODEL='settings-model'):
             config = LLMRouter()._get_llm_config('generic_llm_provider')
-        self.assertEqual(config['MODEL_NAME'], 'db-model')
+        self.assertEqual(config['model'], 'db-model')
+
+    def test_encrypted_api_key_is_decrypted(self):
+        from connectors.models import ConnectorOverride
+        ConnectorOverride.objects.create(connector_id='openai', overrides={'OPENAI_API_KEY': connector_encrypt('sk-secret')})
+        config = LLMRouter()._get_llm_config('openai')
+        self.assertEqual(config['api_key'], 'sk-secret')
+
+    def test_unknown_connector_returns_empty_config(self):
+        self.assertEqual(LLMRouter()._get_llm_config('smtp'), {})

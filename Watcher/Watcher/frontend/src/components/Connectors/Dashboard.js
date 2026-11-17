@@ -207,13 +207,14 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave, onRese
                                        text={f.overridden ? undefined : 'dark'}
                                        className="ms-2"
                                        style={{ fontSize: 9, fontWeight: 400 }}>
-                                    {f.overridden ? 'Manually set' : 'From .env'}
+                                    {f.overridden ? 'Manually set' : f.from_default ? 'LiteLLM default' : 'From .env'}
                                 </Badge>
                             </Form.Label>
                             <div className="input-group input-group-sm">
                                 <Form.Control
                                     type={f.sensitive && !revealed.has(f.name) ? 'password' : 'text'}
                                     value={f.value || ''}
+                                    placeholder={f.placeholder || ''}
                                     onChange={e => handleChange(f.name, e.target.value)}
                                     disabled={connector.readonly}
                                     className="font-monospace"
@@ -243,7 +244,7 @@ function ConnectorEditModal({ connector, show, onClose, onReveal, onSave, onRese
                                     <Button type="button" variant="outline-secondary"
                                             disabled={!!resetting[f.name]}
                                             onClick={() => handleReset(f.name)}
-                                            title="Reset to .env default">
+                                            title={f.has_default ? 'Reset to .env or LiteLLM default' : 'Reset to .env default'}>
                                         {resetting[f.name]
                                             ? <Spinner animation="border" size="sm" />
                                             : <i className="material-icons"
@@ -644,6 +645,10 @@ class ConnectorsDashboard extends Component {
                                     Once a field has been saved here, even cleared to empty, it stops following <strong>settings.py</strong>/<strong>.env</strong> for good.
                                     Each field shows a <strong>From .env</strong> or <strong>Manually set</strong> badge, and manually-set fields get a reset
                                     button to drop the override and resume following <strong>settings.py</strong>/<strong>.env</strong> live
+                                </li>
+                                <li>
+                                    The Base URL of OpenAI, Anthropic and Gemini shows the official API URL provided by LiteLLM, with a <strong>LiteLLM default</strong> badge,
+                                    until another URL is set in <strong>.env</strong> or here. Resetting the field brings this official URL back
                                 </li>
                                 <li>
                                     Passwords, tokens and API keys are encrypted before being stored, and shown masked by default, click the eye icon to reveal
