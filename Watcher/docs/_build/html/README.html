@@ -1394,10 +1394,13 @@ the version of your MISP instance.</p>
 <p>Automated weekly report of the top trending threats:</p>
 <ol class="arabic simple">
 <li><p><strong>Scheduled Generation</strong>: Runs every <code class="docutils literal notranslate"><span class="pre">WEEKLY_SUMMARY_DAY</span></code> at <code class="docutils literal notranslate"><span class="pre">WEEKLY_SUMMARY_HOUR</span></code> (default: Thursday at 09:30)</p></li>
-<li><p><strong>Threat Clustering</strong>: The week’s topics are grouped into clusters, each with a severity level and its first publication date</p></li>
+<li><p><strong>Threat Clustering</strong>: The week’s topics are grouped into at most 5 clusters, most severe first, each with a severity level and its first publication date</p></li>
 <li><p><strong>Executive Summary</strong>: A short overview of the week’s threat landscape</p></li>
 <li><p><strong>Compact Display</strong>: Clusters are collapsed by default; use <strong>Expand All</strong> / <strong>Collapse All</strong> to toggle them. Your choice is remembered in your browser</p></li>
 </ol>
+<blockquote>
+<div><p>CVEs and threat actors are only shown when they are explicitly cited in the source articles: a week whose news names no CVE identifier shows no CVE.</p>
+</div></blockquote>
 <p><strong>Configure in <code class="docutils literal notranslate"><span class="pre">.env</span></code></strong>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><code><span id="line-1"><span class="nv">WEEKLY_SUMMARY_DAY</span><span class="o">=</span>Thursday
 </span><span id="line-2"><span class="nv">WEEKLY_SUMMARY_HOUR</span><span class="o">=</span><span class="m">09</span>:30
