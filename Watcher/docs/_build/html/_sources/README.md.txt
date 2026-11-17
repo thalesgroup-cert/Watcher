@@ -1105,9 +1105,11 @@ Clicking a trending word displays an AI summary of the related articles, with:
 Automated weekly report of the top trending threats:
 
 1. **Scheduled Generation**: Runs every `WEEKLY_SUMMARY_DAY` at `WEEKLY_SUMMARY_HOUR` (default: Thursday at 09:30)
-2. **Threat Clustering**: The week's topics are grouped into clusters, each with a severity level and its first publication date
+2. **Threat Clustering**: The week's topics are grouped into at most 5 clusters, most severe first, each with a severity level and its first publication date
 3. **Executive Summary**: A short overview of the week's threat landscape
 4. **Compact Display**: Clusters are collapsed by default; use **Expand All** / **Collapse All** to toggle them. Your choice is remembered in your browser
+
+> CVEs and threat actors are only shown when they are explicitly cited in the source articles: a week whose news names no CVE identifier shows no CVE.
 
 **Configure in `.env`**:
 ```bash
