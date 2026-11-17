@@ -2,9 +2,11 @@ import logging
 import re
 import difflib
 import json
+import time
 from typing import List, Set
 from datetime import timedelta
 from llm_gateway.router import LLMRouter
+from concurrent.futures import ThreadPoolExecutor
 
 from django.utils import timezone
 from django.conf import settings
@@ -376,6 +378,70 @@ def get_article_title_or_summary(posturl_obj):
     return ""
 
 
+def _fetch_article_text(posturl_obj) -> str:
+    """Fetch one article's text, or '' if it fails or is too short to be useful."""
+    try:
+        txt = (get_article_title_or_summary(posturl_obj) or "").strip()
+    except Exception as e:
+        logger.warning(f"Failed extracting article {getattr(posturl_obj, 'url', '')}: {e}")
+        return ""
+    return txt if len(txt) >= 30 else ""
+
+
+def fetch_article_texts(posturls, max_texts: int, max_workers: int = 5) -> List[str]:
+    """
+    Fetch article texts in parallel, most recent first, and return up to max_texts unique texts.
+    Articles are fetched in batches of max_workers, so fetching stops as soon as enough unique texts are found.
+    """
+    posturls = list(posturls)
+    texts = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for start in range(0, len(posturls), max_workers):
+            batch = posturls[start:start + max_workers]
+            texts.extend(txt for txt in executor.map(_fetch_article_text, batch) if txt)
+            texts = deduplicate_titles(texts)
+            if len(texts) >= max_texts:
+                break
+    return texts[:max_texts]
+
+
+_PLACEHOLDER_VALUES = {'', 'none', 'n/a', 'na', 'null', 'unknown'}
+
+
+def _grounded_cves(values, corpus: str) -> List[str]:
+    """Keep only the CVE IDs that actually appear in the news sent to the LLM."""
+    found = extract_and_normalize_cves(corpus)
+    cves = []
+    for value in values or []:
+        for cve in sorted(extract_and_normalize_cves(str(value))):
+            if cve in found and cve not in cves:
+                cves.append(cve)
+    return cves
+
+
+_DASHES = dict.fromkeys(map(ord, '\u2010\u2011\u2012\u2013\u2014\u2015\u2212'), '-')
+
+
+def _normalize_for_match(text: str) -> str:
+    """Lowercase text with unified dashes and spaces, so LLM typography does not break matching."""
+    text = str(text).translate(_DASHES).replace('\u00a0', ' ')
+    return re.sub(r'\s+', ' ', text).strip().lower()
+
+
+def _grounded_names(values, corpus: str) -> List[str]:
+    """Keep only the threat actor or malware names that actually appear in the news sent to the LLM."""
+    corpus_normalized = _normalize_for_match(corpus)
+    names, seen = [], set()
+    for value in values or []:
+        name = str(value).strip()
+        key = _normalize_for_match(name)
+        if key in _PLACEHOLDER_VALUES or key in seen or key not in corpus_normalized:
+            continue
+        seen.add(key)
+        names.append(name)
+    return names
+
+
 def extract_entities_and_threats(title: str) -> dict:
     """Extract entities and threats from title using NER model."""
     ner_pipe = get_ner_pipeline()
@@ -462,71 +528,79 @@ def generate_weekly_summary(notify=True):
 
         cutoff = timezone.now() - timedelta(days=30)
         trendywords_qs = TrendyWord.objects.all().order_by('-created_at')[:7]
-        
+
         weekly_context = []
         keywords_used = []
-        
+
+        start = time.monotonic()
+
+        topics = []
         for tw in trendywords_qs:
             posturls = list(tw.posturls.filter(created_at__gte=cutoff).order_by('-created_at')[:10])
-            if not posturls:
-                continue
-            
-            raw_titles = []
-            for pu in posturls:
-                try:
-                    txt = get_article_title_or_summary(pu)
-                    if txt:
-                        cleaned = clean_text_and_metadata(txt)
-                        if len(cleaned) > 30:
-                            raw_titles.append(cleaned)
-                except Exception:
-                    continue
-            
-            if raw_titles:
-                oldest_date = min(pu.created_at for pu in posturls)
-                formatted_date = oldest_date.strftime("%b %d, %Y")
+            if posturls:
+                topics.append((tw, posturls))
 
-                unique = deduplicate_titles(raw_titles)[:5]
-                weekly_context.append(f"Topic '{tw.name}' (First seen: {formatted_date}):\n" + "\n".join(f"- {t}" for t in unique))
-                keywords_used.append(tw.name)
+        topic_texts = []
+        if topics:
+            with ThreadPoolExecutor(max_workers=len(topics)) as executor:
+                topic_texts = list(executor.map(
+                    lambda topic: fetch_article_texts(topic[1], max_texts=5, max_workers=10), topics
+                ))
+
+        valid_topics = [(tw, posturls, unique) for (tw, posturls), unique in zip(topics, topic_texts) if unique]
+        topic_budget = 6000 // len(valid_topics) if valid_topics else 0
+
+        for tw, posturls, unique in valid_topics:
+            oldest_date = min(pu.created_at for pu in posturls)
+            formatted_date = oldest_date.strftime("%b %d, %Y")
+
+            header = f"Topic '{tw.name}' (First seen: {formatted_date}):\n"
+            body = "\n".join(f"- {t}" for t in unique)
+            weekly_context.append((header + body)[:topic_budget])
+            keywords_used.append(tw.name)
 
         if not weekly_context:
             logger.info("No valid data for weekly summary")
             return
 
         full_corpus = "\n\n".join(weekly_context)
+        logger.info(f"Weekly summary: {len(weekly_context)} topics built in {time.monotonic() - start:.1f}s "
+                    f"(corpus sent: {len(full_corpus)} chars, {len(extract_and_normalize_cves(full_corpus))} CVE IDs)")
         summary_text = None
         used_model = "Unknown"
 
         org_name = getattr(settings, 'ORGANIZATION_NAME', 'the organization')
         context = getattr(settings, 'THREATS_WATCHER_CONTEXT', 'global technology and cybersecurity')
 
-        prompt = f"""You are a Lead Cyber Threat Intelligence Analyst for {org_name} (key sectors: {context}).
-        Review the following trending cybersecurity topics and news from the past week.
-        Group them into logical threat clusters (e.g., 'Ransomware Operations', 'Critical Vulnerabilities').
+        prompt = (
+            f"You are a Lead Cyber Threat Intelligence Analyst for {org_name} (key sectors: {context}).\n"
+            "Review the following trending cybersecurity topics and news from the past week.\n"
+            "Group them into at most 5 threat clusters (e.g. 'Ransomware Operations', 'Critical Vulnerabilities'), most severe first.\n"
+            "Only use facts written in the news below. Never invent CVE IDs, threat actors or malware names: "
+            "use an empty list when the news names none.\n\n"
+            "Respond ONLY with a valid JSON object with this structure:\n"
+            "{\n"
+            '  "executive_summary": "2 sentences on the week\'s major threats.",\n'
+            '  "clusters": [\n'
+            "    {\n"
+            '      "theme": "Cluster name",\n'
+            "      \"date\": \"The 'First seen' date of the topic; the oldest one when merging topics.\",\n"
+            '      "severity": "Critical, High, Medium or Low",\n'
+            '      "summary": "2 to 3 sentences: what happened, the impact, the recommended action.",\n'
+            '      "cves": ["CVE IDs written in the news; [] if none"],\n'
+            '      "actors_or_malware": ["Threat actor or malware names written in the news; [] if none"]\n'
+            "    }\n"
+            "  ]\n"
+            "}\n\n"
+            f"Weekly News Context:\n{full_corpus}\n"
+        )
 
-        You MUST respond ONLY with a valid JSON object matching this exact structure:
-        {{
-            "executive_summary": "A concise 2-sentence high-level overview of the week's major threats.",
-            "clusters": [
-                {{
-                    "theme": "Cluster Name",
-                    "date": "Use the 'First seen' date provided next to the Topic name. If merging multiple topics, use the oldest date.",
-                    "severity": "Critical, High, Medium, or Low",
-                    "summary": "Detailed actionable summary of this cluster in a single clear paragraph.",
-                    "cves": ["CVE-XXXX-XXXX"],
-                    "actors_or_malware": ["APT29", "LockBit"]
-                }}
-            ]
-        }}
-
-        Weekly News Context:
-        {full_corpus[:6000]}
-        """
         try:
             from llm_gateway.router import LLMRouter
             router = LLMRouter()
+            start = time.monotonic()
             llm_response = router.generate_text(prompt=prompt)
+            logger.info(f"Weekly summary: LLM answered in {time.monotonic() - start:.1f}s")
             
             if llm_response:
                 json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
@@ -584,11 +658,15 @@ def generate_weekly_summary(notify=True):
                         lines.append(f"<p class='mb-3 text-body' style='font-size: 0.9em; line-height: 1.4;'>{summary_info}</p>")
                         
                         meta_lines = []
-                        threats = [t for t in cluster.get('actors_or_malware', []) if t and str(t).strip().lower() != 'none']
+                        raw_threats = cluster.get('actors_or_malware', [])
+                        threats = _grounded_names(raw_threats, full_corpus)
+                        raw_cves = cluster.get('cves', [])
+                        cves = _grounded_cves(raw_cves, full_corpus)
+                        logger.debug(f"Weekly cluster '{theme}': CVEs {raw_cves} -> {cves}, threats {raw_threats} -> {threats}")
+
                         if threats:
                             meta_lines.append(f"<div class='m-0'><strong class='text-muted'>Threats:</strong> <span class='badge bg-danger text-white'>{', '.join(threats)}</span></div>")
                         
-                        cves = [c for c in cluster.get('cves', []) if c and str(c).strip().lower() != 'none']
                         if cves:
                             cve_links = [f"<a href='https://nvd.nist.gov/vuln/detail/{c}' target='_blank' class='text-info text-decoration-underline'>{c}</a>" for c in cves]
                             meta_lines.append(f"<div class='m-0'><strong class='text-muted'>CVEs:</strong> {' | '.join(cve_links)}</div>")
@@ -732,28 +810,27 @@ def analyze_threat_with_llm(keyword: str, corpus: str) -> dict:
     org_name = getattr(settings, 'ORGANIZATION_NAME', 'the organization')
     context = getattr(settings, 'THREATS_WATCHER_CONTEXT', 'global technology and cybersecurity')
     
-    full_prompt = f"""You are an elite Cyber Threat Intelligence (CTI) analyst working for {org_name} (key sectors: {context}).
-Analyze the following cybersecurity news corpus about '{keyword}'.
-
-You MUST respond ONLY with a valid JSON object (no markdown, no extra text) matching exactly this structure:
-{{
-    "summary": "A 3-sentence actionable summary covering the threat, impact, and affected products/sectors.",
-    "impact_level": "Critical, High, Medium, or Low",
-    "alert_score": <int 1-10>,
-    "justification": "Brief explanation of the score based on relevance to {org_name} sectors.",
-    "entities": {{
-        "cves": ["Extract only real CVE identifiers (format: CVE-YYYY-NNNNN) explicitly present in the text. If none exist, output exactly [\"None\"]."],
-        "apts_or_actors": ["List of threat actors explicitly mentioned. If NONE are found, return exactly [\"None\"]. DO NOT deduce or guess based on the target."],
-        "malwares": ["List of malwares. If none, return [\"None\"]"],
-        "mitre_ttps": ["List of MITRE techniques. If none, return [\"None\"]"],
-        "targeted_sectors": ["List of targeted industries"],
-        "targeted_countries": ["List of targeted countries. If none, return [\"None\"]"]
-    }}
-}}
-
-News Corpus:
-{corpus[:4000]}
-"""
+    full_prompt = (
+        f"You are an elite Cyber Threat Intelligence (CTI) analyst working for {org_name} (key sectors: {context}).\n"
+        f"Analyze the following cybersecurity news corpus about '{keyword}'.\n\n"
+        "Respond ONLY with a valid JSON object (no markdown, no extra text) with this structure. "
+        "Every list except cves holds at most 3 items; use [\"None\"] when the text gives none:\n"
+        "{\n"
+        '  "summary": "A 3-sentence actionable summary covering the threat, impact, and affected products/sectors.",\n'
+        '  "impact_level": "Critical, High, Medium, or Low",\n'
+        '  "alert_score": <int 1-10>,\n'
+        f'  "justification": "One sentence explaining the score based on relevance to {org_name} sectors.",\n'
+        '  "entities": {\n'
+        '    "cves": ["Real CVE identifiers (CVE-YYYY-NNNNN) explicitly present in the text"],\n'
+        '    "apts_or_actors": ["Threat actors explicitly mentioned, never deduced from the target"],\n'
+        '    "malwares": ["Malware names"],\n'
+        '    "mitre_ttps": ["MITRE ATT&CK techniques"],\n'
+        '    "targeted_sectors": ["Targeted industries"],\n'
+        '    "targeted_countries": ["Targeted countries"]\n'
+        "  }\n"
+        "}\n\n"
+        f"News Corpus:\n{corpus[:4000]}\n"
+    )
 
     try:
         from llm_gateway.router import LLMRouter
@@ -783,33 +860,15 @@ def generate_breaking_news(trendy_word, notify=True):
     try:
         from .core import send_threats_watcher_notifications
 
-        posturls_qs = trendy_word.posturls.all().order_by('-created_at')
-        posturls = list(posturls_qs)
-
+        posturls = list(trendy_word.posturls.all().order_by('-created_at')[:15])
         if not posturls:
             return None
 
-        raw_texts = []
-        for posturl_obj in posturls:
-            try:
-                txt = get_article_title_or_summary(posturl_obj)
-                if not txt:
-                    continue
-                txt = clean_text_and_metadata(txt)
-                if txt and len(txt.strip()) >= 30:
-                    raw_texts.append(txt.strip())
-            except Exception:
-                continue
-
-        if not raw_texts:
+        candidate_texts = fetch_article_texts(posturls, max_texts=12)
+        if not candidate_texts:
             return None
 
-        unique_texts = deduplicate_titles(raw_texts)
-        candidate_texts = unique_texts if unique_texts else raw_texts
-
         corpus = "\n\n".join(candidate_texts).strip()
-        if len(corpus) < 40:
-            corpus = " ".join(raw_texts).strip()
         if len(corpus) < 40:
             return None
 
@@ -1138,24 +1197,12 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
         if not posturls:
             return None
 
-        raw_texts = []
-        for posturl_obj in posturls:
-            try:
-                txt = get_article_title_or_summary(posturl_obj)
-                if not txt:
-                    continue
-                txt = clean_text_and_metadata(txt)
-                if txt and len(txt.strip()) >= 30:
-                    raw_texts.append(txt.strip())
-            except Exception:
-                continue
-
-        if not raw_texts:
+        unique_texts = fetch_article_texts(posturls, max_texts=12)
+        if not unique_texts:
             logger.info(f"No valid content for '{keyword}'")
             return None
 
-        unique_texts = deduplicate_titles(raw_texts)
-        corpus = "\n\n".join(unique_texts[:12]).strip()
+        corpus = "\n\n".join(unique_texts).strip()
 
         if len(corpus) < 40:
             logger.info(f"Corpus too small for '{keyword}' (len={len(corpus)})")

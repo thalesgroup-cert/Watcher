@@ -13,6 +13,9 @@ from knox.models import AuthToken
 from rest_framework.test import APIClient
 from threats_watcher.models import Source, PostUrl, TrendyWord, BannedWord, Subscriber, Summary, MonitoredKeyword, WatcherConfiguration
 from threats_watcher.serializers import TrendyWordSerializer, BannedWordSerializer, SummarySerializer
+from unittest.mock import patch, MagicMock
+from django.test import SimpleTestCase
+from threats_watcher.summary_manager import fetch_article_texts, _grounded_cves, _grounded_names
 
 
 class ModelTest(TransactionTestCase):
@@ -909,3 +912,71 @@ class ThreatsWatcherBulkTest(APITestCase):
         response = self._post(self.BANNED_URL + 'bulk_delete/', {'ids': [a.pk, b.pk, 999999]})
         self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1), response.data)
         self.assertFalse(BannedWord.objects.filter(pk__in=[a.pk, b.pk]).exists())
+
+
+class FetchArticleTextsTest(SimpleTestCase):
+    """fetch_article_texts is shared by the weekly summary, breaking news and keyword summaries."""
+
+    @staticmethod
+    def _posts(n):
+        return [MagicMock(url=f'https://example.com/{i}') for i in range(n)]
+
+    def _run(self, texts, max_texts, max_workers=2):
+        posts = self._posts(len(texts))
+        by_url = {p.url: t for p, t in zip(posts, texts)}
+
+        def fake_get(post):
+            value = by_url[post.url]
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        with patch('threats_watcher.summary_manager.get_article_title_or_summary', side_effect=fake_get) as mock_get:
+            return fetch_article_texts(posts, max_texts=max_texts, max_workers=max_workers), mock_get
+
+    def test_keeps_most_recent_first_order(self):
+        texts = [f'Article number {i} about a critical vulnerability' for i in range(4)]
+        result, _ = self._run(texts, max_texts=10)
+        self.assertEqual(result, texts)
+
+    def test_duplicates_are_removed(self):
+        headline = 'Same headline about a ransomware attack on hospitals'
+        other = 'Another distinct article about a phishing campaign'
+        result, _ = self._run([headline, headline.upper() + '!', other], max_texts=10)
+        self.assertEqual(result, [headline, other])
+
+    def test_empty_and_short_texts_are_dropped(self):
+        long_text = 'A long enough article about a zero-day exploit in VPN gateways'
+        result, _ = self._run(['', 'too short', long_text], max_texts=10)
+        self.assertEqual(result, [long_text])
+
+    def test_a_failing_article_does_not_stop_the_others(self):
+        ok = 'A valid article about a supply chain compromise'
+        result, _ = self._run([Exception('boom'), ok], max_texts=10)
+        self.assertEqual(result, [ok])
+
+    def test_stops_fetching_once_enough_unique_texts_are_found(self):
+        texts = [f'Unique article {i} about a data breach at a telecom operator' for i in range(10)]
+        result, mock_get = self._run(texts, max_texts=2, max_workers=2)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(mock_get.call_count, 2)
+
+class GroundedEntitiesTest(SimpleTestCase):
+    """The weekly summary only shows CVEs and names that appear in the news sent to the LLM."""
+
+    CORPUS = "CISA warns that CVE-2026-12345 is exploited by LockBit against hospitals."
+
+    def test_cves_not_in_the_news_are_dropped(self):
+        result = _grounded_cves(['CVE-2026-12345', 'CVE-2026-XXXX', 'CVE-2026-99999', 'cve-2026-12345'], self.CORPUS)
+        self.assertEqual(result, ['CVE-2026-12345'])
+
+    def test_placeholders_and_names_not_in_the_news_are_dropped(self):
+        result = _grounded_names(['LockBit', 'N/A', 'APT Groups', 'lockbit'], self.CORPUS)
+        self.assertEqual(result, ['LockBit'])
+
+    def test_cve_with_extra_text_is_kept(self):
+        self.assertEqual(_grounded_cves(['CVE-2026-12345 (Citrix)'], self.CORPUS), ['CVE-2026-12345'])
+
+    def test_unicode_dash_in_name_still_matches_the_news(self):
+        corpus = "Russia-linked groups used the Yggdrasil mesh network."
+        self.assertEqual(_grounded_names(['Russia\u2011linked groups'], corpus), ['Russia\u2011linked groups'])
