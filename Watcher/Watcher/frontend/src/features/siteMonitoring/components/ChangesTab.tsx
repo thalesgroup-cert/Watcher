@@ -170,12 +170,12 @@ export function ChangesTab() {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.kind && { key: 'kind', label: 'What changed', value: CHANGE_KINDS.find((k) => k.value === filters.kind)?.label ?? filters.kind, onRemove: () => setFilters({ kind: '' }) },
-        filters.period && { key: 'period', label: 'Detected', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.kind && { key: 'kind', label: 'What changed', value: CHANGE_KINDS.find((k) => k.value === filters.kind)?.label ?? filters.kind, onRemove: () => setFilters({ kind: '' }) },
+                                filters.period && { key: 'period', label: 'Detected', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -188,7 +188,8 @@ export function ChangesTab() {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <ChangeTable highlight={filters.search}
+                            <ChangeTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

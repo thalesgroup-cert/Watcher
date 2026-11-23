@@ -57,11 +57,27 @@ class UserThemeTest(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    def test_theme_ids_are_the_eleven_palettes(self):
+    def test_theme_ids_are_the_thirteen_palettes(self):
         self.assertEqual(THEME_IDS, [
-            'light', 'paper', 'sunrise', 'darkly', 'graphite', 'midnight',
+            'light', 'paper', 'sunrise', 'clay_light', 'darkly', 'clay', 'graphite', 'midnight',
             'slate', 'high_contrast', 'cyber', 'the_one', 'metal',
         ])
+
+    def test_patch_saves_the_effects_level_and_keeps_the_other_preferences(self):
+        response = self.client.patch('/api/auth/profile', {'preferences': {'effects': 'calm', 'home': {'blocks': ['kpis']}}}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferences, {'effects': 'calm', 'home': {'blocks': ['kpis']}})
+
+    def test_patch_rejects_an_unknown_effects_level(self):
+        response = self.client.patch('/api/auth/profile', {'preferences': {'effects': 'extreme'}}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('effects', response.json()['preferences'][0] if isinstance(response.json()['preferences'], list) else response.json()['preferences'])
+
+    def test_patch_rejects_preferences_that_are_not_an_object_or_too_large(self):
+        self.assertEqual(self.client.patch('/api/auth/profile', {'preferences': ['effects']}, format='json').status_code, 400)
+        big = {'home': {'blocks': ['x' * 100] * 100}}
+        self.assertEqual(self.client.patch('/api/auth/profile', {'preferences': big}, format='json').status_code, 400)
 
     def test_new_profile_has_no_theme_chosen(self):
         self.assertEqual(self.profile.theme, '')
@@ -86,14 +102,17 @@ class UserThemeTest(TestCase):
         self.assertEqual(self.profile.theme, '')
 
     def test_migration_blanks_legacy_themes_and_keeps_current_ones(self):
-        UserProfile.objects.filter(pk=self.profile.pk).update(theme='darkly')
+        UserProfile.objects.filter(pk=self.profile.pk).update(theme='yeti')
         other = User.objects.create_user(username='keeper', password='testpass123')
         UserProfile.objects.filter(user=other).update(theme='paper')
+        classic = User.objects.create_user(username='classic', password='testpass123')
+        UserProfile.objects.filter(user=classic).update(theme='darkly')
         migration = importlib.import_module('accounts.migrations.0004_userprofile_theme_not_chosen')
         migration.clear_legacy_themes(apps, None)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.theme, '')
         self.assertEqual(UserProfile.objects.get(user=other).theme, 'paper')
+        self.assertEqual(UserProfile.objects.get(user=classic).theme, 'darkly')
 
 
 class WatcherOIDCBackendTest(TestCase):

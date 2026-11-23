@@ -32,7 +32,7 @@ function LatestMatches({ rule, onOpenMatch, onShowAll }: { rule: Rule; onOpenMat
                     <ListItemButton key={m.id} onClick={() => onOpenMatch(m)} sx={{ borderRadius: 1, px: 1 }}>
                         <ListItemText
                             primary={matchLabel(m.object_id)}
-                            secondary={`“${m.matched_keyword}” - ${m.is_archived ? 'archived' : 'to review'} - ${since(m.hit_at)}`}
+                            secondary={`“${m.matched_keywords.join(', ')}” - ${m.is_archived ? 'archived' : 'to review'} - ${since(m.hit_at)}`}
                             slotProps={{ primary: { noWrap: true } }}
                         />
                     </ListItemButton>

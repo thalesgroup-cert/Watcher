@@ -66,7 +66,7 @@ export default function ThreatsWatcherPage() {
                 tabs={
                     <Tabs value={tab} onChange={(_, t: TabValue) => update({ tab: t === 'trends' ? null : t })} aria-label="Threats Watcher sections" variant="scrollable" allowScrollButtonsMobile>
                         <Tab value="trends" label="Trends" />
-                        <Tab value="keywords" label="Monitored keywords" />
+                        {signedIn && <Tab value="keywords" label="Monitored keywords" />}
                         <Tab value="sources" label="Sources" />
                         {signedIn && <Tab value="banned" label="Banned words" />}
                         <Tab value="insights" label="Insights" />
@@ -75,7 +75,7 @@ export default function ThreatsWatcherPage() {
             />
 
             {tab === 'trends' && <TrendsTab />}
-            {tab === 'keywords' && <KeywordsTab />}
+            {tab === 'keywords' && signedIn && <KeywordsTab />}
             {tab === 'sources' && <SourcesTab />}
             {tab === 'banned' && <BannedTab />}
             {tab === 'insights' && (

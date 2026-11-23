@@ -29,10 +29,38 @@ services:
     environment:
       http_proxy: "${HTTP_PROXY}"
       https_proxy: "${HTTPS_PROXY}"
-      no_proxy: "${NO_PROXY},searxng,db_watcher,certstream"
+      no_proxy: "${NO_PROXY},searxng,db_watcher,certstream,screenshotter"
       REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+      SCREENSHOT_SERVICE_URL: "${SCREENSHOT_SERVICE_URL-http://screenshotter:8080}"
     networks:
       - watcher_network
+      - screenshots
+
+  # Takes the screenshots of the monitored pages, data leaks and domains. The browser runs the code of the pages it visits:
+  # it has its own network, shared with `watcher` only (no database, no other service), a read-only filesystem, no
+  # capability, no privilege escalation and limited memory. Set SCREENSHOT_SERVICE_URL to "" on `watcher` to switch it off.
+  screenshotter:
+    build:
+      context: ${ROOT_PATH}screenshotter
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 256
+    environment:
+      TZ: "${TZ}"
+      # To leave from another address, e.g. a dedicated proxy: SCREENSHOT_PROXY=http://proxy.example:3128
+      SCREENSHOT_PROXY: "${SCREENSHOT_PROXY:-}"
+      SCREENSHOT_USER_AGENT: "${SCREENSHOT_USER_AGENT:-}"
+      SCREENSHOT_MAX_HEIGHT: "${SCREENSHOT_MAX_HEIGHT:-6000}"
+      SCREENSHOT_LOAD_TIMEOUT: "${SCREENSHOT_LOAD_TIMEOUT:-30}"
+    networks:
+      - screenshots
 
   searxng:
     init: true
@@ -55,3 +83,5 @@ networks:
   watcher_network:
     external: true
     name: ${NETWORK_NAME}
+  # Watcher and the screenshot service only
+  screenshots: {}

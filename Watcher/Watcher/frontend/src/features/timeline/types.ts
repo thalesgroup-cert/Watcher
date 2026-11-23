@@ -28,8 +28,12 @@ export interface HistoryTarget {
 
 export type Actor = 'people' | 'automated' | 'me' | 'all';
 
+/** The period of the feed: from midnight, the last 7 or 30 days, or every period (empty). */
+export type Period = '' | 'today' | '7d' | '30d';
+
 export interface FeedFilters {
     actor: Actor;
+    period: Period;
     module: string;
     actions: TimelineAction[];
     search: string;
@@ -39,6 +43,15 @@ export interface FeedPage {
     next: string | null;
     previous: string | null;
     results: TimelineEvent[];
+}
+
+/** What the signed-in person did: the figures of "My activity". */
+export interface MyActivitySummary {
+    week: number;
+    today: number;
+    created_today: number;
+    updated_today: number;
+    deleted_today: number;
 }
 
 export interface ActivitySummary {

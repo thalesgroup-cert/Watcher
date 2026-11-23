@@ -5,7 +5,7 @@ import ChatBubbleOutlined from '@mui/icons-material/ChatBubbleOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
-import { formatDay } from '../expiry';
+import { formatDay, noDateReason } from '../expiry';
 import type { LegitimateDomain } from '../types';
 import { Expiry } from './Expiry';
 
@@ -47,7 +47,13 @@ function DomainCell({ domain }: { domain: LegitimateDomain }) {
 /** `internal`: only shown to signed-in users (the API does not send it to anonymous visitors). */
 const COLUMNS: (Column<LegitimateDomain> & { internal?: boolean })[] = [
     { key: 'domain', label: 'Domain', sort: 'domain_name', cellSx: { maxWidth: 360 }, render: (d) => <DomainCell domain={d} /> },
-    { key: 'expiry', label: 'Domain expiry', sort: 'expiry', width: 170, render: (d) => <Expiry value={d.expiry} /> },
+    {
+        key: 'expiry',
+        label: 'Domain expiry',
+        sort: 'expiry',
+        width: 190,
+        render: (d) => <Expiry value={d.expiry} confirmed={d.expiry_confirmed} emptyLabel={noDateReason(d)} lost={d.expiry_check === 'not_registered'} />,
+    },
     { key: 'ssl', label: 'Certificate expiry', sort: 'ssl_expiry', width: 170, render: (d) => <Expiry value={d.ssl_expiry} /> },
     { key: 'registered', label: 'Registered', sort: 'domain_created_at', width: 120, render: (d) => <DayText value={d.domain_created_at} /> },
     { key: 'added', label: 'Added', sort: 'created_at', width: 120, render: (d) => <DayText value={d.created_at} /> },

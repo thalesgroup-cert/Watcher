@@ -1,7 +1,31 @@
 from abc import ABC
 
+from datetime import timedelta
+
+from django.db.models import Count
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Source, TrendyWord, PostUrl, BannedWord, Summary, MonitoredKeyword, KeywordHit
+
+
+def daily_counts(word_ids, days=7):
+    """For each word, the articles published per day over the last `days` days, today last: one query for all the words."""
+    today = timezone.now().date()
+    first = today - timedelta(days=days - 1)
+    counts = {word_id: [0] * days for word_id in word_ids}
+    rows = (
+        TrendyWord.posturls.through.objects
+        .filter(trendyword_id__in=word_ids, posturl__created_at__date__gte=first)
+        .annotate(day=TruncDate('posturl__created_at'))
+        .values('trendyword_id', 'day')
+        .annotate(n=Count('id'))
+    )
+    for row in rows:
+        index = (row['day'] - first).days
+        if 0 <= index < days:
+            counts[row['trendyword_id']][index] = row['n']
+    return counts
 
 
 class TrackListingField(serializers.RelatedField, ABC):
@@ -68,10 +92,22 @@ class PostSerializer(serializers.ModelSerializer):
 class TrendyWordListSerializer(serializers.ModelSerializer):
     """Rows of the trend list: the articles are counted (annotated by the viewset), not listed."""
     posts_count = serializers.IntegerField(read_only=True)
+    # How the word is doing now (annotated by the viewset): articles of the last 24 hours and of the week, and the surge
+    mentions_24h = serializers.IntegerField(read_only=True)
+    mentions_week = serializers.IntegerField(read_only=True)
+    rising = serializers.FloatField(read_only=True)
+    # Articles per day over the last 7 days, today last (the viewset counts them once for the whole page)
+    daily = serializers.SerializerMethodField()
 
     class Meta:
         model = TrendyWord
-        fields = ['id', 'name', 'occurrences', 'score', 'created_at', 'posts_count']
+        fields = ['id', 'name', 'occurrences', 'score', 'created_at', 'posts_count', 'mentions_24h', 'mentions_week', 'rising', 'daily']
+
+    def get_daily(self, obj):
+        counted = self.context.get('daily')
+        if counted is not None and obj.id in counted:
+            return counted[obj.id]
+        return daily_counts([obj.id])[obj.id]
 
 
 class TrendyWordDetailSerializer(TrendyWordListSerializer):

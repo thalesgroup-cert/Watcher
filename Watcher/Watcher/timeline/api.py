@@ -20,6 +20,10 @@ class FeedPagination(CursorPagination):
     ordering = ('-timestamp', '-id')
 
 
+# The periods of the feed besides "today", in days
+FEED_PERIOD_DAYS = {'7d': 7, '30d': 30}
+
+
 def _split(value):
     return [v for v in (value or '').split(',') if v]
 
@@ -69,6 +73,13 @@ class TimelineEventViewSet(viewsets.ReadOnlyModelViewSet):
         elif actor == 'me':
             qs = qs.filter(user=self.request.user)
 
+        # A period: from midnight, or the last 7 or 30 days. Anything else is every period.
+        period = params.get('period', '')
+        if period == 'today':
+            qs = qs.filter(timestamp__gte=timezone.now().replace(hour=0, minute=0, second=0, microsecond=0))
+        elif period in FEED_PERIOD_DAYS:
+            qs = qs.filter(timestamp__gte=timezone.now() - timedelta(days=FEED_PERIOD_DAYS[period]))
+
         modules = _split(params.get('module'))
         if modules:
             qs = qs.filter(content_type__app_label__in=modules)
@@ -93,6 +104,17 @@ class TimelineEventViewSet(viewsets.ReadOnlyModelViewSet):
     def summary(self, request):
         now = timezone.now()
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if request.query_params.get('actor') == 'me':
+            # What the signed-in person did: the figures of "My activity"
+            mine = TimelineEvent.objects.filter(user=request.user, timestamp__gte=now - timedelta(days=7))
+            today_of = lambda action: Count('id', filter=Q(timestamp__gte=today, action=action))
+            return Response(mine.aggregate(
+                week=Count('id'),
+                today=Count('id', filter=Q(timestamp__gte=today)),
+                created_today=today_of(TimelineEvent.ACTION_CREATED),
+                updated_today=today_of(TimelineEvent.ACTION_UPDATED),
+                deleted_today=today_of(TimelineEvent.ACTION_DELETED),
+            ))
         week = TimelineEvent.objects.filter(timestamp__gte=now - timedelta(days=7))
         people_week = week.filter(user__isnull=False)
 

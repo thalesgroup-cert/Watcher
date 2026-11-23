@@ -63,13 +63,18 @@ export function threatFilterParams(f: ThreatFilters) {
     return { status: f.status === 'open' ? null : f.status, source: f.source, q: f.search, asset: f.asset, period: f.period, page: null };
 }
 
-/** Comment written in Legitimate Domains when a threat is moved there. */
+/** A comment holds 300 characters (the form of Legitimate Domains refuses more). */
+const COMMENT_MAX = 300;
+
+/** Comment written in Legitimate Domains when a threat is moved there: dated, where it comes from, then what the threat said. */
 function legitimateComment(t: Threat) {
-    const parts = ['Exported from DNS Threats'];
+    const parts = [`[${new Date().toISOString().slice(0, 10)}] Exported from DNS Threats`];
     if (t.corporate_dns) parts.push(`Monitored domain: ${t.corporate_dns}`);
     else if (t.corporate_keyword) parts.push(`Keyword: ${t.corporate_keyword}`);
     if (t.technical_details.fuzzer) parts.push(`${t.technical_details.fuzzer} technique`);
     if (t.comments) parts.push(t.comments);
+    // What does not fit is dropped from the end, never cut in the middle of a word
+    while (parts.length > 1 && parts.join(' - ').length > COMMENT_MAX) parts.pop();
     return parts.join(' - ');
 }
 
@@ -222,14 +227,14 @@ export function ThreatsTab() {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.status !== 'open' && { key: 'status', label: 'Status', value: STATUS_FILTERS.find((s) => s.value === filters.status)?.label ?? filters.status, onRemove: () => setFilters({ status: 'open' }) },
-        filters.source && { key: 'source', label: 'Source', value: SOURCES.find((s) => s.value === filters.source)?.label ?? filters.source, onRemove: () => setFilters({ source: '' }) },
-        filters.asset && { key: 'asset', label: 'Matched', value: filters.asset.slice(2), onRemove: () => setFilters({ asset: '' }) },
-        filters.period && { key: 'period', label: 'Detected', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.status !== 'open' && { key: 'status', label: 'Status', value: STATUS_FILTERS.find((s) => s.value === filters.status)?.label ?? filters.status, onRemove: () => setFilters({ status: 'open' }) },
+                                filters.source && { key: 'source', label: 'Source', value: SOURCES.find((s) => s.value === filters.source)?.label ?? filters.source, onRemove: () => setFilters({ source: '' }) },
+                                filters.asset && { key: 'asset', label: 'Matched', value: filters.asset.slice(2), onRemove: () => setFilters({ asset: '' }) },
+                                filters.period && { key: 'period', label: 'Detected', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -242,7 +247,8 @@ export function ThreatsTab() {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <ThreatTable highlight={filters.search}
+                            <ThreatTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

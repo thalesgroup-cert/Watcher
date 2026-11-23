@@ -3,7 +3,7 @@ name: watcher
 description: Thales CERT Watcher — AI-powered cybersecurity threat detection and monitoring platform
 type: application
 version: 0.1.0
-appVersion: "1.0.0"
+appVersion: "4.0.0"
 home: https://github.com/thalesgroup-cert/watcher
 sources:
   - https://github.com/thalesgroup-cert/watcher

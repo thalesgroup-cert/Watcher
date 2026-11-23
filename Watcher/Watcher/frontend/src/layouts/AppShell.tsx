@@ -27,6 +27,7 @@ import HelpOutlineOutlined from '@mui/icons-material/HelpOutlineOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
+import LockOutlined from '@mui/icons-material/LockOutlined';
 import LoginOutlined from '@mui/icons-material/LoginOutlined';
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined';
 import MenuRounded from '@mui/icons-material/MenuRounded';
@@ -44,6 +45,7 @@ import VerifiedUserOutlined from '@mui/icons-material/VerifiedUserOutlined';
 import WhatshotOutlined from '@mui/icons-material/WhatshotOutlined';
 import UserAvatar, { displayName } from '../components/common/UserAvatar';
 import { useLogout, useProfile } from '../features/auth/hooks';
+import { LOCKED_MODULES } from '../features/visitor/lockedModules';
 import { useInstanceConfig } from '../features/config/useInstanceConfig';
 import { selectIsAuthenticated, selectUser, useAuthStore } from '../features/auth/store';
 import { PendingActionsDialog } from '../features/pendingActions/PendingActionsDialog';
@@ -82,7 +84,7 @@ const SECTIONS: { label: string; items: NavEntry[] }[] = [
     {
         label: 'Monitor',
         items: [
-            { to: '/', label: 'Dashboard', icon: <SpaceDashboardOutlined />, public: true },
+            { to: '/', label: 'Overview', icon: <SpaceDashboardOutlined />, public: true },
             { to: '/threats_watcher', label: 'Threats Watcher', icon: <WhatshotOutlined />, public: true },
             { to: '/cyber_watch', label: 'Cyber Watch', icon: <SecurityOutlined /> },
             { to: '/data_leak', label: 'Data Leak', icon: <TravelExploreOutlined /> },
@@ -101,7 +103,7 @@ const SECTIONS: { label: string; items: NavEntry[] }[] = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-    '/': 'Dashboard',
+    '/': 'Overview',
     '/threats_watcher': 'Threats Watcher',
     '/legitimate_domains': 'Legitimate Domains',
     '/cyber_watch': 'Cyber Watch',
@@ -112,7 +114,6 @@ const PAGE_TITLES: Record<string, string> = {
     '/login': 'Sign in',
     '/profile': 'My profile',
     '/activity': 'Activity',
-    '/whats_new': "What's new",
 };
 
 const DOCS_URL = 'https://thalesgroup-cert.github.io/Watcher/';
@@ -153,7 +154,7 @@ function readPinned() {
 }
 
 /** One line of the sidebar: an icon, and its label when the sidebar is open. */
-function RailButton({ label, icon, slim, badge, active, ...rest }: { label: string; icon: ReactElement; slim: boolean; badge?: number; active?: boolean } & Record<string, unknown>) {
+function RailButton({ label, icon, slim, badge, active, locked, ...rest }: { label: string; icon: ReactElement; slim: boolean; badge?: number; active?: boolean; locked?: boolean } & Record<string, unknown>) {
     const theme = useTheme();
     const primary = theme.palette.primary.main;
     const dark = theme.palette.mode === 'dark';
@@ -172,6 +173,7 @@ function RailButton({ label, icon, slim, badge, active, ...rest }: { label: stri
                     gap: 1.5,
                     justifyContent: 'flex-start',
                     color: 'text.secondary',
+                    opacity: locked && !active ? 0.8 : 1,
                     transition: theme.transitions.create(['background-color', 'color'], { duration: 120 }),
                     '& .rail-icon': { display: 'grid', placeItems: 'center', width: 24, flexShrink: 0, '& svg': { fontSize: 21 } },
                     '& .rail-label': { fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', opacity: slim ? 0 : 1, transition: 'opacity 150ms' },
@@ -198,6 +200,7 @@ function RailButton({ label, icon, slim, badge, active, ...rest }: { label: stri
                 <Box component="span" className="rail-label">
                     {label}
                 </Box>
+                {locked && <LockOutlined className="rail-lock" sx={{ fontSize: 15, ml: 'auto', opacity: slim ? 0 : 0.7, transition: 'opacity 150ms' }} />}
             </ButtonBase>
         </Tooltip>
     );
@@ -357,6 +360,35 @@ function SidebarContent({ slim, pinned, onPin, onNavigate, onSearch }: { slim: b
                         </Box>
                     );
                 })}
+                {/* A visitor sees the other modules too, locked: each one opens a page that says what it does */}
+                {!signedIn && (
+                    <Box data-testid="locked-nav" sx={{ mt: 1.5 }}>
+                        <Typography
+                            variant="overline"
+                            color="text.secondary"
+                            component="div"
+                            sx={{ px: 1.5, height: 24, lineHeight: '24px', fontSize: 10.5, letterSpacing: '0.08em', opacity: slim ? 0 : 0.8, transition: 'opacity 150ms' }}
+                        >
+                            With an account
+                        </Typography>
+                        <Stack spacing={0.25}>
+                            {LOCKED_MODULES.map((item) => (
+                                <RailButton
+                                    key={item.to}
+                                    label={item.label}
+                                    icon={item.icon}
+                                    slim={slim}
+                                    locked
+                                    active={isActive(item.to)}
+                                    component={NavLink}
+                                    to={item.to}
+                                    onClick={onNavigate}
+                                    aria-current={isActive(item.to) ? 'page' : undefined}
+                                />
+                            ))}
+                        </Stack>
+                    </Box>
+                )}
             </Box>
 
             <Divider />

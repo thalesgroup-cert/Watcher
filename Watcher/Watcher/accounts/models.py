@@ -38,11 +38,8 @@ class UserProfile(models.Model):
     avatar_color = models.CharField(max_length=20, blank=True, null=True)
     # {style, seed, options} of a DiceBear avatar built on the profile; None keeps the coloured initials.
     avatar = models.JSONField(default=None, null=True, blank=True)
-    # preferences structure:
-    # {
-    #   "items_per_page": {"threats_watcher": 10, "data_leak": 10, ...},
-    #   "saved_filters": {"threats_watcher": {...}, ...}
-    # }
+    # preferences: a small JSON object the interface keeps (validated by UserProfileSerializer), e.g.
+    # {"effects": "full" | "calm" | "off", "home": {"blocks": [...]}}
 
     def __str__(self):
         return f"Profile of {self.user.username}"

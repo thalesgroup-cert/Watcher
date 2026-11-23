@@ -6,6 +6,7 @@ import pkgutil
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.utils import timezone
+from common.utils.job_log import logged_job, job_count
 
 logger = logging.getLogger('watcher.connectors')
 
@@ -124,6 +125,29 @@ def _ensure_connectors_seeded() -> None:
     _connectors_seeded = True
 
 
+_environment_warned = set()
+
+
+def _warn_if_environment_ignored(connector_id: str, field: dict, stored: str) -> None:
+    """
+    The environment only seeds a connector's fields, the first time Watcher starts: afterwards the value saved in
+    Connectors wins. Someone who changes an environment variable and restarts gets no effect and no hint, so say it, once
+    per process and field. The names are logged, never the values (a URL can carry credentials), and the fields that
+    hold a secret are not compared.
+    """
+    key = (connector_id, field['name'])
+    if key in _environment_warned:
+        return
+    _environment_warned.add(key)
+    env_name = field.get('settings_key', '')
+    if not env_name or env_name.startswith('DATABASES_') or _is_sensitive(field['name']):
+        return
+    from_env = os.environ.get(env_name, '')
+    if from_env and from_env != stored:
+        logger.warning(f"Connector '{connector_id}', field '{field['name']}': the environment variable {env_name} is set to a value "
+                       f"that is not the one saved in Connectors. The saved value is used; change it in Connectors > {connector_id}.")
+
+
 def _resolve_raw(connector_id: str, field: dict) -> str:
     """Return the stored (possibly encrypted) raw value for a field."""
     from .models import ConnectorOverride
@@ -131,6 +155,7 @@ def _resolve_raw(connector_id: str, field: dict) -> str:
         override = ConnectorOverride.objects.get(connector_id=connector_id)
         stored = override.overrides.get(field['name'])
         if stored is not None:
+            _warn_if_environment_ignored(connector_id, field, stored)
             return stored
     except ConnectorOverride.DoesNotExist:
         pass
@@ -371,6 +396,7 @@ def test_connector(connector_id: str) -> dict:
     return result
 
 
+@logged_job("Weekly connector health checks", logger)
 def run_weekly_health_checks() -> None:
     """
     Scheduled job (auto-run only, never triggered by the manual Test button):
@@ -385,9 +411,11 @@ def run_weekly_health_checks() -> None:
     for connector_id in sorted(registry.keys()):
         connector = get_connector_by_id(connector_id)
         result = test_connector(connector_id)
+        job_count('tested')
 
         if result.get('success') or connector['status'] != 'configured':
             continue
+        job_count('failed')
 
         already_queued = any(
             pa.metadata.get('connector_id') == connector_id
@@ -505,7 +533,12 @@ def get_searxng_config() -> dict:
 
 
 def get_cyberwatch_cve_config() -> dict:
-    return {'cve_api_url': get_config_value('cyberwatch_cve', 'CYBER_WATCH_CVE_API_URL')}
+    # The CISA catalogue and the EPSS scores are connectors of their own: an address left empty switches them off
+    return {
+        'cve_api_url': get_config_value('cyberwatch_cve', 'CYBER_WATCH_CVE_API_URL'),
+        'kev_url': get_config_value('cisa_kev', 'CYBER_WATCH_KEV_URL'),
+        'epss_url': get_config_value('first_epss', 'CYBER_WATCH_EPSS_API_URL'),
+    }
 
 
 def get_ransomware_live_config() -> dict:

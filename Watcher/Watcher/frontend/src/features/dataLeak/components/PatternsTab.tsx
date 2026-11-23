@@ -79,7 +79,8 @@ export function PatternsTab({ canAdd, canManage, onEdit }: PatternsTabProps) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <PatternTable highlight={search}
+                            <PatternTable
+                                highlight={search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

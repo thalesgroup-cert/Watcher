@@ -11,9 +11,9 @@ import { countryLabel, hitTypeMeta, isKnownSector, matchLabel, scopeMeta, refere
 import { MATCH_TYPE, useCve, useMatch } from '../hooks';
 import type { CveTarget, Match } from '../types';
 import { DrawerHeader, Facts, Marked, Section } from './parts';
-import { GroupChip, KeywordChip, nvd, SeverityChip } from './tables';
+import { GroupChip, KeywordChips, nvd, SeverityChip } from './tables';
 
-function CveDetails({ target, keyword }: { target: CveTarget; keyword: string }) {
+function CveDetails({ target, keywords }: { target: CveTarget; keywords: string[] }) {
     const { data: cve } = useCve(target.id);
     return (
         <>
@@ -25,7 +25,7 @@ function CveDetails({ target, keyword }: { target: CveTarget; keyword: string })
                 ]}
             />
             <Typography variant="body2" sx={{ mt: 1.5, lineHeight: 1.7 }}>
-                {cve ? <Marked text={cve.description || 'No description yet.'} keywords={[keyword]} /> : <Skeleton height={60} />}
+                {cve ? <Marked text={cve.description || 'No description yet.'} keywords={keywords} /> : <Skeleton height={60} />}
             </Typography>
             {cve && referenceUrls(cve.references).length > 0 && (
                 <Stack spacing={0.5} sx={{ mt: 1.5 }}>
@@ -123,7 +123,7 @@ export function MatchDrawer({ open, id, initial, onClose, previous, next, onNavi
                                             match.rule_name
                                         ),
                                     ],
-                                    ['Keyword', <KeywordChip key="k" keyword={match.matched_keyword} />],
+                                    [match.matched_keywords.length > 1 ? 'Keywords' : 'Keyword', <KeywordChips key="k" keywords={match.matched_keywords} max={6} />],
                                     ['Rule watches', scopeMeta(match.rule_scope).label],
                                     ['Matched', dateAgo(match.hit_at)],
                                 ]}
@@ -137,11 +137,11 @@ export function MatchDrawer({ open, id, initial, onClose, previous, next, onNavi
                                         The {match.hit_type === 'cve' ? 'CVE' : 'victim'} is no longer in the feed. What was recorded when it matched:
                                     </Typography>
                                     <Typography variant="body2" sx={{ fontFamily: match.hit_type === 'cve' ? fonts.mono : undefined }}>
-                                        <Marked text={match.hit_display} keywords={[match.matched_keyword]} />
+                                        <Marked text={match.hit_display} keywords={match.matched_keywords} />
                                     </Typography>
                                 </>
                             ) : target.kind === 'cve' ? (
-                                <CveDetails target={target} keyword={match.matched_keyword} />
+                                <CveDetails target={target} keywords={match.matched_keywords} />
                             ) : (
                                 <Facts
                                     rows={[

@@ -109,8 +109,10 @@ COPY --from=backend-builder /usr/local/share/nltk_data /usr/local/share/nltk_dat
 # Copy application code
 COPY . .
 
-# Copy frontend build output
-COPY --from=frontend-builder /frontend/ /app/Watcher/static
+# The React bundle (main.js, main.css) is not committed: this build is the only place it comes from. It goes where the
+# frontend app keeps its static files, so that collectstatic below picks it up and Django serves it as
+# /static/frontend/main.js. Only that folder is copied, not the whole build folder (node_modules, sources...).
+COPY --from=frontend-builder /frontend/Watcher/frontend/static/frontend/ /app/Watcher/frontend/static/frontend/
 
 WORKDIR /app/Watcher
 

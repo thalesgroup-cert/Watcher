@@ -10,11 +10,11 @@
     <link rel="icon" href="{% static 'img/favicon-64.png' %}" sizes="64x64" type="image/png">
     <link rel="icon" href="{% static 'img/favicon-96.png' %}" sizes="96x96" type="image/png">
     <link rel="icon" href="{% static 'img/favicon-196.png' %}" sizes="196x196" type="image/png">
-    <link rel="stylesheet" href="{% static "frontend/main.css" %}">
+    <link rel="stylesheet" href="{% static "frontend/main.css" %}?v={{ asset_version }}">
 </head>
 <body>
 <div id="app"></div>
 
-<script src="{% static "frontend/main.js" %}"></script>
+<script src="{% static "frontend/main.js" %}?v={{ asset_version }}"></script>
 </body>
 </html>

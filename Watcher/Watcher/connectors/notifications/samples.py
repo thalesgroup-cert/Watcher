@@ -108,7 +108,7 @@ def _cyber_watch(notification_type):
         'keyword': 'example', 'victim_name': 'Example Corp', 'group_name': 'LockBit', 'country': 'FR',
         'sector': 'Manufacturing', 'details_url': URL + '#/cyber_watch', 'app_name': 'cyber_watch',
         'severity_suffix': ' (CRITICAL)', 'severity_bracket': ' [CRITICAL]', 'severity_part': ' | Severity: CRITICAL',
-        'cvss_part': ' | CVSS: 9.8',
+        'cvss_part': ' | CVSS: 9.8', 'epss': '94 %', 'fix_by': '2026-12-01', 'ransomware': 'Known to be used by ransomware groups',
     }
 
 
@@ -118,6 +118,10 @@ def cyber_watch_new_cve():
 
 def cyber_watch_cve_hit():
     return _cyber_watch('cve_hit')
+
+
+def cyber_watch_cve_exploited():
+    return _cyber_watch('cve_exploited')
 
 
 def cyber_watch_new_victim():
@@ -227,3 +231,53 @@ def email_udrp_decision(ctx):
 
 def dns_finder_cert_transparency():
     return dns_finder()
+
+
+def legitimate_domain_expiring():
+    return {
+        'domain_name_sanitized': 'example[.]com', 'expiry': '2026-12-01', 'days_left': '12', 'days_text': 'in 12 days',
+        'checked': 'RDAP, 2 h ago', 'details_url': URL + '#/legitimate_domains',
+    }
+
+
+def legitimate_domain_expiry_regression():
+    return {
+        'domain_name_sanitized': 'example[.]com', 'old_expiry': '2027-03-04', 'new_expiry': '2026-11-02',
+        'status_text': 'Expired', 'details_url': URL + '#/legitimate_domains',
+    }
+
+
+def email_legitimate_domain_expiring(ctx):
+    from common.mail_template.expiry_template import get_expiring_template
+    return get_expiring_template(ctx)
+
+
+def email_legitimate_domain_expiry_regression(ctx):
+    from common.mail_template.expiry_template import get_regression_template
+    return get_regression_template(ctx)
+
+
+def site_domain_expiring():
+    return {
+        'domain_name_sanitized': 'examp1e[.]com', 'legitimacy_label': 'Malicious (registered)', 'expiry': '2026-12-01',
+        'days_left': '12', 'days_text': 'in 12 days', 'registrar': 'Example Registrar', 'actions': 'Takedown requested',
+        'ticket': 'T-1042', 'checked': 'RDAP, 2 h ago', 'details_url': URL + '#/website_monitoring/',
+    }
+
+
+def email_site_domain_expiring(ctx):
+    from common.mail_template.expiry_template import get_site_expiring_template
+    return get_site_expiring_template(ctx)
+
+
+def site_domain_available():
+    return {
+        'domain_name_sanitized': 'examp1e[.]com', 'legitimacy_label': 'Malicious (registered)', 'registrar': 'Example Registrar',
+        'expiry': '2026-11-02', 'actions': 'Takedown requested', 'ticket': 'T-1042', 'checked': 'RDAP, less than an hour ago',
+        'details_url': URL + '#/website_monitoring/',
+    }
+
+
+def email_site_domain_available(ctx):
+    from common.mail_template.expiry_template import get_site_available_template
+    return get_site_available_template(ctx)

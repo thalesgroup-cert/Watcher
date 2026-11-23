@@ -28,6 +28,7 @@ import { getErrorMessage } from '../../../api/client';
 import { notifySuccess } from '../../../lib/notify';
 import { useUrlParams } from '../../../lib/useUrlParams';
 import { fonts } from '../../../styles/theme';
+import { ChoiceCards } from '../../../ui/ChoiceCards';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { type Column, DataTable, selectionHandlers } from '../../../ui/DataTable';
 import { EmptyState } from '../../../ui/EmptyState';
@@ -42,6 +43,12 @@ import { PageDrawer } from './PageDrawer';
 
 const DEFAULT_ORDERING = '-last_changed';
 const PAGE_SIZES = [25, 50, 100];
+/** Usual values of "Notify when": how much of the page has to change. */
+const THRESHOLD_PRESETS = [
+    { title: 'Any change', value: 1, hint: 'About a sentence rewritten' },
+    { title: 'Usual', value: 5, hint: 'About a paragraph rewritten' },
+    { title: 'Large changes', value: 20, hint: 'Several paragraphs rewritten' },
+];
 const ORDERINGS = ['name', 'last_checked', 'last_changed', 'last_status', 'threshold', 'versions_count'].flatMap((f) => [f, `-${f}`]);
 const INTERVALS = [
     { minutes: 15, label: '15 minutes' },
@@ -116,6 +123,7 @@ function PageForm({ page, onClose, onSaved }: { page: MonitoredPage | null; onCl
     const [selector, setSelector] = useState(page?.css_selector ?? '');
     const [ignore, setIgnore] = useState(page?.ignore_patterns ?? '');
     const [threshold, setThreshold] = useState(String(page?.threshold ?? 5));
+    const [custom, setCustom] = useState(![1, 5, 20].includes(page?.threshold ?? 5));
     const [interval, setInterval] = useState(page?.check_interval ?? 60);
     const [active, setActive] = useState(page?.is_active ?? true);
     const [screenshots, setScreenshots] = useState(page?.capture_screenshots ?? true);
@@ -153,25 +161,51 @@ function PageForm({ page, onClose, onSaved }: { page: MonitoredPage | null; onCl
                     {apiErrors && <MuiAlert severity="error">{apiErrors}</MuiAlert>}
                     <TextField label="Page address" name="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://blog.example.org/research" fullWidth autoFocus />
                     <TextField label="Name" name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Example researcher blog" helperText="Shown in the lists and in the notifications" fullWidth />
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <TextField
-                            label="Notify when"
-                            name="threshold"
-                            type="number"
-                            value={threshold}
-                            onChange={(e) => setThreshold(e.target.value)}
-                            slotProps={{ htmlInput: { min: 1, max: 100 }, input: { endAdornment: <InputAdornment position="end">% changed</InputAdornment> } }}
-                            helperText="Smaller changes are kept in the history only"
-                            fullWidth
+                    <Stack spacing={1}>
+                        <Typography variant="overline" color="text.secondary">
+                            Notify when the text changes by
+                        </Typography>
+                        <ChoiceCards
+                            label="Notify when the text changes by"
+                            value={custom ? 'custom' : Number(threshold)}
+                            onChange={(v) => {
+                                if (v === 'custom') {
+                                    setCustom(true);
+                                } else {
+                                    setCustom(false);
+                                    setThreshold(String(v));
+                                }
+                            }}
+                            options={[
+                                ...THRESHOLD_PRESETS.map((p) => ({ value: p.value as number | 'custom', title: p.title, figure: `${p.value} %`, hint: p.hint })),
+                                { value: 'custom' as number | 'custom', title: 'Custom', figure: custom ? `${threshold || '?'} %` : '...', hint: 'Choose your own' },
+                            ]}
                         />
-                        <TextField select label="Check every" value={interval} onChange={(e) => setInterval(Number(e.target.value))} fullWidth>
-                            {INTERVALS.map((i) => (
-                                <MenuItem key={i.minutes} value={i.minutes}>
-                                    {i.label}
-                                </MenuItem>
-                            ))}
-                        </TextField>
+                        {custom && (
+                            <TextField
+                                label="Share of the text"
+                                name="threshold"
+                                type="number"
+                                size="small"
+                                value={threshold}
+                                onChange={(e) => setThreshold(e.target.value)}
+                                slotProps={{ htmlInput: { min: 1, max: 100 }, input: { endAdornment: <InputAdornment position="end">%</InputAdornment> } }}
+                                sx={{ width: 180 }}
+                            />
+                        )}
+                        <Typography variant="caption" color="text.secondary" sx={{ pt: 0.75 }}>
+                            {Number(threshold) >= 1 && Number(threshold) <= 100
+                                ? `You are told when about ${Number(threshold)} % of the text is rewritten, or ${Math.min(100, Math.round(Number(threshold) * 2))} % when text is only added or removed. Smaller changes stay in the history. On a page of about 10,000 characters, ${Number(threshold)} % is about ${(Number(threshold) * 100).toLocaleString('en-GB')} characters.`
+                                : 'Between 1 and 100 %.'}
+                        </Typography>
                     </Stack>
+                    <TextField select label="Check every" value={interval} onChange={(e) => setInterval(Number(e.target.value))} fullWidth>
+                        {INTERVALS.map((i) => (
+                            <MenuItem key={i.minutes} value={i.minutes}>
+                                {i.label}
+                            </MenuItem>
+                        ))}
+                    </TextField>
                     <TextField
                         label="Part of the page"
                         name="css_selector"

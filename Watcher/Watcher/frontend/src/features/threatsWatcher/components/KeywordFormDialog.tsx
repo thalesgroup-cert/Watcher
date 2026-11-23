@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
     Alert as MuiAlert,
+    Box,
     Button,
     Checkbox,
     Dialog,
@@ -11,19 +12,34 @@ import {
     Stack,
     Switch,
     TextField,
-    ToggleButton,
-    ToggleButtonGroup,
     Typography,
 } from '@mui/material';
+import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import { getErrorMessage } from '../../../api/client';
+import { ChoiceCards } from '../../../ui/ChoiceCards';
 import { fonts } from '../../../styles/theme';
-import { countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { batchNote, countLines, useBulk } from '../../bulk/useBulk';
 import { LEVELS } from '../catalog';
 import { KEYWORD_BULK, useSaveKeyword } from '../hooks';
 import type { Level, MonitoredKeyword } from '../types';
 
 /** Words typed one per line or separated by commas. */
 const splitWords = (text: string) => [...new Set(text.split(/[\n,]/).map((w) => w.trim()).filter(Boolean))];
+
+/** Words in bold, joined by "and" or "or". */
+function Words({ list, joiner }: { list: string[]; joiner: 'and' | 'or' }) {
+    return (
+        <>
+            {list.map((word, i) => (
+                <span key={word}>
+                    {i > 0 && (i === list.length - 1 ? ` ${joiner} ` : ', ')}
+                    <Box component="strong">{word}</Box>
+                </span>
+            ))}
+        </>
+    );
+}
 
 interface KeywordFormProps {
     /** The keyword to edit, or null to add. */
@@ -114,10 +130,11 @@ function KeywordForm({ keyword, onClose, onSaved }: KeywordFormProps) {
                         autoFocus
                         multiline={several && !rule}
                         minRows={several && !rule ? 5 : undefined}
+                        maxRows={several && !rule ? 8 : undefined}
                         value={several && !rule ? name : name.split(/\r?\n/)[0]}
                         onChange={(e) => setName(e.target.value)}
                         placeholder={rule ? 'Actor X and partner Y' : 'acme'}
-                        helperText={several && !rule ? `${count} ${count === 1 ? 'monitored keyword' : 'monitored keywords'} detected.` : undefined}
+                        helperText={several && !rule ? `${count} ${count === 1 ? 'monitored keyword' : 'monitored keywords'} detected.${batchNote(count)}` : undefined}
                         slotProps={{ htmlInput: { maxLength: several && !rule ? undefined : 150, spellCheck: false } }}
                         fullWidth
                     />
@@ -133,6 +150,17 @@ function KeywordForm({ keyword, onClose, onSaved }: KeywordFormProps) {
                             />
                         )}
                     </Stack>
+                    {!editing && !rule && (
+                        <ListFileImport
+                            kind="keywords"
+                            max={500}
+                            weighs={{ above: 100, text: 'Every keyword is compared with every article at each pass: a long list makes each pass longer.' }}
+                            onValues={(values) => {
+                                setSeveral(true);
+                                setName(values.join('\n'));
+                            }}
+                        />
+                    )}
                     {rule && (
                         <>
                             <TextField
@@ -175,6 +203,25 @@ function KeywordForm({ keyword, onClose, onSaved }: KeywordFormProps) {
                             fullWidth
                         />
                     )}
+                    {rule && (all.length > 0 || any.length > 0) && (
+                        <MuiAlert severity="info" variant="outlined" icon={false} sx={{ py: 0.5 }} data-testid="rule-sentence">
+                            <Typography variant="body2">
+                                Matches an article that contains <Words list={all} joiner="and" />
+                                {any.length > 0 && (
+                                    <>
+                                        {all.length > 0 ? ', and at least one of ' : ' at least one of '}
+                                        <Words list={any} joiner="or" />
+                                    </>
+                                )}
+                                {splitWords(exceptions).length > 0 && (
+                                    <>
+                                        , but never <Words list={splitWords(exceptions)} joiner="or" />
+                                    </>
+                                )}
+                                .
+                            </Typography>
+                        </MuiAlert>
+                    )}
                     {rule && (
                         <FormControlLabel
                             control={<Checkbox checked={wholeWords} onChange={(e) => setWholeWords(e.target.checked)} />}
@@ -185,15 +232,26 @@ function KeywordForm({ keyword, onClose, onSaved }: KeywordFormProps) {
                         <Typography variant="overline" color="text.secondary">
                             Alert level
                         </Typography>
-                        <ToggleButtonGroup size="small" exclusive value={level} onChange={(_, v: Level | null) => v && setLevel(v)} aria-label="Alert level">
-                            {LEVELS.map((l) => (
-                                <ToggleButton key={l.value} value={l.value} sx={{ px: 2 }}>
-                                    {l.label}
-                                </ToggleButton>
-                            ))}
-                        </ToggleButtonGroup>
-                        <Typography variant="caption" color="text.secondary">
-                            The level rises by itself with the mentions; set it to start higher.
+                        <ChoiceCards
+                            label="Alert level"
+                            value={level}
+                            onChange={setLevel}
+                            options={LEVELS.map((l) => ({
+                                value: l.value,
+                                title: l.label,
+                                figure: l.range,
+                                hint: 'articles mention it',
+                                icon: (
+                                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                                        {Array.from({ length: l.flames }, (_, i) => (
+                                            <LocalFireDepartment key={i} sx={{ fontSize: 16 }} />
+                                        ))}
+                                    </Box>
+                                ),
+                            }))}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ pt: 0.75 }}>
+                            The level only says how often the keyword is read; it does not change the alerts. It is recalculated at every new article, so a level chosen here lasts until then.
                         </Typography>
                     </Stack>
                     {editing && <FormControlLabel control={<Switch checked={active} onChange={(e) => setActive(e.target.checked)} />} label="Active" />}

@@ -48,6 +48,7 @@ describe('DNS threats', () => {
   });
 
   describe('threats', () => {
+
     it('opens on the open threats and describes each one', () => {
       cy.wait('@threats').its('request.url').should('include', 'status=open').and('include', 'page_size=25');
       cy.contains('button', 'Open').should('have.attr', 'aria-pressed', 'true').and('contain', '3');
@@ -123,7 +124,7 @@ describe('DNS threats', () => {
       cy.get('[data-testid="threat-row"]').first().click();
       cy.get('.MuiDrawer-paper').contains('button', 'Export').click();
       cy.contains('[role="menuitem"]', 'To Legitimate Domains').click();
-      cy.get('[role="dialog"] textarea').first().should('have.value', 'Exported from DNS Threats - Monitored domain: acme.com - homoglyph technique');
+      cy.get('[role="dialog"] textarea').first().should('have.value', `[${new Date().toISOString().slice(0, 10)}] Exported from DNS Threats - Monitored domain: acme.com - homoglyph technique`);
       cy.get('[role="dialog"]').contains('button', 'Add to Legitimate Domains').click();
       cy.wait('@legit').its('request.body').should('include', { domain_name: 'acrne-1.com' });
       cy.wait('@status').its('request.body').should('deep.equal', { status: 'resolved' });
@@ -180,6 +181,69 @@ describe('DNS threats', () => {
       });
       cy.wait('@bulkCreate').its('request.body').should('deep.include', { values: 'acme\nacmecorp', dry_run: false });
       cy.contains('[role="dialog"]', '2 created').contains('button', 'Close').click();
+    });
+  });
+
+  describe('importing a file of domains or keywords', () => {
+    // The file chosen through the zone's input, or dropped on the zone: the same in every form
+    const choose = (contents, fileName) =>
+      cy.get('[data-testid="list-file"]').selectFile({ contents: Cypress.Buffer.from(contents), fileName }, { force: true });
+    const many = (n, make) => Array.from({ length: n }, (_, i) => make(i + 1));
+
+      it('reads the domains of a CSV, takes up to 200 and warns about a long list', () => {
+        cy.contains('button', 'Watch more').click();
+        cy.contains('[role="menuitem"]', 'Domains').click();
+        cy.get('[data-testid="file-dropzone"]').should('contain', 'one domain per line - up to 200 domains');
+        choose('domain,owner\nacme.com,it\nacme.fr,it\nACME.com,it\n', 'domains.csv');
+        cy.get('textarea[name="name"]').should('have.value', 'acme.com\nacme.fr');
+        cy.get('[data-testid="import-summary"]').should('contain', 'Read 2 domains from domains.csv (column "domain", 1 repeated value ignored)');
+        cy.get('[data-testid="import-warning"]').should('not.exist');
+        choose(many(30, (n) => 'brand' + n + '.com').join('\n'), 'thirty.txt');
+        cy.get('[data-testid="import-warning"]').should('contain', 'every 2 hours');
+        choose(many(201, (n) => 'brand' + n + '.com').join('\n'), 'huge.txt');
+        cy.get('[data-testid="import-error"]').should('contain', 'huge.txt has 201 domains').and('contain', 'the most one import takes is 200');
+      });
+
+      it('reads the keywords of a file, up to 500', () => {
+        cy.contains('button', 'Watch more').click();
+        cy.contains('[role="menuitem"]', 'Keywords').click();
+        cy.get('[data-testid="file-dropzone"]').should('contain', 'one keyword per line - up to 500 keywords');
+        choose('keyword\nacme\nacmecorp\n', 'keywords.txt');
+        cy.get('textarea[name="name"]').should('have.value', 'acme\nacmecorp');
+        cy.get('[data-testid="import-summary"]').should('contain', 'Read 2 keywords from keywords.txt');
+        choose(many(501, (n) => 'kw' + n).join('\n'), 'huge.txt');
+        cy.get('[data-testid="import-error"]').should('contain', 'huge.txt has 501 keywords');
+      });
+    });
+
+  describe('the messages of an addition that fails', () => {
+    const openKeywordForm = () => {
+      cy.contains('button', 'Watch more').click();
+      cy.contains('[role="menuitem"]', 'Keywords').click();
+    };
+
+    it('names the keyword and says in plain words that it is already watched', () => {
+      cy.intercept('POST', `${DNS}keyword_monitored/`, { statusCode: 400, body: { name: ['keyword monitored with this name already exists.'] } }).as('add');
+      openKeywordForm();
+      cy.get('[role="dialog"]').within(() => {
+        cy.get('input[name="name"]').type('acme');
+        cy.contains('button', /^Add$/).click();
+      });
+      cy.wait('@add');
+      cy.get('[data-testid="toast-error"]').should('contain', 'acme: already monitored').and('not.contain', 'already exists');
+      // The window stays open: the person can correct the name
+      cy.get('[role="dialog"]').should('be.visible');
+    });
+
+    it('names the keyword for any other refusal, with the reason of the server', () => {
+      cy.intercept('POST', `${DNS}keyword_monitored/`, { statusCode: 400, body: { detail: 'This keyword is too short.' } }).as('add');
+      openKeywordForm();
+      cy.get('[role="dialog"]').within(() => {
+        cy.get('input[name="name"]').type('ac');
+        cy.contains('button', /^Add$/).click();
+      });
+      cy.wait('@add');
+      cy.get('[data-testid="toast-error"]').should('contain', 'ac: This keyword is too short.');
     });
   });
 

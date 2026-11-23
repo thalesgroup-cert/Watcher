@@ -13,6 +13,8 @@ class Site(models.Model):
     """
     domain_name = models.CharField(max_length=100, unique=True)
     ticket_id = models.CharField(max_length=20, blank=True, null=True)
+    # Free text, as for a legitimate domain: why it is watched, what was done, where it comes from
+    comments = models.TextField(blank=True, null=True, max_length=300)
     rtir = models.IntegerField(unique=True, blank=True, null=True)
     ip = models.GenericIPAddressField(blank=True, null=True)
     ip_second = models.GenericIPAddressField(blank=True, null=True)
@@ -50,10 +52,23 @@ class Site(models.Model):
     # ({"54.157.0.0/16": "2026-10-02T13:16:02"}): an address pool that rotates between networks
     # already seen is not a change of hosting (see core.known_networks).
     network_history = models.JSONField(default=dict, blank=True, editable=False)
+    # Passes in a row that found no MX record while some are stored (see core.check_mail)
+    mx_missed = models.PositiveSmallIntegerField(default=0, editable=False)
 
     created_at = models.DateTimeField(default=timezone.now)
     expiry = models.DateTimeField(blank=True, null=True)  # End of monitoring
     domain_expiry = models.DateField(blank=True, null=True)  # Domain expiration date
+    # Where the date comes from and what the last lookup said, as for the legitimate domains (see common.utils.expiry_check):
+    # an earlier date that a registry gave once waits for a second answer, and the interface tells a date a registry
+    # confirmed from one nobody checked. Written by the jobs (queryset update, no timeline event); internal.
+    domain_expiry_pending = models.DateField(blank=True, null=True, editable=False)
+    domain_expiry_pending_source = models.CharField(max_length=10, blank=True, null=True, editable=False)
+    domain_expiry_pending_at = models.DateTimeField(blank=True, null=True, editable=False)
+    domain_expiry_source = models.CharField(max_length=10, blank=True, null=True, editable=False)  # RDAP or manual
+    domain_expiry_checked_at = models.DateTimeField(blank=True, null=True, editable=False)  # last time a registry answered
+    domain_expiry_check = models.CharField(max_length=16, blank=True, null=True, editable=False)
+    # The expiry date for which the "domain close to expiry" notification was already sent: one per date.
+    domain_expiry_alerted = models.DateField(blank=True, null=True, editable=False)
     domain_created_at = models.DateField(blank=True, null=True)  # Domain registration date
     ssl_expiry = models.DateField(blank=True, null=True)  # SSL certificate expiration date
 
@@ -76,6 +91,12 @@ class Site(models.Model):
         help_text="Timestamp of the last automatic UDRP status check.",
     )
     timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='site')
+
+    @property
+    def domain_expiry_confirmed(self):
+        """The stored date is the one the registry gave, recently. A date typed by hand is not."""
+        from common.utils.expiry_check import is_confirmed
+        return is_confirmed(self.domain_expiry_check, self.domain_expiry_source, self.domain_expiry_checked_at, timezone.now())
 
     def auto_update_legitimacy_on_registration(self):
         """

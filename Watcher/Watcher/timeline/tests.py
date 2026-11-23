@@ -1,8 +1,10 @@
 import uuid
+from datetime import timedelta
 
 from django.test import TestCase, TransactionTestCase, RequestFactory
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
 
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -400,6 +402,34 @@ class TimelineFeedAPITest(APITestCase):
         self.assertEqual(event['content_type'], 'common.legitimatedomain')
         self.assertEqual(event['object_id'], 1)
         self.assertEqual(event['diff'], {'contact': {'old': None, 'new': 'soc'}})
+
+    def test_the_feed_can_be_cut_to_a_period(self):
+        now = timezone.now()
+        TimelineEvent.objects.filter(pk=self.mine.pk).update(timestamp=now - timedelta(days=10))
+        TimelineEvent.objects.filter(pk=self.theirs.pk).update(timestamp=now - timedelta(days=2))
+        self.assertEqual(self._ids('?actor=all&period=today'), {self.auto.id})
+        self.assertEqual(self._ids('?actor=all&period=7d'), {self.theirs.id, self.auto.id})
+        self.assertEqual(self._ids('?actor=all&period=30d'), {self.mine.id, self.theirs.id, self.auto.id})
+        # Anything else is every period
+        self.assertEqual(self._ids('?actor=all&period=forever'), {self.mine.id, self.theirs.id, self.auto.id})
+
+    def test_the_summary_of_one_person(self):
+        TimelineEvent.objects.create(
+            content_type=self.mine.content_type, object_id=5, action=TimelineEvent.ACTION_DELETED,
+            user=self.user, object_repr='gone.example.com',
+        )
+        TimelineEvent.objects.create(
+            content_type=self.mine.content_type, object_id=6, action=TimelineEvent.ACTION_UPDATED,
+            user=self.user, object_repr='old.example.com',
+        )
+        TimelineEvent.objects.filter(object_repr='old.example.com').update(timestamp=timezone.now() - timedelta(days=3))
+        response = self.client.get('/api/timeline/events/summary/?actor=me')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Mine: one update and one deletion today, one update three days ago; the others' events are not counted
+        self.assertEqual(
+            dict(response.data),
+            {'week': 3, 'today': 2, 'created_today': 0, 'updated_today': 1, 'deleted_today': 1},
+        )
 
     def test_summary(self):
         response = self.client.get('/api/timeline/events/summary/')

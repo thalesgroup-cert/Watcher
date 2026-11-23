@@ -57,7 +57,7 @@ python manage.py createsuperuser
 | `watcher` | Django app (served by Gunicorn on 9002, one worker with 16 threads because the in-process scheduler must run once; image `ghcr.io/thalesgroup-cert/watcher`) — runs the web UI/API *and* the in-process APScheduler jobs (see below); fixed IP `10.10.10.6` |
 | `db_watcher` | MySQL 8.0 (`mysql_native_password` auth plugin required) — fixed IP `10.10.10.5` |
 | `searxng` | Privacy-respecting metasearch engine, used by `data_leak` for paste/code-leak searches — fixed IP `10.10.10.3` |
-| `screenshotter` | Headless Chromium (Playwright) behind a tiny HTTP server (`screenshotter/`), used by `site_monitoring` for the screenshots of the monitored pages. It runs the code of the pages it visits, so it has **its own network shared with `watcher` only** (no database, no other service), a read-only filesystem, no capability, limited memory, and refuses anything that is not a public http(s) address (`screenshotter/guard.py`). `SCREENSHOT_SERVICE_URL=""` on `watcher` switches the screenshots off; `SCREENSHOT_PROXY` makes the browser leave through a proxy. Not part of `deployment/` yet (no published image) |
+| `screenshotter` | Headless Chromium (Playwright) behind a tiny HTTP server (`screenshotter/`), used by `site_monitoring` for the screenshots of the monitored pages. It runs the code of the pages it visits, so it has **its own network shared with `watcher` only** (no database, no other service), a read-only filesystem, no capability, limited memory, and refuses anything that is not a public http(s) address (`screenshotter/guard.py`, and `screenshotter/egress.py`, the proxy the browser leaves through, which checks each connection when it opens it: DNS rebinding, WebSockets). `SCREENSHOT_SERVICE_URL=""` on `watcher` switches the screenshots off; `SCREENSHOT_PROXY` makes the browser leave through a proxy. Part of the root `docker-compose.yml`, of `deployment/` and of the Helm chart (off by default there); built from `screenshotter/`, no published image yet |
 | `certstream` | `0rickyy0/certstream-server-go` — Certificate Transparency stream consumed by `dns_finder` for real-time suspicious-domain detection — fixed IP `10.10.10.7` |
 | `traefik` (optional, `compose_reverse_proxy.yaml`) | TLS-terminating reverse proxy for the corporate domain |
 
@@ -77,10 +77,10 @@ Representative jobs (see each app's `core.py` for the authoritative list):
 |---|---|
 | `threats_watcher` | `main_watch` (RSS ingestion, every 30 min), `cleanup` (daily 08:00), `generate_weekly_summary` (AI weekly digest) |
 | `dns_finder` | `main_dns_twist` (dnstwist permutation scan, every 2h), `main_certificate_transparency` (certstream consumer, every 1h) |
-| `data_leak` | `main_data_leak` (SearxNG-driven leak search, every 5 min, up to 10 concurrent instances), `cleanup` (every 2h) |
-| `site_monitoring` | `monitoring_check` (content/IP/MX diff via TLSH, every 15 min), `update_site_monitoring_rdap_data` (every 15 min), `check_monitored_pages` (pages that are due, every 15 min) |
-| `cyber_watch` | `fetch_latest_cves`, `fetch_ransomware_data`, `fetch_ransomlook_data` (all every 30 min) |
-| `common` | `update_domain_registrar_info` / `update_legitimate_domains_rdap_data` (WHOIS/RDAP, every 30 min), `update_monitored_sites_rdap_data` / `update_all_ssl_certificates` (hourly/6h), `check_udrp_statuses` (6h), `run_weekly_health_checks` (connector health, Monday 06:00) |
+| `data_leak` | `main_data_leak` (SearxNG-driven leak search, every 5 min, one run at a time: a run longer than the cycle makes the next slots skipped and is reported in the log), `cleanup` (every 2h) |
+| `site_monitoring` | `monitoring_check` (content/IP/MX diff via TLSH, every 15 min), `update_site_monitoring_rdap_data` (RDAP registrar and dates, every 15 min), `check_monitored_pages` (pages that are due, every 15 min) |
+| `cyber_watch` | `fetch_latest_cves`, `fetch_ransomware_data`, `fetch_ransomlook_data` (all every 30 min), `fetch_kev` and `fetch_epss` (CISA exploited catalogue and FIRST EPSS scores, daily) |
+| `common` | `update_legitimate_domains_rdap_data` (RDAP, every 30 min), `update_all_ssl_certificates` (6h), `check_udrp_statuses` (6h), `run_weekly_health_checks` (connector health, Monday 06:00) |
 
 ### Web server and logs
 
@@ -97,22 +97,22 @@ Three kinds of log, kept apart:
 |---|---|
 | `watcher` | Project settings, root `urls.py`, WSGI entrypoint |
 | `accounts` | Auth: local, LDAP (`django-auth-ldap`), OIDC/SSO (`mozilla-django-oidc`, PKCE, Knox token issuance) |
-| `common` | Cross-cutting: legitimate domain registry, MISP export (`misp.py`), mail templates, WHOIS/RDAP/SSL/UDRP scheduled checks, connector health checks |
-| `connectors` | Connector framework: registry/dispatch (`core.py`), encrypted credential storage, per-connector health checks; `contrib/` holds one module per integration — `thehive`, `misp`, `slack`, `citadel`, `smtp`, `searxng`, `certstream`, `ldap`, `oidc`, `mysql`, `cyberwatch_cve`, `ransomlook`, `ransomware_live`, `wipo_udrp` |
-| `cyber_watch` | CVE (cve.circl.lu) and ransomware (ransomware.live, ransomlook.io) intelligence fetch/correlation, keyword-based Watch Rules |
+| `common` | Cross-cutting: legitimate domain registry, MISP export (`misp.py`), mail templates, RDAP/SSL/UDRP scheduled checks, connector health checks |
+| `connectors` | Connector framework: registry/dispatch (`core.py`), encrypted credential storage, per-connector health checks; `contrib/` holds one module per integration — `thehive`, `misp`, `slack`, `citadel`, `smtp`, `searxng`, `certstream`, `ldap`, `oidc`, `mysql`, `cyberwatch_cve`, `cisa_kev`, `first_epss`, `ransomlook`, `ransomware_live`, `wipo_udrp` |
+| `cyber_watch` | CVE (cve.circl.lu, flagged when exploited in the wild by the CISA catalogue and scored by FIRST EPSS) and ransomware (ransomware.live, ransomlook.io) intelligence fetch/correlation, keyword-based Watch Rules |
 | `data_leak` | Leak detection across Pastebin, StackOverflow, GitHub/GitLab/Bitbucket, APKMirror, npm, etc., via SearxNG |
 | `dns_finder` | Suspicious/typosquatted domain detection: dnstwist permutations + certstream-driven Certificate Transparency monitoring; `certstream_client.py` is the websocket consumer for the internal `certstream` service |
-| `site_monitoring` | Malicious-domain surveillance (IP/MX/content-hash via TLSH, RDAP/WHOIS expiry) and UDRP case tracking (`udrp.py`); precise web pages (`MonitoredPage`/`PageVersion`, `pages.py`): extracted text, noise filtered, versions kept, diff, notified above a per-page threshold, and a screenshot kept with each version (`screenshots.py`, `PageScreenshot`) |
+| `site_monitoring` | Malicious-domain surveillance (IP/MX/content-hash via TLSH, RDAP expiry) and UDRP case tracking (`udrp.py`); precise web pages (`MonitoredPage`/`PageVersion`, `pages.py`): extracted text, noise filtered, versions kept, diff, notified above a per-page threshold, and a screenshot kept with each version (`screenshots.py`, `PageScreenshot`) |
 | `threats_watcher` | RSS-fed threat news (CERT-FR, CERT-EU, US-CERT, ACSC, …), AI summarization/NER pipeline (`model_manager.py`, `summary_manager.py`) for weekly digests and breaking-news alerts; monitored keywords, each a single word or a rule of several words (AND / one of / exceptions, `rules.py`) matched against the collected articles |
 | `timeline` | Cross-module audit/activity timeline (`middleware.py` + `signals.py` capture events from the other apps) |
 | `frontend` | Serves the built React/Vite bundle (`frontend/static/frontend/`) and its Django template/view |
 
 ### Frontend (`Watcher/Watcher/frontend/src`)
 
-TypeScript, React 19 + react-router 8 (`HashRouter`, routes in `components/App.tsx`) + MUI v9 (`@mui/material`, `@mui/x-charts`) + TanStack Query (server data) + Zustand (session, bulk-action feedback, docked inspector), bundled by Vite straight into Django's static files — no separate frontend server or API proxy to configure. No Redux, no Bootstrap. Visualisations: `@visx/wordcloud` (word cloud), `react-force-graph-2d` + `d3-force` (graph of words linked by their articles), `react-simple-maps` + `world-atlas` (world map). Layout:
+TypeScript, React 19 + react-router 8 (`HashRouter`, routes in `components/App.tsx`) + MUI v9 (`@mui/material`, `@mui/x-charts`) + TanStack Query (server data) + Zustand (session, bulk-action feedback, docked inspector), bundled by Vite straight into Django's static files — no separate frontend server or API proxy to configure. No Redux, no Bootstrap. Visualisations: `@visx/wordcloud` (word cloud), `react-force-graph-2d` + `d3-force` (graph of words linked by their articles). Layout:
 
-- `features/<module>/` — one folder per page (`types.ts`, `api.ts`, `hooks.ts`, `catalog.ts`, `<Module>Page.tsx`, `components/`): `dashboard` (home `/`: attention cards, briefing, word cloud / graph, world map, latest CVEs and victims), `threatsWatcher` (`/threats_watcher`), `cyberWatch`, `dataLeak`, `dnsFinder`, `siteMonitoring`, `legitimateDomains`, `connectors`, plus `auth`, `timeline` (activity feed + object history), `bulk`, `exports`, `misp`, `pendingActions`, `config`.
-- `ui/` — shared building blocks: `Page`/`PageHeader`, `DataTable`, `KpiCard`, `SideDrawer` (the object inspector: docked beside the list on wide screens, no backdrop), `SelectionBar`, `ConfirmDialog`, `EmptyState`, `WorldMap`, `charts` (validated palette, `ChartCard`, `RankedBars`).
+- `features/<module>/` — one folder per page (`types.ts`, `api.ts`, `hooks.ts`, `catalog.ts`, `<Module>Page.tsx`, `components/`): `overview` (home `/`: the week in one figure and the latest AI summary, a card per module, the latest detections, top vulnerabilities and trending words; the person chooses the blocks, kept in `profile.preferences.home.hidden`), `threatsWatcher` (`/threats_watcher`), `cyberWatch`, `dataLeak`, `dnsFinder`, `siteMonitoring`, `legitimateDomains`, `connectors`, plus `auth`, `timeline` (activity feed + object history), `bulk`, `exports`, `misp`, `pendingActions`, `config`.
+- `ui/` — shared building blocks: `Page`/`PageHeader`, `DataTable`, `KpiCard`, `SideDrawer` (the object inspector: docked beside the list on wide screens, no backdrop), `SelectionBar`, `ConfirmDialog`, `EmptyState`, `Toast` (the floating messages, with a bar that empties while they stay), `charts` (validated palette, `ChartCard`, `RankedBars`).
 - `layouts/AppShell.tsx` — the sidebar (icon rail that opens on hover, pin to keep it open, drawer on mobile); `/login` is a full page outside it.
 - `lib/useUrlParams` — page state (tab, filters, sort, page, open object, dialog) lives in the URL; each tab of a page prefixes its own parameters.
 

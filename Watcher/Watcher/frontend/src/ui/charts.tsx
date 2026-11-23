@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, ButtonBase, Card, CardContent, Stack, Typography, useTheme } from '@mui/material';
+import { useDisplay } from '../styles/display';
 
 // Chart colours, checked for colour-vision separation in both modes with the dataviz validator: categorical slots
 // in a fixed order (never cycled), and the fixed status steps with a neutral grey. Text always uses the theme's ink.
@@ -14,9 +15,32 @@ export const STATUS_FILL = {
     neutral: '#8a94a6',
 };
 
+// The same slots for people who tell red from green badly (Appearance > Display): blue, vermillion and blue-green of the
+// Okabe-Ito set, which stay apart in the common kinds of colour blindness; the status steps go blue / amber / vermillion.
+export const SERIES_COLOURBLIND = {
+    light: ['#0072b2', '#d55e00', '#009e73'],
+    dark: ['#56b4e9', '#e69f00', '#cc79a7'],
+};
+export const STATUS_FILL_COLOURBLIND = {
+    good: '#0072b2',
+    warning: '#e69f00',
+    critical: '#d55e00',
+    neutral: '#8a94a6',
+};
+
+/** The chart colours in use: the categorical slots of the current mode and the status steps, as the person chose. */
+export function useChartPalette(): { series: string[]; status: typeof STATUS_FILL } {
+    const mode = useTheme().palette.mode;
+    const colourblind = useDisplay().charts === 'colourblind';
+    return {
+        series: (colourblind ? SERIES_COLOURBLIND : SERIES)[mode],
+        status: colourblind ? STATUS_FILL_COLOURBLIND : STATUS_FILL,
+    };
+}
+
 /** Colour of categorical slot `index` (0-based) in the current mode. */
 export function useSeriesColor(index = 0): string {
-    return SERIES[useTheme().palette.mode][index];
+    return useChartPalette().series[index];
 }
 
 export function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {

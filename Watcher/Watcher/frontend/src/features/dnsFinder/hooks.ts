@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryClient } from '../../api/queryClient';
-import { notifyError, notifySuccess } from '../../lib/notify';
+import { notifyItemError, notifySuccess } from '../../lib/notify';
 import type { BulkTarget } from '../bulk/useBulk';
 import * as api from './api';
 import { ASSET_KINDS, statusMeta } from './catalog';
@@ -85,7 +85,7 @@ export function useSetThreatStatus() {
             afterChange(threatTargets(threat));
             notifySuccess(`${threat.domain_name}: ${statusMeta(status).label.toLowerCase()}`);
         },
-        onError: notifyError,
+        onError: (err, { threat }) => notifyItemError(threat.domain_name, err),
     });
 }
 
@@ -98,7 +98,7 @@ export function useUpdateThreat() {
             afterChange(threatTargets(threat));
             notifySuccess(`${threat.domain_name} updated`);
         },
-        onError: notifyError,
+        onError: (err, { threat }) => notifyItemError(threat.domain_name, err),
     });
 }
 
@@ -110,7 +110,7 @@ export function useThreatMispExport() {
             afterChange(threatTargets(threat));
             notifySuccess(res.message || `${threat.domain_name} exported to MISP`);
         },
-        onError: notifyError,
+        onError: (err, { threat }) => notifyItemError(threat.domain_name, err),
     });
 }
 
@@ -122,7 +122,7 @@ export function useSaveAsset(kind: AssetKind) {
             afterChange([[ASSET_KINDS[kind].contentType, asset.id]]);
             notifySuccess(`${asset.name} ${id === undefined ? 'added' : 'updated'}`);
         },
-        onError: notifyError,
+        onError: (err, { name }) => notifyItemError(name, err),
     });
 }
 
@@ -134,6 +134,6 @@ export function useDeleteAsset(kind: AssetKind) {
             afterChange();
             notifySuccess(`${asset.name} deleted`);
         },
-        onError: notifyError,
+        onError: (err, asset) => notifyItemError(asset.name, err),
     });
 }

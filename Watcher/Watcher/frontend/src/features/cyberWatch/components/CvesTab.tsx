@@ -6,7 +6,7 @@ import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined';
 import GppMaybeOutlined from '@mui/icons-material/GppMaybeOutlined';
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
 import SearchOff from '@mui/icons-material/SearchOff';
-import TodayOutlined from '@mui/icons-material/TodayOutlined';
+import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import UnarchiveOutlined from '@mui/icons-material/UnarchiveOutlined';
 import { getErrorMessage } from '../../../api/client';
 import { useUrlParams } from '../../../lib/useUrlParams';
@@ -25,27 +25,31 @@ import { CveDrawer } from './TargetDrawers';
 
 const DEFAULT_ORDERING = '-published';
 const PAGE_SIZES = [25, 50, 100];
-const ORDERINGS = ['published', 'cvss_score', 'cve_id', 'hits_count'].flatMap((f) => [f, `-${f}`]);
+const ORDERINGS = ['published', 'cvss_score', 'cve_id', 'hits_count', 'exploited', 'epss'].flatMap((f) => [f, `-${f}`]);
 
 // URL parameters are prefixed with "c" so every tab keeps its own view.
 export function readCveFilters(params: URLSearchParams): CveFilters {
     const status = params.get('cstatus') as ArchiveState | null;
     const period = params.get('cperiod') as Period | null;
     const matched = params.get('cmatched');
+    const exploited = params.get('cexploited');
+    const kind = params.get('ckind');
     return {
         status: status && ARCHIVE_STATES.some((s) => s.value === status) ? status : 'active',
         search: params.get('cq') ?? '',
         severity: (params.get('csev') ?? '').split(',').filter((s): s is SeverityFilter => SEVERITIES.some((x) => x.value === s)),
         period: period && PERIODS.some((p) => p.value === period) ? period : '',
         matched: matched === 'yes' || matched === 'no' ? matched : '',
+        exploited: exploited === 'yes' ? 'yes' : '',
+        kind: kind === 'advisory' || kind === 'all' ? kind : 'cve',
     };
 }
 
 export function cveFilterParams(f: CveFilters) {
-    return { cstatus: f.status === 'active' ? null : f.status, cq: f.search, csev: f.severity.join(','), cperiod: f.period, cmatched: f.matched, cpage: null };
+    return { cstatus: f.status === 'active' ? null : f.status, cq: f.search, csev: f.severity.join(','), cperiod: f.period, cmatched: f.matched, cexploited: f.exploited, ckind: f.kind === 'cve' ? null : f.kind, cpage: null };
 }
 
-export const NO_CVE_FILTERS: CveFilters = { status: 'active', search: '', severity: [], period: '', matched: '' };
+export const NO_CVE_FILTERS: CveFilters = { status: 'active', search: '', severity: [], period: '', matched: '', exploited: '', kind: 'cve' };
 
 interface CvesTabProps {
     canChange: boolean;
@@ -83,7 +87,7 @@ export function CvesTab({ canChange, onOpenMatch }: CvesTabProps) {
     const bulkArchive = (archived: boolean) =>
         void bulk.update([...selected], { is_archived: archived }, archived ? 'CVEs - archive' : 'CVEs - restore').then((done) => done && clearSelection());
 
-    const isFiltered = filters.status !== 'active' || !!(filters.search || filters.severity.length || filters.period || filters.matched);
+    const isFiltered = filters.status !== 'active' || !!(filters.search || filters.severity.length || filters.period || filters.matched || filters.exploited || filters.kind !== 'cve');
     const kpi = (patch: Partial<CveFilters>) => {
         const target = { ...NO_CVE_FILTERS, ...patch };
         return {
@@ -97,7 +101,7 @@ export function CvesTab({ canChange, onOpenMatch }: CvesTabProps) {
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, mb: 3 }}>
                 <KpiCard title="CVEs" value={stats?.cves.total} icon={<BugReportOutlined />} color="primary" onClick={kpi({}).onClick} />
                 <KpiCard title="Critical - 7 days" value={stats?.cves.critical7d} icon={<GppMaybeOutlined />} color="error" {...kpi({ severity: ['CRITICAL'], period: '7d' })} />
-                <KpiCard title="Published today" value={stats?.cves.newToday} icon={<TodayOutlined />} color="primary" {...kpi({ period: 'today' })} />
+                <KpiCard title="Exploited in the wild" value={stats?.cves.exploited} icon={<LocalFireDepartment />} color="error" {...kpi({ exploited: 'yes' })} />
                 <KpiCard title="Matched by a rule" value={stats?.cves.matched} icon={<NotificationsActiveOutlined />} color="warning" {...kpi({ matched: 'yes' })} />
             </Box>
 
@@ -163,18 +167,29 @@ export function CvesTab({ canChange, onOpenMatch }: CvesTabProps) {
                             <MenuItem value="yes">Matched by a rule</MenuItem>
                             <MenuItem value="no">Not matched</MenuItem>
                         </TextField>
+                        <TextField select size="small" label="Type" value={filters.kind} onChange={(e) => setFilters({ kind: e.target.value as CveFilters['kind'] })} sx={{ minWidth: 200 }}>
+                            <MenuItem value="cve">CVEs</MenuItem>
+                            <MenuItem value="advisory">Other advisories{stats ? ` (${stats.cves.advisories})` : ''}</MenuItem>
+                            <MenuItem value="all">CVEs and advisories</MenuItem>
+                        </TextField>
+                        <TextField select size="small" label="Exploitation" value={filters.exploited} onChange={(e) => setFilters({ exploited: e.target.value as CveFilters['exploited'] })} sx={{ minWidth: 190 }} slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}>
+                            <MenuItem value="">Any</MenuItem>
+                            <MenuItem value="yes">Exploited in the wild</MenuItem>
+                        </TextField>
                         {isFiltered && (
                             <Button size="small" color="inherit" startIcon={<FilterAltOffOutlined />} onClick={() => update(cveFilterParams(NO_CVE_FILTERS))} sx={{ color: 'text.secondary' }}>
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.severity.length > 0 && { key: 'severity', label: 'Severity', value: filters.severity.map((s) => severityMeta(s).label).join(', '), onRemove: () => setFilters({ severity: [] }) },
-        filters.period && { key: 'period', label: 'Published', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-        filters.matched && { key: 'matched', label: 'Watch rules', value: filters.matched === 'yes' ? 'Matched by a rule' : 'Not matched', onRemove: () => setFilters({ matched: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.severity.length > 0 && { key: 'severity', label: 'Severity', value: filters.severity.map((s) => severityMeta(s).label).join(', '), onRemove: () => setFilters({ severity: [] }) },
+                                filters.period && { key: 'period', label: 'Published', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                                filters.matched && { key: 'matched', label: 'Watch rules', value: filters.matched === 'yes' ? 'Matched by a rule' : 'Not matched', onRemove: () => setFilters({ matched: '' }) },
+                                filters.exploited && { key: 'exploited', label: 'Exploitation', value: 'Exploited in the wild', onRemove: () => setFilters({ exploited: '' }) },
+                                filters.kind !== 'cve' && { key: 'kind', label: 'Type', value: filters.kind === 'advisory' ? 'Other advisories' : 'CVEs and advisories', onRemove: () => setFilters({ kind: 'cve' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -187,7 +202,8 @@ export function CvesTab({ canChange, onOpenMatch }: CvesTabProps) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <CveTable highlight={filters.search}
+                            <CveTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

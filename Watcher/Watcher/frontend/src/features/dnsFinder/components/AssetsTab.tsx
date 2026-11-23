@@ -81,7 +81,8 @@ export function AssetsTab({ kind, canAdd, canManage, onEdit }: AssetsTabProps) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <AssetTable highlight={search}
+                            <AssetTable
+                                highlight={search}
                                 kind={kind}
                                 rows={rows}
                                 loading={list.isPending}

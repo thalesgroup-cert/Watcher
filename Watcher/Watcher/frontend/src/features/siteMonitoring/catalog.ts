@@ -1,3 +1,4 @@
+import type { LegitimateDomain } from '../legitimateDomains/types';
 import type { ChangeKind, Site, SiteChange } from './types';
 
 type Color = 'default' | 'info' | 'warning' | 'error';
@@ -74,3 +75,11 @@ export function mxList(raw: string[] | string | null | undefined): string[] {
         .map((v) => v.trim().replace(/^['"]|['"]$/g, ''))
         .filter(Boolean);
 }
+
+/** The expiry of a site as the helpers of the legitimate domains read it (where the date comes from, when it was checked). */
+export const siteExpiryInfo = (site: Site): Pick<LegitimateDomain, 'expiry' | 'expiry_source' | 'expiry_checked_at' | 'expiry_check'> => ({
+    expiry: site.domain_expiry,
+    expiry_source: site.domain_expiry_source ?? null,
+    expiry_checked_at: site.domain_expiry_checked_at ?? null,
+    expiry_check: site.domain_expiry_check ?? null,
+});

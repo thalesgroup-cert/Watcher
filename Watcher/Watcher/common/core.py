@@ -2,9 +2,8 @@ import logging
 from .utils.send_slack_messages import send_slack_message
 from .utils.send_citadel_messages import send_citadel_message
 from .utils.send_email_notifications import send_email_notifications
-from .utils.rdap import update_domain_registrar_info
-from django.utils import timezone
 from django.conf import settings
+from django.utils import timezone
 import re
 from html import unescape
 from site_monitoring.models import Site
@@ -24,6 +23,7 @@ from .mail_template.dns_finder_dangling_template import get_dns_finder_dangling_
 from .mail_template.cyber_watch_template import get_cyber_watch_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils.job_log import job_count, logged_job, note_channel, report_channel, reported_notification, run_channel
+from .utils import expiry_alerts, expiry_check, registration_actions
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 from connectors.core import get_thehive_config, get_slack_config, get_citadel_config
 # One line: docs/build_the_docs.sh comments out the `from connectors` lines one by one.
@@ -43,23 +43,16 @@ logger = logging.getLogger('watcher.common')
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
-        - Fire WHOIS discovery every 30 minute from Monday to Sunday
-        - Fire Legitimate Domains RDAP/WHOIS every 30 minutes
-        - Fire Monitored Sites RDAP/WHOIS every hour
+        - Fire Legitimate Domains RDAP every 30 minutes (the sites have theirs, in site_monitoring, every 15 minutes)
         - Fire SSL certificate check every 6 hours
         - Fire Connectors health check every Monday at 06:00
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
-
-    scheduler.add_job(update_domain_registrar_info, 'cron', day_of_week='mon-sun', minute='*/30', id='whois_job',
-                      max_instances=10,
-                      replace_existing=True)
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
 
     scheduler.add_job(update_legitimate_domains_rdap_data, 'cron', day_of_week='mon-sun', minute='*/30', id='legitimate_rdap_job',
-                      max_instances=1,
-                      replace_existing=True)
-
-    scheduler.add_job(update_monitored_sites_rdap_data, 'cron', day_of_week='mon-sun', hour='*/1', id='monitored_sites_rdap_job',
                       max_instances=1,
                       replace_existing=True)
 
@@ -144,7 +137,7 @@ def watcher_object_url(app_name, context_data):
         if app_name == 'cyber_watch':
             from cyber_watch.models import CVEAlert, RansomwareVictim
             kind = context_data.get('notification_type')
-            if kind in ('new_cve', 'cve_hit'):
+            if kind in ('new_cve', 'cve_hit', 'cve_exploited'):
                 cve = CVEAlert.objects.filter(cve_id=context_data.get('cve_id')).first()
                 return f"{base}cyber_watch?tab=cves&cve={cve.pk}" if cve else None
             if kind in ('new_victim', 'victim_hit'):
@@ -463,6 +456,8 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             template_key = 'cyber_watch_new_cve'
         elif notification_type == 'cve_hit':
             template_key = 'cyber_watch_cve_hit'
+        elif notification_type == 'cve_exploited':
+            template_key = 'cyber_watch_cve_exploited'
         elif notification_type == 'new_victim':
             template_key = 'cyber_watch_new_victim'
         elif notification_type == 'victim_hit':
@@ -591,7 +586,6 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
             # Its own closure: a failure here (or a domain without a valid suffix) must not cancel the other channels.
             def send_dns_finder_thehive():
-                current_time = timezone.now()
                 extracted = tldextract.extract(subdomain)
                 domain_part = extracted.domain
                 suffix_part = extracted.suffix
@@ -644,13 +638,10 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                 if not ticket_id:
                     ticket_id = generate_ref()
 
-                current_time_str = current_time.strftime("%H:%M:%S")
-                current_date_str = current_time.strftime("%Y-%m-%d")
-
                 twisted = alert.dns_twisted
                 comment_lines = [
                     f"New suspicious domain: **{subdomain.replace('.', '[.]')}** "
-                    f"(parent domain {parent_domain.replace('.', '[.]')}), {current_date_str} {current_time_str}."
+                    f"(parent domain {parent_domain.replace('.', '[.]')})."
                 ]
                 if twisted.keyword_monitored:
                     comment_lines.append(f"- Matches the corporate keyword: {twisted.keyword_monitored.name}")
@@ -768,6 +759,25 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                     'details_url': details_url,
                     'app_name': 'cyber_watch',
                     **_cve_title_parts(severity),
+                }
+            elif notification_type == 'cve_exploited':
+                cve_id = context_data.get('cve_id', 'N/A')
+                severity = context_data.get('severity', 'N/A')
+                cvss_score = context_data.get('cvss_score', 'N/A')
+                event_summary = f"CVE {cve_id} is exploited in the wild"
+                common_data = {
+                    'cve_id': cve_id,
+                    'severity': severity,
+                    'cvss_score': cvss_score,
+                    'epss': context_data.get('epss', 'N/A'),
+                    'fix_by': context_data.get('fix_by', 'N/A'),
+                    'ransomware': context_data.get('ransomware', 'N/A'),
+                    'description': context_data.get('description', '')[:300],
+                    'notification_type': notification_type,
+                    'event_summary': event_summary,
+                    'details_url': details_url,
+                    'app_name': 'cyber_watch',
+                    **_cve_title_parts(severity, cvss_score),
                 }
             elif notification_type == 'new_victim':
                 victim_name = context_data.get('victim_name', 'N/A')
@@ -1051,13 +1061,54 @@ def send_only_thehive_notifications(app_name, context_data, subscribers):
         logger.error(f"Error sending TheHive notifications for {app_name}: {str(e)}")
 
 
-@logged_job("RDAP/WHOIS lookup for legitimate domains", logger)
+def _record_expiry_check(domain, check, source=None, answered=True):
+    """
+    Remember what the last lookup said about the expiry date of a legitimate domain (see LegitimateDomain.expiry_check):
+    the interface tells a date a registry confirmed from one nobody checked. It is a queryset update on purpose: a save
+    would write a timeline event for every domain on every pass of the job.
+    `answered` is False when no registry answered (the time of the last answer is then left as it was).
+    """
+    values = {'expiry_check': check}
+    if answered:
+        values['expiry_checked_at'] = timezone.now()
+    if source:
+        values['expiry_source'] = source
+    LegitimateDomain.objects.filter(pk=domain.pk).update(**values)
+    for name, value in values.items():  # the instance follows, so that its own save does not undo it
+        setattr(domain, name, value)
+
+
+def _record_domain_not_registered(domain):
+    """
+    The registry says a legitimate domain does not exist: the domain is not ours (any more). That goes to Pending actions (a
+    person decides), once the registry said so on two passes in a row ("vanished" in between, as for a date that goes back):
+    a domain that was registered until now, or one that was added without ever being found.
+    A name with a part before its registrable domain ("en.wordpress.com") is not concerned: the registry does not know it.
+    """
+    from .utils.rdap import has_subdomain
+    before = domain.expiry_check
+    if has_subdomain(domain.domain_name):
+        job_count('subdomains')
+        _record_expiry_check(domain, 'subdomain', answered=False)
+    elif before == 'vanished':
+        _record_expiry_check(domain, 'not_registered')
+        job_count('lost')
+        logger.warning(f"{domain.domain_name} is not registered: the registry said so twice in a row")
+        registration_actions.queue_domain_lost(domain)
+    elif before != 'not_registered':
+        _record_expiry_check(domain, 'vanished')
+        logger.warning(f"The registry does not know {domain.domain_name}: waiting for a second answer")
+    else:
+        _record_expiry_check(domain, 'not_registered')  # already told: a person has the action, or decided it
+
+
+@logged_job("RDAP lookup for legitimate domains", logger)
 def update_legitimate_domains_rdap_data():
     """
-    Update RDAP/WHOIS data for legitimate domains.
+    Update the registry data (expiry and registration dates) of the legitimate domains.
     """
     close_old_connections()
-    logger.info("CRON TASK: RDAP/WHOIS Lookup for Legitimate Domains")
+    logger.info("CRON TASK: RDAP Lookup for Legitimate Domains")
 
     domains = LegitimateDomain.objects.all()
 
@@ -1066,24 +1117,30 @@ def update_legitimate_domains_rdap_data():
             job_count('domains')
             from .utils.rdap import RDAPDiscovery
             rdap = RDAPDiscovery(domain.domain_name)
-            method = "RDAP"
 
             if not rdap.fetch_rdap_data():
-                from .utils.whois import WhoisDiscovery
-                whois = WhoisDiscovery(domain.domain_name)
-                if not whois.fetch_whois_data():
-                    # An unregistered domain has no record: counted in the summary of the job
-                    job_count('without_data')
-                    logger.debug(f"No RDAP/WHOIS data found for {domain.domain_name}")
+                if rdap.status == 'not_found':
+                    # The registry of the extension says the domain does not exist: that is an answer. Counted in the
+                    # summary of the job.
+                    job_count('not_registered')
+                    logger.debug(f"{domain.domain_name} is not registered (RDAP)")
+                    _record_domain_not_registered(domain)
                     continue
+                # Nobody answered: no RDAP server for the extension, or the registry did not reply
+                if rdap.status == 'unsupported':
+                    job_count('rdap_unsupported')
+                else:
+                    job_count('without_data')
+                logger.debug(f"No RDAP data found for {domain.domain_name}")
+                _record_expiry_check(domain, 'unsupported' if rdap.status == 'unsupported' else 'unreachable', answered=False)
+                continue
 
-                rdap = whois
-                method = "WHOIS"
-
+            job_count('via_rdap')
             expiration_date = rdap.get_expiration_date()
             registration_date = rdap.get_registration_date()
-            
+
             updated_fields = []
+            moved_earlier_from = None  # the date the registry lowered, when it did
 
             # Update expiration date
             if expiration_date:
@@ -1093,14 +1150,49 @@ def update_legitimate_domains_rdap_data():
                     logger.warning(f"Could not parse expiry '{expiration_date}' for {domain.domain_name}")
                     new_expiry = None
 
-                if new_expiry and domain.expiry != new_expiry:
+                if new_expiry:
+                    # An answer that goes back is what makes a domain that is still ours show as Expired: it is not
+                    # written at once (see common.utils.expiry_check.decide)
                     old_expiry = domain.expiry
-                    domain.expiry = new_expiry
-                    updated_fields.append('expiry')
-                    logger.info(
-                        f"{method} update for {domain.domain_name}: expiry changed from {old_expiry} to {new_expiry}"
-                    )
+                    action, pending, pending_source, pending_at = expiry_check.decide(
+                        old_expiry, new_expiry, domain.expiry_pending, domain.expiry_pending_source,
+                        domain.expiry_pending_at, datetime.now())
+                    if (pending, pending_source, pending_at) != (domain.expiry_pending, domain.expiry_pending_source,
+                                                                 domain.expiry_pending_at):
+                        domain.expiry_pending, domain.expiry_pending_source, domain.expiry_pending_at = pending, pending_source, pending_at
+                        updated_fields += ['expiry_pending', 'expiry_pending_source', 'expiry_pending_at']
+                    compare = f"Compare with the registry: python manage.py check_expiry_dates {domain.domain_name}"
+
+                    if action in (expiry_check.FILL, expiry_check.RENEW, expiry_check.CONFIRM):
+                        domain.expiry = new_expiry
+                        updated_fields.append('expiry')
+                        _record_expiry_check(domain, 'ok', source='RDAP')
+                        logger.info(
+                            f"RDAP update for {domain.domain_name}: expiry changed from {old_expiry} to {new_expiry}"
+                        )
+                        if action == expiry_check.CONFIRM:
+                            moved_earlier_from = old_expiry
+                            job_count('regressed')
+                            turned_expired = old_expiry >= datetime.now().date() > new_expiry
+                            if turned_expired:
+                                job_count('turned_expired')
+                            logger.warning(
+                                f"RDAP gave {domain.domain_name} the same earlier expiry date twice ({old_expiry} -> {new_expiry}): "
+                                f"written" + (", it now shows as Expired" if turned_expired else "") + f". {compare}"
+                            )
+                    elif action == expiry_check.HOLD:
+                        _record_expiry_check(domain, 'contradicted')
+                        job_count('held')
+                        logger.warning(
+                            f"RDAP gave {domain.domain_name} an expiry date EARLIER than the one stored ({old_expiry} -> {new_expiry}): "
+                            f"the stored date is kept until a second pass confirms it. {compare}"
+                        )
+                    else:
+                        _record_expiry_check(domain, 'ok', source='RDAP')  # the registry says what is stored
+                        job_count('unchanged')
             else:
+                _record_expiry_check(domain, 'no_date')
+                job_count('no_date_in_answer')
                 logger.warning(f"No expiration date available for {domain.domain_name}")
 
             # Update registration date
@@ -1122,7 +1214,7 @@ def update_legitimate_domains_rdap_data():
                         domain.domain_created_at = new_registered_at
                         updated_fields.append('domain_created_at')
                         logger.info(
-                            f"{method} update for {domain.domain_name}: registration date changed from {old_registered_at} to {new_registered_at}"
+                            f"RDAP update for {domain.domain_name}: registration date changed from {old_registered_at} to {new_registered_at}"
                         )
             else:
                 logger.warning(f"No registration date available for {domain.domain_name}")
@@ -1133,128 +1225,35 @@ def update_legitimate_domains_rdap_data():
                 job_count('updated')
                 logger.info(f"Successfully updated {domain.domain_name}: {', '.join(updated_fields)}")
 
+            # Notifications (off until switched on in Connectors > Notifications): they never stop the job
+            if moved_earlier_from is not None and expiry_alerts.notify_regression(domain, moved_earlier_from):
+                job_count('alerts_regression')
+            if expiry_alerts.notify_expiring(domain):
+                job_count('alerts_expiring')
+
         except Exception as e:
             job_count('errors')
             logger.error(f"Error processing {domain.domain_name}: {str(e)}")
 
 
-@logged_job("RDAP/WHOIS lookup for monitored sites", logger)
-def update_monitored_sites_rdap_data():
-    """
-    Update RDAP/WHOIS data for monitored sites.
-    """
-    close_old_connections()
-    logger.info("CRON TASK: RDAP/WHOIS Lookup for Monitored Sites")
-
-    sites = Site.objects.filter(monitored=True)
-
-    for site in sites:
-        try:
-            from .utils.rdap import RDAPDiscovery
-            job_count('sites')
-            rdap = RDAPDiscovery(site.domain_name)
-            method = "RDAP"
-
-            if not rdap.fetch_rdap_data():
-                from .utils.whois import WhoisDiscovery
-                whois = WhoisDiscovery(site.domain_name)
-                if not whois.fetch_whois_data():
-                    job_count('without_data')
-                    logger.debug(f"No RDAP/WHOIS data found for {site.domain_name}")
-                    continue
-
-                rdap = whois
-                method = "WHOIS"
-
-            registrar = rdap.get_registrar()
-            expiration_date = rdap.get_expiration_date()
-            registration_date = rdap.get_registration_date()
-            
-            updated = False
-            update_info = []
-            old_legitimacy = site.legitimacy
-
-            # Update registrar
-            if registrar and site.registrar != registrar:
-                old_registrar = site.registrar
-                site.registrar = registrar
-                updated = True
-                update_info.append(f"registrar: {old_registrar} → {registrar}")
-                
-                # Auto-update legitimacy based on registration status
-                if site.auto_update_legitimacy_on_registration():
-                    update_info.append(f"legitimacy: {old_legitimacy} → {site.legitimacy} (now registered)")
-                    logger.info(f"Auto-updated legitimacy for {site.domain_name}: available/disabled → registered")
-                
-                # Create alert for registrar change
-                if old_registrar:
-                    from site_monitoring.models import Alert
-                    Alert.objects.create(
-                        site=site,
-                        type="Registrar Changed",
-                        old_registrar=old_registrar,
-                        new_registrar=registrar
-                    )
-
-            # Update expiration date
-            if expiration_date:
-                try:
-                    new_expiry = datetime.strptime(expiration_date, '%Y-%m-%d').date()
-                    
-                    if site.domain_expiry != new_expiry:
-                        old_expiry = site.domain_expiry
-                        site.domain_expiry = new_expiry
-                        updated = True
-                        update_info.append(f"domain_expiry: {old_expiry} → {new_expiry}")
-                        
-                        # Create alert for expiry change
-                        if old_expiry:
-                            from site_monitoring.models import Alert
-                            Alert.objects.create(
-                                site=site,
-                                type="Domain Expiry Changed",
-                                old_expiry_date=old_expiry,
-                                new_expiry_date=new_expiry
-                            )
-                except Exception as e:
-                    logger.warning(f"Could not parse expiry '{expiration_date}' for {site.domain_name}: {str(e)}")
-
-            # Update registration date
-            if registration_date:
-                try:
-                    new_registered_at = datetime.strptime(registration_date, '%Y-%m-%d').date()
-                    
-                    if site.domain_created_at != new_registered_at:
-                        old_registered_at = site.domain_created_at
-                        site.domain_created_at = new_registered_at
-                        updated = True
-                        update_info.append(f"domain_created_at: {old_registered_at} → {new_registered_at}")
-                except Exception as e:
-                    logger.warning(f"Could not parse registration date '{registration_date}' for {site.domain_name}: {str(e)}")
-
-            if updated:
-                site.save()
-                job_count('updated')
-                logger.info(f"Successfully updated {method} data for {site.domain_name}: {', '.join(update_info)}")
-            else:
-                logger.debug(f"No updates needed for {site.domain_name}")
-
-        except Exception as e:
-            job_count('errors')
-            logger.error(f"Error processing {site.domain_name}: {str(e)}")
-
-
+@logged_job("SSL certificate check for monitored sites", logger)
 def update_all_ssl_certificates():
     """
-    Update SSL certificate information for all monitored sites.
+    Update SSL certificate information for all monitored sites and for the legitimate domains.
     """
     close_old_connections()
-    logger.info("CRON TASK: SSL Certificate Check for Monitored Sites")
+    logger.info("CRON TASK: SSL Certificate Check for Monitored Sites and Legitimate Domains")
     
-    from .utils.ssl_checker import update_all_sites_ssl_certificates
+    from .utils.ssl_checker import update_all_sites_ssl_certificates, update_legitimate_domains_ssl_certificates
     
     success_count = update_all_sites_ssl_certificates()
     logger.info(f"SSL certificate check completed: {success_count} sites updated")
+    job_count("sites_updated", success_count)
+
+    checked, updated = update_legitimate_domains_ssl_certificates()
+    logger.info(f"SSL certificate check of the legitimate domains: {updated} updated out of {checked} answered")
+    job_count("domains_answered", checked)
+    job_count("domains_updated", updated)
 
 
 # Screenshots of web pages, for every module: the client of the `screenshotter` container (a headless browser on its own
@@ -1271,37 +1270,76 @@ def screenshots_kept_per_object():
     return max(1, int(getattr(settings, 'SCREENSHOT_KEEP', 10)))
 
 
-def capture_page(url):
-    """The JPEG of a page, or None when the service is off, refuses the address or fails (said in the log)."""
+# Why a capture failed, in a sentence for the person who asked for it. The service answers a failure with one word (see
+# screenshotter/reasons.py); the other words are Watcher's own.
+CAPTURE_FAILURES = {
+    'timeout': "The site did not answer in time.",
+    'dns': "The domain name could not be resolved.",
+    'refused': "The site refused the connection.",
+    'reset': "The site closed the connection.",
+    'tls': "The certificate of the site is not valid.",
+    'blocked': "The page leads to an address that is not public: the service does not visit it.",
+    'redirects': "The page redirects in a loop.",
+    'unreachable': "The site could not be reached (name not found, connection refused, or an address that is not public).",
+    'address': "This is not an address the service can visit: it must be a public http(s) address.",
+    'private': "This address is not a public one: the service only visits public addresses.",
+    'too_big': "The capture is too big to keep.",
+    'service_down': "The screenshot service did not answer.",
+    'service_error': "The screenshot service failed.",
+    'other': "The cause is not known: see the log of Watcher.",
+}
+
+
+def capture_failure_message(reason):
+    """The sentence an API answers when a capture failed."""
+    return f"The screenshot could not be taken. {CAPTURE_FAILURES.get(reason, CAPTURE_FAILURES['other'])}"
+
+
+def capture_page_result(url):
+    """
+    The JPEG of a page and why it is missing: (image, None), or (None, reason) when the service is off, refuses the address or
+    fails (said in the log). `reason` is a key of CAPTURE_FAILURES.
+    """
     if not screenshots_configured():
-        return None
+        return None, 'service_down'
     try:
         # The service is on a private network: no proxy between it and Watcher
         response = requests.post(settings.SCREENSHOT_SERVICE_URL.rstrip('/') + '/screenshot', json={'url': url},
                                  timeout=settings.SCREENSHOT_TIMEOUT, proxies={'http': None, 'https': None})
     except requests.exceptions.RequestException as exc:
         logger.warning(f"Screenshot of {url}: the service did not answer ({type(exc).__name__})")
-        return None
+        return None, 'service_down'
     if response.status_code != 200:
         logger.warning(f"Screenshot of {url}: the service answered {response.status_code} ({response.text[:60]})")
-        return None
+        word = response.text.strip()
+        if response.status_code == 400:
+            # The service says why it refuses an address; an older one only says "address not allowed"
+            return None, (word if word in ('dns', 'private') else 'address')
+        # A service older than this version answers "capture failed": no reason to give
+        return None, (word if response.status_code == 502 and word in CAPTURE_FAILURES else
+                      'other' if response.status_code == 502 else 'service_error')
     if len(response.content) > SCREENSHOT_MAX_BYTES:
         logger.warning(f"Screenshot of {url}: {len(response.content) // 1024} KB, too big to keep")
-        return None
-    return response.content
+        return None, 'too_big'
+    return response.content, None
 
 
-def take_screenshot(target, target_id, url, user=None):
+def capture_page(url):
+    """The JPEG of a page, or None when the service is off, refuses the address or fails (said in the log)."""
+    return capture_page_result(url)[0]
+
+
+def take_screenshot_result(target, target_id, url, user=None):
     """
     Take a screenshot of a page for an object and keep it; only the newest ones of an object are kept. Every capture is a
     visit from Watcher: it is logged with who asked for it.
 
     :param target: kind of object, `app.model` (e.g. `data_leak.alert`).
-    :return: the Screenshot, or None when it could not be taken.
+    :return: (the Screenshot, None), or (None, why it could not be taken: a key of CAPTURE_FAILURES).
     """
-    image = capture_page(url)
+    image, reason = capture_page_result(url)
     if image is None:
-        return None
+        return None, reason
     user = user if getattr(user, 'pk', None) else None
     shot = Screenshot.objects.create(target=target, target_id=target_id, url=url[:1000], image=image, size=len(image),
                                      taken_by=user)
@@ -1309,7 +1347,12 @@ def take_screenshot(target, target_id, url, user=None):
     if old:
         Screenshot.objects.filter(id__in=old).delete()
     logger.info(f"Screenshot of {url} ({target} #{target_id}) taken by {user.get_username() if user else '-'}")
-    return shot
+    return shot, None
+
+
+def take_screenshot(target, target_id, url, user=None):
+    """The Screenshot taken for an object, or None when it could not be taken (see take_screenshot_result)."""
+    return take_screenshot_result(target, target_id, url, user)[0]
 
 
 def forget_screenshots(target, target_id):

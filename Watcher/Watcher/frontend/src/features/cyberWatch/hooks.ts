@@ -34,13 +34,13 @@ export function useMatches(filters: MatchFilters, query: ListQuery) {
 }
 export const useMatch = (id: number | null, initial?: Match) => useDetail('match', id, api.fetchMatch, initial);
 
-export function useCves(filters: CveFilters, query: ListQuery) {
-    return useQuery({ queryKey: [...KEY, 'cves', filters, query], queryFn: () => api.fetchCves(filters, query), placeholderData: keepPreviousData });
+export function useCves(filters: CveFilters, query: ListQuery, enabled = true) {
+    return useQuery({ queryKey: [...KEY, 'cves', filters, query], queryFn: () => api.fetchCves(filters, query), placeholderData: keepPreviousData, enabled });
 }
 export const useCve = (id: number | null, initial?: Cve) => useDetail('cve', id, api.fetchCve, initial);
 
-export function useVictims(filters: VictimFilters, query: ListQuery) {
-    return useQuery({ queryKey: [...KEY, 'victims', filters, query], queryFn: () => api.fetchVictims(filters, query), placeholderData: keepPreviousData });
+export function useVictims(filters: VictimFilters, query: ListQuery, enabled = true) {
+    return useQuery({ queryKey: [...KEY, 'victims', filters, query], queryFn: () => api.fetchVictims(filters, query), placeholderData: keepPreviousData, enabled });
 }
 export const useVictim = (id: number | null, initial?: Victim) => useDetail('victim', id, api.fetchVictim, initial);
 

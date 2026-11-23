@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir playwright==1.64.1 \
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin shot
 
 WORKDIR /app
-COPY guard.py server.py ./
+COPY guard.py egress.py reasons.py server.py ./
 
 USER shot
 EXPOSE 8080

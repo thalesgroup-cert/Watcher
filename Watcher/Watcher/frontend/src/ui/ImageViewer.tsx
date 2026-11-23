@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, Dialog, IconButton, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import Close from '@mui/icons-material/Close';
 import FitScreenOutlined from '@mui/icons-material/FitScreenOutlined';
+import FullscreenOutlined from '@mui/icons-material/FullscreenOutlined';
 import ZoomInOutlined from '@mui/icons-material/ZoomInOutlined';
 import ZoomOutOutlined from '@mui/icons-material/ZoomOutOutlined';
 
@@ -24,12 +25,16 @@ interface ImageViewerProps {
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const STEP = 0.25;
+/** "Fit the whole page" may go below the zoom-out limit: a long page needs it. */
+const MIN_FIT = 0.05;
+/** Padding of the scroll area (theme spacing 2, on each side), in pixels. */
+const SCROLL_PADDING = 32;
 
 const clamp = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom * 100) / 100));
 
 /**
  * A large image in a dialog of the app: zoom, scroll, and a switch between a few images (before / after a change).
- * Keys: + and - zoom, 0 fits the width, Escape closes.
+ * Keys: + and - zoom, 0 fits the width, 9 fits the whole page, Escape closes.
  */
 export function ImageViewer({ open, onClose, title, images, initial = 0 }: ImageViewerProps) {
     return (
@@ -43,18 +48,32 @@ export function ImageViewer({ open, onClose, title, images, initial = 0 }: Image
 function Viewer({ onClose, title, images, initial }: Omit<ImageViewerProps, 'open'> & { initial: number }) {
     const [index, setIndex] = useState(Math.min(initial, Math.max(0, images.length - 1)));
     const [zoom, setZoom] = useState(1);
+    // Size of the image shown, known once it is loaded
+    const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
     const scroller = useRef<HTMLDivElement>(null);
     const image = images[index];
+
+    // The zoom at which the whole page is seen at once (never above the width of the viewer)
+    const fitPage = useCallback(() => {
+        const box = scroller.current;
+        if (!box || !natural) return;
+        const width = box.clientWidth - SCROLL_PADDING;
+        const height = box.clientHeight - SCROLL_PADDING;
+        const heightAtFullWidth = (width * natural.h) / natural.w;
+        setZoom(Math.max(MIN_FIT, Math.min(1, height / heightAtFullWidth)));
+        box.scrollTo({ top: 0 });
+    }, [natural]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === '+' || e.key === '=') setZoom((z) => clamp(z + STEP));
             else if (e.key === '-') setZoom((z) => clamp(z - STEP));
             else if (e.key === '0') setZoom(1);
+            else if (e.key === '9') fitPage();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, []);
+    }, [fitPage]);
 
     return (
         <>
@@ -70,6 +89,7 @@ function Viewer({ onClose, title, images, initial }: Omit<ImageViewerProps, 'ope
                         onChange={(_, v: number | null) => {
                             if (v === null) return;
                             setIndex(v);
+                            setNatural(null);
                             scroller.current?.scrollTo({ top: 0 });
                         }}
                         aria-label="Image shown"
@@ -105,6 +125,13 @@ function Viewer({ onClose, title, images, initial }: Omit<ImageViewerProps, 'ope
                             <FitScreenOutlined />
                         </IconButton>
                     </Tooltip>
+                    <Tooltip title="Fit the whole page (9)">
+                        <span>
+                            <IconButton size="small" aria-label="Fit the page" disabled={!natural} onClick={fitPage}>
+                                <FullscreenOutlined />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
                 </Stack>
                 <IconButton aria-label="Close the viewer" onClick={onClose} edge="end">
                     <Close />
@@ -117,6 +144,7 @@ function Viewer({ onClose, title, images, initial }: Omit<ImageViewerProps, 'ope
                         src={image.src}
                         alt={`${title} - ${image.label}`}
                         draggable={false}
+                        onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
                         // The width is a share of the viewer: the image keeps its proportions and the container scrolls
                         sx={{ display: 'block', width: `${zoom * 100}%`, maxWidth: 'none', mx: 'auto', border: 1, borderColor: 'divider', bgcolor: 'common.white' }}
                     />

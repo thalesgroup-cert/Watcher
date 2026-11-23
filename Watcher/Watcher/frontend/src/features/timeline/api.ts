@@ -1,5 +1,5 @@
 import { api } from '../../api/client';
-import type { ActivitySummary, FeedFilters, FeedPage, HistoryTarget, TimelineEvent } from './types';
+import type { ActivitySummary, FeedFilters, FeedPage, HistoryTarget, MyActivitySummary, TimelineEvent } from './types';
 
 export const fetchHistory = ({ contentType, objectId }: HistoryTarget) =>
     api
@@ -21,6 +21,7 @@ export const fetchFeed = (filters: FeedFilters, cursor: string | null) =>
         .get<FeedPage>('/api/timeline/events/feed/', {
             params: {
                 actor: filters.actor,
+                period: filters.period || undefined,
                 module: filters.module || undefined,
                 action: filters.actions.join(',') || undefined,
                 search: filters.search.trim() || undefined,
@@ -31,3 +32,6 @@ export const fetchFeed = (filters: FeedFilters, cursor: string | null) =>
         .then((res) => res.data);
 
 export const fetchSummary = () => api.get<ActivitySummary>('/api/timeline/events/summary/').then((res) => res.data);
+
+export const fetchMySummary = () =>
+    api.get<MyActivitySummary>('/api/timeline/events/summary/', { params: { actor: 'me' } }).then((res) => res.data);

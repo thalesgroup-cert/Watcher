@@ -11,7 +11,7 @@ import { countryLabel, isKnownSector, referenceUrls } from '../catalog';
 import { useCve, useGroup, useMatchesOf, useVictim } from '../hooks';
 import type { Cve, Match, Victim } from '../types';
 import { DrawerHeader, Facts, Section } from './parts';
-import { GroupChip, KeywordChip, nvd, SeverityChip } from './tables';
+import { day, epssPercent, ExploitedChip, GroupChip, isCve, KeywordChips, nvd, SeverityChip } from './tables';
 
 /** Rules that matched a CVE or a victim; a click opens the match. */
 function RulesMatched({ objectId, type, onOpenMatch }: { objectId: string | null; type: Match['hit_type']; onOpenMatch: (m: Match) => void }) {
@@ -32,7 +32,7 @@ function RulesMatched({ objectId, type, onOpenMatch }: { objectId: string | null
                         primary={
                             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                 <span>{m.rule_name}</span>
-                                <KeywordChip keyword={m.matched_keyword} />
+                                <KeywordChips keywords={m.matched_keywords} />
                             </Stack>
                         }
                         secondary={`${m.is_archived ? 'Archived' : 'To review'} - matched ${since(m.hit_at)}`}
@@ -89,11 +89,15 @@ export function CveDrawer({ open, id, initial, onClose, previous, next, onNaviga
             {cve && (
                 <Stack direction="row" spacing={1} sx={{ px: 2.5, pb: 2, flexWrap: 'wrap', alignItems: 'center', rowGap: 1 }}>
                     <SeverityChip severity={cve.severity} score={cve.cvss_score} />
+                    <ExploitedChip cve={cve} />
+                    {!isCve(cve.cve_id) && <Chip size="small" variant="outlined" label="Advisory" />}
                     {cve.is_archived && <Chip size="small" label="Archived" />}
                     <Box sx={{ flexGrow: 1 }} />
-                    <Button size="small" variant="outlined" startIcon={<OpenInNew />} href={nvd(cve.cve_id)} target="_blank" rel="noopener noreferrer">
-                        NVD
-                    </Button>
+                    {isCve(cve.cve_id) && (
+                        <Button size="small" variant="outlined" startIcon={<OpenInNew />} href={nvd(cve.cve_id)} target="_blank" rel="noopener noreferrer">
+                            NVD
+                        </Button>
+                    )}
                     <ArchiveButton archived={cve.is_archived} pending={pending} onArchive={onArchive && ((a) => onArchive(cve, a))} />
                 </Stack>
             )}
@@ -121,6 +125,27 @@ export function CveDrawer({ open, id, initial, onClose, previous, next, onNaviga
                                     ]}
                                 />
                             </Box>
+                        </Section>
+                        <Divider />
+                        <Section title="Exploitation">
+                            <Facts
+                                rows={[
+                                    [
+                                        'In the wild',
+                                        cve.exploited
+                                            ? `Yes, in the CISA catalogue of exploited vulnerabilities${cve.kev_added ? ` since ${day(cve.kev_added)}` : ''}`
+                                            : 'Not in the CISA catalogue of exploited vulnerabilities',
+                                    ],
+                                    ['Fix by', cve.exploited && cve.kev_due ? day(cve.kev_due) : ''],
+                                    ['Ransomware', cve.kev_ransomware ? 'Known to be used by ransomware groups' : ''],
+                                    [
+                                        'Likelihood',
+                                        cve.epss !== null && cve.epss !== undefined
+                                            ? `${epssPercent(cve.epss)} chance of being exploited in the next 30 days (EPSS)${cve.epss_percentile !== null && cve.epss_percentile !== undefined ? `, more likely than ${Math.floor(cve.epss_percentile * 100)} % of the CVEs` : ''}`
+                                            : 'Not scored yet (EPSS)',
+                                    ],
+                                ]}
+                            />
                         </Section>
                         <Divider />
                         <Section title="Watch rules">

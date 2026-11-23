@@ -28,7 +28,7 @@ export const setMatchArchived = (id: number, is_archived: boolean) => api.patch<
 export const fetchCves = (f: CveFilters, query: ListQuery) =>
     api
         .get<Page<Cve>>(CVES, {
-            params: { ...listParams(query), status: f.status, search: orUndefined(f.search), severity: orUndefined(f.severity.join(',')), period: orUndefined(f.period), matched: orUndefined(f.matched) },
+            params: { ...listParams(query), status: f.status, search: orUndefined(f.search), severity: orUndefined(f.severity.join(',')), period: orUndefined(f.period), matched: orUndefined(f.matched), exploited: orUndefined(f.exploited), kind: f.kind === 'all' ? undefined : f.kind },
         })
         .then((res) => res.data);
 export const fetchCve = (id: number) => api.get<Cve>(`${CVES}${id}/`).then((res) => res.data);

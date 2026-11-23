@@ -1,7 +1,7 @@
 // The themes a user can pick, from thalesgroup-cert/suspicious (suspicious-ui/src/styles/themes.ts). The ids and
-// labels are the ones of accounts/themes.py: change both together.
+// labels are the ones of accounts/core.py: change both together.
 
-export type ThemeName = 'light' | 'paper' | 'sunrise' | 'darkly' | 'graphite' | 'midnight' | 'slate' | 'high_contrast' | 'cyber' | 'the_one' | 'metal';
+export type ThemeName = 'light' | 'paper' | 'sunrise' | 'clay_light' | 'darkly' | 'clay' | 'graphite' | 'midnight' | 'slate' | 'high_contrast' | 'cyber' | 'the_one' | 'metal';
 
 export interface Palette {
     bgDefault: string;
@@ -22,8 +22,20 @@ export interface ThemeDef {
     navbar?: string;
     /** A word shown under the name in the picker, such as 'Classic' for the look of the former interface. */
     badge?: string;
+    /** Glass panels over an animated backdrop (see AmbientBackdrop): the theme asks for it, the account sets how much. */
+    ambient?: boolean;
     palette: Palette;
 }
+
+/** What kind of theme it is, for the filters of the picker. */
+export type ThemeFamily = 'standard' | 'glass' | 'accessible' | 'ambience';
+
+export const FAMILIES: Record<ThemeFamily, { label: string; badge: string | null }> = {
+    standard: { label: 'Standard', badge: null },
+    glass: { label: 'Glass effects', badge: 'Backdrop effects' },
+    accessible: { label: 'High contrast', badge: 'High contrast' },
+    ambience: { label: 'Ambience', badge: 'Ambience' },
+};
 
 // Light themes first, then the dark ones: this is the order of the picker.
 export const THEMES: Record<ThemeName, ThemeDef> = {
@@ -42,6 +54,13 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
         dark: false,
         palette: { bgDefault: '#FFF0E8', bgPaper: '#FFFFFF', primary: '#F03D2F', secondary: '#FF8C00', info: '#0284C7', success: '#15803D', warning: '#D97706', error: '#DC2626', text: '#1A0A00' },
     },
+    // Ivory and terracotta, white glass over a soft backdrop. Palette ported from the Clay Light theme of the feat/new_version_UX branch.
+    clay_light: {
+        label: 'Clay Light',
+        dark: false,
+        ambient: true,
+        palette: { bgDefault: '#F6F4EE', bgPaper: '#FFFFFF', primary: '#C96442', secondary: '#6F6C62', info: '#3F7590', success: '#4F7F53', warning: '#C98A1A', error: '#B5432F', text: '#3D3A33' },
+    },
     // The look of Watcher before the redesign (Bootswatch Darkly): #375a7f on #222222. The default of the application.
     darkly: {
         label: 'Darkly',
@@ -49,6 +68,14 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
         navbar: '#375A7F',
         badge: 'Classic',
         palette: { bgDefault: '#222222', bgPaper: '#303030', primary: '#375A7F', secondary: '#444444', info: '#3498DB', success: '#00BC8C', warning: '#F39C12', error: '#E74C3C', text: '#FFFFFF' },
+    },
+    // Warm charcoal and terracotta, glass panels over a soft backdrop.
+    clay: {
+        label: 'Clay',
+        dark: true,
+        ambient: true,
+        navbar: '#151412',
+        palette: { bgDefault: '#1C1B19', bgPaper: '#242321', primary: '#D97757', secondary: '#8A877D', info: '#6FA9C2', success: '#82B386', warning: '#E0A83A', error: '#E0675A', text: '#E8E6DC' },
     },
     graphite: {
         label: 'Graphite',
@@ -97,3 +124,19 @@ export const DEFAULT_DARK: ThemeName = 'darkly';
 
 export const isThemeName = (value: unknown): value is ThemeName =>
     typeof value === 'string' && Object.prototype.hasOwnProperty.call(THEMES, value);
+
+export const THEME_FAMILY: Record<ThemeName, ThemeFamily> = {
+    light: 'standard',
+    paper: 'standard',
+    sunrise: 'standard',
+    clay_light: 'glass',
+    darkly: 'standard',
+    clay: 'glass',
+    graphite: 'standard',
+    midnight: 'standard',
+    slate: 'standard',
+    high_contrast: 'accessible',
+    cyber: 'ambience',
+    the_one: 'ambience',
+    metal: 'ambience',
+};

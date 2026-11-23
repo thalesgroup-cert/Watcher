@@ -101,13 +101,17 @@ export function VictimsTab({ canChange, onOpenMatch }: VictimsTabProps) {
         return { selected: JSON.stringify(target) === JSON.stringify(filters), onClick: () => update(victimFilterParams(target)) };
     };
 
-    // Filter menus: the most active groups, countries and sectors, plus the one in the URL.
-    const groups = stats?.victims.topGroups.map((g) => ({ id: String(g.id), name: g.name })) ?? [];
+    // Filter menus: every group, country and sector that has victims (the most active first), then "Unknown" for the victims the
+    // source gives no country or sector for, plus the one in the URL.
+    const groups = stats?.victims.byGroup.map((g) => ({ id: String(g.id), name: g.name })) ?? [];
     if (filters.group && !groups.some((g) => g.id === filters.group)) groups.unshift({ id: filters.group, name: filteredGroup?.name ?? `#${filters.group}` });
-    const countries = stats?.victims.topCountries.map((c) => c.name) ?? [];
-    if (filters.country && !countries.includes(filters.country)) countries.unshift(filters.country);
-    const sectors = stats?.victims.topSectors.map((s) => s.name) ?? [];
-    if (filters.sector && !sectors.includes(filters.sector)) sectors.unshift(filters.sector);
+    const countries = (stats?.victims.byCountry ?? []).filter((c) => /^[A-Za-z]{2}$/.test(c.name)).map((c) => c.name);
+    if (filters.country && filters.country !== 'unknown' && !countries.includes(filters.country)) countries.unshift(filters.country);
+    const sectors = stats?.victims.bySector.map((s) => s.name) ?? [];
+    if (filters.sector && filters.sector !== 'unknown' && !sectors.includes(filters.sector)) sectors.unshift(filters.sector);
+    const unknownCountries = stats?.victims.unknown.country ?? 0;
+    const unknownSectors = stats?.victims.unknown.sector ?? 0;
+    const countryName = (code: string) => (code === 'unknown' ? 'Unknown' : countryLabel(code));
     const byGroup = (groupId: number) => update({ ...victimFilterParams({ ...NO_VICTIM_FILTERS, group: String(groupId), status: 'all' }), victim: null });
 
     return (
@@ -154,6 +158,7 @@ export function VictimsTab({ canChange, onOpenMatch }: VictimsTabProps) {
                                     {countryLabel(c)}
                                 </MenuItem>
                             ))}
+                            {(unknownCountries > 0 || filters.country === 'unknown') && <MenuItem value="unknown">Unknown ({unknownCountries})</MenuItem>}
                         </TextField>
                         <TextField select size="small" label="Sector" value={filters.sector} onChange={(e) => setFilters({ sector: e.target.value })} sx={{ minWidth: 170 }}>
                             <MenuItem value="">Any</MenuItem>
@@ -162,6 +167,7 @@ export function VictimsTab({ canChange, onOpenMatch }: VictimsTabProps) {
                                     {s}
                                 </MenuItem>
                             ))}
+                            {(unknownSectors > 0 || filters.sector === 'unknown') && <MenuItem value="unknown">Unknown ({unknownSectors})</MenuItem>}
                         </TextField>
                         <TextField
                             select
@@ -188,15 +194,15 @@ export function VictimsTab({ canChange, onOpenMatch }: VictimsTabProps) {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.group && { key: 'group', label: 'Group', value: groups.find((g) => g.id === filters.group)?.name ?? filters.group, onRemove: () => setFilters({ group: '' }) },
-        filters.country && { key: 'country', label: 'Country', value: countryLabel(filters.country), onRemove: () => setFilters({ country: '' }) },
-        filters.sector && { key: 'sector', label: 'Sector', value: filters.sector, onRemove: () => setFilters({ sector: '' }) },
-        filters.period && { key: 'period', label: 'Posted', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-        filters.matched && { key: 'matched', label: 'Watch rules', value: filters.matched === 'yes' ? 'Matched by a rule' : 'Not matched', onRemove: () => setFilters({ matched: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.group && { key: 'group', label: 'Group', value: groups.find((g) => g.id === filters.group)?.name ?? filters.group, onRemove: () => setFilters({ group: '' }) },
+                                filters.country && { key: 'country', label: 'Country', value: countryName(filters.country), onRemove: () => setFilters({ country: '' }) },
+                                filters.sector && { key: 'sector', label: 'Sector', value: filters.sector === 'unknown' ? 'Unknown' : filters.sector, onRemove: () => setFilters({ sector: '' }) },
+                                filters.period && { key: 'period', label: 'Posted', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                                filters.matched && { key: 'matched', label: 'Watch rules', value: filters.matched === 'yes' ? 'Matched by a rule' : 'Not matched', onRemove: () => setFilters({ matched: '' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -209,7 +215,8 @@ export function VictimsTab({ canChange, onOpenMatch }: VictimsTabProps) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <VictimTable highlight={filters.search}
+                            <VictimTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

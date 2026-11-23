@@ -35,13 +35,13 @@ function choicesOf(style: AvatarStyleKey, initials: string, first?: AvatarConfig
 }
 
 /** Picks the avatar: a style, then one of a dozen ready-made avatars of that style. */
-export function AvatarEditor() {
+export function AvatarEditor({ onSaved }: { onSaved?: () => void }) {
     const { data: profile } = useProfile();
     // The gallery starts from the saved avatar, so it waits for the profile.
-    return profile ? <AvatarPicker profile={profile} /> : <Skeleton variant="rounded" height={320} />;
+    return profile ? <AvatarPicker profile={profile} onSaved={onSaved} /> : <Skeleton variant="rounded" height={320} />;
 }
 
-function AvatarPicker({ profile }: { profile: Profile }) {
+function AvatarPicker({ profile, onSaved }: { profile: Profile; onSaved?: () => void }) {
     const user = useAuthStore(selectUser);
     const update = useUpdateProfile();
     const saved = profile.avatar ?? null;
@@ -61,8 +61,8 @@ function AvatarPicker({ profile }: { profile: Profile }) {
         setChoices(choicesOf(next, initials, saved));
         setPicked(null);
     };
-    const save = () => picked && update.mutate({ avatar: picked }, { onSuccess: () => { setPicked(null); notifySuccess('Avatar saved'); } });
-    const useInitials = () => update.mutate({ avatar: null }, { onSuccess: () => { setPicked(null); notifySuccess('Back to your initials'); } });
+    const save = () => picked && update.mutate({ avatar: picked }, { onSuccess: () => { setPicked(null); notifySuccess('Avatar saved'); onSaved?.(); } });
+    const useInitials = () => update.mutate({ avatar: null }, { onSuccess: () => { setPicked(null); notifySuccess('Back to your initials'); onSaved?.(); } });
 
     return (
         <Box component="section" aria-label="Avatar">

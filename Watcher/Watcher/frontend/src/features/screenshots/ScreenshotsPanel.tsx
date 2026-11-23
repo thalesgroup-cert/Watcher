@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { Alert as MuiAlert, Box, Button, ButtonBase, List, ListItemButton, ListItemText, Skeleton, Stack, Typography } from '@mui/material';
+import { Alert as MuiAlert, Box, Button, ButtonBase, Chip, List, ListItemButton, ListItemText, Skeleton, Stack, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
+import UnfoldMoreOutlined from '@mui/icons-material/UnfoldMoreOutlined';
 import { getErrorMessage } from '../../api/client';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { ImageViewer } from '../../ui/ImageViewer';
 import { dateAgo, formatDateTime } from '../timeline/format';
 import { useScreenshotImages, useScreenshots, useTakeScreenshot } from './hooks';
+
+/** A capture taller than this (the service captures at 1280 x 800) is a long page: the thumbnail shows only its top. */
+const LONG_PAGE_HEIGHT = 1000;
 
 interface ScreenshotsPanelProps {
     /** Address of the object, with its trailing slash: `/api/data_leak/alert/12/`. */
@@ -28,6 +33,8 @@ export function ScreenshotsPanel({ endpoint, title, canTake, confirm }: Screensh
     const [asking, setAsking] = useState(false);
     // null: viewer closed; otherwise the index of the capture shown first
     const [viewing, setViewing] = useState<number | null>(null);
+    // Size of the newest capture, known once its image is loaded
+    const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
     const shots = list.data?.results ?? [];
     // The thumbnail is always loaded; the others only when the viewer opens
@@ -61,13 +68,35 @@ export function ScreenshotsPanel({ endpoint, title, canTake, confirm }: Screensh
                 <Stack spacing={1.5} data-testid="screenshots-panel">
                     {urls[0] ? (
                         <ButtonBase onClick={() => setViewing(0)} aria-label="View the latest screenshot" sx={{ display: 'block', width: '100%', cursor: 'zoom-in' }}>
-                            <Box
-                                component="img"
-                                src={urls[0]}
-                                alt="Latest screenshot"
-                                draggable={false}
-                                sx={{ width: '100%', maxHeight: 260, objectFit: 'cover', objectPosition: 'top', border: 1, borderColor: 'divider', borderRadius: 1, display: 'block' }}
-                            />
+                            <Box sx={{ position: 'relative' }}>
+                                <Box
+                                    component="img"
+                                    src={urls[0]}
+                                    alt="Latest screenshot"
+                                    draggable={false}
+                                    onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                                    sx={{ width: '100%', maxHeight: 260, objectFit: 'cover', objectPosition: 'top', border: 1, borderColor: 'divider', borderRadius: 1, display: 'block' }}
+                                />
+                                {size && size.h > LONG_PAGE_HEIGHT && (
+                                    // The thumbnail shows the top of the page: a fade and the size say that there is more below
+                                    <>
+                                        <Box
+                                            aria-hidden
+                                            sx={(theme) => ({
+                                                position: 'absolute', left: 1, right: 1, bottom: 1, height: 72, borderRadius: '0 0 4px 4px', pointerEvents: 'none',
+                                                background: `linear-gradient(to bottom, ${alpha(theme.palette.background.paper, 0)}, ${theme.palette.background.paper})`,
+                                            })}
+                                        />
+                                        <Chip
+                                            size="small"
+                                            icon={<UnfoldMoreOutlined />}
+                                            label={`Long page - ${size.w} × ${size.h} px`}
+                                            data-testid="long-page"
+                                            sx={{ position: 'absolute', right: 8, bottom: 8, bgcolor: 'background.paper', border: 1, borderColor: 'divider' }}
+                                        />
+                                    </>
+                                )}
+                            </Box>
                         </ButtonBase>
                     ) : (
                         <Skeleton variant="rounded" height={160} />

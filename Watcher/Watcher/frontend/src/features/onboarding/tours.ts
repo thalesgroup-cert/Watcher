@@ -26,16 +26,18 @@ const NAV = 'nav[aria-label="Main navigation"]';
 const defineTours = <K extends string>(tours: Record<K, Tour>) => tours;
 
 export const TOURS = defineTours({
-    dashboard: {
-        title: 'Dashboard',
+    overview: {
+        title: 'Overview',
         steps: [
             { title: 'Welcome to Watcher', text: 'Watcher watches for threats against your organisation and tells you what needs a decision. This tour shows you around; every page has its own "?".' },
             { target: NAV, title: 'Navigation', text: 'One entry per module. Hover the rail to open it, or pin it to keep it open. On a phone it becomes a drawer.' },
             { target: '[aria-label="Search"]', title: 'Search everything', text: 'Look up a domain, a CVE, a keyword or a victim across every module at once. Ctrl+K (or Cmd+K) opens it from anywhere.' },
             { target: '[data-tour="setup-guide"]', title: 'Setup guide', text: 'The steps to get Watcher watching your organisation. They tick themselves as you add things. Hide the guide any time and bring it back from the header.' },
-            { target: '[aria-label="Needs attention"]', title: 'What needs attention', text: 'Open items in every module: matches, DNS threats, data leaks, website changes, expiring domains and pending actions. Click a card to land on the matching list.' },
-            { title: 'The threat landscape', text: 'Below, the trending words of the week (as a cloud or as a graph of words linked by their articles), a world map of ransomware victims and news sources, and the latest critical CVEs and victims.' },
-            { target: '[aria-label="My profile"]', title: 'Your profile', text: 'Pick one of eleven themes, change your password and see what you are allowed to do.' },
+            { target: '[data-testid="week-hero"]', title: 'The week', text: 'The new detections of the last 7 days in one figure, and how many came from each module. Click a count to open that module.' },
+            { target: '[aria-label="Modules"]', title: 'One card per module', text: 'The figures of each module, what is new this week and what needs a look (the red dot). Click a card to open the module.' },
+            { target: '[data-testid="home-feed"]', title: 'Latest detections', text: 'The newest findings of every module, mixed in one list. Click one to open it where it belongs.' },
+            { target: '[data-testid="home-blocks"]', title: 'Your page', text: 'Customise, in the header, lets you choose the blocks you want to see. The choice follows your account.' },
+            { target: '[aria-label="My profile"]', title: 'Your profile', text: 'Pick one of thirteen themes, change your password and see what you are allowed to do.' },
         ],
     },
     threatsWatcher: {
@@ -108,24 +110,6 @@ export const TOURS = defineTours({
             { target: SEARCH, title: 'Search and filter', text: 'Find a domain, or filter by registrar, expiry or repurchased status.' },
             { tab: 'Insights', target: CARD, title: 'Insights', text: 'Expiries over the next 12 months and the most used extensions.' },
             { target: ACTIONS, title: 'Add domains', text: 'Add your domains first: they feed the other modules, which use them to tell what is yours from what is not.' },
-        ],
-    },
-    changes: {
-        title: 'what moved',
-        steps: [
-            { title: 'Same Watcher, new layout', text: 'Everything you used is still here. The top bar became a sidebar, and every page gained tabs, charts and bulk actions. This tour shows where each part went.' },
-            { target: 'nav[aria-label="Main navigation"]', title: 'The top bar is now a sidebar', text: 'Same blue as before. Hover it to open, or pin it to keep it open. The entries are grouped: Monitor, Assets and Workspace.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Dashboard"]', title: 'Dashboard', text: 'What needs your attention across every module, plus the setup guide.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Threats Watcher"]', title: 'Threats Watcher', text: 'The trending words used to be the home page. They now have a page of their own, with the word cloud, the graph of linked words and the sources.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Cyber Watch"]', title: 'Cyber Watch', text: 'CVEs, ransomware victims and your watch rules, now with a Matches tab to review what your rules found.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Data Leak"]', title: 'Data Leak', text: 'Alerts and search patterns, with charts under Insights.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="DNS Threats"]', title: 'DNS Threats', text: 'Was "DNS Threats Monitored". Look-alike domains, certificate transparency and subdomain takeovers are now triaged in one list.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Website Monitoring"]', title: 'Website Monitoring', text: 'The same websites, with a Changes tab listing what moved.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Legitimate Domains"]', title: 'Legitimate Domains', text: 'Unchanged in purpose, with expiry charts and filters.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Activity"]', title: 'Activity (new)', text: 'Who changed what, across every module.' },
-            { target: 'nav[aria-label="Main navigation"] [aria-label="Connectors"]', title: 'Connectors', text: 'Same connectors, plus a Notifications tab to choose and write what is sent.' },
-            { target: '[aria-label="Help"]', title: 'Help', text: 'The documentation, the API and the GitHub page, which were in the help menu of the top bar.' },
-            { target: '[aria-label="My profile"]', title: 'Your account', text: 'The user menu moved here: profile, theme, password and sign out. Darkly, the original look, is the default theme.' },
         ],
     },
     connectors: {

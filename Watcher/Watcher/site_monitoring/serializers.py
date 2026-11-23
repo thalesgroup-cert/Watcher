@@ -54,6 +54,8 @@ class SiteSerializer(serializers.ModelSerializer):
     alerts_count      = serializers.IntegerField(read_only=True)
     open_alerts_count = serializers.IntegerField(read_only=True)
     last_alert_at     = serializers.DateTimeField(read_only=True)
+    # Whether a registry confirmed the domain expiry date lately (see Site.domain_expiry_confirmed)
+    domain_expiry_confirmed = serializers.BooleanField(read_only=True)
 
     def get_misp_event_uuid(self, obj):
         return get_misp_uuid(obj.domain_name)
@@ -96,7 +98,18 @@ class SiteSerializer(serializers.ModelSerializer):
             data["ssl_expiry"] = None
         return super().to_internal_value(data)
 
+    # A date typed by hand is nobody's verdict: it is marked as such and nothing waits for a registry any more
+    TYPED_BY_HAND = {'domain_expiry_source': 'manual', 'domain_expiry_check': None, 'domain_expiry_checked_at': None,
+                     'domain_expiry_pending': None, 'domain_expiry_pending_source': None, 'domain_expiry_pending_at': None}
+
+    def update(self, instance, validated_data):
+        if 'domain_expiry' in validated_data and validated_data['domain_expiry'] != instance.domain_expiry:
+            validated_data.update(self.TYPED_BY_HAND)
+        return super().update(instance, validated_data)
+
     def create(self, validated_data):
+        if validated_data.get('domain_expiry'):
+            validated_data.update(self.TYPED_BY_HAND)
         site = super().create(validated_data)
         if not self.context.get('defer_monitoring_init'):
             thread = threading.Thread(target=monitoring_init, args=(site,))
@@ -105,7 +118,7 @@ class SiteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Site
-        exclude = ('network_history',)
+        exclude = ('network_history', 'mx_missed', 'domain_expiry_pending', 'domain_expiry_pending_source', 'domain_expiry_pending_at')
 
 
 # Alert Serializer

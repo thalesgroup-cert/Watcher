@@ -41,6 +41,25 @@ export function usePendingActions(enabled: boolean) {
     });
 }
 
+/** Decides several actions in one request; the answer says how many went through and which did not (and why). */
+export function useResolvePendingActions() {
+    return useMutation({
+        mutationFn: ({ ids, decision }: { ids: number[]; decision: 'approve' | 'reject' }) =>
+            api.post<{ succeeded: number; failed: { id: number; error: string }[] }>(`${BASE}resolve/`, { ids, decision }).then((r) => r.data),
+        onSuccess: ({ succeeded, failed }, { decision }) => {
+            void queryClient.invalidateQueries({ queryKey: KEY });
+            if (decision === 'approve') {
+                void invalidateSiteMonitoring();
+                void invalidateLegitimateDomains();
+            }
+            const verb = decision === 'approve' ? 'approved and carried out' : 'rejected';
+            if (succeeded) notifySuccess(`${succeeded} action${succeeded === 1 ? '' : 's'} ${verb}`);
+            if (failed.length) notifyError(new Error(`${failed.length} could not be decided: ${failed[0].error}`));
+        },
+        onError: notifyError,
+    });
+}
+
 export function useResolvePendingAction() {
     return useMutation({
         mutationFn: ({ action, decision }: { action: PendingAction; decision: 'approve' | 'reject' }) => api.post(`${BASE}${action.id}/${decision}/`),

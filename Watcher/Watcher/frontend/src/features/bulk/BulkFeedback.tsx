@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     Button,
     Chip,
@@ -15,17 +16,21 @@ import {
     TableRow,
     Typography,
 } from '@mui/material';
-import { useBulkStore } from './useBulk';
+import { undoBulkCreate, useBulkStore } from './useBulk';
 
 // Global feedback of bulk actions (features/bulk/useBulk.ts), mounted once in App for every module.
 
 const STATUS_COLOR: Record<string, 'warning' | 'error' | 'success'> = { skipped: 'warning', error: 'error' };
+/** A summary longer than this lists only the skipped items and the errors at first. */
+const LONG_RESULT = 100;
 
 /** Card at the top of the screen while a bulk request is processed. */
 export function BulkProgress() {
     const running = useBulkStore((s) => s.running);
+    const cancelRequested = useBulkStore((s) => s.cancelRequested);
+    const requestCancel = useBulkStore((s) => s.requestCancel);
     if (!running) return null;
-    const { label, total } = running;
+    const { label, total, done, cancellable } = running;
     return (
         <Paper
             elevation={6}
@@ -38,11 +43,24 @@ export function BulkProgress() {
                 {total > 0 && (
                     <Typography component="span" variant="body2" color="text.secondary">
                         {' '}
-                        - {total} item{total === 1 ? '' : 's'}…
+                        - {done !== undefined ? `${done} of ${total}` : total} item{total === 1 ? '' : 's'}…
                     </Typography>
                 )}
             </Typography>
-            <LinearProgress sx={{ mt: 1, borderRadius: 1 }} />
+            <LinearProgress
+                sx={{ mt: 1, borderRadius: 1 }}
+                {...(done !== undefined && total > 0 ? { variant: 'determinate' as const, value: Math.round((done / total) * 100) } : {})}
+            />
+            {cancellable && (
+                <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                        {cancelRequested ? 'Stopping after this batch…' : 'What is done stays; you can undo it afterwards.'}
+                    </Typography>
+                    <Button size="small" color="inherit" disabled={cancelRequested} onClick={requestCancel} data-testid="bulk-cancel">
+                        Cancel
+                    </Button>
+                </Stack>
+            )}
         </Paper>
     );
 }
@@ -52,9 +70,21 @@ export function BulkResultDialog() {
     const result = useBulkStore((s) => s.result);
     const close = useBulkStore((s) => s.clearResult);
     const okStatus = result?.ok_status || 'created';
+    const [showAll, setShowAll] = useState(false);
+    // Undoing removes what the import created: asked twice, so that it is never a slip of the mouse
+    const [confirmingUndo, setConfirmingUndo] = useState(false);
+    // A long list shows what needs a look (skipped, errors) first; the rest is one click away.
+    const long = (result?.results.length ?? 0) > LONG_RESULT;
+    const rows = result ? (long && !showAll ? result.results.filter((item) => item.status !== okStatus) : result.results) : [];
+    const finish = () => {
+        setShowAll(false);
+        setConfirmingUndo(false);
+        close();
+    };
+    const undo = result?.undo;
 
     return (
-        <Dialog open={result !== null} onClose={close} maxWidth="md" fullWidth scroll="paper" aria-labelledby="bulk-result-title">
+        <Dialog open={result !== null} onClose={finish} maxWidth="md" fullWidth scroll="paper" aria-labelledby="bulk-result-title">
             {result && (
                 <>
                     <DialogTitle id="bulk-result-title">{result.label || 'Bulk action'} - summary</DialogTitle>
@@ -69,6 +99,16 @@ export function BulkResultDialog() {
                             <Chip color="warning" label={`${result.skipped} skipped`} />
                             <Chip color="error" label={`${result.errors} error${result.errors === 1 ? '' : 's'}`} />
                         </Stack>
+                        {long && (
+                            <Stack direction="row" spacing={1.5} sx={{ mb: 1.5, alignItems: 'center' }}>
+                                <Typography variant="body2" color="text.secondary" data-testid="bulk-result-hidden">
+                                    {showAll ? `All ${result.results.length} items are listed.` : `Only the skipped and the errors are listed (${result.results.length - rows.length} others hidden).`}
+                                </Typography>
+                                <Button size="small" onClick={() => setShowAll((v) => !v)}>
+                                    {showAll ? 'Show only what needs a look' : 'Show all'}
+                                </Button>
+                            </Stack>
+                        )}
                         <Table size="small" aria-label="Items">
                             <TableHead>
                                 <TableRow>
@@ -78,7 +118,7 @@ export function BulkResultDialog() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {result.results.map((item, i) => (
+                                {rows.map((item, i) => (
                                     <TableRow key={`${item.value}-${i}`}>
                                         <TableCell sx={{ overflowWrap: 'anywhere' }}>{item.value}</TableCell>
                                         <TableCell>
@@ -91,7 +131,34 @@ export function BulkResultDialog() {
                         </Table>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={close}>Close</Button>
+                        {undo && !confirmingUndo && (
+                            <Button color="inherit" sx={{ mr: 'auto' }} onClick={() => setConfirmingUndo(true)} data-testid="bulk-undo">
+                                Undo this import
+                            </Button>
+                        )}
+                        {undo && confirmingUndo && (
+                            <>
+                                <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto', pl: 1 }} data-testid="bulk-undo-confirm-text">
+                                    This removes the {undo.ids.length} item{undo.ids.length === 1 ? '' : 's'} this import created.
+                                </Typography>
+                                <Button color="inherit" onClick={() => setConfirmingUndo(false)}>
+                                    Keep them
+                                </Button>
+                                <Button
+                                    color="error"
+                                    variant="contained"
+                                    data-testid="bulk-undo-confirm"
+                                    onClick={() => {
+                                        setConfirmingUndo(false);
+                                        setShowAll(false);
+                                        void undoBulkCreate(undo, result.label);
+                                    }}
+                                >
+                                    Remove {undo.ids.length} item{undo.ids.length === 1 ? '' : 's'}
+                                </Button>
+                            </>
+                        )}
+                        {!confirmingUndo && <Button onClick={finish}>Close</Button>}
                     </DialogActions>
                 </>
             )}

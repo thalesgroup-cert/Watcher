@@ -1,6 +1,6 @@
 import os
 from unittest.mock import patch
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.conf import settings
 
 
@@ -263,3 +263,68 @@ class SettingsValidationTest(TestCase):
         self.assertTrue(hasattr(settings, 'REST_KNOX'))
         self.assertIn('SECURE_HASH_ALGORITHM', settings.REST_KNOX)
         self.assertIn('TOKEN_TTL', settings.REST_KNOX)
+
+
+class FrontendBundleVersionTest(TestCase):
+    """The bundle is served with a version in its address, so that a browser never mixes an old script with a new page."""
+
+    def _bundle(self, directory, mtime):
+        os.makedirs(os.path.join(directory, 'frontend'))
+        for name in ('main.js', 'main.css'):
+            path = os.path.join(directory, 'frontend', name)
+            open(path, 'w').close()
+            os.utime(path, (mtime, mtime))
+
+    def test_the_page_asks_for_the_bundle_with_its_version(self):
+        html = self.client.get('/').content.decode()
+        self.assertRegex(html, r'frontend/main\.js\?v=\d+')
+        self.assertRegex(html, r'frontend/main\.css\?v=\d+')
+
+    def test_the_version_follows_the_files_of_the_bundle(self):
+        import tempfile
+        from frontend import views
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            self._bundle(first, 1_700_000_000)
+            with patch.object(views, 'STATIC_DIRS', (first,)):
+                before = views.asset_version()
+                os.utime(os.path.join(first, 'frontend', 'main.js'), (1_700_000_500, 1_700_000_500))
+                after = views.asset_version()
+            self.assertEqual(before, '1700000000')
+            self.assertEqual(after, '1700000500')
+            # The directory the files are served from wins; the source one is the fallback
+            self._bundle(second, 1_600_000_000)
+            with patch.object(views, 'STATIC_DIRS', (first, second)):
+                self.assertEqual(views.asset_version(), '1700000500')
+            with patch.object(views, 'STATIC_DIRS', (os.path.join(first, 'missing'), second)):
+                self.assertEqual(views.asset_version(), '1600000000')
+
+    def test_without_a_bundle_the_version_is_zero(self):
+        from frontend import views
+        with patch.object(views, 'STATIC_DIRS', ('/nonexistent',)):
+            self.assertEqual(views.asset_version(), '0')
+
+
+class UnknownAddressTest(SimpleTestCase):
+    """An address the server does not know: the interface says so for a browser, the plain 404 for anything else."""
+
+    HTML = {'HTTP_ACCEPT': 'text/html,application/xhtml+xml'}
+
+    @override_settings(DEBUG=False)
+    def test_a_browser_is_sent_to_the_not_found_page_of_the_interface(self):
+        response = self.client.get('/dededee', **self.HTML)
+        self.assertRedirects(response, '/#/dededee', fetch_redirect_response=False)
+
+    @override_settings(DEBUG=False)
+    def test_the_address_asked_is_kept(self):
+        response = self.client.get('/some/deep/page', **self.HTML)
+        self.assertEqual(response['Location'], '/#/some/deep/page')
+
+    @override_settings(DEBUG=False)
+    def test_the_api_and_the_files_keep_the_plain_404(self):
+        for path in ('/api/nothing/', '/static/frontend/nothing.js', '/media/nothing.png'):
+            self.assertEqual(self.client.get(path, **self.HTML).status_code, 404, path)
+
+    @override_settings(DEBUG=False)
+    def test_a_script_that_does_not_ask_for_html_gets_the_plain_404(self):
+        self.assertEqual(self.client.get('/dededee', HTTP_ACCEPT='application/json').status_code, 404)
+        self.assertEqual(self.client.post('/dededee', **self.HTML).status_code, 404)

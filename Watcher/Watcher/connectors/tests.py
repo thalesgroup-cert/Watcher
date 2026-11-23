@@ -168,7 +168,7 @@ class CoreAPITest(TestCase):
     def test_underscore_prefixed_packages_are_excluded_from_discovery(self):
         """contrib/_template must never be auto-registered as a real connector."""
         self.assertFalse(connector_exists('my_service'))
-        self.assertEqual(get_connector_count(), 14)
+        self.assertEqual(get_connector_count(), 16)
 
     def test_get_connector_by_id_returns_correct_connector(self):
         connector = get_connector_by_id('smtp')
@@ -655,7 +655,7 @@ class NotificationAPITest(APITestCase):
         self._auth(self.super_token)
         resp = self.client.get(BASE)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), 17)
+        self.assertEqual(len(resp.data), 22)
         leak = next(t for t in resp.data if t['id'] == 'data_leak')
         self.assertEqual(leak['module'], 'data_leak')
         self.assertEqual(list(leak['channels']), ['slack', 'citadel', 'thehive', 'email'])
@@ -756,16 +756,16 @@ class NotificationAPITest(APITestCase):
 with open(os.path.join(os.path.dirname(__file__), 'test_data', 'notification_golden.json'), encoding='utf-8') as _f:
     GOLDEN = json.load(_f)
 
-MODULES = {'threats_watcher', 'cyber_watch', 'data_leak', 'dns_finder', 'website_monitoring'}
+MODULES = {'threats_watcher', 'cyber_watch', 'data_leak', 'dns_finder', 'website_monitoring', 'legitimate_domains'}
 
 
 class CatalogueShapeTest(SimpleTestCase):
-    def test_seventeen_types_and_fifty_eight_channel_pairs(self):
+    def test_twenty_two_types_and_seventy_four_channel_pairs(self):
         types = all_types()
-        self.assertEqual(len(types), 17)
-        self.assertEqual(sum(len(t.channels) for t in types), 58)
+        self.assertEqual(len(types), 22)
+        self.assertEqual(sum(len(t.channels) for t in types), 74)
         per_channel = {c: sum(1 for t in types if c in t.channels) for c in ('slack', 'citadel', 'thehive', 'email')}
-        self.assertEqual(per_channel, {'slack': 16, 'citadel': 16, 'thehive': 9, 'email': 17})
+        self.assertEqual(per_channel, {'slack': 21, 'citadel': 21, 'thehive': 10, 'email': 22})
 
     def test_every_type_has_a_module_and_a_link(self):
         for ntype in all_types():
@@ -1308,7 +1308,7 @@ class SeedTest(TransactionTestCase):
     def test_the_frozen_channel_map_matches_the_catalogue(self):
         frozen = {type_id: set(channels) for type_id, (_, _, channels) in migration.SEEDS.items()}
         # Types added after the seed have no row: they are off until a superuser switches them on
-        added_since_seed = {'page_change', 'article_rule_hit'}
+        added_since_seed = {'cyber_watch_cve_exploited', 'page_change', 'article_rule_hit', 'legitimate_domain_expiring', 'legitimate_domain_expiry_regression', 'site_domain_expiring', 'site_domain_available'}
         live = {t.id: set(t.channels) for t in all_types() if t.id not in added_since_seed}
         self.assertEqual(frozen, live)
 
@@ -1432,3 +1432,84 @@ class TagSettingsTest(TestCase):
 
     def test_misp_reads_tags_the_same_way(self):
         self.assertEqual(self._misp_tags("['Watcher', 'tlp:amber']"), ['Watcher', 'tlp:amber'])
+
+
+class EnvironmentIgnoredWarningTest(TestCase):
+    """The environment seeds a connector once, then the value saved in Connectors wins: when they differ, say it once."""
+
+    FIELD = 'DATA_LEAK_SEARX_URL'
+
+    def setUp(self):
+        from connectors import core as connectors_core
+        self.core = connectors_core
+        self.core._environment_warned.clear()
+        self.addCleanup(self.core._environment_warned.clear)
+
+    def _saved(self, value):
+        ConnectorOverride.objects.update_or_create(connector_id='searxng', defaults={'overrides': {self.FIELD: value}})
+
+    def _read(self):
+        return self.core.get_config_value('searxng', self.FIELD)
+
+    def test_a_different_environment_value_is_reported_once_without_the_values(self):
+        self._saved('http://saved.example/')
+        with patch.dict('os.environ', {self.FIELD: 'http://secret-user:secret-pw@env.example/'}):
+            with self.assertLogs('watcher.connectors', level='WARNING') as logs:
+                self.assertEqual(self._read(), 'http://saved.example/')  # the saved value is the one used
+                self._read()
+                self._read()
+        self.assertEqual(len(logs.output), 1, logs.output)
+        self.assertIn(self.FIELD, logs.output[0])
+        self.assertIn('Connectors > searxng', logs.output[0])
+        self.assertNotIn('secret-pw', logs.output[0])
+        self.assertNotIn('env.example', logs.output[0])
+        self.assertNotIn('saved.example', logs.output[0])
+
+    def test_nothing_is_said_when_both_agree(self):
+        self._saved('http://same.example/')
+        with patch.dict('os.environ', {self.FIELD: 'http://same.example/'}):
+            with self.assertNoLogs('watcher.connectors', level='WARNING'):
+                self._read()
+
+    def test_nothing_is_said_when_the_environment_does_not_set_it(self):
+        self._saved('http://saved.example/')
+        with patch.dict('os.environ', {}, clear=False) as env:
+            env.pop(self.FIELD, None)
+            with self.assertNoLogs('watcher.connectors', level='WARNING'):
+                self._read()
+
+    def test_the_fields_that_hold_a_secret_are_not_compared(self):
+        field = {'name': 'SOME_API_KEY', 'settings_key': 'SOME_API_KEY'}
+        with patch.dict('os.environ', {'SOME_API_KEY': 'from-env'}):
+            with self.assertNoLogs('watcher.connectors', level='WARNING'):
+                self.core._warn_if_environment_ignored('x', field, 'something-else')
+
+
+class ConnectorLogoTest(TestCase):
+    """Every connector has its brand image, in the size of the others (the page falls back on an emoji without one)."""
+
+    def folder(self):
+        from pathlib import Path
+        from django.conf import settings
+        return Path(settings.BASE_DIR) / 'frontend' / 'static' / 'frontend' / 'images' / 'connectors'
+
+    def test_every_connector_has_a_png_logo(self):
+        from connectors.core import get_all_connectors
+        missing = [c['id'] for c in get_all_connectors() if not (self.folder() / f"{c['id']}.png").is_file()]
+        self.assertEqual(missing, [], 'drop <id>.png in frontend/static/frontend/images/connectors/')
+
+    def test_the_logos_are_real_pngs_no_bigger_than_the_others(self):
+        import struct
+        for path in sorted(self.folder().glob('*.png')):
+            with self.subTest(logo=path.name):
+                data = path.read_bytes()
+                self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
+                width, height = struct.unpack('>II', data[16:24])
+                # 420 pixels at most, 150 kB at most: the page shows them at 72 pixels
+                self.assertLessEqual(max(width, height), 420)
+                self.assertLessEqual(len(data), 150_000)
+
+    def test_no_logo_is_left_behind_for_a_connector_that_no_longer_exists(self):
+        from connectors.core import get_all_connectors
+        ids = {c['id'] for c in get_all_connectors()}
+        self.assertEqual(sorted(p.stem for p in self.folder().glob('*.png') if p.stem not in ids), [])

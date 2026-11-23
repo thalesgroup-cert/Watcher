@@ -4,7 +4,8 @@ with "ok". It runs in its own container, on a network that only Watcher shares, 
 
 Each capture uses a new browser and a new context, thrown away afterwards: no cookie, cache or storage survives from a
 page to the next. Downloads are refused, dialogs are dismissed, service workers are blocked, and every request the page
-makes is checked by `guard.allowed` (public http(s) addresses only).
+makes is checked by `guard.allowed` (public http(s) addresses only), and the browser leaves through `egress`, a proxy that
+checks the address of each connection when it is opened (DNS rebinding, WebSockets).
 """
 import json
 import logging
@@ -14,7 +15,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from playwright.sync_api import sync_playwright
 
+import egress
 import guard
+import reasons
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s | screenshotter: %(message)s',
                     datefmt='%d/%b/%Y %H:%M:%S')
@@ -24,8 +27,10 @@ PORT = 8080  # also the one of the HEALTHCHECK of the image
 # The browser looks like an ordinary one: nothing in it tells that a Thales tool visits the page
 USER_AGENT = os.environ.get('SCREENSHOT_USER_AGENT') or (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36')
-# Optional proxy for the browser, to leave from another address: http://host:port
+# Optional proxy for the browser, to leave from another address: http://host:port. The addresses are then checked by the
+# request filter only, and by that proxy: use a proxy that refuses private addresses.
 PROXY = os.environ.get('SCREENSHOT_PROXY', '')
+EGRESS = ''  # the address of the proxy of `egress`, started with the server
 WIDTH = 1280
 VIEWPORT_HEIGHT = 800
 MAX_HEIGHT = int(os.environ.get('SCREENSHOT_MAX_HEIGHT', '6000'))
@@ -39,8 +44,8 @@ _one_at_a_time = threading.Lock()
 def capture(url):
     """The JPEG of a page (its first MAX_HEIGHT pixels). Raises on a page that does not load."""
     launch = {'args': ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']}
-    if PROXY:
-        launch['proxy'] = {'server': PROXY}
+    if PROXY or EGRESS:
+        launch['proxy'] = {'server': PROXY or EGRESS}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(**launch)
         try:
@@ -89,15 +94,17 @@ class Handler(BaseHTTPRequestHandler):
             url = json.loads(self.rfile.read(min(size, 10_000)) or b'{}').get('url')
         except (ValueError, AttributeError):
             return self._send(400, b'invalid request')
-        if not guard.allowed(url):
-            logger.warning('refused: not a public http(s) address')
-            return self._send(400, b'address not allowed')
+        refused = guard.refusal(url)
+        if refused:
+            logger.warning(f'refused, {refused}: not a public http(s) address that resolves')
+            return self._send(400, refused.encode())  # the word tells Watcher why (see guard.refusal)
         with _one_at_a_time:
             try:
                 image = capture(url)
             except Exception as exc:  # the page did not load, or took too long
-                logger.warning(f'capture failed ({type(exc).__name__}): {str(exc).splitlines()[0][:150]}')
-                return self._send(502, b'capture failed')
+                reason = reasons.failure_reason(exc)
+                logger.warning(f'capture failed, {reason} ({type(exc).__name__}): {str(exc).splitlines()[0][:150]}')
+                return self._send(502, reason.encode())  # the word tells Watcher why (see reasons.py)
         logger.info(f'captured {len(image) // 1024} KB')
         self._send(200, image, 'image/jpeg')
 
@@ -106,5 +113,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    logger.info(f'listening on {PORT}' + (' (through a proxy)' if PROXY else ''))
+    if not PROXY:
+        EGRESS = egress.start()
+    logger.info(f'listening on {PORT}' + (' (through a proxy)' if PROXY else ' (through its own egress proxy)'))
     ThreadingHTTPServer(('0.0.0.0', PORT), Handler).serve_forever()

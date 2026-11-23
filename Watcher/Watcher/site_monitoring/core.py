@@ -11,17 +11,19 @@ import tzlocal
 from .models import Site, Alert, Subscriber, PageScreenshot, MonitoredPage, PageVersion
 import tlsh
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 import socket
 import ipaddress
 from dns import resolver
 from dns.exception import DNSException, Timeout as DNSTimeout
-import shadow_useragent
 from common.core import send_app_specific_notifications, capture_page, screenshots_configured
 from django.db.models import Q
 import time
 import random
 from common.utils.rdap import RDAPDiscovery
-from common.utils.whois import WhoisDiscovery
+from common.utils import expiry_alerts, expiry_check, registration_actions
 import common.utils.job_log as job_log  # not a "from common" line: the documentation build keeps it
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Comment
@@ -43,24 +45,38 @@ LEGITIMACY_LABELS = {
     6: "Malicious (available/disabled)",
 }
 
+DESKTOP_USER_AGENTS = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+)
 
-try:
-    shadow_useragent = shadow_useragent.ShadowUserAgent()
-    # The library logs its own state as ERROR/WARNING at every use ("{'last_update': …}"): nothing to act on
-    logging.getLogger('shadow-useragent').setLevel(logging.CRITICAL)
-except Exception as e:
-    logger.error(str(e))
-    logger.info("Using default User-Agent")
-    shadow_useragent = False
+
+class DesktopUserAgents:
+    """Picks a desktop User-Agent without any network call (same `random_nomobile` as the library it replaces)."""
+
+    @property
+    def random_nomobile(self):
+        return random.choice(DESKTOP_USER_AGENTS)
+
+
+shadow_useragent = DesktopUserAgents()
 
 
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
         - Fire `monitoring_check` every 15 minutes from Monday to Sunday
-        - Fire `update_site_monitoring_rdap_data` every 15 minute for RDAP/WHOIS lookup
+        - Fire `update_site_monitoring_rdap_data` every 15 minute for the RDAP lookup
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
 
     scheduler.add_job(monitoring_check, 'cron', day_of_week='mon-sun', minute='*/15', id='weekend_job',
                       max_instances=10,
@@ -210,92 +226,148 @@ def create_banner_alert(site, old_server, new_server, old_xpb, new_xpb):
         return None
 
 
+def _record_not_registered(site):
+    """
+    The registry says the domain does not exist. When it was registered until now, that is news (the domain is available), but
+    one answer is not enough: it has to say so on two passes in a row ("vanished" in between), as for a date that goes back.
+    A domain that never was registered is only noted. A name with a part before its registrable domain ("www.example.com") is
+    left out: the registry does not know it.
+    """
+    from common.utils.rdap import has_subdomain
+    if has_subdomain(site.domain_name):
+        # The registry only knows registrable domains: its "does not exist" says nothing about this name
+        expiry_check.record_check(site, 'subdomain', answered=False, prefix='domain_expiry')
+        return
+    before = site.domain_expiry_check
+    if before == 'vanished':
+        expiry_check.record_check(site, 'not_registered', prefix='domain_expiry')
+        job_log.job_count('became_available')
+        logger.warning(f"{site.domain_name} is no longer registered: the registry said so twice in a row")
+        expiry_alerts.notify_site_available(site)
+        registration_actions.queue_site_available(site)  # a person decides what it changes (Pending actions)
+    elif before != 'not_registered' and expiry_alerts.site_was_registered(site):
+        expiry_check.record_check(site, 'vanished', prefix='domain_expiry')
+        logger.warning(f"The registry does not know {site.domain_name} any more: waiting for a second answer")
+    else:
+        expiry_check.record_check(site, 'not_registered', prefix='domain_expiry')
+
+
 def perform_site_rdap_lookup(site):
     """
-    Perform RDAP lookup for a single site with WHOIS fallback.
+    Perform the RDAP lookup of a single site and keep its registrar, registration date and expiry date up to date.
+
+    The expiry date follows the rules of the legitimate domains (common.utils.expiry_check): the registry lowers it only with
+    the same earlier date on two passes less than a day apart, and in between the stored date stays. Returns True when something
+    about the site was updated.
     """
     try:
-        # Try RDAP first
         rdap = RDAPDiscovery(site.domain_name)
-        method = "RDAP"
-        
-        if not rdap.fetch_rdap_data():
-            # Fallback to WHOIS
-            logger.debug(f"RDAP lookup failed for domain {site.domain_name}, falling back to WHOIS")
-            whois = WhoisDiscovery(site.domain_name)
-            if not whois.fetch_whois_data():
-                # An unregistered domain has no record: counted in the summary of the job
-                job_log.job_count('without_data')
-                logger.debug(f"No RDAP/WHOIS data found for domain {site.domain_name}")
-                return False
-            
-            rdap = whois
-            method = "WHOIS"
 
-        registrar = rdap.get_registrar()
-        expiration_date = rdap.get_expiration_date()
-        
-        if not registrar and not expiration_date:
+        if not rdap.fetch_rdap_data():
+            if rdap.status == 'not_found':
+                # The registry of the extension says the domain does not exist: that is an answer.
+                job_log.job_count('not_registered')
+                _record_not_registered(site)
+                return False
+            # Nobody answered: no RDAP server for this extension, or the registry did not reply. Counted in the summary of the job.
+            job_log.job_count('rdap_unsupported' if rdap.status == 'unsupported' else 'without_data')
+            logger.debug(f"No RDAP data found for domain {site.domain_name}")
+            expiry_check.record_check(site, 'unsupported' if rdap.status == 'unsupported' else 'unreachable',
+                                      answered=False, prefix='domain_expiry')
             return False
 
-        
-        new_data = {
-            'registrar': registrar,
-            'expiry': datetime.strptime(expiration_date, '%Y-%m-%d').date() if expiration_date else None
-        }
+        job_log.job_count('via_rdap')
+        registrar = rdap.get_registrar()
+        expiration_date = rdap.get_expiration_date()
+        registration_date = rdap.get_registration_date()
 
-        # Detect changes and create individual alerts
-        registrar_changed = (registrar and site.registrar and site.registrar != registrar)
-        expiry_changed = (new_data['expiry'] and site.domain_expiry and site.domain_expiry != new_data['expiry'])
-        
+        if not registrar and not expiration_date:
+            expiry_check.record_check(site, 'no_date', prefix='domain_expiry')
+            job_log.job_count('no_date_in_answer')
+            return False
+
+        # The expiry date: what to do with the answer is decided by common.utils.expiry_check.decide
+        action, old_expiry = None, site.domain_expiry
+        if expiration_date:
+            new_expiry = datetime.strptime(expiration_date, '%Y-%m-%d').date()
+            action, old_expiry = expiry_check.apply_answer(site, new_expiry, datetime.now(), prefix='domain_expiry')
+            compare = f"Compare with the registry: python manage.py check_expiry_dates {site.domain_name}"
+            if action == expiry_check.HOLD:
+                job_log.job_count('held')
+                logger.warning(f"RDAP gave {site.domain_name} an expiry date EARLIER than the one stored "
+                               f"({old_expiry} -> {new_expiry}): the stored date is kept until a second pass confirms it. {compare}")
+            elif action == expiry_check.CONFIRM:
+                job_log.job_count('regressed')
+                logger.warning(f"RDAP gave {site.domain_name} the same earlier expiry date twice ({old_expiry} -> {new_expiry}): "
+                               f"written. {compare}")
+            elif action == expiry_check.KEEP:
+                job_log.job_count('unchanged')
+        else:
+            expiry_check.record_check(site, 'no_date', prefix='domain_expiry')
+            job_log.job_count('no_date_in_answer')
+
+        expiry_written = action in (expiry_check.FILL, expiry_check.RENEW, expiry_check.CONFIRM)
+        registrar_changed = bool(registrar and site.registrar and site.registrar != registrar)
+        registrar_filled = bool(registrar and not site.registrar)
+
+        # Detect changes and create individual alerts. An earlier date still waiting for its second answer is not a change.
         if registrar_changed:
             create_rdap_alert(
                 site=site,
                 alert_code=17,
                 registrar_data={'old': site.registrar, 'new': registrar}
             )
-            logger.info(f"{method} Alert: Registrar change for {site.domain_name}")
-            
-        if expiry_changed:
+            logger.info(f"RDAP Alert: Registrar change for {site.domain_name}")
+
+        if expiry_written and old_expiry and old_expiry != site.domain_expiry:
             create_rdap_alert(
                 site=site,
                 alert_code=18,
-                expiry_data={'old': site.domain_expiry, 'new': new_data['expiry']}
+                expiry_data={'old': old_expiry, 'new': site.domain_expiry}
             )
-            logger.info(f"{method} Alert: Expiration change for {site.domain_name}")
-            
-        if not site.registrar or not site.domain_expiry:
-            create_rdap_alert(
-                site=site,
-                alert_code=20,
-                registrar_data={'old': site.registrar, 'new': registrar} if registrar else None,
-                expiry_data={'old': site.domain_expiry, 'new': new_data['expiry']} if expiration_date else None
-            )
-            logger.info(f"Successfully updated {method} data for {site.domain_name}: registrar='{registrar}', expiration='{expiration_date}'")
+            logger.info(f"RDAP Alert: Expiration change for {site.domain_name}")
+
+        # The first time the registry tells something about the site is the starting point of what is compared later, not a change
+        if registrar_filled or action == expiry_check.FILL:
+            logger.info(f"First RDAP data for {site.domain_name}: registrar='{registrar}', expiration='{expiration_date}'")
+
+        # The registration date (a domain registered again after it lapsed has a new one)
+        created_changed = False
+        if registration_date:
+            try:
+                new_registered_at = datetime.strptime(registration_date, '%Y-%m-%d').date()
+                if site.domain_created_at != new_registered_at:
+                    logger.info(f"RDAP update for {site.domain_name}: registration date changed from {site.domain_created_at} to {new_registered_at}")
+                    site.domain_created_at = new_registered_at
+                    created_changed = True
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse registration date '{registration_date}' for {site.domain_name}")
 
         # Update site data
-        updated = False
+        updated = expiry_written or created_changed
         legitimacy_updated = False
         old_legitimacy = site.legitimacy
-        
+
         if registrar:
+            updated = updated or site.registrar != registrar
             site.registrar = registrar
-            updated = True
-            
+
             legitimacy_updated = site.auto_update_legitimacy_on_registration()
-            
-        if new_data['expiry']:
-            site.domain_expiry = new_data['expiry']
-            updated = True
+            updated = updated or legitimacy_updated
 
         if updated:
-            site.save()
-            
+            # Only what this lookup learned: the site was read at the start of a pass that lasts long, and a full save
+            # would put back what the monitoring wrote meanwhile (addresses, mail records, hash, banner), then report it.
+            site.save(update_fields=['domain_expiry', 'domain_created_at', 'registrar', 'legitimacy'])
+            job_log.job_count('updated')
+
             # Create additional alert if legitimacy was auto-updated
             if legitimacy_updated:
+                from common.utils import auto_comments
+                auto_comments.add_note(Site, site.pk, f'Legitimacy raised to "{LEGITIMACY_LABELS.get(site.legitimacy, site.legitimacy)}": the domain is registered.')
                 old_legitimacy_label = LEGITIMACY_LABELS.get(old_legitimacy, f"Level {old_legitimacy}")
                 new_legitimacy_label = LEGITIMACY_LABELS.get(site.legitimacy, f"Level {site.legitimacy}")
-                
+
                 create_rdap_alert(
                     site=site,
                     alert_code=17,
@@ -304,23 +376,26 @@ def perform_site_rdap_lookup(site):
                         'new': f"{new_legitimacy_label}"
                     }
                 )
-            
-            return True
 
-        return False
+        # Close to expiry (off until switched on in Connectors > Notifications): never stops the lookup
+        if expiry_alerts.notify_site_expiring(site):
+            job_log.job_count('alerts_expiring')
+
+        return bool(updated)
 
     except Exception as e:
-        logger.error(f"Error processing RDAP/WHOIS for {site.domain_name}: {str(e)}")
+        job_log.job_count('errors')
+        logger.error(f"Error processing RDAP for {site.domain_name}: {str(e)}")
         return False
 
 
-@job_log.logged_job("RDAP/WHOIS lookup for site monitoring", logger)
+@job_log.logged_job("RDAP lookup for site monitoring", logger)
 def update_site_monitoring_rdap_data():
     """
-    Update RDAP/WHOIS data for all sites in Site Monitoring.
+    Update the registry data (registrar, registration and expiry dates) of all sites in Site Monitoring.
     """
     close_old_connections()
-    logger.info("CRON TASK : RDAP/WHOIS Lookup for Site Monitoring")
+    logger.info("CRON TASK : RDAP Lookup for Site Monitoring")
 
     sites = Site.objects.all()
     
@@ -331,9 +406,9 @@ def update_site_monitoring_rdap_data():
             time.sleep(1)  # Rate limiting
         except Exception as e:
             job_log.job_count('errors')
-            logger.error(f"Error processing RDAP/WHOIS for {site.domain_name}: {str(e)}")
+            logger.error(f"Error processing RDAP for {site.domain_name}: {str(e)}")
 
-    logger.info("RDAP/WHOIS lookup process completed for Site Monitoring")
+    logger.info("RDAP lookup process completed for Site Monitoring")
 
 
 @job_log.logged_job("Suspicious website monitoring", logger)
@@ -381,6 +456,18 @@ def monitoring_check():
             logger.error(f"Monitoring failed for {site.domain_name}: {e}")
 
 
+def banner_key(banner):
+    """
+    What counts in a Server / X-Powered-By header: the products and their major version. A patch of the same major
+    version, a distribution in brackets ("nginx/1.28.3 (Ubuntu)") or the order of the products is not a change.
+    """
+    key = set()
+    for token in re.sub(r'\([^)]*\)', ' ', banner or '').lower().split():
+        name, _, version = token.partition('/')
+        key.add((name, version.split('.')[0]))
+    return frozenset(key)
+
+
 def _handle_banner_change(site, response):
     """Extract Server/X-Powered-By from response and act on changes."""
     new_server = response.headers.get('Server', '')
@@ -399,6 +486,9 @@ def _handle_banner_change(site, response):
             server_banner=new_server,
             x_powered_by=new_xpb,
         )
+        if banner_key(new_server) == banner_key(site.server_banner) and banner_key(new_xpb) == banner_key(site.x_powered_by):
+            logger.debug(f"Banner of {site.domain_name} updated without alert: {site.server_banner!r} -> {new_server!r}")
+            return
         create_banner_alert(
             site,
             old_server=site.server_banner,
@@ -634,6 +724,10 @@ def check_ip(site, alert):
     return alert, new_ip, new_ip_second
 
 
+# Passes in a row that must find no MX record before the records are said to be gone
+MX_MISSES_TO_CONFIRM = 2
+
+
 def check_mail(site, alert):
     """
     Monitor Mail (MX Records + mail.example.com).
@@ -657,22 +751,32 @@ def check_mail(site, alert):
         mx_records_list.sort()
         if site.MX_records is None:
             alert_mx = True
-            Site.objects.filter(pk=site.pk).update(MX_records=mx_records_list)
+            Site.objects.filter(pk=site.pk).update(MX_records=mx_records_list, mx_missed=0)
         else:
             is_mx = False
             if mx_records_list != site.MX_records:
                 is_mx = True
             if is_mx:
                 alert_mx = True
-                Site.objects.filter(pk=site.pk).update(MX_records=mx_records_list)
-    except DNSTimeout:
-        pass  # a timeout says nothing about the records
-    except(resolver.NoAnswer, resolver.NXDOMAIN, resolver.NoNameservers, DNSException):
-        known_mx = Site.objects.get(pk=site.pk).MX_records
-        if known_mx != []:
-            Site.objects.filter(pk=site.pk).update(MX_records=[])
+                Site.objects.filter(pk=site.pk).update(MX_records=mx_records_list, mx_missed=0)
+            elif site.mx_missed:
+                Site.objects.filter(pk=site.pk).update(mx_missed=0)  # they are back: the empty answer was not a change
+    except (DNSTimeout, resolver.NoNameservers):
+        pass  # a timeout or servers that do not answer say nothing about the records
+    except (resolver.NoAnswer, resolver.NXDOMAIN):
+        stored = Site.objects.get(pk=site.pk)
+        if stored.MX_records is None:
             # None means the site was never checked: recording "no MX" is the baseline, not a change
-            alert_mx = known_mx is not None
+            Site.objects.filter(pk=site.pk).update(MX_records=[], mx_missed=0)
+        elif stored.MX_records != []:
+            # A record that vanishes is told only when the next pass says the same: one empty answer can be a failing resolver
+            if stored.mx_missed + 1 >= MX_MISSES_TO_CONFIRM:
+                Site.objects.filter(pk=site.pk).update(MX_records=[], mx_missed=0)
+                alert_mx = True
+            else:
+                Site.objects.filter(pk=site.pk).update(mx_missed=stored.mx_missed + 1)
+    except DNSException:
+        pass  # anything else the resolver raises: unknown, not "no records"
 
     try:
         # The answer holds a few addresses of a pool spread over many networks: a change only
@@ -930,13 +1034,71 @@ class PageError(Exception):
 
 
 # Download
-def _is_public(host):
-    """True when every address the host resolves to is a public one (Watcher must not be used to reach its network)."""
+def _public_addresses(host):
+    """The addresses the host resolves to. Empty when it does not resolve or when one of them is not public."""
     try:
         addresses = {info[4][0] for info in socket.getaddrinfo(host, None)}
-    except socket.gaierror:
-        return False
-    return bool(addresses) and all(ipaddress.ip_address(address.split('%')[0]).is_global for address in addresses)
+    except (socket.gaierror, UnicodeError):
+        return []
+    try:
+        if addresses and all(ipaddress.ip_address(address.split('%')[0]).is_global for address in addresses):
+            return sorted(addresses)
+    except ValueError:
+        pass
+    return []
+
+
+def is_public(host):
+    """True when every address the host resolves to is a public one (Watcher must not be used to reach its network)."""
+    return bool(_public_addresses(host))
+
+
+class _PublicOnlyMixin:
+    """
+    Connects to an address checked at the moment of the connection: the name is resolved once, here, and the socket is
+    opened on that address. Checking the name first and letting the library resolve it again would let a server answer
+    a public address to the check and a private one to the connection (DNS rebinding).
+    """
+    def _new_conn(self):
+        addresses = _public_addresses(self._dns_host)
+        if not addresses:
+            raise PageError("the address is not public")
+        name = self._dns_host
+        self._dns_host = addresses[0]
+        try:
+            return super()._new_conn()
+        finally:
+            self._dns_host = name  # the name stays the one of the certificate and of the Host header
+
+
+class _PublicOnlyHTTPConnection(_PublicOnlyMixin, HTTPConnection):
+    pass
+
+
+class _PublicOnlyHTTPSConnection(_PublicOnlyMixin, HTTPSConnection):
+    pass
+
+
+class _PublicOnlyHTTPPool(HTTPConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPConnection
+
+
+class _PublicOnlyHTTPSPool(HTTPSConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPSConnection
+
+
+class _PublicOnlyAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = {'http': _PublicOnlyHTTPPool, 'https': _PublicOnlyHTTPSPool}
+
+
+def page_session():
+    session = requests.Session()
+    adapter = _PublicOnlyAdapter()
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
 
 
 def fetch_page(url):
@@ -948,15 +1110,18 @@ def fetch_page(url):
     """
     headers = {'User-Agent': PAGE_USER_AGENT, 'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5'}
     current = url
+    session = page_session()
     for _ in range(PAGE_MAX_REDIRECTS + 1):
         parsed = urlparse(current)
         if parsed.scheme not in ('http', 'https') or not parsed.hostname:
             raise PageError("not an http(s) address")
-        if not _is_public(parsed.hostname):
+        if not is_public(parsed.hostname):
             raise PageError("the address is not public")
         try:
-            response = requests.get(current, headers=headers, timeout=PAGE_REQUEST_TIMEOUT, allow_redirects=False,
-                                    stream=True)
+            response = session.get(current, headers=headers, timeout=PAGE_REQUEST_TIMEOUT, allow_redirects=False,
+                                   stream=True)
+        except PageError:
+            raise
         except requests.exceptions.RequestException as exc:
             raise PageError(f"unreachable ({type(exc).__name__})") from exc
         try:
@@ -982,6 +1147,35 @@ def fetch_page(url):
 
 
 # Text
+# A pattern runs in the only worker, which also runs the scheduler: one that backtracks without end (ReDoS) would freeze
+# Watcher. The shape that does it is a repeat without limit inside another one, as in (a+)+ ; those are refused, and
+# the patterns of a page only look at the first characters of a line.
+PAGE_PATTERN_LINE_LIMIT = 5000
+_UNBOUNDED = 1000
+
+
+def _has_nested_repeat(parsed, inside=False):
+    for opcode, argument in parsed:
+        name = str(opcode)
+        if name in ('MAX_REPEAT', 'MIN_REPEAT', 'POSSESSIVE_REPEAT'):
+            _, high, body = argument
+            unbounded = high >= _UNBOUNDED
+            if unbounded and inside:
+                return True
+            if _has_nested_repeat(body, inside or unbounded):
+                return True
+        elif name == 'SUBPATTERN':
+            if _has_nested_repeat(argument[-1], inside):
+                return True
+        elif name == 'BRANCH':
+            if any(_has_nested_repeat(branch, inside) for branch in argument[1]):
+                return True
+        elif name in ('ASSERT', 'ASSERT_NOT', 'ATOMIC_GROUP'):
+            if _has_nested_repeat(argument[-1], inside):
+                return True
+    return False
+
+
 def compile_ignore_patterns(source):
     """The regular expressions of a page, one per line. ValueError (with the line) when one is not valid."""
     patterns = []
@@ -992,9 +1186,13 @@ def compile_ignore_patterns(source):
         if len(line) > 200:
             raise ValueError(f"Pattern too long: {line[:30]}…")
         try:
-            patterns.append(re.compile(line, re.IGNORECASE))
+            compiled = re.compile(line, re.IGNORECASE)
+            nested = _has_nested_repeat(re._parser.parse(line, re.IGNORECASE))
         except re.error as exc:
             raise ValueError(f"Invalid pattern '{line[:40]}': {exc}") from exc
+        if nested:
+            raise ValueError(f"Pattern too slow (a repeat inside a repeat): {line[:30]}… Use a bounded repeat such as {{1,5}}.")
+        patterns.append(compiled)
     return patterns
 
 

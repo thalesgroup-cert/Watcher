@@ -1,6 +1,7 @@
 # coding=utf-8
 import logging
 import re
+import time
 from .models import Keyword, Alert, PasteId, Subscriber
 import requests
 from django.db import close_old_connections
@@ -21,6 +22,7 @@ logger = logging.getLogger('watcher.data_leak')
 
 SEARX_TIMEOUT = (5, 60)
 PASTEBIN_TIMEOUT = (5, 30)
+CYCLE_SECONDS = 300  # main_data_leak runs every 5 minutes (start_scheduler)
 
 
 class SearxError(Exception):
@@ -33,6 +35,9 @@ def start_scheduler():
         - Fire cleanup every 2 hours
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
 
     # One run at a time: with ~400 keywords a run can last longer than 5 minutes, and a second run started on top of it
     # would query the same keywords and create the same alerts twice. The slot missed meanwhile is skipped.
@@ -70,10 +75,19 @@ def main_data_leak():
     """
     close_old_connections()
     logger.info("CRON TASK : Fetch searx & pastebin")
+    started = time.monotonic()
     # read in our list of keywords
     keywords = Keyword.objects.all().order_by(Length('name').desc())
 
     check_keywords(keywords)
+
+    # The keywords are searched one after the other, so a slow SearxNG stretches the run. Past the cycle, the slots it
+    # covered are skipped (see start_scheduler): say it, since nothing else does.
+    elapsed = time.monotonic() - started
+    if elapsed > CYCLE_SECONDS:
+        job_log.job_count('overran')
+        logger.warning(f"The run took {elapsed:.0f}s, longer than its {CYCLE_SECONDS}s cycle: the slots it covered were skipped, "
+                       f"so each keyword is searched less often. SearxNG is probably slow to answer.")
 
 
 def check_urls(keyword, urls):
@@ -164,6 +178,26 @@ def check_searx(keyword):
     return hits
 
 
+PASTEBIN_WARNING_EVERY = 6 * 3600  # seconds between two warnings that the Pastebin API cannot be read
+_pastebin_warned_at = None
+
+
+def _pastebin_unavailable(reason):
+    """
+    Pastebin refuses the API without a Pro account whose IP is whitelisted: it answers the same at every run, so the warning
+    is written once every six hours instead of every five minutes (288 times a day for something that does not change).
+    Each run still counts it (`pastebin_unavailable`, in the end line of the job), and says so at DEBUG.
+    """
+    global _pastebin_warned_at
+    job_log.job_count('pastebin_unavailable')
+    now = time.monotonic()
+    if _pastebin_warned_at is None or now - _pastebin_warned_at >= PASTEBIN_WARNING_EVERY:
+        _pastebin_warned_at = now
+        logger.warning(f"Cannot Pull https://scrape.pastebin.com API. {reason} (said once every {PASTEBIN_WARNING_EVERY // 3600} hours)")
+    else:
+        logger.debug(f"Cannot Pull https://scrape.pastebin.com API. {reason}")
+
+
 def check_pastebin(keywords):
     """
     Check Pastebin for keyword list.
@@ -244,10 +278,10 @@ def check_pastebin(keywords):
 
             logger.info(f"Successfully processed {len(new_ids)} Pastebin posts.")
         else:
-            logger.warning("Cannot Pull https://scrape.pastebin.com API. You need a Pastebin Pro Account. "
+            _pastebin_unavailable("You need a Pastebin Pro Account. "
                                   "Please verify that the software IP is whitelisted: https://pastebin.com/doc_scraping_api")
     else:
-        logger.warning("Cannot Pull https://scrape.pastebin.com API. API is in maintenance")
+        _pastebin_unavailable("API is in maintenance")
 
     return paste_hits
 

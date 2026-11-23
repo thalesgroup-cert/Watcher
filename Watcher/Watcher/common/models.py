@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -69,7 +70,25 @@ class LegitimateDomain(models.Model):
     repurchased = models.BooleanField(default=False)
     comments = models.TextField(blank=True, null=True, max_length=300)
     misp_event_uuid = models.JSONField(blank=True, null=True, default=list)
+    # An expiry date earlier than the stored one that a registry gave once and that waits for a second answer before it
+    # replaces the stored date (see common.utils.expiry_check.decide). Internal: never shown, never edited by hand.
+    expiry_pending = models.DateField(blank=True, null=True, editable=False)
+    expiry_pending_source = models.CharField(max_length=10, blank=True, null=True, editable=False)
+    expiry_pending_at = models.DateTimeField(blank=True, null=True, editable=False)
+    # Where the expiry date comes from and what the last lookup said, so that the interface can tell a date a registry
+    # confirmed from one nobody checked. Written by the job (queryset update, no timeline event) and by the API when
+    # someone types the date. `expiry_check`: ok, contradicted (an earlier date waits for a second answer), not_registered,
+    # no_date (the registry answered without one), unsupported (no RDAP server for the extension), unreachable (no answer).
+    expiry_source = models.CharField(max_length=10, blank=True, null=True, editable=False)  # RDAP or manual
+    expiry_checked_at = models.DateTimeField(blank=True, null=True, editable=False)  # last time a registry answered
+    expiry_check = models.CharField(max_length=16, blank=True, null=True, editable=False)
+    # The expiry date for which the "expires soon" notification was already sent: one per date, and a renewal (a new
+    # date) can notify again. Internal.
+    expiry_alerted = models.DateField(blank=True, null=True, editable=False)
     timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='legitimatedomain')
+
+    # A date counts as confirmed when RDAP gave it and a registry answered less than this many days ago
+    EXPIRY_VERIFIED_DAYS = 7
 
     class Meta:
         ordering = ['-created_at']
@@ -78,6 +97,12 @@ class LegitimateDomain(models.Model):
 
     def __str__(self):
         return self.domain_name
+
+    @property
+    def expiry_confirmed(self):
+        """The stored date is the one the registry gave, recently. A date typed by hand is not."""
+        return (self.expiry_check == 'ok' and self.expiry_source == 'RDAP' and self.expiry_checked_at is not None
+                and self.expiry_checked_at >= timezone.now() - timedelta(days=self.EXPIRY_VERIFIED_DAYS))
 
 
 class PendingAction(models.Model):
@@ -88,6 +113,8 @@ class PendingAction(models.Model):
     ACTION_TYPES = [
         ('udrp_transfer', 'UDRP - Transfer domain to Legitimate Domains'),
         ('connector_health_check', 'Connector - Health check failed'),
+        ('site_domain_available', 'Website Monitoring - Domain now available'),
+        ('legitimate_domain_lost', 'Legitimate Domains - Domain no longer registered'),
     ]
 
     STATUS_CHOICES = [
@@ -147,3 +174,27 @@ def forget_domain_screenshots(sender, instance, **kwargs):
     """The screenshots of a legitimate domain go away with it."""
     from .core import forget_screenshots
     forget_screenshots('common.legitimate_domain', instance.pk)
+
+
+class JobRun(models.Model):
+    """
+    One pass of a scheduled job (see `common.utils.job_log.logged_job`): when it started, how long it took, what it counted and
+    whether it failed. The last runs of each job are kept (JobRun.KEEP), for the Scheduled jobs page and the freshness shown
+    in the modules.
+    """
+    KEEP = 50  # runs kept per job
+
+    job = models.CharField(max_length=100, db_index=True, help_text="app.function of the job, e.g. threats_watcher.main_watch")
+    label = models.CharField(max_length=150, help_text="Name of the job as the interface shows it")
+    started_at = models.DateTimeField(db_index=True)
+    duration = models.FloatField(help_text="Seconds")
+    failed = models.BooleanField(default=False)
+    counts = models.JSONField(default=dict, blank=True, help_text="What the job counted, e.g. {'feeds': 217}")
+    error = models.CharField(max_length=300, blank=True, default='')
+
+    class Meta:
+        ordering = ['-started_at', '-id']
+        indexes = [models.Index(fields=['job', '-started_at'])]
+
+    def __str__(self):
+        return f"{self.job} at {self.started_at:%Y-%m-%d %H:%M} ({self.duration:.0f}s{', failed' if self.failed else ''})"

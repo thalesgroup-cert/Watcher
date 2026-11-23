@@ -14,16 +14,20 @@ import {
     Typography,
 } from '@mui/material';
 import { DateField } from '../../../ui/DateField';
-import { countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { batchNote, countLines, useBulk } from '../../bulk/useBulk';
 import { ACTIONS, CHECKS, LEGITIMACY } from '../catalog';
 import { SITE_BULK, useSaveSite } from '../hooks';
 import type { Site, SiteInput } from '../types';
 
 type Flag = (typeof CHECKS)[number]['key'] | (typeof ACTIONS)[number]['key'];
 
+const COMMENTS_MAX = 300;
+
 interface FormState {
     domain_name: string;
     ticket_id: string;
+    comments: string;
     registrar: string;
     legitimacy: number;
     expiry: string;
@@ -36,6 +40,7 @@ interface FormState {
 const fromSite = (s: Site | null): FormState => ({
     domain_name: s?.domain_name ?? '',
     ticket_id: s?.ticket_id ?? '',
+    comments: s?.comments ?? '',
     registrar: s?.registrar ?? '',
     legitimacy: s?.legitimacy ?? 2,
     expiry: s?.expiry?.slice(0, 10) ?? '',
@@ -72,6 +77,7 @@ function SiteForm({ site, onClose }: { site: Site | null; onClose: () => void })
         if (blocked) return;
         const input: SiteInput = {
             ticket_id: form.ticket_id.trim(),
+            comments: form.comments,
             legitimacy: form.legitimacy,
             expiry: form.expiry || null,
             domain_expiry: form.domain_expiry || null,
@@ -121,17 +127,34 @@ function SiteForm({ site, onClose }: { site: Site | null; onClose: () => void })
                             autoFocus={!editing}
                             multiline={several}
                             minRows={several ? 5 : undefined}
+                            maxRows={several ? 8 : undefined}
                             value={several ? form.domain_name : form.domain_name.split(/\r?\n/)[0]}
                             onChange={(e) => set('domain_name', e.target.value)}
                             placeholder={several ? 'suspicious-domain.com\nother-domain.net\n…' : 'suspicious-domain.com'}
-                            helperText={several ? `${count} domain${count === 1 ? '' : 's'} detected. The other fields apply to every one.` : undefined}
+                            helperText={
+                                several
+                                    ? `${count} domain${count === 1 ? '' : 's'} detected. The other fields apply to every one.${batchNote(count)}`
+                                    : undefined
+                            }
                             fullWidth
                         />
                         {!editing && (
-                            <FormControlLabel
-                                control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
-                                label={<Typography variant="body2">Add several, one per line</Typography>}
-                            />
+                            <>
+                                <FormControlLabel
+                                    control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
+                                    label={<Typography variant="body2">Add several, one per line</Typography>}
+                                />
+                                {/* Each website is looked up when it is added (DNS, web, mail) and then checked every 15 minutes */}
+                                <ListFileImport
+                                    kind="domains"
+                                    max={500}
+                                    weighs={{ above: 100, text: 'Every website is looked up when it is added, then checked every 15 minutes: a long list makes each pass longer.' }}
+                                    onValues={(values) => {
+                                        setSeveral(true);
+                                        set('domain_name', values.join('\n'));
+                                    }}
+                                />
+                            </>
                         )}
                     </Stack>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -190,6 +213,18 @@ function SiteForm({ site, onClose }: { site: Site | null; onClose: () => void })
                         <DateField label="Domain expiry" name="domain_expiry" value={form.domain_expiry} onChange={(v) => set('domain_expiry', v)} helperText={AUTO} />
                         <DateField label="Certificate expiry" name="ssl_expiry" value={form.ssl_expiry} onChange={(v) => set('ssl_expiry', v)} helperText={AUTO} />
                     </Stack>
+                    <TextField
+                        label="Comments"
+                        name="comments"
+                        multiline
+                        minRows={3}
+                        value={form.comments}
+                        onChange={(e) => set('comments', e.target.value.slice(0, COMMENTS_MAX))}
+                        placeholder={several ? 'Written on every website added' : 'Why it is watched, what was done, where it comes from'}
+                        helperText={`${form.comments.length}/${COMMENTS_MAX}`}
+                        slotProps={{ formHelperText: { sx: { textAlign: 'right' } } }}
+                        fullWidth
+                    />
                     <DateField label="Registered on" name="domain_created_at" value={form.domain_created_at} onChange={(v) => set('domain_created_at', v)} helperText={AUTO} pastOnly />
                 </Stack>
             </DialogContent>

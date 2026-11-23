@@ -14,7 +14,7 @@ import { hasAnyPermission, selectUser, useAuthStore } from '../../auth/store';
 import { parseEventUuids } from '../../misp/MispExportDialog';
 import { ScreenshotsPanel } from '../../screenshots/ScreenshotsPanel';
 import { ObjectHistory } from '../../timeline/components/ObjectHistory';
-import { formatDay } from '../expiry';
+import { checkedText, formatDay, noDateReason } from '../expiry';
 import { ENDPOINT } from '../api';
 import { CONTENT_TYPE, useDomain } from '../hooks';
 import type { LegitimateDomain } from '../types';
@@ -135,14 +135,17 @@ export function DomainDrawer({ open, id, initial, onClose, showInternal, actions
                         <Section title="Renewal">
                             <Stack direction="row" spacing={1.5}>
                                 <Fact icon={<PublicOutlined />} label="Domain">
-                                    <Expiry value={domain.expiry} />
+                                    <Expiry value={domain.expiry} confirmed={domain.expiry_confirmed} emptyLabel={noDateReason(domain)} lost={domain.expiry_check === 'not_registered'} />
                                 </Fact>
                                 <Fact icon={<LockOutlined />} label="Certificate">
                                     <Expiry value={domain.ssl_expiry} />
                                 </Fact>
                             </Stack>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                                Dates are refreshed automatically from RDAP/WHOIS and the site's certificate.
+                            <Typography variant="caption" color="text.secondary" data-testid="expiry-check" sx={{ display: 'block', mt: 1 }}>
+                                {checkedText(domain)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                Dates are refreshed automatically from RDAP and the site's certificate.
                             </Typography>
                         </Section>
 

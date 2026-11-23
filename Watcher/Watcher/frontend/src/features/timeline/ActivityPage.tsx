@@ -19,6 +19,7 @@ function parseFilters(search: string): FeedFilters {
     const params = new URLSearchParams(search);
     const actor = params.get('actor') as Actor | null;
     return {
+        period: '',
         actor: actor && ACTOR_VALUES.includes(actor) ? actor : DEFAULT_FILTERS.actor,
         module: params.get('module') ?? '',
         actions: (params.get('action') ?? '').split(',').filter((a): a is TimelineAction => ACTION_VALUES.includes(a as TimelineAction)),

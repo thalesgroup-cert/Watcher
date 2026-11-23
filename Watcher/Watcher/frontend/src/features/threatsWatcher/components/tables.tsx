@@ -1,10 +1,15 @@
 import type { ReactNode } from 'react';
 import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
+import TrendingDownOutlined from '@mui/icons-material/TrendingDownOutlined';
+import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
 import { confidenceMeta, countryLabel, hostOf, levelMeta, scoreBand, sourceState } from '../catalog';
+import { useHeatColors } from '../heatColors';
+import { HEAT_LABEL, heatOf, heatSentence } from '../heat';
+import { MiniBars } from './MiniBars';
 import type { BannedWord, Level, MonitoredKeyword, Source, Word } from '../types';
 import { When } from '../../../ui/When';
 
@@ -35,10 +40,41 @@ export function Reliability({ score }: { score: number }) {
     );
 }
 
+/** How a word is doing now, in one word: Hot, Rising, New, Steady or Fading. A word without article this week shows a dash. */
+export function HeatChip({ word }: { word: Pick<Word, 'mentions_24h' | 'mentions_week'> }) {
+    const heat = heatOf(word);
+    if (heat === 'quiet') {
+        return (
+            <Typography variant="body2" color="text.disabled">
+                -
+            </Typography>
+        );
+    }
+    const label = HEAT_LABEL[heat];
+    const common = { 'data-testid': 'heat', 'data-heat': heat } as const;
+    return (
+        <Tooltip title={heatSentence(word)}>
+            {heat === 'hot' ? (
+                <Chip size="small" color="warning" icon={<LocalFireDepartment />} label={label} {...common} />
+            ) : heat === 'rising' ? (
+                <Chip size="small" color="warning" variant="outlined" icon={<TrendingUpOutlined />} label={label} {...common} />
+            ) : heat === 'new' ? (
+                <Chip size="small" color="info" variant="outlined" label={label} {...common} />
+            ) : heat === 'fading' ? (
+                <Chip size="small" variant="outlined" icon={<TrendingDownOutlined />} label={label} sx={{ color: 'text.secondary' }} {...common} />
+            ) : (
+                <Typography variant="body2" color="text.secondary" {...common}>
+                    {label}
+                </Typography>
+            )}
+        </Tooltip>
+    );
+}
+
 export function LevelChip({ level }: { level: Level }) {
     const meta = levelMeta(level);
     return (
-        <Tooltip title={meta.description}>
+        <Tooltip title={`${meta.label}: ${meta.description}`}>
             <Chip
                 size="small"
                 color={level === 'warm' ? 'warning' : 'error'}
@@ -56,6 +92,19 @@ export function LevelChip({ level }: { level: Level }) {
     );
 }
 
+/** The days of the week as small bars, in the colour of the heat, and what they add up to. */
+function ActivityCell({ word }: { word: Word }) {
+    const colors = useHeatColors();
+    return (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+            <MiniBars values={word.daily ?? []} color={colors[heatOf(word)]} />
+            <Typography variant="body2" color="text.secondary" noWrap sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {word.mentions_week.toLocaleString('en-GB')} article{word.mentions_week === 1 ? '' : 's'} this week
+            </Typography>
+        </Stack>
+    );
+}
+
 const WORD_COLUMNS: Column<Word>[] = [
     {
         key: 'name',
@@ -67,8 +116,14 @@ const WORD_COLUMNS: Column<Word>[] = [
             </Typography>
         ),
     },
-    { key: 'mentions', label: 'Mentions', sort: 'occurrences', width: 110, align: 'right', render: (w) => count(w.occurrences, true) },
-    { key: 'articles', label: 'Articles', sort: 'posts_count', width: 100, align: 'right', render: (w) => count(w.posts_count) },
+    {
+        key: 'activity',
+        label: <Tooltip title="Articles per day over the last 7 days, today on the right"><span>Activity</span></Tooltip>,
+        sort: 'mentions_week',
+        width: 230,
+        render: (w) => <ActivityCell word={w} />,
+    },
+    { key: 'trend', label: <Tooltip title="The last 24 hours against the daily average of the 6 days before"><span>Trend</span></Tooltip>, sort: 'rising', width: 130, render: (w) => <HeatChip word={w} /> },
     { key: 'reliability', label: 'Reliability', sort: 'score', width: 150, render: (w) => <Reliability score={w.score} /> },
     { key: 'first', label: 'First seen', sort: 'created_at', width: 140, render: (w) => <When iso={w.created_at} /> },
 ];

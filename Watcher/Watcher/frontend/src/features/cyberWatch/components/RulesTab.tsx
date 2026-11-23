@@ -118,12 +118,12 @@ export function RulesTab({ onOpenMatch, onShowMatches }: RulesTabProps) {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        scope && { key: 'scope', label: 'Watches', value: SCOPES.find((s) => s.value === scope)?.label ?? scope, onRemove: () => update({ rscope: '', rpage: null }) },
-        active && { key: 'active', label: 'State', value: active === 'yes' ? 'Active' : 'Paused', onRemove: () => update({ ractive: '', rpage: null }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                scope && { key: 'scope', label: 'Watches', value: SCOPES.find((s) => s.value === scope)?.label ?? scope, onRemove: () => update({ rscope: '', rpage: null }) },
+                                active && { key: 'active', label: 'State', value: active === 'yes' ? 'Active' : 'Paused', onRemove: () => update({ ractive: '', rpage: null }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -136,7 +136,8 @@ export function RulesTab({ onOpenMatch, onShowMatches }: RulesTabProps) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <RuleTable highlight={search}
+                            <RuleTable
+                                highlight={search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

@@ -36,16 +36,16 @@ class WatchRuleAdmin(admin.ModelAdmin):
 
 @admin.register(WatchRuleHit)
 class WatchRuleHitAdmin(admin.ModelAdmin):
-    list_display = ['rule', 'hit_type', 'object_id', 'matched_keyword', 'is_archived', 'hit_at']
+    list_display = ['rule', 'hit_type', 'object_id', 'matched_keywords', 'is_archived', 'hit_at']
     list_filter = ['hit_type', 'is_archived', 'rule']
-    search_fields = ['object_id', 'matched_keyword', 'rule__name']
+    search_fields = ['object_id', 'rule__name']
     readonly_fields = ['hit_at']
 
 
 @admin.register(Subscriber)
 class SubscriberAdmin(admin.ModelAdmin):
     list_display = ('user_rec', 'created_at', 'email',
-                    'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits')
+                    'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits', 'notify_exploited_cves')
     list_filter  = ('email',
                     'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits')
     search_fields = ('user_rec__username',)
@@ -60,7 +60,7 @@ class SubscriberAdmin(admin.ModelAdmin):
                            "are set once for the whole instance under Connectors > Notifications.",
         }),
         ('Subscription Types', {
-            'fields': ('notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits'),
+            'fields': ('notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits', 'notify_exploited_cves'),
             'description': "Choose which kinds of e-mail this subscriber receives. Slack, Citadel and TheHive ignore these boxes (see Connectors > Notifications).",
         }),
     )

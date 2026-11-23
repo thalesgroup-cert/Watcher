@@ -1,9 +1,10 @@
 from django.db import migrations, models
 
-# The themes the picker offers. Any other value is a former Bootswatch id and is cleared.
+# The themes the picker offers (accounts.core.THEME_CHOICES when this migration was written). Any other value is a
+# former Bootswatch id and is cleared; 'darkly' and 'slate' stay, they are still offered.
 CURRENT_THEMES = [
-    'light', 'paper', 'sunrise', 'graphite', 'midnight',
-    'slate', 'high_contrast', 'cyber', 'the_one', 'metal',
+    'light', 'paper', 'sunrise', 'darkly', 'graphite', 'midnight',
+    'slate', 'high_contrast', 'cyber', 'the_one', 'metal', 'clay', 'clay_light',
 ]
 
 

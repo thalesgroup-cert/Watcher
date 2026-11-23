@@ -1,5 +1,8 @@
 import logging
+import threading
+from django.conf import settings
 from rest_framework import viewsets, permissions, filters, status
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -11,7 +14,8 @@ from datetime import date, datetime, timedelta
 from django.db.models import Prefetch
 from .bulk import BulkActionMixin, BulkCreateMixin, normalize_domain, validate_domain
 from .models import LegitimateDomain, PendingAction, Screenshot
-from .core import screenshots_configured, take_screenshot
+from .utils import registration_actions
+from .core import capture_failure_message, screenshots_configured, take_screenshot_result
 from .serializers import LegitimateDomainSerializer, PendingActionSerializer, ScreenshotSerializer
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -27,6 +31,34 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 # Screenshots of the objects of a module (see `take_screenshot`)
+class WatcherThrottle(SimpleRateThrottle):
+    """
+    A limit per user (per address for an anonymous visitor). The rates are in `settings.WATCHER_THROTTLES`, read at each
+    request, e.g. {'search': '60/min'}; the counters live in the cache of the process (Watcher runs one worker).
+    """
+    scope = None
+
+    def get_rate(self):
+        return settings.WATCHER_THROTTLES.get(self.scope)
+
+    def get_cache_key(self, request, view):
+        user = request.user
+        ident = f'user-{user.pk}' if user and user.is_authenticated else self.get_ident(request)
+        return self.cache_format % {'scope': self.scope, 'ident': ident}
+
+
+class CaptureThrottle(WatcherThrottle):
+    scope = 'screenshot'
+
+
+class SearchThrottle(WatcherThrottle):
+    scope = 'search'
+
+
+# A capture keeps one of the 16 threads of the server busy until the page has loaded: only a few at a time
+_capture_slots = threading.BoundedSemaphore(4)
+
+
 class CanTakeScreenshots(permissions.BasePermission):
     """Signed in, and allowed to change the objects of the viewset."""
 
@@ -68,7 +100,8 @@ class ScreenshotMixin:
             'results': ScreenshotSerializer(self._screenshots(obj).select_related('taken_by').defer('image'), many=True).data,
         })
 
-    @action(detail=True, methods=['post'], url_path='screenshots/capture', permission_classes=[CanTakeScreenshots])
+    @action(detail=True, methods=['post'], url_path='screenshots/capture', permission_classes=[CanTakeScreenshots],
+            throttle_classes=[CaptureThrottle])
     def screenshots_capture(self, request, pk=None):
         obj = self.get_object()
         if not screenshots_configured():
@@ -76,10 +109,15 @@ class ScreenshotMixin:
         url = self.screenshot_url(obj)
         if not url:
             return Response({'error': 'There is no page to take a screenshot of.'}, status=status.HTTP_400_BAD_REQUEST)
-        shot = take_screenshot(self.screenshot_target, obj.pk, url, request.user)
+        if not _capture_slots.acquire(blocking=False):
+            return Response({'error': 'Screenshots are being taken: try again in a moment.'},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS)
+        try:
+            shot, reason = take_screenshot_result(self.screenshot_target, obj.pk, url, request.user)
+        finally:
+            _capture_slots.release()
         if shot is None:
-            return Response({'error': 'The screenshot could not be taken (the page may refuse robots, or be gone).'},
-                            status=status.HTTP_502_BAD_GATEWAY)
+            return Response({'error': capture_failure_message(reason)}, status=status.HTTP_502_BAD_GATEWAY)
         return Response(ScreenshotSerializer(shot).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'], url_path=r'screenshots/(?P<shot_id>\d+)/image')
@@ -145,6 +183,27 @@ class LegitimateDomainViewSet(ScreenshotMixin, BulkCreateMixin, BulkActionMixin,
             'none': Q(**{f'{field}__isnull': True}),
         }.get(value)
 
+    @classmethod
+    def domain_expiry_filter(cls, value, today, now):
+        """
+        Same as expiry_filter for the expiry of the domain, which also knows whether a registry confirmed the date
+        (RDAP gave it and a registry answered less than LegitimateDomain.EXPIRY_VERIFIED_DAYS days ago):
+          - expired: a past date the registry confirmed; unconfirmed: a past date nobody confirmed (typed by hand, or not
+            checked lately), so it may be wrong;
+          - unverified: no registry answered lately, whatever the date.
+        """
+        verified_since = now - timedelta(days=LegitimateDomain.EXPIRY_VERIFIED_DAYS)
+        confirmed = Q(expiry_check='ok', expiry_source='RDAP', expiry_checked_at__gte=verified_since)
+        if value == 'expired':
+            return Q(expiry__lt=today) & confirmed
+        if value == 'unconfirmed':
+            return Q(expiry__lt=today) & ~confirmed
+        if value == 'unverified':
+            return Q(expiry_checked_at__isnull=True) | Q(expiry_checked_at__lt=verified_since)
+        if value == 'not_registered':
+            return Q(expiry_check='not_registered')
+        return cls.expiry_filter('expiry', value, today)
+
     def get_queryset(self):
         from timeline.models import TimelineEvent
         qs = LegitimateDomain.objects.all().order_by('-created_at', '-id')
@@ -152,8 +211,12 @@ class LegitimateDomainViewSet(ScreenshotMixin, BulkCreateMixin, BulkActionMixin,
         # List filters: ?status= (domain expiry), ?ssl= (certificate expiry), ?repurchased=true|false
         params = self.request.query_params if self.request else {}
         today = date.today()
+        now = datetime.now()
         for param, field in (('status', 'expiry'), ('ssl', 'ssl_expiry')):
-            condition = self.expiry_filter(field, params.get(param), today)
+            if param == 'status':
+                condition = self.domain_expiry_filter(params.get(param), today, now)
+            else:
+                condition = self.expiry_filter(field, params.get(param), today)
             if condition is not None:
                 qs = qs.filter(condition)
         repurchased = params.get('repurchased')
@@ -188,6 +251,9 @@ class LegitimateDomainViewSet(ScreenshotMixin, BulkCreateMixin, BulkActionMixin,
             def count(field, value):
                 return queryset.filter(self.expiry_filter(field, value, today)).count()
 
+            def domain_count(value):
+                return queryset.filter(self.domain_expiry_filter(value, today, now)).count()
+
             # Upcoming expiries (from today), one bucket per month from the current one
             months = [(today.year + (today.month - 1 + i) // 12, (today.month - 1 + i) % 12 + 1) for i in range(12)]
             end = date(months[-1][0] + months[-1][1] // 12, months[-1][1] % 12 + 1, 1)
@@ -205,7 +271,10 @@ class LegitimateDomainViewSet(ScreenshotMixin, BulkCreateMixin, BulkActionMixin,
             stats = {
                 'total': queryset.count(),
                 'repurchased': queryset.filter(repurchased=True).count(),
-                'expired': count('expiry', 'expired'),
+                'expired': domain_count('expired'),
+                'unconfirmed': domain_count('unconfirmed'),
+                'unverified': domain_count('unverified'),
+                'notRegistered': domain_count('not_registered'),
                 'expiringSoon': count('expiry', 'expiring_soon'),
                 'noExpiry': count('expiry', 'none'),
                 'sslExpired': count('ssl_expiry', 'expired'),
@@ -403,10 +472,17 @@ def _execute_pending_action(pa):
         site.delete()
         logger.info("PendingAction %d: Site '%s' removed from Website Monitoring after UDRP transfer.", pa.id, site_name)
 
+    elif pa.action_type == registration_actions.SITE_AVAILABLE:
+        registration_actions.execute_site_available(pa)
+
+    elif pa.action_type == registration_actions.DOMAIN_LOST:
+        registration_actions.execute_domain_lost(pa)
+
 
 class GlobalSearchView(APIView):
     """GET /api/search/?q=… — results of every module the user may see, grouped by module (see common/search.py)."""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [SearchThrottle]
 
     def get(self, request):
         from .search import run_search
@@ -449,6 +525,48 @@ class PendingActionViewSet(viewsets.ReadOnlyModelViewSet):
         pa.save()
         _record_resolution_event(pa, request.user)
         return Response(PendingActionSerializer(pa).data)
+
+    # Most actions that can be decided at once: a list of lost domains is as long as the list that was imported
+    RESOLVE_MAX = 500
+
+    @action(detail=False, methods=['post'], url_path='resolve')
+    def resolve(self, request):
+        """
+        Approve or reject several pending actions in one request: {"ids": [1, 2, ...], "decision": "approve" | "reject"}.
+        Each action is decided on its own: one that fails (or is no longer pending) does not stop the others, and is
+        reported. Answers {"succeeded": n, "failed": [{"id": ..., "error": "..."}]}.
+        """
+        decision = request.data.get('decision')
+        ids = request.data.get('ids')
+        if decision not in ('approve', 'reject'):
+            return Response({'error': "decision must be 'approve' or 'reject'."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(ids, list) or not ids or not all(isinstance(i, int) for i in ids):
+            return Response({'error': 'ids must be a list of action numbers.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(ids) > self.RESOLVE_MAX:
+            return Response({'error': f'At most {self.RESOLVE_MAX} actions at once.'}, status=status.HTTP_400_BAD_REQUEST)
+        found = {pa.pk: pa for pa in PendingAction.objects.filter(pk__in=ids)}
+        succeeded, failed = 0, []
+        for pk in dict.fromkeys(ids):
+            pa = found.get(pk)
+            if pa is None:
+                failed.append({'id': pk, 'error': 'Not found.'})
+                continue
+            if pa.status != 'pending':
+                failed.append({'id': pk, 'error': 'This action is no longer pending.'})
+                continue
+            try:
+                if decision == 'approve':
+                    _execute_pending_action(pa)
+                pa.status = 'approved' if decision == 'approve' else 'rejected'
+                pa.resolved_at = timezone.now()
+                pa.resolved_by = request.user
+                pa.save()
+                _record_resolution_event(pa, request.user)
+                succeeded += 1
+            except Exception as e:
+                logger.exception("Pending action %s could not be %sd", pk, decision)
+                failed.append({'id': pk, 'error': str(e) or type(e).__name__})
+        return Response({'succeeded': succeeded, 'failed': failed})
 
     @action(detail=True, methods=['post'], url_path='reject')
     def reject(self, request, pk=None):

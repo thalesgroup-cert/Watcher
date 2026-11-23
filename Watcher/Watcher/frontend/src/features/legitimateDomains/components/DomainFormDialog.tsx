@@ -12,7 +12,8 @@ import {
     Typography,
 } from '@mui/material';
 import { DateField } from '../../../ui/DateField';
-import { countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { batchNote, countLines, useBulk } from '../../bulk/useBulk';
 import { LEGITIMATE_DOMAIN_BULK, useSaveDomain } from '../hooks';
 import type { DomainInput, LegitimateDomain } from '../types';
 
@@ -98,17 +99,33 @@ function DomainForm({ domain, onClose }: { domain: LegitimateDomain | null; onCl
                             autoFocus
                             multiline={several}
                             minRows={several ? 5 : undefined}
+                            maxRows={several ? 8 : undefined}
                             value={several ? form.domain_name : form.domain_name.split(/\r?\n/)[0]}
                             onChange={(e) => set('domain_name', e.target.value)}
                             placeholder={several ? 'example.com\nexample.fr\n…' : 'example.com'}
-                            helperText={several ? `${count} domain${count === 1 ? '' : 's'} detected. The other fields apply to every one.` : undefined}
+                            helperText={
+                                several
+                                    ? `${count} domain${count === 1 ? '' : 's'} detected. The other fields apply to every one.${batchNote(count)}`
+                                    : undefined
+                            }
                             fullWidth
                         />
                         {!editing && (
-                            <FormControlLabel
-                                control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
-                                label={<Typography variant="body2">Add several, one per line</Typography>}
-                            />
+                            <>
+                                <FormControlLabel
+                                    control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
+                                    label={<Typography variant="body2">Add several, one per line</Typography>}
+                                />
+                                <ListFileImport
+                                    kind="domains"
+                                    max={2000}
+                                    weighs={{ above: 500, text: 'Every domain is checked against its registry every 30 minutes: a long list makes each pass longer.' }}
+                                    onValues={(values) => {
+                                        setSeveral(true);
+                                        set('domain_name', values.join('\n'));
+                                    }}
+                                />
+                            </>
                         )}
                     </Stack>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>

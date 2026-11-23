@@ -341,6 +341,32 @@ CYBER_WATCH_CVE_HIT = NotificationType(
     thehive_meta={'severity': 2, 'tlp': 2, 'pap': 2},
 )
 
+_EXPLOITED_TITLE = "[CYBER WATCH - EXPLOITED CVE] 🔥 {cve_id} is exploited in the wild{severity_suffix}"
+_EXPLOITED_INTRO = "CISA has added a CVE to its catalogue of the vulnerabilities exploited in the wild:"
+
+CYBER_WATCH_CVE_EXPLOITED = NotificationType(
+    id='cyber_watch_cve_exploited', label='CVE exploited in the wild', module='cyber_watch', url_suffix='#/cyber_watch',
+    sample=samples.cyber_watch_cve_exploited,
+    fields=(
+        _field('cve_id', 'CVE ID', 'cve_id', thehive=_row('CVE ID', 'cve_id'), required=True),
+        _field('severity', 'Severity', 'severity', thehive=_row('Severity', 'severity'), optional=True),
+        _field('cvss_score', 'CVSS Score', 'cvss_score', thehive=_row('CVSS Score', 'cvss_score'), optional=True),
+        _field('epss', 'EPSS', 'epss', thehive=_row('EPSS', 'epss'), optional=True),
+        _field('fix_by', 'Fix by', 'fix_by', thehive=_row('Fix by', 'fix_by'), optional=True),
+        _field('ransomware', 'Ransomware', 'ransomware', thehive=_row('Ransomware', 'ransomware'), optional=True),
+        _field('description', 'Description', 'description', thehive="\n### Description\n\n{description}\n\n", optional=True),
+    ),
+    layouts={
+        'slack': Layout(head=_slack_head(_EXPLOITED_TITLE, _EXPLOITED_INTRO), tail=SLACK_TAIL),
+        'citadel': Layout(head=_citadel_head(_EXPLOITED_TITLE, _EXPLOITED_INTRO), tail=CITADEL_LIST_TAIL),
+        'thehive': Layout(
+            head=_table_head("CVE Exploited in the Wild"), tail=_TH_TAIL,
+            title="Exploited CVE - {cve_id}{severity_part}{cvss_part}"),
+    },
+    email=EmailSpec('Exploited CVE - {cve_id}{severity_suffix}', samples.email_cyber_watch),
+    thehive_meta={'severity': 3, 'tlp': 2, 'pap': 2},
+)
+
 _NEW_VICTIM_TITLE = "[CYBER WATCH - NEW VICTIM] 🏴‍☠️ {victim_name} ({group_name})"
 _NEW_VICTIM_INTRO = "A new ransomware victim has been detected:"
 
@@ -450,10 +476,103 @@ ARTICLE_RULE_HIT = NotificationType(
     email=EmailSpec('[KEYWORD RULE] {rule_name}', samples.email_article_rule_hit),
 )
 
+_EXPIRING_TITLE = "[DOMAIN EXPIRY] ⏳ {domain_name_sanitized} expires {days_text}"
+_EXPIRING_INTRO = "A legitimate domain is about to expire. Its date was confirmed by the registry:"
+
+LEGITIMATE_DOMAIN_EXPIRING = NotificationType(
+    id='legitimate_domain_expiring', label='Legitimate domain close to expiry', module='legitimate_domains',
+    url_suffix='#/legitimate_domains',
+    sample=samples.legitimate_domain_expiring,
+    fields=(
+        _field('domain', 'Domain', 'domain_name_sanitized', required=True),
+        _field('expiry', 'Expires on', 'expiry'),
+        _field('days', 'Days left', 'days_left'),
+        _field('checked', 'Checked with the registry', 'checked'),
+    ),
+    layouts={
+        'slack': Layout(head=_slack_head(_EXPIRING_TITLE, _EXPIRING_INTRO), tail=SLACK_TAIL),
+        'citadel': Layout(head=_citadel_head(_EXPIRING_TITLE, _EXPIRING_INTRO), tail=CITADEL_LIST_TAIL),
+    },
+    email=EmailSpec('[DOMAIN EXPIRY] {domain_name_sanitized} expires {days_text}', samples.email_legitimate_domain_expiring),
+)
+
+_REGRESSION_TITLE = "[DOMAIN EXPIRY] ⚠️ {domain_name_sanitized}: the registry gave an earlier date"
+_REGRESSION_INTRO = "The registry gave the same earlier expiry date twice, so Watcher wrote it. Check the domain:"
+
+LEGITIMATE_DOMAIN_EXPIRY_REGRESSION = NotificationType(
+    id='legitimate_domain_expiry_regression', label='Legitimate domain expiry date moved earlier',
+    module='legitimate_domains', url_suffix='#/legitimate_domains',
+    sample=samples.legitimate_domain_expiry_regression,
+    fields=(
+        _field('domain', 'Domain', 'domain_name_sanitized', required=True),
+        _field('old', 'Previous date', 'old_expiry'),
+        _field('new', 'New date', 'new_expiry'),
+        _field('status', 'Now', 'status_text'),
+    ),
+    layouts={
+        'slack': Layout(head=_slack_head(_REGRESSION_TITLE, _REGRESSION_INTRO), tail=SLACK_TAIL),
+        'citadel': Layout(head=_citadel_head(_REGRESSION_TITLE, _REGRESSION_INTRO), tail=CITADEL_LIST_TAIL),
+    },
+    email=EmailSpec('[DOMAIN EXPIRY] {domain_name_sanitized}: earlier expiry date', samples.email_legitimate_domain_expiry_regression),
+)
+
+_SITE_EXPIRING_TITLE = "[SITE EXPIRY] ⏳ {domain_name_sanitized} expires {days_text}"
+_SITE_EXPIRING_INTRO = (
+    "The domain of a monitored website is about to expire. Once it lapses it may become available: "
+    "decide whether to register it before someone else does.")
+
+SITE_DOMAIN_EXPIRING = NotificationType(
+    id='site_domain_expiring', label='Monitored website close to expiry', module='website_monitoring',
+    url_suffix='#/website_monitoring/',
+    sample=samples.site_domain_expiring,
+    fields=(
+        _field('domain', 'Domain', 'domain_name_sanitized', required=True),
+        _field('legitimacy', 'Legitimacy', 'legitimacy_label'),
+        _field('expiry', 'Expires on', 'expiry'),
+        _field('days', 'Days left', 'days_left'),
+        _field('registrar', 'Registrar', 'registrar', optional=True),
+        _field('actions', 'Actions in progress', 'actions'),
+        _field('ticket', 'Ticket', 'ticket', optional=True),
+        _field('checked', 'Checked with the registry', 'checked'),
+    ),
+    layouts={
+        'slack': Layout(head=_slack_head(_SITE_EXPIRING_TITLE, _SITE_EXPIRING_INTRO), tail=SLACK_TAIL),
+        'citadel': Layout(head=_citadel_head(_SITE_EXPIRING_TITLE, _SITE_EXPIRING_INTRO), tail=CITADEL_LIST_TAIL),
+    },
+    email=EmailSpec('[SITE EXPIRY] {domain_name_sanitized} expires {days_text}', samples.email_site_domain_expiring),
+)
+
+_SITE_AVAILABLE_TITLE = "[SITE AVAILABLE] 🔓 {domain_name_sanitized} is no longer registered"
+_SITE_AVAILABLE_INTRO = (
+    "The registry no longer knows the domain of a monitored website: it was registered and now it is available. "
+    "Register it now if you want to keep it out of the attacker's hands.")
+
+SITE_DOMAIN_AVAILABLE = NotificationType(
+    id='site_domain_available', label='Monitored website domain now available', module='website_monitoring',
+    url_suffix='#/website_monitoring/',
+    sample=samples.site_domain_available,
+    fields=(
+        _field('domain', 'Domain', 'domain_name_sanitized', required=True),
+        _field('legitimacy', 'Legitimacy', 'legitimacy_label'),
+        _field('registrar', 'Last registrar', 'registrar', optional=True),
+        _field('expiry', 'Last expiry date', 'expiry', optional=True),
+        _field('actions', 'Actions in progress', 'actions'),
+        _field('ticket', 'Ticket', 'ticket', optional=True),
+        _field('checked', 'Checked with the registry', 'checked'),
+    ),
+    layouts={
+        'slack': Layout(head=_slack_head(_SITE_AVAILABLE_TITLE, _SITE_AVAILABLE_INTRO), tail=SLACK_TAIL),
+        'citadel': Layout(head=_citadel_head(_SITE_AVAILABLE_TITLE, _SITE_AVAILABLE_INTRO), tail=CITADEL_LIST_TAIL),
+    },
+    email=EmailSpec('[SITE AVAILABLE] {domain_name_sanitized} is no longer registered', samples.email_site_domain_available),
+)
+
 register(
+    SITE_DOMAIN_AVAILABLE, SITE_DOMAIN_EXPIRING,
+    LEGITIMATE_DOMAIN_EXPIRING, LEGITIMATE_DOMAIN_EXPIRY_REGRESSION,
     THREATS_WATCHER, THREATS_WATCHER_WEEKLY, THREATS_WATCHER_BREAKING,
     DATA_LEAK, DATA_LEAK_GROUP, WEBSITE_MONITORING,
     DNS_FINDER, DNS_FINDER_GROUP, DNS_FINDER_DANGLING, DNS_FINDER_CERT_TRANSPARENCY,
-    CYBER_WATCH_NEW_CVE, CYBER_WATCH_CVE_HIT, CYBER_WATCH_NEW_VICTIM, CYBER_WATCH_VICTIM_HIT,
+    CYBER_WATCH_NEW_CVE, CYBER_WATCH_CVE_HIT, CYBER_WATCH_CVE_EXPLOITED, CYBER_WATCH_NEW_VICTIM, CYBER_WATCH_VICTIM_HIT,
     UDRP_DECISION, PAGE_CHANGE, ARTICLE_RULE_HIT,
 )

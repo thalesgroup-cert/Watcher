@@ -6,7 +6,9 @@ THEME_CHOICES = [
     ('light', 'Light'),
     ('paper', 'Paper'),
     ('sunrise', 'Sunrise'),
+    ('clay_light', 'Clay Light'),
     ('darkly', 'Darkly'),
+    ('clay', 'Clay'),
     ('graphite', 'Graphite'),
     ('midnight', 'Midnight'),
     ('slate', 'Slate'),
@@ -17,6 +19,11 @@ THEME_CHOICES = [
 ]
 
 THEME_IDS = [theme_id for theme_id, _ in THEME_CHOICES]
+
+# How much the themes with a backdrop (Clay) move: the ids of frontend/src/styles/effects.ts.
+EFFECT_LEVELS = ('full', 'calm', 'off')
+# The preferences of an account are a small JSON document the interface keeps (effects, blocks of the home page...)
+MAX_PREFERENCES_BYTES = 8 * 1024
 
 # The avatar a user builds on their profile: a DiceBear style, a seed and options, drawn by the browser.
 # The keys of frontend/src/features/auth/avatar.ts: change both together.

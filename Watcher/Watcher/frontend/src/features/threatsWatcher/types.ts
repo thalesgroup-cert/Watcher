@@ -16,6 +16,13 @@ export interface Word {
     /** First seen. */
     created_at: string;
     posts_count: number;
+    /** Articles published in the last 24 hours and in the last 7 days that mention it. */
+    mentions_24h: number;
+    mentions_week: number;
+    /** How far the last 24 hours are above the daily average of the 6 days before (about 0 when steady). */
+    rising: number;
+    /** Articles per day over the last 7 days, today last. */
+    daily: number[];
     // Detail only
     posts?: Post[];
     monitored?: boolean;
@@ -125,6 +132,8 @@ export interface ThreatsStatistics {
     newToday: number;
     newThisWeek: number;
     totalSources: number;
+    /** Titles that have to carry a word, in one pass, for it to join the list. */
+    minTitles?: number;
     failingSources: number;
     bannedWords: number;
     monitoredKeywords: number;

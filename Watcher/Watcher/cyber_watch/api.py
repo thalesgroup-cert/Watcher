@@ -54,11 +54,12 @@ def by_status(queryset, params):
 
 
 def ordered(queryset, params, allowed, default):
-    """?ordering= among `allowed` (with or without "-"), ties broken by id."""
-    value = params.get('ordering', '')
-    field = value if value.lstrip('-') in allowed else default
-    tie = '-id' if field.startswith('-') else 'id'
-    return queryset.order_by(field, tie)
+    """?ordering= among `allowed` (with or without "-"), one field or several separated by commas, ties broken by id."""
+    fields = [f for f in params.get('ordering', '').split(',') if f]
+    if not fields or any(f.lstrip('-') not in allowed for f in fields):
+        fields = [default]
+    tie = '-id' if fields[-1].startswith('-') else 'id'
+    return queryset.order_by(*fields, tie)
 
 
 def open_hits(**filters):
@@ -72,20 +73,50 @@ def with_victim_key(queryset):
     return queryset.annotate(hit_key=Concat('group__name', Value('::'), 'victim_name'))
 
 
+class VisitorsSeeTheTopCves(permissions.DjangoModelPermissionsOrAnonReadOnly):
+    """
+    Signed in: the usual rights. A visitor: only the first page of a short list of CVEs, which is what the top vulnerabilities of
+    the Overview show: no other page, no search, no match with the watch rules, no single CVE. The rest of Cyber Watch is closed.
+    """
+    VISITOR_PAGE_SIZE = 5
+
+    def has_permission(self, request, view):
+        if request.user and request.user.is_authenticated:
+            return super().has_permission(request, view)
+        params = request.query_params
+        try:
+            size = int(params.get('page_size', 0))
+        except ValueError:
+            return False
+        return (
+            request.method in permissions.SAFE_METHODS
+            and getattr(view, 'action', None) == 'list'
+            and 0 < size <= self.VISITOR_PAGE_SIZE
+            and params.get('page', '1') == '1'
+            and not params.get('matched')
+            and not params.get('search')
+        )
+
+
 class CVEAlertViewSet(BulkActionMixin, viewsets.ModelViewSet):
     """
     CVEs fetched from cve.circl.lu. Filters: ?status, ?severity=CRITICAL,HIGH (or "none" for not scored yet),
-    ?period on the publication date, ?search on the id and description, ?matched=yes|no (a rule matched it).
+    ?period on the publication date, ?search on the id and description, ?matched=yes|no (a rule matched it),
+    ?exploited=yes|no (in the CISA catalogue of the vulnerabilities exploited in the wild), ?kind=cve|advisory (a CVE, or one of the
+    other advisories of the source: OSV, GHSA, PYSEC...); ?ordering takes one or several
+    fields (-exploited,-cvss_score). A visitor gets the top five only (VisitorsSeeTheTopCves) and never learns whether a rule matched a CVE.
     """
-    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    permission_classes = [VisitorsSeeTheTopCves]
     serializer_class = CVEAlertSerializer
     pagination_class = StandardResultsSetPagination
     bulk_update_fields = ('is_archived',)
-    ORDERING = ('published', 'cvss_score', 'cve_id', 'hits_count')
+    ORDERING = ('published', 'cvss_score', 'cve_id', 'hits_count', 'exploited', 'epss')
 
     def get_queryset(self):
         params = self.request.query_params
-        queryset = CVEAlert.objects.annotate(hits_count=open_hits(hit_type='cve', object_id=OuterRef('cve_id')))
+        # What the watch rules matched is for the people who are signed in
+        hits = open_hits(hit_type='cve', object_id=OuterRef('cve_id')) if self.request.user.is_authenticated else Value(0, output_field=IntegerField())
+        queryset = CVEAlert.objects.annotate(hits_count=hits)
         if self.action != 'list':
             return queryset
         queryset = by_status(queryset, params)
@@ -96,6 +127,13 @@ class CVEAlertViewSet(BulkActionMixin, viewsets.ModelViewSet):
                 condition |= Q(severity='')
             queryset = queryset.filter(condition)
         queryset = since(queryset, params, 'published')
+        # ?kind=cve|advisory: the CVEs, or the other advisories of the source (OSV, GHSA, PYSEC...), which are not CVEs
+        if params.get('kind') == 'cve':
+            queryset = queryset.filter(cve_id__startswith='CVE-')
+        elif params.get('kind') == 'advisory':
+            queryset = queryset.exclude(cve_id__startswith='CVE-')
+        if params.get('exploited') in ('yes', 'no'):
+            queryset = queryset.filter(exploited=params['exploited'] == 'yes')
         search = params.get('search', '').strip()
         if search:
             queryset = queryset.filter(Q(cve_id__icontains=search) | Q(description__icontains=search))
@@ -117,7 +155,7 @@ class RansomwareGroupViewSet(viewsets.ModelViewSet):
     queryset = RansomwareGroup.objects.annotate(
         victims_count=Count('victims'), last_attack_at=Max('victims__attacked_at'),
     ).order_by('name')
-    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    permission_classes = [permissions.DjangoModelPermissions]  # signed in: a visitor sees the figures of the Overview only
     serializer_class = RansomwareGroupSerializer
 
 
@@ -126,7 +164,7 @@ class RansomwareVictimViewSet(BulkActionMixin, viewsets.ModelViewSet):
     Victims published on ransomware leak sites. Filters: ?status, ?group (name contains) or ?group_id,
     ?country (code), ?sector, ?period on the attack date, ?search on the victim and group, ?matched=yes|no.
     """
-    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    permission_classes = [permissions.DjangoModelPermissions]  # signed in: a visitor sees the figures of the Overview only
     serializer_class = RansomwareVictimSerializer
     pagination_class = StandardResultsSetPagination
     bulk_update_fields = ('is_archived',)
@@ -143,10 +181,17 @@ class RansomwareVictimViewSet(BulkActionMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(group__name__icontains=params['group'])
         if params.get('group_id', '').isdigit():
             queryset = queryset.filter(group_id=params['group_id'])
+        # "unknown": the victims the source gives no country or no sector for
         if params.get('country'):
-            queryset = queryset.filter(country__iexact=params['country'].strip())
+            if params['country'].strip().lower() == 'unknown':
+                queryset = queryset.filter(country='')
+            else:
+                queryset = queryset.filter(country__iexact=params['country'].strip())
         if params.get('sector'):
-            queryset = queryset.filter(sector__iexact=params['sector'].strip())
+            if params['sector'].strip().lower() == 'unknown':
+                queryset = queryset.filter(Q(sector='') | Q(sector__iexact='Not Found'))
+            else:
+                queryset = queryset.filter(sector__iexact=params['sector'].strip())
         queryset = since(queryset, params, 'attacked_at')
         search = params.get('search', '').strip()
         if search:
@@ -221,10 +266,10 @@ class WatchRuleHitViewSet(BulkActionMixin, viewsets.ModelViewSet):
     victim they point at (`target`), looked up once for the page.
     """
     serializer_class = WatchRuleHitSerializer
-    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    permission_classes = [permissions.DjangoModelPermissions]  # what an organisation watches is not for visitors
     pagination_class = StandardResultsSetPagination
     bulk_update_fields = ('is_archived',)
-    ORDERING = ('hit_at', 'rule__name', 'matched_keyword', 'object_id')
+    ORDERING = ('hit_at', 'rule__name', 'object_id')
 
     def get_queryset(self):
         params = self.request.query_params
@@ -242,7 +287,7 @@ class WatchRuleHitViewSet(BulkActionMixin, viewsets.ModelViewSet):
         search = params.get('search', '').strip()
         if search:
             queryset = queryset.filter(
-                Q(object_id__icontains=search) | Q(hit_display__icontains=search) | Q(matched_keyword__icontains=search)
+                Q(object_id__icontains=search) | Q(hit_display__icontains=search) | Q(matched_keywords__icontains=search)
             )
         return ordered(queryset, params, self.ORDERING, '-hit_at')
 
@@ -301,7 +346,8 @@ class CyberWatchStatisticsView(APIView):
     def get(self, request):
         today = timezone.now().date()
         week = timezone.now() - timedelta(days=7)
-        cves = CVEAlert.objects.filter(is_archived=False)
+        # The CVEs only: the other advisories of the source (OSV, GHSA...) are counted apart
+        cves = CVEAlert.objects.filter(is_archived=False, cve_id__startswith='CVE-')
         victims = RansomwareVictim.objects.filter(is_archived=False)
         hits = WatchRuleHit.objects.all()
         data = {
@@ -309,8 +355,10 @@ class CyberWatchStatisticsView(APIView):
                 'total': cves.count(),
                 'critical7d': cves.filter(severity='CRITICAL', published__gte=week).count(),
                 'newToday': cves.filter(published__date=today).count(),
+                'exploited': cves.filter(exploited=True).count(),
                 'new7d': cves.filter(published__gte=week).count(),
-                'archived': CVEAlert.objects.filter(is_archived=True).count(),
+                'archived': CVEAlert.objects.filter(is_archived=True, cve_id__startswith='CVE-').count(),
+                'advisories': CVEAlert.objects.filter(is_archived=False).exclude(cve_id__startswith='CVE-').count(),
                 'matched': cves.filter(Exists(WatchRuleHit.objects.filter(hit_type='cve', object_id=OuterRef('cve_id')))).count(),
                 'bySeverity': {
                     (row['severity'] or 'NONE'): row['n']
@@ -326,7 +374,9 @@ class CyberWatchStatisticsView(APIView):
                 'matched': with_victim_key(victims).filter(
                     Exists(WatchRuleHit.objects.filter(hit_type='ransomware_victim', object_id=OuterRef('hit_key')))
                 ).count(),
+                # The groups the sources know (most have no victim here), the ones that have, and the ones active this week
                 'groups': RansomwareGroup.objects.count(),
+                'groupsWithVictims': victims.values('group').distinct().count(),
                 'activeGroups7d': victims.filter(attacked_at__gte=week).values('group').distinct().count(),
                 'perDay': per_day(victims, 'attacked_at'),
                 'topGroups': [
@@ -335,6 +385,16 @@ class CyberWatchStatisticsView(APIView):
                 ],
                 'topSectors': top(victims, 'sector', exclude=('', 'Not Found', 'Other')),
                 'topCountries': top(victims, 'country'),
+                # Every group, sector and country that has victims, for the filters (the top ones above are for the charts)
+                'byGroup': [
+                    {'id': r['group_id'], 'name': r['group__name'], 'count': r['n']}
+                    for r in victims.values('group_id', 'group__name').annotate(n=Count('id')).order_by('-n', 'group__name')
+                ],
+                'bySector': top(victims, 'sector', limit=200, exclude=('', 'Not Found')),
+                'unknown': {
+                    'sector': victims.filter(Q(sector='') | Q(sector__iexact='Not Found')).count(),
+                    'country': victims.filter(country='').count(),
+                },
                 # Every country, for the world map.
                 'byCountry': top(victims, 'country', limit=300),
             },
@@ -347,6 +407,10 @@ class CyberWatchStatisticsView(APIView):
                 'perDay': per_day(hits, 'hit_at', split='hit_type'),
             },
         }
+        if not request.user.is_authenticated:
+            # What the watch rules matched says what the organisation watches: not for visitors
+            data['cves']['matched'] = data['victims']['matched'] = 0
+            data['hits'] = {'open': 0, 'openCve': 0, 'openVictims': 0, 'new7d': 0, 'archived': 0, 'perDay': []}
         if request.user.has_perm('cyber_watch.view_watchrule'):
             rules = WatchRule.objects.annotate(
                 open=Count('hits', filter=Q(hits__is_archived=False)), total=Count('hits'),

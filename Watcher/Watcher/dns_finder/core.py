@@ -1,6 +1,5 @@
 # coding=utf-8
 import os
-import six
 import subprocess
 import json
 import logging
@@ -20,6 +19,7 @@ from . import certstream_client
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
+import common.utils.job_log as job_log  # not a "from common" line: the documentation build keeps it
 
 # Configure logger
 logger = logging.getLogger('watcher.dns_finder')
@@ -59,6 +59,9 @@ def start_scheduler():
         - Fire recheck_dangling_subdomains from Monday to Sunday: every 6 hours.
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
     scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)
@@ -347,6 +350,7 @@ def track_dangling_subdomain(domain):
             break
 
 
+@job_log.logged_job("Dangling DNS re-check", logger)
 def recheck_dangling_subdomains():
     """
     Re-check every subdomain_takeover Alert that hasn't been triaged as
@@ -363,8 +367,10 @@ def recheck_dangling_subdomains():
     for alert in alerts:
         try:
             evaluate_dangling_subdomain(alert.dns_twisted, 'periodic_recheck')
+            job_log.job_count('rechecked')
             time.sleep(1)  # Rate limiting
         except Exception as e:
+            job_log.job_count('errors')
             logger.error(f"Error rechecking dangling subdomain {alert.dns_twisted.domain_name}: {str(e)}")
 
     logger.info("Dangling DNS re-check completed")
@@ -453,11 +459,13 @@ def main_certificate_transparency():
         raise
 
 
+@job_log.logged_job("DNS twist scan", logger)
 def main_dns_twist():
     """
     Launch dnstwist algorithm.
     """
     for dns_monitored in DnsMonitored.objects.all():
+        job_log.job_count('domains')
         check_dnstwist(dns_monitored)
 
 
@@ -477,7 +485,7 @@ def check_dnstwist(dns_monitored):
     if os.path.exists(filepath_out):
         os.remove(filepath_out)
 
-    subprocess.check_output(map(six.text_type, [
+    subprocess.check_output(map(str, [
         'dnstwist',
         '--registered',
         '--format={}'.format("json"),

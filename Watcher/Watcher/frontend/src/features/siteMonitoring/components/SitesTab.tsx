@@ -40,9 +40,11 @@ const WEB: { value: Web; label: string }[] = [
 ];
 const EXPIRY: { value: ExpiryFilter; label: string }[] = [
     { value: 'expired', label: 'Expired' },
+    { value: 'unconfirmed', label: 'Expired, unconfirmed' },
     { value: 'expiring_soon', label: 'Expiring within 30 days' },
     { value: 'valid', label: 'Valid' },
     { value: 'none', label: 'No date' },
+    { value: 'unverified', label: 'Not verified lately' },
 ];
 
 export function readSiteFilters(params: URLSearchParams): SiteFilters {
@@ -224,14 +226,14 @@ export function SitesTab({ onEdit }: SitesTabProps) {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.legitimacy.length > 0 && { key: 'legitimacy', label: 'Legitimacy', value: filters.legitimacy.map((n) => legitimacyMeta(n)?.short).join(', '), onRemove: () => setFilters({ legitimacy: [] }) },
-        filters.web && { key: 'web', label: 'Website', value: WEB.find((w) => w.value === filters.web)?.label ?? filters.web, onRemove: () => setFilters({ web: '' }) },
-        filters.expiry && { key: 'expiry', label: 'Domain expiry', value: EXPIRY.find((x) => x.value === filters.expiry)?.label ?? filters.expiry, onRemove: () => setFilters({ expiry: '' }) },
-        filters.action && { key: 'action', label: 'Actions taken', value: filters.action === 'none' ? 'None yet' : (ACTIONS.find((a) => a.filter === filters.action)?.label ?? filters.action), onRemove: () => setFilters({ action: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.legitimacy.length > 0 && { key: 'legitimacy', label: 'Legitimacy', value: filters.legitimacy.map((n) => legitimacyMeta(n)?.short).join(', '), onRemove: () => setFilters({ legitimacy: [] }) },
+                                filters.web && { key: 'web', label: 'Website', value: WEB.find((w) => w.value === filters.web)?.label ?? filters.web, onRemove: () => setFilters({ web: '' }) },
+                                filters.expiry && { key: 'expiry', label: 'Domain expiry', value: EXPIRY.find((x) => x.value === filters.expiry)?.label ?? filters.expiry, onRemove: () => setFilters({ expiry: '' }) },
+                                filters.action && { key: 'action', label: 'Actions taken', value: filters.action === 'none' ? 'None yet' : (ACTIONS.find((a) => a.filter === filters.action)?.label ?? filters.action), onRemove: () => setFilters({ action: '' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -244,7 +246,8 @@ export function SitesTab({ onEdit }: SitesTabProps) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <SiteTable highlight={filters.search}
+                            <SiteTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}
@@ -309,8 +312,8 @@ export function SitesTab({ onEdit }: SitesTabProps) {
                 domainName={exporting?.site.domain_name ?? ''}
                 defaultComment={
                     exporting?.site.legitimacy
-                        ? `Exported from Website Monitoring - Original legitimacy: ${legitimacyMeta(exporting.site.legitimacy)?.label}`
-                        : 'Exported from Website Monitoring'
+                        ? `[${new Date().toISOString().slice(0, 10)}] Exported from Website Monitoring - Original legitimacy: ${legitimacyMeta(exporting.site.legitimacy)?.label}`
+                        : `[${new Date().toISOString().slice(0, 10)}] Exported from Website Monitoring`
                 }
                 afterwards="It is then removed from Website Monitoring."
                 // One server step creates the legitimate domain and removes the site (or does neither).

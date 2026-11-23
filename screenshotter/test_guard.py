@@ -32,6 +32,16 @@ class GuardTest(unittest.TestCase):
         with patch('guard.socket.getaddrinfo', side_effect=guard.socket.gaierror):
             self.assertFalse(guard.allowed('https://nowhere.invalid/'))
 
+    def test_the_refusal_says_why(self):
+        with _resolves_to('93.184.216.34'):
+            self.assertIsNone(guard.refusal('https://blog.example.org/'))
+            self.assertEqual(guard.refusal('ftp://example.org/'), 'address')
+            self.assertEqual(guard.refusal(None), 'address')
+        with _resolves_to('10.0.0.5'):
+            self.assertEqual(guard.refusal('http://internal.example/'), 'private')
+        with patch('guard.socket.getaddrinfo', side_effect=guard.socket.gaierror):
+            self.assertEqual(guard.refusal('https://nowhere.invalid/'), 'dns')
+
     def test_junk_is_refused(self):
         for url in (None, 42, '', 'not a url', 'https://', 'http://' + 'a' * 3000):
             with self.subTest(url=url), _resolves_to('93.184.216.34'):

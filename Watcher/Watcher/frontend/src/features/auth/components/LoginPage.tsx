@@ -75,12 +75,12 @@ function Backdrop() {
     );
 }
 
-/** What the instance is watching right now, from its public statistics (or that it cannot be reached). */
+/** Whether the instance answers: nothing of what it watches is shown before sign-in. */
 function StatusPill() {
     const theme = useTheme();
     const stats = useQuery({
         queryKey: ['login', 'status'],
-        queryFn: () => api.get<{ totalSources: number; totalWords: number }>('/api/threats_watcher/source/statistics/').then((r) => r.data),
+        queryFn: () => api.get('/api/config/').then(() => true),
         retry: 1,
         staleTime: 60_000,
     });
@@ -89,7 +89,7 @@ function StatusPill() {
     const text = stats.isError
         ? 'Watcher cannot be reached'
         : stats.data
-          ? `Watching ${stats.data.totalSources.toLocaleString('en-GB')} sources - ${stats.data.totalWords.toLocaleString('en-GB')} trending words`
+          ? 'Watcher is reachable'
           : 'Connecting…';
     return (
         <Stack
@@ -289,9 +289,8 @@ export default function LoginPage() {
                             </Button>
                         </Stack>
                     )}
-                    <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 3, textAlign: 'center' }}>
-                        Some pages are open without an account:{' '}
-                        <Link href="#/">the dashboard</Link>, <Link href="#/threats_watcher">Threats Watcher</Link> and <Link href="#/legitimate_domains">Legitimate Domains</Link>.
+                    <Typography variant="caption" component="p" sx={{ mt: 3, textAlign: 'center' }}>
+                        <Link href="#/" data-testid="login-browse">Browse without signing in</Link>
                     </Typography>
                 </Box>
             </Box>

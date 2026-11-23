@@ -15,6 +15,8 @@ from django.db.models.functions import TruncDate
 import threading
 from common.bulk import BulkActionMixin, BulkCreateMixin, BulkModelPermission, BulkSkip, normalize_domain
 from common.misp import get_misp_uuid
+from common.utils import expiry_check
+from common.api import CaptureThrottle, _capture_slots
 from common.core import screenshots_configured
 from .core import capture_for_version, check_page, compare_texts, diff_rows, monitoring_init, sites_initializing
 from .serializers import (SiteSerializer, AlertSerializer, AlertListSerializer, MISPSerializer, MonitoredPageSerializer,
@@ -48,7 +50,7 @@ PERIODS = {'today': 0, '7d': 7, '30d': 30}
 def filter_sites(qs, params):
     """
     Site list filters: legitimacy (comma-separated levels), web (online: HTTP 200, error: another code,
-    offline: no answer, pending: first check not done), expiry (expired, expiring_soon, valid, none: domain
+    offline: no answer, pending: first check not done), expiry (expired, unconfirmed, unverified, expiring_soon, valid, none: domain
     expiry, 30 days), action (takedown, legal, blocking, none: no action taken).
     """
     levels = [int(v) for v in (params.get('legitimacy') or '').split(',') if v.isdigit()]
@@ -65,8 +67,15 @@ def filter_sites(qs, params):
         qs = qs.exclude(monitored=True)
     today = datetime.now().date()
     soon = today + timedelta(days=EXPIRING_SOON_DAYS)
+    # A past date is "expired" when a registry confirmed it lately (RDAP gave it and answered less than VERIFIED_DAYS days
+    # ago); otherwise it is "unconfirmed" (typed by hand, or not checked lately), so the date may be what is
+    # wrong. "unverified": no registry answered lately, whatever the date.
+    verified_since = datetime.now() - timedelta(days=expiry_check.VERIFIED_DAYS)
+    confirmed = Q(domain_expiry_check='ok', domain_expiry_source='RDAP', domain_expiry_checked_at__gte=verified_since)
     expiry = {
-        'expired': Q(domain_expiry__lt=today),
+        'expired': Q(domain_expiry__lt=today) & confirmed,
+        'unconfirmed': Q(domain_expiry__lt=today) & ~confirmed,
+        'unverified': Q(domain_expiry_checked_at__isnull=True) | Q(domain_expiry_checked_at__lt=verified_since),
         'expiring_soon': Q(domain_expiry__gte=today, domain_expiry__lte=soon),
         'valid': Q(domain_expiry__gt=soon),
         'none': Q(domain_expiry__isnull=True),
@@ -95,7 +104,7 @@ class SiteViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
     serializer_class = SiteSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['domain_name', 'ticket_id', 'registrar']
+    search_fields = ['domain_name', 'ticket_id', 'registrar', 'comments']
     ordering_fields = ['domain_name', 'ticket_id', 'registrar', 'legitimacy', 'created_at', 'domain_expiry',
                        'ssl_expiry', 'web_status', 'alerts_count', 'open_alerts_count', 'last_alert_at']
 
@@ -134,16 +143,19 @@ class SiteViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
         def export(site):
             if LegitimateDomain.objects.filter(domain_name=site.domain_name).exists():
                 raise BulkSkip('Already exists in Legitimate Domains')
+            from common.utils import auto_comments
             default_comment = 'Exported from Website Monitoring'
             if site.legitimacy:
-                default_comment += f' - Original legitimacy: {site.legitimacy}'
+                default_comment += f' - Original legitimacy: {site.get_legitimacy_display()}'
+            default_comment = auto_comments.line(default_comment)
             serializer = LegitimateDomainSerializer(data={
                 'domain_name': site.domain_name,
                 'ticket_id': site.ticket_id or '',
                 'contact': '',
                 'expiry': site.domain_expiry,
                 'repurchased': False,
-                'comments': comment or default_comment,
+                # What says where it comes from, then the comments the website had (never cut)
+                'comments': auto_comments.join(comment or default_comment, site.comments),
             }, context={'request': request})
             serializer.is_valid(raise_exception=True)
             serializer.save()
@@ -251,6 +263,8 @@ class SiteViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
                 'offline': queryset.filter(web_status__isnull=True, monitored=True).count(),
                 'expiringSoon': queryset.filter(
                     domain_expiry__gte=today, domain_expiry__lte=today + timedelta(days=EXPIRING_SOON_DAYS)).count(),
+                'unconfirmed': filter_sites(queryset, {'expiry': 'unconfirmed'}).count(),
+                'unverified': filter_sites(queryset, {'expiry': 'unverified'}).count(),
                 'byLegitimacy': {str(level): n for level, n in
                                  queryset.values_list('legitimacy').annotate(n=Count('id')).order_by()},
                 'openAlerts': alerts.filter(status=True).count(),
@@ -374,7 +388,7 @@ class MonitoredPageViewSet(BulkActionMixin, viewsets.ModelViewSet):
         response['Cache-Control'] = 'private, max-age=86400'
         return response
 
-    @action(detail=True, methods=['post'], url_path='screenshot')
+    @action(detail=True, methods=['post'], url_path='screenshot', throttle_classes=[CaptureThrottle])
     def screenshot(self, request, pk=None):
         """Take a screenshot of the page now and keep it with the newest version (replacing its own)."""
         page = self.get_object()
@@ -383,7 +397,14 @@ class MonitoredPageViewSet(BulkActionMixin, viewsets.ModelViewSet):
         version = page.versions.first()
         if version is None:
             return Response({'error': 'This page has no version yet: wait for its first check.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not capture_for_version(page, version):
+        if not _capture_slots.acquire(blocking=False):
+            return Response({'error': 'Screenshots are being taken: try again in a moment.'},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS)
+        try:
+            taken = capture_for_version(page, version)
+        finally:
+            _capture_slots.release()
+        if not taken:
             return Response({'error': 'The screenshot could not be taken (see the log of Watcher).'}, status=status.HTTP_502_BAD_GATEWAY)
         return Response(PageVersionSerializer(self.page_versions(page).get(pk=version.pk)).data)
 
@@ -406,7 +427,7 @@ class MonitoredPageViewSet(BulkActionMixin, viewsets.ModelViewSet):
         return Response({'from': PageVersionSerializer(old).data, 'to': PageVersionSerializer(new).data,
                          'ratio': ratio, 'rows': diff_rows(old.text, new.text)})
 
-    @action(detail=True, methods=['post'], url_path='check')
+    @action(detail=True, methods=['post'], url_path='check', throttle_classes=[CaptureThrottle])
     def check(self, request, pk=None):
         """Check the page now (the answer comes when the page has been downloaded: a few seconds)."""
         page = self.get_object()

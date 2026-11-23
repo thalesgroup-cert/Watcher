@@ -6,13 +6,15 @@ import CloudOutlined from '@mui/icons-material/CloudOutlined';
 import { Wordcloud } from '@visx/wordcloud';
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from 'react-force-graph-2d';
 import { useWidth } from '../../../lib/useWidth';
+import { HEAT_LABEL, type Heat, heatOf, heatSentence } from '../heat';
+import { useHeatColors } from '../heatColors';
 import { useWordGraph } from '../hooks';
+import type { Word } from '../types';
 
-export interface CloudWord {
-    id: number;
-    name: string;
-    occurrences: number;
-}
+export type CloudWord = Pick<Word, 'id' | 'name' | 'occurrences' | 'mentions_24h' | 'mentions_week'>;
+
+/** What sizes the words: the articles of the week ("now") or of the whole life of the word ("all"). */
+export type CloudSize = 'now' | 'all';
 
 // Same seed every time: a given set of words always gets the same layout, so the cloud does not reshuffle on refresh.
 function seeded() {
@@ -30,19 +32,38 @@ interface CloudProps {
     onOpen: (id: number) => void;
     activeId?: number | null;
     height: number;
+    size: CloudSize;
 }
 
-/** The most mentioned words, sized by their mentions; the bigger, the darker. Each word is a button. */
-function Cloud({ words, onOpen, activeId, height }: CloudProps) {
+const LEGEND: Heat[] = ['hot', 'rising', 'new', 'steady', 'fading'];
+
+/** What the colours of the cloud mean. */
+function Legend() {
+    const colors = useHeatColors();
+    return (
+        <Box data-testid="cloud-legend" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 0.5, color: 'text.secondary', fontSize: 12 }}>
+            {LEGEND.map((heat) => (
+                <Box key={heat} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors[heat] }} />
+                    {HEAT_LABEL[heat]}
+                </Box>
+            ))}
+        </Box>
+    );
+}
+
+/** The words, sized by what they are talked about (the week, or all time), coloured by their heat. Each word is a button. */
+function Cloud({ words, onOpen, activeId, height, size }: CloudProps) {
     const theme = useTheme();
+    const colors = useHeatColors();
     const [ref, width] = useWidth<HTMLDivElement>();
-    const counts = words.map((w) => w.occurrences);
+    const weight = (w: CloudWord) => (size === 'now' ? w.mentions_week : w.occurrences);
+    const counts = words.map(weight);
     const min = Math.min(...counts);
     const max = Math.max(...counts);
     const t = (n: number) => (max === min ? 0.5 : (n - min) / (max - min));
-    const data = useMemo(() => words.map((w) => ({ text: w.name, value: w.occurrences, id: w.id })), [words]);
+    const data = useMemo(() => words.map((w) => ({ text: w.name, value: size === 'now' ? w.mentions_week : w.occurrences, id: w.id })), [words, size]);
     const byName = new Map(words.map((w) => [w.name, w]));
-    const primary = theme.palette.primary.main;
     const ink = theme.palette.text.primary;
     const key = (e: KeyboardEvent, id: number) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -52,7 +73,8 @@ function Cloud({ words, onOpen, activeId, height }: CloudProps) {
     };
 
     return (
-        <Box ref={ref} sx={{ height, width: '100%' }} data-testid="word-cloud">
+        <Box ref={ref} sx={{ width: '100%' }} data-testid="word-cloud">
+          <Box sx={{ height, width: '100%' }}>
             {width > 0 && (
                 <svg width={width} height={height} role="group" aria-label="Most mentioned words">
                     <Wordcloud
@@ -72,13 +94,16 @@ function Cloud({ words, onOpen, activeId, height }: CloudProps) {
                                 const word = byName.get(w.text ?? '');
                                 if (!word) return null;
                                 const active = word.id === activeId;
-                                const strength = t(word.occurrences);
+                                const strength = t(weight(word));
+                                const heat = heatOf(word);
+                                const tint = heat === 'steady' ? alpha(ink, 0.55 + strength * 0.4) : colors[heat];
                                 return (
-                                    <Tooltip key={word.id} title={`The word "${word.name}" caught ${word.occurrences} times.`} placement="top" arrow>
+                                    <Tooltip key={word.id} title={`${word.name} - ${HEAT_LABEL[heat]}: ${heatSentence(word)}`} placement="top" arrow>
                                     <text
                                         role="button"
                                         tabIndex={0}
-                                        aria-label={`${word.name}, ${word.occurrences} mentions`}
+                                        aria-label={`${word.name}, ${HEAT_LABEL[heat]}, ${heatSentence(word)}`}
+                                        data-heat={heat}
                                         aria-pressed={active}
                                         onClick={() => onOpen(word.id)}
                                         onKeyDown={(e) => key(e, word.id)}
@@ -86,9 +111,9 @@ function Cloud({ words, onOpen, activeId, height }: CloudProps) {
                                         transform={`translate(${w.x}, ${w.y})`}
                                         fontSize={w.size}
                                         fontFamily={FONT}
-                                        fontWeight={strength > 0.5 ? 700 : 500}
-                                        // One hue, light to dark with the mentions; the open word is underlined.
-                                        fill={strength > 0.6 ? primary : alpha(ink, 0.55 + strength * 0.4)}
+                                        fontWeight={strength > 0.5 || heat === 'hot' ? 700 : 500}
+                                        // The size says how much it is talked about, the colour how hot it is; the open word is underlined.
+                                        fill={tint}
                                         textDecoration={active ? 'underline' : undefined}
                                         style={{ cursor: 'pointer', outline: 'none' }}
                                         className="cloud-word"
@@ -103,6 +128,8 @@ function Cloud({ words, onOpen, activeId, height }: CloudProps) {
                     <style>{`.cloud-word:hover, .cloud-word:focus-visible { fill: ${theme.palette.primary.dark}; text-decoration: underline; }`}</style>
                 </svg>
             )}
+          </Box>
+          <Legend />
         </Box>
     );
 }
@@ -205,10 +232,12 @@ interface WordVizProps {
     activeId?: number | null;
     height?: number;
     loading?: boolean;
+    /** What sizes the words of the cloud. */
+    size?: CloudSize;
 }
 
 /** The trending words as a cloud, or as a graph of the words the same articles talk about. */
-export function WordViz({ words, period = '', onOpen, activeId, height = 300, loading = false }: WordVizProps) {
+export function WordViz({ words, period = '', onOpen, activeId, height = 300, loading = false, size = 'now' }: WordVizProps) {
     const [mode, setMode] = useState<'cloud' | 'graph'>(() => {
         try {
             return localStorage.getItem('watcher.words.view') === 'graph' ? 'graph' : 'cloud';
@@ -238,7 +267,7 @@ export function WordViz({ words, period = '', onOpen, activeId, height = 300, lo
             {loading ? (
                 <Skeleton variant="rounded" height={height} />
             ) : mode === 'cloud' ? (
-                <Cloud words={words} onOpen={onOpen} activeId={activeId} height={height} />
+                <Cloud words={words} onOpen={onOpen} activeId={activeId} height={height} size={size} />
             ) : (
                 <Graph period={period} onOpen={onOpen} activeId={activeId} height={height} />
             )}

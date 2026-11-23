@@ -10,8 +10,8 @@ Developed by [Thales Group CERT](https://github.com/thalesgroup-cert).
 ## Launch watcher
 
 ### With docker command
-- Grab the `docker-compose.yml`, `.env` files and `Searx` directory (keep the directory structure).
-- According to your existing infrastructure you may need to configure **Watcher settings** using the `.env` file ([Static configuration](#static-configuration)).
+- Grab the `docker-compose.yml`, `.env.example`, the `Searx` directory and the `screenshotter` directory (keep the directory structure).
+- Copy `.env.example` to `.env` (the `.env` is not versioned: it is yours) and fill it in. According to your existing infrastructure you may need to configure **Watcher settings** in it ([Static configuration](#static-configuration)).
 - The application uses **SearxNG** as the meta search engine.
 - `docker compose up`
 
@@ -23,10 +23,8 @@ Please wait until you see:
     watcher          | Performing system checks...
     watcher          | 
     watcher          | System check identified no issues (0 silenced).
-    watcher          | May 11, 2026 - 12:26:52
-    watcher          | Django version 6.0.5, using settings 'watcher.settings'
-    watcher          | Starting development server at http://0.0.0.0:9002/
-    watcher          | Quit the server with CONTROL-C.
+    watcher          | [11/May/2026 12:26:52] INFO | gunicorn: Starting gunicorn
+    watcher          | [11/May/2026 12:26:52] INFO | gunicorn: Listening at: http://0.0.0.0:9002 (1)
 
 - Try to access Watcher on http://0.0.0.0:9002 or http://yourserverip:9002.
 - `CONTROL-C`
@@ -35,7 +33,7 @@ Please wait until you see:
 ### Simplify method
 Use the deployment helper commands from the repository root:
 
-Initialize **your local configuration once**: `cp .env.example .env`
+Initialize **your local configuration once**, from the repository root: `cp .env.example .env` (this `.env` is the one of the root `docker-compose.yml`, on port 9002; `make init` below creates `deployment/.env`, a second file for the deployment, on port 9020)
 
 **And after:** 
 
@@ -212,6 +210,10 @@ In the `.env` file:
 
     # CyberWatch Setup
     CYBER_WATCH_CVE_API_URL=https://cve.circl.lu/api/last
+    # CISA KEV (vulnerabilities exploited in the wild) and FIRST EPSS (probability of exploitation): two connectors, with their
+    # own Test button in Connectors. Leave the address empty to switch one off.
+    CYBER_WATCH_KEV_URL=https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+    CYBER_WATCH_EPSS_API_URL=https://api.first.org/data/v1/epss
     CYBER_WATCH_RANSOMWARE_GROUPS_URL=
     CYBER_WATCH_RANSOMWARE_VICTIMS_URL=
     CYBER_WATCH_RANSOMLOOK_GROUPS_URL=
@@ -489,12 +491,12 @@ From the **Website Monitoring** module:
 
 ### RDAP Alerts for Legitimate Domains
 
-Watcher automatically monitors RDAP/WHOIS changes for legitimate domains:
+Watcher automatically monitors RDAP changes for legitimate domains:
 - **Registrar changes**: Alerts when domain ownership transfers
 - **Expiry date updates**: Notifications 30/15/7 days before expiration
 - **Status changes**: Tracks available/disabled/registered transitions
 
-Expiring domains and certificates are counted at the top of `/#/legitimate_domains` (a click filters the list) and on the dashboard.
+Expiring domains and certificates are counted at the top of `/#/legitimate_domains` (a click filters the list) and on the Overview.
 
 
 ## API Key Creation & Management
@@ -915,15 +917,19 @@ Or from the **/admin** page:
 - Click on **Action** dropdown.
 - Select "**Delete & Blocklist selected trendy words**".
 
-## Dashboard
+## Overview
 
-The home page (`/#/`) gathers the best of every module:
+The home page (`/#/`) gathers the best of every module. **Customise**, in the header, lets you choose the blocks you want to see; the choice follows your account.
 
-- **Needs attention** (signed in): Cyber Watch matches to review, open DNS threats, data leaks to review, website changes, legitimate domains or certificates expiring within 30 days, and pending actions. Each card opens its module on the right list. Visitors who are not signed in see public figures instead.
-- The **breaking news** and the **weekly AI digest** of Threats Watcher.
-- **Trending words**, as a word cloud or as a **graph of the words linked by their articles** (two words are linked when the same articles mention them). Click a word to see its articles.
-- A **world map** with two layers: ransomware victims by country, and where the RSS sources come from. Click a country to list its victims or its sources.
-- The latest **critical and high CVEs** and the latest **ransomware victims**.
+- **This week**: a greeting and the new detections of the last 7 days in one figure, with the count of each module (click one to open it).
+- **Intelligence brief**: the latest AI summary, the breaking news of the week or else the weekly report.
+- **Modules**: one card per module with its figures, what is new this week and a red dot when something needs a look. Click a card to open the module. A visitor who is not signed in sees the public modules only.
+- **Latest detections** (signed in): the newest findings of every module in one list, newest first. The list scrolls.
+- **Top vulnerabilities**: the CVEs with the highest score of the last 30 days.
+- **Trending now**: the most mentioned words, with a dot for the reliability of their sources.
+- The **setup guide** (signed in) lists the first steps of a new instance, until it is hidden.
+
+The trending words as a word cloud or as a **graph of the words linked by their articles**, and the **world map** (ransomware victims by country, or where the RSS sources come from) are on the Threats Watcher page.
 
 Navigation is the sidebar on the left: a rail of icons that opens on hover, and stays open with the pin.
 
@@ -976,7 +982,7 @@ Watcher can keep screenshots of web pages, taken by a headless browser that runs
 - **Data leaks** and **legitimate domains**: a *Take a screenshot* button in the drawer (it needs the right to change the object). A leaked page is often deleted afterwards: the screenshot keeps what it looked like. Every capture is written in the application log with who asked for it, because it is a visit from Watcher.
 - Up to `SCREENSHOT_KEEP` (10) screenshots are kept per object. Some sites answer a robot with a "confirm you are human" page: Watcher does not try to get around it, and the screenshot then shows that page.
 
-The browser leaves from the address of the server, with an ordinary Chrome user agent. To make it leave through a dedicated proxy, set `SCREENSHOT_PROXY`. `SCREENSHOT_SERVICE_URL` points Watcher to the service; set it to an empty value to switch the screenshots off. The service is in the root `docker-compose.yml`; it is not part of the `deployment/` stack yet.
+The browser leaves from the address of the server, with an ordinary Chrome user agent. To make it leave through a dedicated proxy, set `SCREENSHOT_PROXY`. `SCREENSHOT_SERVICE_URL` points Watcher to the service; set it to an empty value to switch the screenshots off. The service is in the root `docker-compose.yml`, in the `deployment/` stack (with its own network, shared with Watcher only) and in the Helm chart (off by default: build and push the image from `screenshotter/`, then set `screenshotter.enabled`; a network policy only lets Watcher in and keeps the browser away from private addresses).
 
 ## UDRP Tracking
 
@@ -1031,7 +1037,7 @@ Watcher v3.4.0 uses **AI-driven threat analysis** powered by Hugging Face transf
 Watcher automatically detects rapidly trending cybersecurity keywords:
 
 1. **Threshold-Based Alerts**: When a keyword appears ≥ `BREAKING_NEWS_THRESHOLD` times (default: 15), a breaking news alert is created
-2. **Real-Time Notifications**: Floating popup alerts on dashboard with auto-dismiss
+2. **Real-Time Notifications**: Floating messages with a bar that empties while they stay, then auto-dismiss
 3. **AI Summarization**: Automatic summary generation with extracted CVEs, threat actors, and organizations
 
 **Configure in `.env`**:
@@ -1126,7 +1132,7 @@ To archived **several** alerts:
 
 # Update Watcher
 
-Verify that your local files `/.env`, `/docker-compose.yml` and `/Searx/` are **up-to-date**.
+Verify that your local `/docker-compose.yml`, `/Searx/` and `/screenshotter/` are **up-to-date**. Keep your own `/.env`: never replace it with `.env.example`, and add by hand the variables that are new in `.env.example` (each one has a default).
 
 > **Note:** Watcher uses the official image from **GitHub Container Registry (GHCR)**: `ghcr.io/thalesgroup-cert/watcher:latest`
 

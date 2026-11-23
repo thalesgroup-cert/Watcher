@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Stack, Switch, TextField, Typography } from '@mui/material';
-import { type BulkTarget, countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { type BulkTarget, batchNote, countLines, useBulk } from '../../bulk/useBulk';
 
 export interface NameFormConfig {
     /** "banned word" */
@@ -61,18 +62,29 @@ function NameForm({ config, item, save, pending, onClose }: NameFormProps) {
                         autoFocus
                         multiline={several}
                         minRows={several ? 5 : undefined}
+                        maxRows={several ? 8 : undefined}
                         value={several ? name : name.split(/\r?\n/)[0]}
                         onChange={(e) => setName(e.target.value)}
                         placeholder={config.placeholder}
-                        helperText={several ? `${count} ${count === 1 ? config.one : config.many} detected.` : undefined}
+                        helperText={several ? `${count} ${count === 1 ? config.one : config.many} detected.${batchNote(count)}` : undefined}
                         slotProps={{ htmlInput: { maxLength: several ? undefined : 150, spellCheck: false } }}
                         fullWidth
                     />
                     {!editing && (
-                        <FormControlLabel
-                            control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
-                            label={<Typography variant="body2">Add several, one per line</Typography>}
-                        />
+                        <>
+                            <FormControlLabel
+                                control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
+                                label={<Typography variant="body2">Add several, one per line</Typography>}
+                            />
+                            <ListFileImport
+                                kind="words"
+                                max={1000}
+                                onValues={(values) => {
+                                    setSeveral(true);
+                                    setName(values.join('\n'));
+                                }}
+                            />
+                        </>
                     )}
                 </Stack>
             </DialogContent>

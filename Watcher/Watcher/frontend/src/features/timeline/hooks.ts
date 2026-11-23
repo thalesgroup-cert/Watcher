@@ -29,6 +29,11 @@ export function useActivityFeed(filters: FeedFilters) {
     });
 }
 
+/** What the signed-in person did today and this week, by kind. */
+export function useMyActivitySummary() {
+    return useQuery({ queryKey: ['timeline', 'summary', 'me'], queryFn: api.fetchMySummary, staleTime: 60_000 });
+}
+
 export function useActivitySummary(enabled = true) {
     return useQuery({ queryKey: ['timeline', 'summary'], queryFn: api.fetchSummary, staleTime: 60_000, enabled });
 }

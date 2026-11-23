@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from 'react-router';
 import { Alert, Box, Button, Card, MenuItem, Stack, Tab, TablePagination, Tabs, TextField } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined';
+import DomainDisabledOutlined from '@mui/icons-material/DomainDisabledOutlined';
 import DomainVerificationOutlined from '@mui/icons-material/DomainVerificationOutlined';
 import ErrorOutlined from '@mui/icons-material/ErrorOutlined';
 import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined';
 import LockClockOutlined from '@mui/icons-material/LockClockOutlined';
+import PendingOutlined from '@mui/icons-material/PendingOutlined';
 import SearchOff from '@mui/icons-material/SearchOff';
 import VerifiedUserOutlined from '@mui/icons-material/VerifiedUserOutlined';
 import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
@@ -27,7 +29,7 @@ import { DomainDrawer } from './components/DomainDrawer';
 import { DomainFormDialog } from './components/DomainFormDialog';
 import { DomainInsights } from './components/DomainInsights';
 import { DomainTable } from './components/DomainTable';
-import { FILTER_OPTIONS } from './expiry';
+import { FILTER_OPTIONS, SSL_FILTER_OPTIONS } from './expiry';
 import { LEGITIMATE_DOMAIN_BULK, useDeleteDomain, useDomains, useDomainStatistics, useMispExport } from './hooks';
 import type { DomainFilters, ExpiryFilter, LegitimateDomain } from './types';
 
@@ -84,7 +86,17 @@ function writeUrl(s: UrlState): string {
 
 const NO_FILTERS: DomainFilters = { search: '', status: '', ssl: '', repurchased: '' };
 
-function ExpirySelect({ label, value, onChange }: { label: string; value: ExpiryFilter; onChange: (v: ExpiryFilter) => void }) {
+function ExpirySelect({
+    label,
+    value,
+    onChange,
+    options = FILTER_OPTIONS,
+}: {
+    label: string;
+    value: ExpiryFilter;
+    onChange: (v: ExpiryFilter) => void;
+    options?: typeof FILTER_OPTIONS;
+}) {
     return (
         <TextField
             select
@@ -94,7 +106,7 @@ function ExpirySelect({ label, value, onChange }: { label: string; value: Expiry
             onChange={(e) => onChange(e.target.value as ExpiryFilter)}
             sx={{ minWidth: 190 }}
         >
-            {FILTER_OPTIONS.map((o) => (
+            {options.map((o) => (
                 <MenuItem key={o.value || 'any'} value={o.value}>
                     {o.label}
                 </MenuItem>
@@ -170,7 +182,7 @@ export default function LegitimateDomainsPage() {
                 <DomainInsights onFilter={(patch) => update({ tab: 'domains', filters: { ...NO_FILTERS, ...patch }, page: 1 })} />
             ) : (
                 <>
-                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, mb: 3 }}>
+                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' }, mb: 3 }}>
                         {/* The total resets the quick filters; it is never shown as the active one. */}
                         <KpiCard
                             title="Domains"
@@ -187,6 +199,20 @@ export default function LegitimateDomainsPage() {
                             {...kpi('expiring_soon', '')}
                         />
                         <KpiCard title="Expired" value={stats?.expired} icon={<ErrorOutlined />} color="error" {...kpi('expired', '')} />
+                        <KpiCard
+                            title="Unconfirmed"
+                            value={stats?.unconfirmed}
+                            icon={<PendingOutlined />}
+                            color="warning"
+                            {...kpi('unconfirmed', '')}
+                        />
+                        <KpiCard
+                            title="Not registered"
+                            value={stats?.notRegistered}
+                            icon={<DomainDisabledOutlined />}
+                            color="error"
+                            {...kpi('not_registered', '')}
+                        />
                         <KpiCard
                             title="Certificates to renew"
                             value={stats && stats.sslExpired + stats.sslExpiringSoon}
@@ -241,7 +267,7 @@ export default function LegitimateDomainsPage() {
                                     ariaLabel="Search domains"
                                 />
                                 <ExpirySelect label="Domain expiry" value={filters.status} onChange={(status) => setFilters({ status })} />
-                                <ExpirySelect label="Certificate expiry" value={filters.ssl} onChange={(ssl) => setFilters({ ssl })} />
+                                <ExpirySelect label="Certificate expiry" value={filters.ssl} onChange={(ssl) => setFilters({ ssl })} options={SSL_FILTER_OPTIONS} />
                                 {signedIn && (
                                     <TextField
                                         select
@@ -267,13 +293,13 @@ export default function LegitimateDomainsPage() {
                                         Clear
                                     </Button>
                                 )}
-<ActiveFilters
-    chips={[
-        filters.status && { key: 'status', label: 'Domain expiry', value: FILTER_OPTIONS.find((o) => o.value === filters.status)?.label ?? filters.status, onRemove: () => setFilters({ status: '' }) },
-        filters.ssl && { key: 'ssl', label: 'Certificate expiry', value: FILTER_OPTIONS.find((o) => o.value === filters.ssl)?.label ?? filters.ssl, onRemove: () => setFilters({ ssl: '' }) },
-        filters.repurchased && { key: 'repurchased', label: 'Repurchased', value: filters.repurchased === 'true' ? 'Yes' : 'No', onRemove: () => setFilters({ repurchased: '' }) },
-    ]}
-/>
+                                <ActiveFilters
+                                    chips={[
+                                        filters.status && { key: 'status', label: 'Domain expiry', value: FILTER_OPTIONS.find((o) => o.value === filters.status)?.label ?? filters.status, onRemove: () => setFilters({ status: '' }) },
+                                        filters.ssl && { key: 'ssl', label: 'Certificate expiry', value: FILTER_OPTIONS.find((o) => o.value === filters.ssl)?.label ?? filters.ssl, onRemove: () => setFilters({ ssl: '' }) },
+                                        filters.repurchased && { key: 'repurchased', label: 'Repurchased', value: filters.repurchased === 'true' ? 'Yes' : 'No', onRemove: () => setFilters({ repurchased: '' }) },
+                                    ]}
+                                />
                             </Stack>
                         )}
                     </Box>
@@ -286,7 +312,8 @@ export default function LegitimateDomainsPage() {
                         ) : (
                             <>
                                 <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                                    <DomainTable highlight={filters.search}
+                                    <DomainTable
+                                        highlight={filters.search}
                                         rows={rows}
                                         loading={list.isPending}
                                         showInternal={signedIn}

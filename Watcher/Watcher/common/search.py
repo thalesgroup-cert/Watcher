@@ -166,7 +166,7 @@ def _connectors(q, limit, user):
 # In the order of the menu.
 PROVIDERS = [
     Provider('threats_watcher', 'Threats Watcher', 'word', PUBLIC, _trending_words),
-    Provider('threats_watcher', 'Threats Watcher', 'keyword', PUBLIC, _monitored_keywords),
+    Provider('threats_watcher', 'Threats Watcher', 'keyword', USER, _monitored_keywords),
     Provider('cyber_watch', 'Cyber Watch', 'cve', USER, _cves),
     Provider('cyber_watch', 'Cyber Watch', 'victim', USER, _victims),
     Provider('cyber_watch', 'Cyber Watch', 'rule', 'cyber_watch.view_watchrule', _watch_rules),

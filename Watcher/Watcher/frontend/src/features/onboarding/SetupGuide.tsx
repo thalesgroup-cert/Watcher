@@ -107,7 +107,7 @@ export function SetupGuide({ cyber, dns, leaks, sites, domains }: SetupGuideProp
     const complete = !loading && doneCount === tasks.length;
 
     return (
-        <Card component="section" aria-label="Setup guide" data-tour="setup-guide" sx={{ mb: 3 }}>
+        <Card component="section" aria-label="Setup guide" data-tour="setup-guide">
             <CardContent>
                 <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
                     <Box sx={{ minWidth: 0 }}>

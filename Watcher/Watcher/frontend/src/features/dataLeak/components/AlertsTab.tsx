@@ -185,13 +185,13 @@ export function AlertsTab({ canChange }: { canChange: boolean }) {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.keyword && { key: 'keyword', label: 'Pattern', value: patterns.find((p) => String(p.id) === filters.keyword)?.name ?? filters.keyword, onRemove: () => setFilters({ keyword: '' }) },
-        filters.source && { key: 'source', label: 'Source', value: filters.source, onRemove: () => setFilters({ source: '' }) },
-        filters.period && { key: 'period', label: 'Found', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.keyword && { key: 'keyword', label: 'Pattern', value: patterns.find((p) => String(p.id) === filters.keyword)?.name ?? filters.keyword, onRemove: () => setFilters({ keyword: '' }) },
+                                filters.source && { key: 'source', label: 'Source', value: filters.source, onRemove: () => setFilters({ source: '' }) },
+                                filters.period && { key: 'period', label: 'Found', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -204,7 +204,8 @@ export function AlertsTab({ canChange }: { canChange: boolean }) {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <AlertTable highlight={filters.search}
+                            <AlertTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

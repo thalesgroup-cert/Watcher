@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
 import os
+import sys
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
@@ -139,6 +140,9 @@ DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searxng:8080
 
 # Cyber Watch - External Threat Intelligence APIs
 CYBER_WATCH_CVE_API_URL = os.environ.get('CYBER_WATCH_CVE_API_URL', 'https://cve.circl.lu/api/last')
+# CISA's catalogue of the vulnerabilities exploited in the wild (once a day) and FIRST.org's EPSS scores (once a day). Empty: off.
+CYBER_WATCH_KEV_URL = os.environ.get('CYBER_WATCH_KEV_URL', 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json')
+CYBER_WATCH_EPSS_API_URL = os.environ.get('CYBER_WATCH_EPSS_API_URL', 'https://api.first.org/data/v1/epss')
 CYBER_WATCH_RANSOMWARE_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_GROUPS_URL', 'https://api.ransomware.live/v2/groups')
 CYBER_WATCH_RANSOMWARE_VICTIMS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_VICTIMS_URL', 'https://api.ransomware.live/v2/recentvictims')
 CYBER_WATCH_RANSOMLOOK_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_GROUPS_URL', 'https://www.ransomlook.io/api/groups')
@@ -219,6 +223,12 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+# Limits of the requests that cost the most (see common/api.py): a capture drives a browser, the search reads every module.
+# A test run is not limited.
+WATCHER_THROTTLES = {'screenshot': '10/min', 'search': '120/min', 'favicon': '600/min'}
+if 'test' in sys.argv:
+    WATCHER_THROTTLES = {}
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Watcher API',

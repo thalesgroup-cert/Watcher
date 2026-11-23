@@ -4,26 +4,32 @@ import { BarChart } from '@mui/x-charts/BarChart';
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlined from '@mui/icons-material/ErrorOutlined';
 import HelpOutlined from '@mui/icons-material/HelpOutlined';
+import PendingOutlined from '@mui/icons-material/PendingOutlined';
 import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
-import { ChartCard, RankedBars, STATUS_FILL as CHART_STATUS, useSeriesColor, countSeries } from '../../../ui/charts';
+import { ChartCard, RankedBars, useChartPalette, useSeriesColor, countSeries } from '../../../ui/charts';
 import { EmptyState } from '../../../ui/EmptyState';
 import { EXPIRING_SOON_DAYS, STATUS_META } from '../expiry';
 import { useDomainStatistics } from '../hooks';
 import type { DomainFilters, DomainStatistics, ExpiryStatus } from '../types';
 
-const STATUS_FILL: Record<ExpiryStatus, string> = {
-    valid: CHART_STATUS.good,
-    expiring_soon: CHART_STATUS.warning,
-    expired: CHART_STATUS.critical,
-    none: CHART_STATUS.neutral,
-};
+/** The colour of each expiry status, from the chart palette in use. */
+const statusFills = (status: ReturnType<typeof useChartPalette>['status']): Record<ExpiryStatus, string> => ({
+    valid: status.good,
+    expiring_soon: status.warning,
+    unconfirmed: status.warning,
+    expired: status.critical,
+    none: status.neutral,
+});
 const STATUS_ICON: Record<ExpiryStatus, ReactNode> = {
     valid: <CheckCircleOutlined />,
     expiring_soon: <WarningAmberOutlined />,
+    unconfirmed: <PendingOutlined />,
     expired: <ErrorOutlined />,
     none: <HelpOutlined />,
 };
-const STATUS_ORDER: ExpiryStatus[] = ['valid', 'expiring_soon', 'expired', 'none'];
+const STATUS_ORDER: ExpiryStatus[] = ['valid', 'expiring_soon', 'expired', 'unconfirmed', 'none'];
+/** A certificate has no registry to confirm it: it is never "unconfirmed". */
+const CERTIFICATE_ORDER = STATUS_ORDER.filter((s) => s !== 'unconfirmed');
 
 const monthLabel = (month: string) => {
     const [y, m] = month.split('-').map(Number);
@@ -59,12 +65,15 @@ interface Breakdown {
     label: string;
     counts: Record<ExpiryStatus, number>;
     onSelect: (status: ExpiryStatus) => void;
+    /** The statuses that exist for this kind of expiry, in display order. */
+    order?: ExpiryStatus[];
 }
 
 /** One part-to-whole bar per kind of expiry, with every segment labelled below it (a click filters the list). */
-function StatusBreakdown({ label, counts, onSelect }: Breakdown) {
-    const total = STATUS_ORDER.reduce((n, s) => n + counts[s], 0);
-    const present = STATUS_ORDER.filter((s) => counts[s] > 0);
+function StatusBreakdown({ label, counts, onSelect, order = STATUS_ORDER }: Breakdown) {
+    const STATUS_FILL = statusFills(useChartPalette().status);
+    const total = order.reduce((n, s) => n + counts[s], 0);
+    const present = order.filter((s) => counts[s] > 0);
     return (
         <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75 }}>
@@ -76,7 +85,7 @@ function StatusBreakdown({ label, counts, onSelect }: Breakdown) {
                 ))}
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 0.5, mt: 1 }}>
-                {STATUS_ORDER.map((s) => (
+                {order.map((s) => (
                     <ButtonBase
                         key={s}
                         onClick={() => onSelect(s)}
@@ -115,14 +124,17 @@ export function DomainInsights({ onFilter }: { onFilter: (patch: Partial<DomainF
             </Box>
         );
     }
+    const unconfirmed = stats.unconfirmed ?? 0; // an older server does not send it
     const domainCounts = {
         expired: stats.expired,
+        unconfirmed,
         expiring_soon: stats.expiringSoon,
         none: stats.noExpiry,
-        valid: stats.total - stats.expired - stats.expiringSoon - stats.noExpiry,
+        valid: stats.total - stats.expired - unconfirmed - stats.expiringSoon - stats.noExpiry,
     };
     const certificateCounts = {
         expired: stats.sslExpired,
+        unconfirmed: 0,
         expiring_soon: stats.sslExpiringSoon,
         none: stats.sslNoExpiry,
         valid: stats.total - stats.sslExpired - stats.sslExpiringSoon - stats.sslNoExpiry,
@@ -138,7 +150,7 @@ export function DomainInsights({ onFilter }: { onFilter: (patch: Partial<DomainF
             <ChartCard title="Status" subtitle={`Expiring soon = within ${EXPIRING_SOON_DAYS} days. Click a line to list those domains.`}>
                 <Stack spacing={2.5}>
                     <StatusBreakdown label="Domain registration" counts={domainCounts} onSelect={(status) => onFilter({ status })} />
-                    <StatusBreakdown label="Certificate" counts={certificateCounts} onSelect={(ssl) => onFilter({ ssl })} />
+                    <StatusBreakdown label="Certificate" counts={certificateCounts} order={CERTIFICATE_ORDER} onSelect={(ssl) => onFilter({ ssl })} />
                 </Stack>
             </ChartCard>
             <ChartCard title="Extensions" subtitle="Most common top-level domains.">

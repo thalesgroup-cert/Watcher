@@ -1,6 +1,5 @@
 import requests
 import logging
-from django.utils import timezone
 from common.utils.update_thehive import handle_alert_or_case, create_new_alert
 from site_monitoring.models import Site
 from connectors.core import get_thehive_config
@@ -92,9 +91,6 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
     if app_name == 'website_monitoring' and not ticket_id:
         return
     
-    current_time = timezone.now().strftime("%H:%M:%S")
-    current_date = timezone.now().strftime("%d/%m/%y")
-
     # Handle the alert for 'website_monitoring' if ticket_id is found
     if app_name == 'website_monitoring':
         handle_alert_or_case(
@@ -108,8 +104,8 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
             app_name=app_name,
             observables=observables,
             customFields=customFields,
-            # Posted on the alert when it already exists: what changed, not that "a change was processed"
-            comment=comment or f"**{title}** - {current_date} {current_time}",
+            # Posted on the alert when it already exists: what changed (TheHive shows the time of a comment)
+            comment=comment or f"**{title}**",
             thehive_url=thehive_url,
             api_key=api_key,
             external_link=external_link

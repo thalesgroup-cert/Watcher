@@ -24,6 +24,15 @@ export interface Cve {
     is_archived: boolean;
     /** Watch rule hits still to review. */
     hits_count: number;
+    /** In the CISA catalogue of the vulnerabilities exploited in the wild, since (a date) and to fix by (a date). */
+    exploited: boolean;
+    kev_added: string | null;
+    kev_due: string | null;
+    /** Ransomware groups are known to use it. */
+    kev_ransomware: boolean;
+    /** EPSS: the probability (0 to 1) that it is exploited in the next 30 days, and the share of the CVEs it beats. */
+    epss: number | null;
+    epss_percentile: number | null;
 }
 
 export interface Victim {
@@ -100,7 +109,8 @@ export interface Match {
     /** CVE id, or "group::victim". */
     object_id: string;
     hit_display: string;
-    matched_keyword: string;
+    /** The keywords of the rule that matched it, in the order of the rule. */
+    matched_keywords: string[];
     hit_at: string;
     is_archived: boolean;
     target: CveTarget | VictimTarget | null;
@@ -150,6 +160,10 @@ export interface CveFilters {
     severity: SeverityFilter[];
     period: Period;
     matched: '' | 'yes' | 'no';
+    /** Exploited in the wild (CISA catalogue). */
+    exploited: '' | 'yes';
+    /** The CVEs (the default), the other advisories of the source (OSV, GHSA, Debian...), or both. */
+    kind: 'cve' | 'advisory' | 'all';
 }
 
 export interface VictimFilters {
@@ -176,6 +190,10 @@ export interface CyberStatistics {
         archived: number;
         /** Active CVEs a watch rule matched. */
         matched: number;
+        /** Active CVEs of the CISA catalogue of the vulnerabilities exploited in the wild. */
+        exploited: number;
+        /** The other advisories of the source (OSV, GHSA, Debian...): they are not counted in the CVEs. */
+        advisories: number;
         bySeverity: Partial<Record<SeverityFilter, number>>;
         perDay: Day[];
     };
@@ -191,6 +209,12 @@ export interface CyberStatistics {
         topGroups: { id: number; name: string; count: number }[];
         topSectors: { name: string; count: number }[];
         topCountries: { name: string; count: number }[];
+        /** Every group that has victims, every sector, and how many victims have no sector or no country (for the filters). */
+        byGroup: { id: number; name: string; count: number }[];
+        bySector: { name: string; count: number }[];
+        unknown: { sector: number; country: number };
+        /** The groups with at least one victim, among all those the sources know (`groups`). */
+        groupsWithVictims: number;
         /** Every country (ISO code), for the world map. */
         byCountry: { name: string; count: number }[];
     };

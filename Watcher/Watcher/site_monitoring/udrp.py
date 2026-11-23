@@ -177,23 +177,22 @@ def transfer_to_legitimate_domains(site):
     """
     from common.models import LegitimateDomain
 
-    today = date.today().isoformat()
-    comment = (
-        f"Domain transferred from Website Monitoring following a favourable "
-        f"UDRP decision. (Date: {today}, Source: WIPO)"
-    )
+    from common.utils import auto_comments
 
-    _, created = LegitimateDomain.objects.get_or_create(
+    note = "UDRP won (WIPO): moved from Website Monitoring."
+    domain, created = LegitimateDomain.objects.get_or_create(
         domain_name=site.domain_name,
         defaults={
             "ticket_id": site.ticket_id,
-            "comments": comment,
+            # The comments of the website come with it, under the line that says where it comes from
+            "comments": auto_comments.combine(note, site.comments),
         },
     )
 
     if created:
         logger.info("LegitimateDomain created for %s after UDRP win.", site.domain_name)
     else:
+        auto_comments.add_note(LegitimateDomain, domain.pk, note)
         logger.info(
             "LegitimateDomain for %s already exists - skipping creation.", site.domain_name
         )

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert as MuiAlert, Box, Button, Card, CardContent, MenuItem, Stack, TablePagination, TextField, Typography } from '@mui/material';
+import { useNavigate } from 'react-router';
+import { Alert as MuiAlert, Box, Button, Card, CardContent, MenuItem, Skeleton, Stack, TablePagination, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import DateRangeOutlined from '@mui/icons-material/DateRangeOutlined';
 import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined';
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
@@ -10,20 +11,23 @@ import { getErrorMessage } from '../../../api/client';
 import { useUrlParams } from '../../../lib/useUrlParams';
 import { ConfirmDialog } from '../../../ui/ConfirmDialog';
 import { EmptyState } from '../../../ui/EmptyState';
+import { WorldMap, type MapValue } from '../../../ui/WorldMap';
 import { KpiCard } from '../../../ui/KpiCard';
 import { countOf, SearchField } from '../../../ui/SearchField';
 import { ActiveFilters } from '../../../ui/ActiveFilters';
 import { hasAnyPermission, selectUser, useAuthStore } from '../../auth/store';
+import { useCyberStatistics } from '../../cyberWatch/hooks';
 import { useBanWord, useDeleteWord, useSaveKeyword, useThreatsStatistics, useWords } from '../hooks';
 import type { Confidence, Period, Word, WordFilters } from '../types';
 import { Briefing } from './Briefing';
-import { WordViz } from './WordCloud';
+import { type CloudSize, WordViz } from './WordCloud';
 import { WordDrawer } from './WordDrawer';
 import { WordTable } from './tables';
 
-const DEFAULT_ORDERING = '-occurrences';
+/** The words that jump come first: the last 24 hours against the days before. The cloud keeps the most mentioned. */
+const DEFAULT_ORDERING = '-rising';
 const PAGE_SIZES = [25, 50, 100];
-const ORDERINGS = ['name', 'occurrences', 'posts_count', 'score', 'created_at'].flatMap((f) => [f, `-${f}`]);
+const ORDERINGS = ['name', 'occurrences', 'posts_count', 'score', 'created_at', 'mentions_24h', 'mentions_week', 'rising'].flatMap((f) => [f, `-${f}`]);
 const PERIODS: { value: Period; label: string }[] = [
     { value: '', label: 'Any time' },
     { value: 'today', label: 'Today' },
@@ -48,7 +52,10 @@ export function readWordFilters(params: URLSearchParams): WordFilters {
 
 const NO_FILTERS: WordFilters = { search: '', period: '', confidence: '' };
 export const wordFilterParams = (f: WordFilters) => ({ q: f.search, period: f.period, confidence: f.confidence, page: null });
-const CLOUD = { page: 1, pageSize: 40, ordering: '-occurrences' };
+// The cloud takes the words talked about this week, or the most mentioned of all time
+const CLOUD = { now: { page: 1, pageSize: 40, ordering: '-mentions_week' }, all: { page: 1, pageSize: 40, ordering: '-occurrences' } };
+
+type MapLayer = 'victims' | 'sources';
 
 export function TrendsTab() {
     const { params, update } = useUrlParams();
@@ -67,8 +74,14 @@ export function TrendsTab() {
     const canBan = canDelete && hasAnyPermission(user, 'threats_watcher.add_bannedword');
 
     const { data: stats } = useThreatsStatistics();
+    const cyber = useCyberStatistics();
+    const navigate = useNavigate();
+    const [layer, setLayer] = useState<MapLayer>('victims');
     const list = useWords(filters, { page, pageSize, ordering });
-    const cloud = useWords(filters, CLOUD);
+    const [cloudSize, setCloudSize] = useState<CloudSize>('now');
+    const cloud = useWords(filters, CLOUD[cloudSize]);
+    // Words with no article this week have no place in the cloud of what is talked about now
+    const cloudWords = (cloud.data?.results ?? []).filter((w) => cloudSize === 'all' || w.mentions_week > 0);
     const rows = list.data?.results ?? [];
     const monitor = useSaveKeyword();
     const ban = useBanWord();
@@ -81,6 +94,11 @@ export function TrendsTab() {
         update({ word: w.id });
     };
     const [confirm, setConfirm] = useState<{ word: Word; action: 'ban' | 'delete' } | null>(null);
+
+    const mapValues: MapValue[] =
+        layer === 'victims'
+            ? (cyber.data?.victims.byCountry ?? []).filter((c) => /^[A-Za-z]{2}$/.test(c.name)).map((c) => ({ code: c.name, count: c.count }))
+            : (stats?.sourcesByCountry ?? []).filter((c) => c.code).map((c) => ({ code: c.code, count: c.count }));
 
     const isFiltered = !!(filters.search || filters.period || filters.confidence);
     const kpi = (period: Period) => ({
@@ -134,33 +152,80 @@ export function TrendsTab() {
                         Clear
                     </Button>
                 )}
-<ActiveFilters
-    chips={[
-        filters.period && { key: 'period', label: 'First seen', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-        filters.confidence && { key: 'confidence', label: 'Reliability', value: CONFIDENCES.find((c) => c.value === filters.confidence)?.label ?? filters.confidence, onRemove: () => setFilters({ confidence: '' }) },
-    ]}
-/>
+                <ActiveFilters
+                    chips={[
+                        filters.period && { key: 'period', label: 'First seen', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                        filters.confidence && { key: 'confidence', label: 'Reliability', value: CONFIDENCES.find((c) => c.value === filters.confidence)?.label ?? filters.confidence, onRemove: () => setFilters({ confidence: '' }) },
+                    ]}
+                />
             </Stack>
 
-            {(cloud.data?.results.length ?? 0) > 0 && (
-                <Card sx={{ mb: 2 }}>
+            {/* The words that come up, and where the news and the victims are from, side by side */}
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: cloudWords.length > 0 || cloud.isPending ? 'minmax(0, 7fr) minmax(0, 5fr)' : '1fr' }, mb: 2 }}>
+                {(cloudWords.length > 0 || cloud.isPending) && (
+                    <Card sx={{ minWidth: 0 }}>
+                        <CardContent>
+                            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+                                <Typography variant="overline" color="text.secondary" component="h2">
+                                    {cloudSize === 'now' ? 'Talked about now' : 'Most mentioned, all time'}
+                                </Typography>
+                                <ToggleButtonGroup size="small" exclusive value={cloudSize} onChange={(_, v: CloudSize | null) => v && setCloudSize(v)} aria-label="What sizes the words">
+                                    <ToggleButton value="now" sx={{ px: 1.25, py: 0.25 }}>
+                                        This week
+                                    </ToggleButton>
+                                    <ToggleButton value="all" sx={{ px: 1.25, py: 0.25 }}>
+                                        All time
+                                    </ToggleButton>
+                                </ToggleButtonGroup>
+                            </Stack>
+                            <WordViz
+                                size={cloudSize}
+                                loading={cloud.isPending}
+                                words={cloudWords}
+                                period={filters.period}
+                                activeId={wordId}
+                                onOpen={(id) => {
+                                    const row = cloud.data?.results.find((w) => w.id === id);
+                                    setOpened({ id, row });
+                                    update({ word: id });
+                                }}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
+                <Card sx={{ minWidth: 0 }} data-testid="world-map-card">
                     <CardContent>
-                        <Typography variant="overline" color="text.secondary" component="h2">
-                            Most mentioned
-                        </Typography>
-                        <WordViz
-                            words={cloud.data?.results ?? []}
-                            period={filters.period}
-                            activeId={wordId}
-                            onOpen={(id) => {
-                                const row = cloud.data?.results.find((w) => w.id === id);
-                                setOpened({ id, row });
-                                update({ word: id });
-                            }}
-                        />
+                        <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+                            <Box>
+                                <Typography variant="overline" color="text.secondary" component="h2">
+                                    World map
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {layer === 'victims' ? 'Ransomware victims by country. Click a country to list them.' : 'Where the RSS sources come from. Click a country to list them.'}
+                                </Typography>
+                            </Box>
+                            <ToggleButtonGroup size="small" exclusive value={layer} onChange={(_, v: MapLayer | null) => v && setLayer(v)} aria-label="Map layer">
+                                <ToggleButton value="victims" sx={{ px: 1.25 }}>
+                                    Victims
+                                </ToggleButton>
+                                <ToggleButton value="sources" sx={{ px: 1.25 }}>
+                                    Sources
+                                </ToggleButton>
+                            </ToggleButtonGroup>
+                        </Stack>
+                        {(layer === 'victims' ? cyber.isPending : !stats) ? (
+                            <Skeleton variant="rounded" height={300} />
+                        ) : (
+                            <WorldMap
+                                values={mapValues}
+                                unit={layer === 'victims' ? 'ransomware victims' : 'RSS sources'}
+                                height={300}
+                                onCountry={(code) => void navigate(layer === 'victims' ? `/cyber_watch?tab=ransomware&vstatus=all&vcountry=${code}` : `/threats_watcher?tab=sources&scountry=${code}`)}
+                            />
+                        )}
                     </CardContent>
                 </Card>
-            )}
+            </Box>
 
             <Card>
                 {list.error ? (
@@ -170,7 +235,8 @@ export function TrendsTab() {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <WordTable highlight={filters.search}
+                            <WordTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

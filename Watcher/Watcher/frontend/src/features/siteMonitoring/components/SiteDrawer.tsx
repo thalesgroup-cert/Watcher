@@ -24,11 +24,11 @@ import { fonts } from '../../../styles/theme';
 import { CopyValue } from '../../../ui/CopyValue';
 import { SideDrawer } from '../../../ui/SideDrawer';
 import { Expiry } from '../../legitimateDomains/components/Expiry';
-import { formatDay } from '../../legitimateDomains/expiry';
+import { checkedText, formatDay, noDateReason } from '../../legitimateDomains/expiry';
 import { parseEventUuids } from '../../misp/MispExportDialog';
 import { ObjectHistory } from '../../timeline/components/ObjectHistory';
 import { dateAgo } from '../../timeline/format';
-import { ACTIONS, CHECKS, changeKinds, mxList, UDRP_STATUS } from '../catalog';
+import { ACTIONS, CHECKS, changeKinds, mxList, siteExpiryInfo, UDRP_STATUS } from '../catalog';
 import { SITE_TYPE, useChanges, useSite } from '../hooks';
 import type { Site, SiteChange } from '../types';
 import { LegitimacyChip, WebState } from './tables';
@@ -219,6 +219,16 @@ export function SiteDrawer({ open, id, initial, onClose, onOpenChange, onShowCha
                                 ]}
                             />
                         </Section>
+                        {site.comments && (
+                            <Section title="Comments">
+                                <Typography
+                                    variant="body2"
+                                    sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', borderLeft: 3, borderColor: 'divider', pl: 1.5 }}
+                                >
+                                    {site.comments}
+                                </Typography>
+                            </Section>
+                        )}
                         <Section title={`Changes (${site.open_alerts_count} to review)`}>
                             <RecentChanges site={site} onOpenChange={onOpenChange} onShowChanges={() => onShowChanges(site)} />
                         </Section>
@@ -238,7 +248,15 @@ export function SiteDrawer({ open, id, initial, onClose, onOpenChange, onShowCha
                                 rows={[
                                     ['Registrar', site.registrar],
                                     ['Registered', site.domain_created_at && formatDay(site.domain_created_at)],
-                                    ['Domain expiry', <Expiry key="d" value={site.domain_expiry} />],
+                                    [
+                                        'Domain expiry',
+                                        <Box key="d">
+                                            <Expiry value={site.domain_expiry} confirmed={site.domain_expiry_confirmed} emptyLabel={noDateReason(siteExpiryInfo(site))} />
+                                            <Typography variant="caption" color="text.secondary" data-testid="expiry-check" sx={{ display: 'block', mt: 0.25 }}>
+                                                {checkedText(siteExpiryInfo(site))}
+                                            </Typography>
+                                        </Box>,
+                                    ],
                                     ['Certificate expiry', <Expiry key="s" value={site.ssl_expiry} />],
                                     ['Added to Watcher', dateAgo(site.created_at)],
                                     ['MISP events', uuids.length > 0 && <Box component="span" sx={{ fontFamily: fonts.mono, fontSize: 12, whiteSpace: 'pre-line' }}>{[...uuids].reverse().join('\n')}</Box>],

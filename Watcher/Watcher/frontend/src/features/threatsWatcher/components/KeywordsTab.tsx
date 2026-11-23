@@ -22,7 +22,7 @@ import { KeywordDrawer } from './KeywordDrawer';
 import { KeywordFormDialog } from './KeywordFormDialog';
 import { KeywordTable } from './tables';
 
-const DEFAULT_ORDERING = '-occurrences';
+const DEFAULT_ORDERING = '-created_at'; // the latest added first
 const PAGE_SIZES = [25, 50, 100];
 const ORDERINGS = ['name', 'level', 'occurrences', 'last_seen', 'created_at'].flatMap((f) => [f, `-${f}`]);
 
@@ -114,13 +114,13 @@ export function KeywordsTab() {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        level && { key: 'level', label: 'Level', value: LEVELS.find((l) => l.value === level)?.label ?? level, onRemove: () => update({ klevel: '', kpage: null }) },
-        seen && { key: 'seen', label: 'Seen', value: seen === 'yes' ? 'Seen in an article' : 'Not seen yet', onRemove: () => update({ kseen: '', kpage: null }) },
-        kind && { key: 'kind', label: 'Type', value: kind === 'rule' ? 'Rules' : 'Single words', onRemove: () => update({ kkind: '', kpage: null }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                level && { key: 'level', label: 'Level', value: LEVELS.find((l) => l.value === level)?.label ?? level, onRemove: () => update({ klevel: '', kpage: null }) },
+                                seen && { key: 'seen', label: 'Seen', value: seen === 'yes' ? 'Seen in an article' : 'Not seen yet', onRemove: () => update({ kseen: '', kpage: null }) },
+                                kind && { key: 'kind', label: 'Type', value: kind === 'rule' ? 'Rules' : 'Single words', onRemove: () => update({ kkind: '', kpage: null }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -133,7 +133,8 @@ export function KeywordsTab() {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <KeywordTable highlight={search}
+                            <KeywordTable
+                                highlight={search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

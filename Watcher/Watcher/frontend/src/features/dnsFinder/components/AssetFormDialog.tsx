@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Stack, Switch, TextField, Typography } from '@mui/material';
-import { countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { batchNote, countLines, useBulk } from '../../bulk/useBulk';
 import { ASSET_KINDS } from '../catalog';
 import { assetBulk, useSaveAsset } from '../hooks';
 import type { Asset, AssetKind } from '../types';
@@ -52,18 +53,34 @@ function AssetForm({ kind, asset, onClose }: { kind: AssetKind; asset: Asset | n
                         autoFocus
                         multiline={several}
                         minRows={several ? 5 : undefined}
+                        maxRows={several ? 8 : undefined}
                         value={several ? name : name.split(/\r?\n/)[0]}
                         onChange={(e) => setName(e.target.value)}
                         placeholder={kind === 'domain' ? 'example.com' : 'brandname'}
-                        helperText={several ? `${count} ${count === 1 ? meta.one : meta.many} detected.` : undefined}
+                        helperText={several ? `${count} ${count === 1 ? meta.one : meta.many} detected.${batchNote(count)}` : undefined}
                         slotProps={{ htmlInput: { maxLength: several ? undefined : 100, spellCheck: false } }}
                         fullWidth
                     />
                     {!editing && (
-                        <FormControlLabel
-                            control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
-                            label={<Typography variant="body2">Add several, one per line</Typography>}
-                        />
+                        <>
+                            <FormControlLabel
+                                control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
+                                label={<Typography variant="body2">Add several, one per line</Typography>}
+                            />
+                            <ListFileImport
+                                kind={kind === 'domain' ? 'domains' : 'keywords'}
+                                max={kind === 'domain' ? 200 : 500}
+                                weighs={
+                                    kind === 'domain'
+                                        ? { above: 20, text: 'Every domain is searched for look-alike variants every 2 hours: a long list makes each pass longer.' }
+                                        : undefined
+                                }
+                                onValues={(values) => {
+                                    setSeveral(true);
+                                    setName(values.join('\n'));
+                                }}
+                            />
+                        </>
                     )}
                 </Stack>
             </DialogContent>

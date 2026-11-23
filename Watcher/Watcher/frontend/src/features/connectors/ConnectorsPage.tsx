@@ -17,23 +17,21 @@ import {
     ToggleButton,
     Typography,
 } from '@mui/material';
-import BlockOutlined from '@mui/icons-material/BlockOutlined';
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined';
-import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import LockOutlined from '@mui/icons-material/LockOutlined';
 import PowerOffOutlined from '@mui/icons-material/PowerOffOutlined';
 import PowerOutlined from '@mui/icons-material/PowerOutlined';
 import Search from '@mui/icons-material/Search';
-import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 import { getErrorMessage } from '../../api/client';
 import { selectUser, useAuthStore } from '../auth/store';
 import { useUrlParams } from '../../lib/useUrlParams';
 import { ConnectorCard } from './components/ConnectorCard';
 import { ConnectorEditModal } from './components/ConnectorEditModal';
+import { LightBoard } from './components/LightBoard';
+import { JobsTab } from '../jobs/JobsTab';
 import { NotificationsTab } from './components/NotificationsTab';
-import { KpiCard } from '../../ui/KpiCard';
 import { Page, PageHeader } from '../../ui/Page';
 import { TourButton } from '../onboarding/TourButton';
 import { EMPTY_FILTERS, filterConnectors, PAGE_SIZE, paginate, type ConnectorFilters } from './filters';
@@ -187,7 +185,8 @@ function HelpSection() {
 
 export default function ConnectorsPage() {
     const { params, update } = useUrlParams();
-    const tab = params.get('tab') === 'notifications' ? 'notifications' : 'connectors';
+    const tabParam = params.get('tab');
+    const tab = tabParam === 'notifications' || tabParam === 'jobs' ? tabParam : 'connectors';
     const user = useAuthStore(selectUser);
     const isSuperuser = !!user?.is_superuser;
 
@@ -214,18 +213,11 @@ export default function ConnectorsPage() {
                     This page requires superuser privileges.
                 </Typography>
                 <Button component={RouterLink} to="/" variant="contained">
-                    Back to Dashboard
+                    Back to Overview
                 </Button>
             </Box>
         );
     }
-
-    const stats = {
-        total: connectors.length,
-        configured: connectors.filter((c) => c.status === 'configured').length,
-        partial: connectors.filter((c) => c.status === 'partial').length,
-        disabled: connectors.filter((c) => c.status === 'disabled').length,
-    };
 
     const header = (
         <PageHeader
@@ -237,6 +229,7 @@ export default function ConnectorsPage() {
                 <Tabs value={tab} onChange={(_, t: string) => update({ tab: t === 'connectors' ? null : t })} aria-label="Connectors sections">
                     <Tab value="connectors" label="Connectors" />
                     <Tab value="notifications" label="Notifications" />
+                    <Tab value="jobs" label="Scheduled jobs" />
                 </Tabs>
             }
         />
@@ -247,6 +240,15 @@ export default function ConnectorsPage() {
             <Page>
                 {header}
                 <NotificationsTab />
+            </Page>
+        );
+    }
+
+    if (tab === 'jobs') {
+        return (
+            <Page>
+                {header}
+                <JobsTab />
             </Page>
         );
     }
@@ -262,12 +264,7 @@ export default function ConnectorsPage() {
         <Page>
             {header}
 
-            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, mb: 3 }}>
-                <KpiCard title="Total" value={stats.total} icon={<PowerOutlined />} color="primary" />
-                <KpiCard title="Configured" value={stats.configured} icon={<CheckCircleOutlined />} color="success" />
-                <KpiCard title="Incomplete" value={stats.partial} icon={<WarningAmberOutlined />} color="warning" />
-                <KpiCard title="Disabled" value={stats.disabled} icon={<BlockOutlined />} color="inherit" />
-            </Box>
+            <LightBoard connectors={connectors} active={filters.light} onPick={(light) => setFilter('light')(light)} />
 
             <HelpSection />
 

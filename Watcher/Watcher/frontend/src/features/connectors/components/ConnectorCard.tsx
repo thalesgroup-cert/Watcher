@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Card, CardActions, CardContent, Chip, CircularProgress, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardActions, CardContent, Chip, CircularProgress, Tooltip, Typography } from '@mui/material';
 import EditOutlined from '@mui/icons-material/EditOutlined';
 import WifiTethering from '@mui/icons-material/WifiTethering';
 import { getErrorMessage } from '../../../api/client';
 import { useTestConnector } from '../hooks';
 import type { Connector, TestResult } from '../types';
-import { HealthChip, StatusChip } from './badges';
+import { checkedText, connectorLight, StateIcon, useLight } from './State';
 import { ConnectorLogo } from './ConnectorLogo';
 
 const RESULT_TIMEOUT_MS = 10_000;
@@ -36,9 +36,12 @@ export function ConnectorCard({ connector, onEditClick }: ConnectorCardProps) {
     };
 
     const testing = test.isPending;
+    const { light, label, meaning } = connectorLight(connector);
+    const color = useLight(light);
+    const detail = connector.health?.message ? ` ${connector.health.message}` : '';
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
+        <Card data-light={light} sx={{ height: '100%', display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
             <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 3 }}>
                 <Box sx={{ mb: 2, height: 72, minWidth: 72, maxWidth: 144, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <ConnectorLogo connector={connector} size={72} />
@@ -49,11 +52,19 @@ export function ConnectorCard({ connector, onEditClick }: ConnectorCardProps) {
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5 }}>
                     v{connector.version}
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 0.75 }}>
-                    <StatusChip status={connector.status} />
-                    <HealthChip health={connector.health} />
-                    {connector.readonly && <Chip variant="outlined" color="warning" label="Read-only" />}
-                </Box>
+                <Tooltip title={`${meaning}${detail}`}>
+                    <Box data-testid="connector-light" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <StateIcon light={light} />
+                        <Typography variant="body2" sx={{ fontWeight: 750, color }}>
+                            {label}
+                        </Typography>
+                    </Box>
+                </Tooltip>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25 }}>
+                    {connector.status === 'configured' ? 'Configured' : connector.status === 'partial' ? 'Incomplete' : 'Disabled'}
+                    {connector.status !== 'disabled' && ` - ${checkedText(connector)}`}
+                </Typography>
+                {connector.readonly && <Chip variant="outlined" color="warning" label="Read-only" sx={{ mt: 1 }} />}
 
                 {testResult && (
                     <Alert

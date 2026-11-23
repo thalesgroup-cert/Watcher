@@ -1,0 +1,92 @@
+name: Pull Request Tests
+
+# The tests of docker-image-test.yml, run on every pull request towards test or master. Nothing is built or published here.
+on:
+  pull_request:
+    paths:
+    - 'Watcher/**'
+    - '.github/workflows/**'
+    branches: [ test, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0.42
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: db_watcher
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Same Node version as the frontend stage of Watcher/Dockerfile (Vite 8 needs a recent Node).
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install dependencies
+      working-directory: ./Watcher/
+      run: |
+        sudo apt update && sudo apt install -y libsasl2-dev python3-dev libldap2-dev libssl-dev default-libmysqlclient-dev &
+        echo "127.0.0.1 db_watcher" | sudo tee -a /etc/hosts
+        wait
+
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchvision==0.28.0 torchaudio==2.11.0
+        npm install
+        npx cypress install
+
+    # Django serves the bundle built here (frontend/static/frontend/main.js and main.css), for the Cypress run below.
+    - name: Build the frontend
+      working-directory: ./Watcher/
+      run: npm run build
+
+    - name: Run back-end tests
+      working-directory: ./Watcher/Watcher
+      run: python manage.py test
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+
+    - name: Run front-end tests
+      working-directory: ./Watcher/Watcher
+      run: |
+        python manage.py migrate
+        python manage.py shell -c "
+        from django.contrib.auth.models import User
+        User.objects.create_superuser('Watcher', 'cypress@watcher.com', 'Watcher')
+        "
+        python manage.py runserver 127.0.0.1:8000 &
+        sleep 10
+        timeout 60 bash -c 'until curl -f http://127.0.0.1:8000; do sleep 2; done'
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+
+    - name: Run Cypress e2e tests
+      working-directory: ./Watcher
+      run: npm run cypress:run
+      env:
+        DB_USER: root
+        DB_PASSWORD: root
+
+    - name: Upload Cypress screenshots
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cypress-screenshots
+        path: Watcher/cypress/screenshots
+        if-no-files-found: ignore

@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
+import ChatBubbleOutlined from '@mui/icons-material/ChatBubbleOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
 import { Expiry } from '../../legitimateDomains/components/Expiry';
-import { formatDay } from '../../legitimateDomains/expiry';
+import { formatDay, noDateReason } from '../../legitimateDomains/expiry';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
-import { ACTIONS, changeKinds, legitimacyMeta, webState } from '../catalog';
+import { ACTIONS, changeKinds, legitimacyMeta, siteExpiryInfo, webState } from '../catalog';
 import type { Site, SiteChange } from '../types';
 import { When } from '../../../ui/When';
 
@@ -49,9 +50,16 @@ const SITE_COLUMNS: Column<Site>[] = [
             const meta = [s.ticket_id && `#${s.ticket_id}`, s.registrar].filter(Boolean).join(' - ');
             return (
                 <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 600 }} noWrap>
-                        {s.domain_name}
-                    </Typography>
+                    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                        <Typography sx={{ fontWeight: 600 }} noWrap>
+                            {s.domain_name}
+                        </Typography>
+                        {s.comments && (
+                            <Tooltip title={s.comments} slotProps={{ tooltip: { sx: { whiteSpace: 'pre-wrap', maxWidth: 360 } } }}>
+                                <ChatBubbleOutlined sx={{ fontSize: 14, color: 'text.secondary' }} aria-label="Has comments" />
+                            </Tooltip>
+                        )}
+                    </Stack>
                     {meta && (
                         <Typography variant="caption" color="text.secondary" noWrap component="div">
                             {meta}
@@ -75,7 +83,7 @@ const SITE_COLUMNS: Column<Site>[] = [
             </Typography>
         ),
     },
-    { key: 'expiry', label: 'Domain expiry', sort: 'domain_expiry', width: 160, render: (s) => <Expiry value={s.domain_expiry} /> },
+    { key: 'expiry', label: 'Domain expiry', sort: 'domain_expiry', width: 160, render: (s) => <Expiry value={s.domain_expiry} confirmed={s.domain_expiry_confirmed} emptyLabel={noDateReason(siteExpiryInfo(s))} /> },
     {
         key: 'actions',
         label: 'Actions taken',

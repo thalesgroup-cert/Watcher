@@ -6,6 +6,9 @@ describe('Connectors - Notifications tab', () => {
   };
 
   const connector = (id, status = 'configured', health = 'healthy') => ({ id, status, health });
+  // What every channel carries besides its switch and its fields: the message written by hand (none here), the one of the
+  // catalogue and what a message can read
+  const MESSAGE = { template: null, default_template: null, title: null, default_title: null, variables: [] };
 
   const leak = ({ slack = false, fields = ['keyword_name', 'url'] } = {}) => ({
     id: 'data_leak',
@@ -13,6 +16,7 @@ describe('Connectors - Notifications tab', () => {
     module: 'data_leak',
     channels: {
       slack: {
+        ...MESSAGE,
         enabled: slack,
         fields,
         available: [
@@ -21,7 +25,7 @@ describe('Connectors - Notifications tab', () => {
         ],
         connector: connector('slack'),
       },
-      email: { enabled: true, fields: [], available: [], connector: connector('smtp', 'partial') },
+      email: { ...MESSAGE, enabled: true, fields: [], available: [], connector: connector('smtp', 'partial') },
     },
   });
 
@@ -30,11 +34,20 @@ describe('Connectors - Notifications tab', () => {
     label: 'Weekly threat summary',
     module: 'threats_watcher',
     channels: {
-      slack: { enabled: false, fields: [], available: [], connector: connector('slack') },
+      slack: { ...MESSAGE, enabled: false, fields: [], available: [], connector: connector('slack') },
     },
   };
 
-  const PREVIEW = { kind: 'text', content: '*[DATA LEAK - ALERT #42]*\n\n*• Source:* https://pastebin.com/abc123' };
+  const expiring = {
+    id: 'legitimate_domain_expiring',
+    label: 'Legitimate domain close to expiry',
+    module: 'legitimate_domains',
+    channels: {
+      slack: { ...MESSAGE, enabled: false, fields: [], available: [], connector: connector('slack') },
+    },
+  };
+
+  const PREVIEW = { kind: 'text', format: 'slack', content: '*[DATA LEAK - ALERT #42]*\n\n*• Source:* https://pastebin.com/abc123' };
 
   beforeEach(() => {
     cy.viewport(1440, 900);
@@ -42,11 +55,11 @@ describe('Connectors - Notifications tab', () => {
     cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
     cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: '', preferences: {}, avatar_color: '#2196f3' } });
     cy.intercept('GET', '/api/connectors/', { statusCode: 200, body: [] });
-    cy.intercept('GET', '/api/connectors/notifications/', { statusCode: 200, body: [weekly, leak()] }).as('list');
+    cy.intercept('GET', '/api/connectors/notifications/', { statusCode: 200, body: [weekly, leak(), expiring] }).as('list');
     cy.intercept('POST', '/api/connectors/notifications/data_leak/slack/preview/', { statusCode: 200, body: PREVIEW }).as('preview');
     cy.intercept('POST', '/api/connectors/notifications/data_leak/email/preview/', {
       statusCode: 200,
-      body: { kind: 'html', title: '[ALERT #42] Data Leak', content: '<html><body>Data leak</body></html>' },
+      body: { kind: 'html', format: 'html', title: '[ALERT #42] Data Leak', content: '<html><body>Data leak</body></html>' },
     }).as('emailPreview');
   });
 
@@ -57,6 +70,9 @@ describe('Connectors - Notifications tab', () => {
     visitTab();
     cy.contains('tr', 'Data Leak', { timeout: 20000 }).should('be.visible');
     cy.contains('tr', 'Threats Watcher').should('be.visible');
+    // Its own group, with its notifications off until switched on
+    cy.contains('tr', 'Legitimate Domains').should('be.visible');
+    cy.get('input[aria-label="Legitimate domain close to expiry on Slack"]').should('not.be.checked');
     cy.get('input[aria-label="Data leak alert on Slack"]').should('not.be.checked');
     cy.get('input[aria-label="Data leak alert on Email"]').should('be.checked');
     // The weekly summary has no Citadel, TheHive or email message here: nothing to switch.
@@ -100,7 +116,7 @@ describe('Connectors - Notifications tab', () => {
       cy.contains('The layout of the email is fixed').should('be.visible');
       cy.contains('[role="tab"]', 'Slack').should('exist');
       cy.get('input[type="checkbox"]').should('have.length', 1); // only the switch
-      cy.get('iframe[title="Message preview"]').should('have.attr', 'sandbox', '');
+      cy.get('iframe[title="Message preview"]').should('have.attr', 'sandbox', 'allow-same-origin');
       cy.contains('[ALERT #42] Data Leak').should('be.visible');
     });
   });

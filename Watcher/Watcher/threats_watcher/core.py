@@ -127,6 +127,9 @@ def start_scheduler():
         - Fire weekly summary based on settings configuration
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
 
     scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
                       max_instances=10, replace_existing=True)
@@ -165,6 +168,7 @@ def cleanup():
             word.delete()
 
 
+@job_log.logged_job("Main watch (RSS feeds, words, keywords)", logger)
 def main_watch():
     """
     Main function:
@@ -180,6 +184,7 @@ def main_watch():
     """
     close_old_connections()
     logger.info("CRON TASK : Main function")
+    job_log.job_count("feeds", Source.objects.count())
     load_feeds()
     logger.info("Loaded feeds.")
     fetch_last_posts(settings.POSTS_DEPTH)
@@ -321,7 +326,9 @@ def fetch_last_posts(nb_max_post):
                                 post_obj, _ = PostUrl.objects.get_or_create(url=link, defaults={'created_at': dt if dt != "no-date" else timezone.now()})
                                 mk.posturls.add(post_obj)
                                 mk_seen_urls[mk.id].add(link)  # update local cache
-                            logger.info(f"MonitoredKeyword '{mk.name}' detected - occurrences: {mk.occurrences}, level: {mk.level}")
+                            # One line per article and per keyword: DEBUG, the end of the job reports the total
+                            job_log.job_count("keyword_matches")
+                            logger.debug(f"MonitoredKeyword '{mk.name}' detected - occurrences: {mk.occurrences}, level: {mk.level}")
                             # A rule keeps the article to be reviewed, and tells the subscribers which one it was
                             if mk.is_rule and link:
                                 try:

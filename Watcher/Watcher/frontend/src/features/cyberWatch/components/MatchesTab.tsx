@@ -172,13 +172,13 @@ export function MatchesTab({ canChange, canSeeRules, onOpenTarget, onOpenRule, o
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.type && { key: 'type', label: 'Type', value: HIT_TYPES.find((t) => t.value === filters.type)?.plural ?? filters.type, onRemove: () => setFilters({ type: '' }) },
-        filters.rule && { key: 'rule', label: 'Rule', value: rules.find((r) => String(r.id) === filters.rule)?.name ?? filters.rule, onRemove: () => setFilters({ rule: '' }) },
-        filters.period && { key: 'period', label: 'Matched', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.type && { key: 'type', label: 'Type', value: HIT_TYPES.find((t) => t.value === filters.type)?.plural ?? filters.type, onRemove: () => setFilters({ type: '' }) },
+                                filters.rule && { key: 'rule', label: 'Rule', value: rules.find((r) => String(r.id) === filters.rule)?.name ?? filters.rule, onRemove: () => setFilters({ rule: '' }) },
+                                filters.period && { key: 'period', label: 'Matched', value: PERIODS.find((p) => p.value === filters.period)?.label ?? filters.period, onRemove: () => setFilters({ period: '' }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -191,7 +191,8 @@ export function MatchesTab({ canChange, canSeeRules, onOpenTarget, onOpenRule, o
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <MatchTable highlight={filters.search}
+                            <MatchTable
+                                highlight={filters.search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

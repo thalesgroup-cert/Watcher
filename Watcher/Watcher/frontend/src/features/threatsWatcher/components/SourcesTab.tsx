@@ -123,13 +123,13 @@ export function SourcesTab() {
                                 Clear
                             </Button>
                         )}
-<ActiveFilters
-    chips={[
-        filters.confidence && { key: 'confidence', label: 'Reliability', value: (() => { const c = CONFIDENCE.find((x) => String(x.value) === filters.confidence); return c ? `${c.label} - ${c.percent}%` : filters.confidence; })(), onRemove: () => update({ sconf: '', spage: null }) },
-        filters.status && { key: 'status', label: 'Last fetch', value: STATES.find((s) => s.value === filters.status)?.label ?? filters.status, onRemove: () => update({ sstatus: '', spage: null }) },
-        filters.country && { key: 'country', label: 'Country', value: countryLabel(filters.country, countries.find((c) => c.code === filters.country)?.country ?? ''), onRemove: () => update({ scountry: '', spage: null }) },
-    ]}
-/>
+                        <ActiveFilters
+                            chips={[
+                                filters.confidence && { key: 'confidence', label: 'Reliability', value: (() => { const c = CONFIDENCE.find((x) => String(x.value) === filters.confidence); return c ? `${c.label} - ${c.percent}%` : filters.confidence; })(), onRemove: () => update({ sconf: '', spage: null }) },
+                                filters.status && { key: 'status', label: 'Last fetch', value: STATES.find((s) => s.value === filters.status)?.label ?? filters.status, onRemove: () => update({ sstatus: '', spage: null }) },
+                                filters.country && { key: 'country', label: 'Country', value: countryLabel(filters.country, countries.find((c) => c.code === filters.country)?.country ?? ''), onRemove: () => update({ scountry: '', spage: null }) },
+                            ]}
+                        />
                     </Stack>
                 )}
             </Box>
@@ -142,7 +142,8 @@ export function SourcesTab() {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <SourceTable highlight={search}
+                            <SourceTable
+                                highlight={search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

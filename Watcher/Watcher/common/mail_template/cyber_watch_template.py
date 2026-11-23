@@ -13,6 +13,11 @@ def get_cyber_watch_template(context_data, link_url=None):
         title, intro = "CVE Watch Rule Hit", "A CVE matches one of your watch rules."
         rows = [('Rule', get('rule_name')), ('CVE ID', get('cve_id')), ('Matched keyword', get('keyword')),
                 ('Severity', get('severity'))]
+    elif kind == 'cve_exploited':
+        title, intro = "CVE Exploited in the Wild", "CISA has added a CVE to its catalogue of the vulnerabilities exploited in the wild."
+        rows = [('CVE ID', get('cve_id')), ('Severity', get('severity')), ('CVSS score', get('cvss_score')),
+                ('EPSS', get('epss')), ('Fix by', get('fix_by')), ('Ransomware', get('ransomware')),
+                ('Description', get('description'))]
     elif kind == 'new_victim':
         title, intro = "New Ransomware Victim Detected", "A ransomware group claimed a new victim."
         rows = [('Victim', get('victim_name')), ('Group', get('group_name')), ('Country', get('country')),

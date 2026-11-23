@@ -21,11 +21,18 @@ import { EmptyState } from '../../../ui/EmptyState';
 import { SearchField } from '../../../ui/SearchField';
 import { ACTIONS, MODULES } from '../catalog';
 import { useActivityFeed } from '../hooks';
-import type { Actor, FeedFilters, TimelineAction, TimelineEvent } from '../types';
+import type { Actor, FeedFilters, Period, TimelineAction, TimelineEvent } from '../types';
 import { EventFeed } from './EventFeed';
 import { HistoryDrawer } from './HistoryDrawer';
 
-export const DEFAULT_FILTERS: FeedFilters = { actor: 'people', module: '', actions: [], search: '' };
+export const DEFAULT_FILTERS: FeedFilters = { actor: 'people', period: '', module: '', actions: [], search: '' };
+
+const PERIODS: { value: Period; label: string }[] = [
+    { value: 'today', label: 'Today' },
+    { value: '7d', label: '7 days' },
+    { value: '30d', label: '30 days' },
+    { value: '', label: 'All' },
+];
 
 const ACTORS: { value: Actor; label: string }[] = [
     { value: 'people', label: 'People' },
@@ -39,9 +46,13 @@ interface ActivityFeedProps {
     onFiltersChange: (filters: FeedFilters) => void;
     /** Hide the actor switch when the actor is fixed by the page (e.g. "My activity"). */
     lockActor?: boolean;
+    /** Show the choice of a period (Today, 7 days, 30 days, All). */
+    periods?: boolean;
+    /** The period the page starts with: what "Clear" goes back to. */
+    defaultPeriod?: Period;
 }
 
-export function ActivityFeed({ filters, onFiltersChange, lockActor = false }: ActivityFeedProps) {
+export function ActivityFeed({ filters, onFiltersChange, lockActor = false, periods = false, defaultPeriod = '' }: ActivityFeedProps) {
     const { data, error, isPending, isFetchingNextPage, hasNextPage, fetchNextPage } = useActivityFeed(filters);
     const events = useMemo(() => data?.pages.flatMap((p) => p.results) ?? [], [data]);
     // `selected` outlives `historyOpen` so the drawer keeps its content while sliding out.
@@ -56,7 +67,8 @@ export function ActivityFeed({ filters, onFiltersChange, lockActor = false }: Ac
     const set = (patch: Partial<FeedFilters>) => onFiltersChange({ ...filters, ...patch });
     const toggleAction = (action: TimelineAction) =>
         set({ actions: filters.actions.includes(action) ? filters.actions.filter((a) => a !== action) : [...filters.actions, action] });
-    const isFiltered = !!filters.module || filters.actions.length > 0 || !!filters.search || (!lockActor && filters.actor !== 'people');
+    const isFiltered =
+        !!filters.module || filters.actions.length > 0 || !!filters.search || (!lockActor && filters.actor !== 'people') || (periods && filters.period !== defaultPeriod);
 
     // Infinite scroll: load the next page when the end of the list comes into view.
     useEffect(() => {
@@ -87,6 +99,21 @@ export function ActivityFeed({ filters, onFiltersChange, lockActor = false }: Ac
                         ))}
                     </ToggleButtonGroup>
                 )}
+                {periods && (
+                    <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={filters.period}
+                        onChange={(_, v: Period | null) => v !== null && set({ period: v })}
+                        aria-label="Period"
+                    >
+                        {PERIODS.map((p) => (
+                            <ToggleButton key={p.value || 'all'} value={p.value} data-testid={`period-${p.value || 'all'}`} sx={{ px: 1.5 }}>
+                                {p.label}
+                            </ToggleButton>
+                        ))}
+                    </ToggleButtonGroup>
+                )}
                 <TextField
                     select
                     size="small"
@@ -113,7 +140,7 @@ export function ActivityFeed({ filters, onFiltersChange, lockActor = false }: Ac
                         size="small"
                         color="inherit"
                         startIcon={<FilterAltOffOutlined />}
-                        onClick={() => onFiltersChange({ ...DEFAULT_FILTERS, actor: lockActor ? filters.actor : 'people' })}
+                        onClick={() => onFiltersChange({ ...DEFAULT_FILTERS, actor: lockActor ? filters.actor : 'people', period: periods ? defaultPeriod : '' })}
                         sx={{ color: 'text.secondary' }}
                     >
                         Clear

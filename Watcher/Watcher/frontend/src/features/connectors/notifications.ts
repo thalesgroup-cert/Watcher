@@ -16,6 +16,7 @@ export const MODULES: { id: string; label: string }[] = [
     { id: 'data_leak', label: 'Data Leak' },
     { id: 'dns_finder', label: 'DNS Finder' },
     { id: 'website_monitoring', label: 'Website Monitoring' },
+    { id: 'legitimate_domains', label: 'Legitimate Domains' },
 ];
 
 /** Why a message sent on this channel would not arrive, or null when its connector looks fine. */

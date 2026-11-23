@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import OpenInNew from '@mui/icons-material/OpenInNew';
 import PauseCircleOutline from '@mui/icons-material/PauseCircleOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
@@ -18,8 +19,46 @@ export function SeverityChip({ severity, score }: { severity: Severity; score?: 
     return <Chip size="small" color={meta.color} variant={severity === 'CRITICAL' || severity === 'HIGH' ? 'filled' : 'outlined'} label={label} title={meta.range} />;
 }
 
+/** The CVE is exploited in the wild (CISA catalogue); the tooltip says since when, and if ransomware groups use it. */
+export function ExploitedChip({ cve }: { cve: Pick<Cve, 'exploited' | 'kev_added' | 'kev_ransomware'> }) {
+    if (!cve.exploited) return null;
+    const detail = [cve.kev_added ? `In the CISA catalogue of exploited vulnerabilities since ${day(cve.kev_added)}` : 'In the CISA catalogue of exploited vulnerabilities'];
+    if (cve.kev_ransomware) detail.push('known to be used by ransomware groups');
+    return (
+        <Tooltip title={detail.join(', ')}>
+            <Chip size="small" color="error" icon={<LocalFireDepartment />} label={cve.kev_ransomware ? 'Exploited - ransomware' : 'Exploited'} data-testid="exploited-chip" />
+        </Tooltip>
+    );
+}
+
+/** An advisory of the source that is not a CVE (OSV, GHSA, Rocky Linux, Debian...): it has no NVD page, no EPSS, no CISA entry. */
+export const isCve = (id: string) => id.toUpperCase().startsWith('CVE-');
+
+/** "94 %": the EPSS probability, with a decimal under 10 %. */
+export const epssPercent = (value: number) => `${value < 0.1 ? (value * 100).toFixed(1) : Math.round(value * 100)} %`;
+
+/** "12 Nov 2026" from a "YYYY-MM-DD" date. */
+export const day = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
 export function KeywordChip({ keyword, onClick }: { keyword: string; onClick?: () => void }) {
     return <Chip size="small" variant="outlined" label={keyword} onClick={onClick} sx={{ fontFamily: fonts.mono, fontSize: 12, maxWidth: 200 }} />;
+}
+
+/** The keywords that matched, as chips: the first ones, then "+2" with the rest in its tooltip. */
+export function KeywordChips({ keywords, max = 2 }: { keywords: string[]; max?: number }) {
+    const rest = keywords.slice(max);
+    return (
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.5 }} data-testid="match-keywords">
+            {keywords.slice(0, max).map((keyword) => (
+                <KeywordChip key={keyword} keyword={keyword} />
+            ))}
+            {rest.length > 0 && (
+                <Tooltip title={rest.join(', ')}>
+                    <Chip size="small" variant="outlined" label={`+${rest.length}`} />
+                </Tooltip>
+            )}
+        </Stack>
+    );
 }
 
 export function GroupChip({ name, onClick }: { name: string; onClick?: () => void }) {
@@ -80,7 +119,7 @@ const MATCH_COLUMNS: Column<Match>[] = [
                 <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>
                     {m.rule_name}
                 </Typography>
-                <KeywordChip keyword={m.matched_keyword} />
+                <KeywordChips keywords={m.matched_keywords} />
             </Stack>
         ),
     },
@@ -97,16 +136,37 @@ const CVE_COLUMNS: Column<Cve>[] = [
         cellSx: { maxWidth: 560 },
         render: (c) => (
             <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600, fontFamily: fonts.mono }} noWrap>
-                    {c.cve_id}
-                </Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600, fontFamily: fonts.mono }} noWrap>
+                        {c.cve_id}
+                    </Typography>
+                    <ExploitedChip cve={c} />
+                    {!isCve(c.cve_id) && <Chip size="small" variant="outlined" label="Advisory" data-testid="advisory-chip" title="An advisory of the source that is not a CVE" />}
+                </Stack>
                 <Typography variant="caption" color="text.secondary" noWrap component="div">
                     {c.description || 'No description yet'}
                 </Typography>
             </Box>
         ),
     },
-    { key: 'severity', label: 'Severity', sort: 'cvss_score', width: 150, render: (c) => <SeverityChip severity={c.severity} score={c.cvss_score} /> },
+    {
+        key: 'severity',
+        label: 'Severity',
+        sort: 'cvss_score',
+        width: 160,
+        render: (c) => (
+            <Box>
+                <SeverityChip severity={c.severity} score={c.cvss_score} />
+                {c.epss !== null && c.epss !== undefined && (
+                    <Tooltip title={`EPSS: ${epssPercent(c.epss)} chance of being exploited in the next 30 days`}>
+                        <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.25 }} data-testid="epss">
+                            EPSS {epssPercent(c.epss)}
+                        </Typography>
+                    </Tooltip>
+                )}
+            </Box>
+        ),
+    },
     { key: 'published', label: 'Published', sort: 'published', width: 130, render: (c) => <When iso={c.published} /> },
     { key: 'hits', label: 'Rules matched', sort: 'hits_count', width: 120, align: 'center', render: (c) => <OpenCount n={c.hits_count} label="matches to review" /> },
     {
@@ -114,7 +174,7 @@ const CVE_COLUMNS: Column<Cve>[] = [
         label: '',
         width: 48,
         align: 'center',
-        render: (c) => (
+        render: (c) => !isCve(c.cve_id) ? null : (
             <Tooltip title="Open on NVD">
                 <IconButton size="small" href={nvd(c.cve_id)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${c.cve_id} on NVD`} onClick={(e) => e.stopPropagation()}>
                     <OpenInNew fontSize="small" />

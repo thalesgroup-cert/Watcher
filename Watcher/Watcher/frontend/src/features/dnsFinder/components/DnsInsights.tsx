@@ -1,9 +1,8 @@
 import { Box, Skeleton, Stack } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
 import DnsOutlined from '@mui/icons-material/DnsOutlined';
-import { ChartCard, RankedBars, SERIES, countSeries } from '../../../ui/charts';
+import { ChartCard, RankedBars, useChartPalette, countSeries } from '../../../ui/charts';
 import { EmptyState } from '../../../ui/EmptyState';
-import { useTheme } from '@mui/material/styles';
 import { SOURCES, STATUSES } from '../catalog';
 import { useAssets, useDnsStatistics } from '../hooks';
 import type { ThreatFilters } from '../types';
@@ -20,7 +19,7 @@ export function DnsInsights({ onFilter }: { onFilter: (patch: Partial<ThreatFilt
     const { data: stats } = useDnsStatistics();
     const { data: domains } = useAssets('domain', '', TOP);
     const { data: keywords } = useAssets('keyword', '', TOP);
-    const colors = SERIES[useTheme().palette.mode];
+    const colors = useChartPalette().series;
     if (!stats) {
         return (
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' } }}>

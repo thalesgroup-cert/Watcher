@@ -15,8 +15,6 @@ import {
     Stack,
     Switch,
     TextField,
-    ToggleButton,
-    ToggleButtonGroup,
     Typography,
 } from '@mui/material';
 import Close from '@mui/icons-material/Close';
@@ -26,9 +24,11 @@ import { getErrorMessage } from '../../../api/client';
 import { since } from '../../../lib/dates';
 import { fonts } from '../../../styles/theme';
 import { SideDrawer } from '../../../ui/SideDrawer';
-import { countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { batchNote, countLines, useBulk } from '../../bulk/useBulk';
 import { ObjectHistory } from '../../timeline/components/ObjectHistory';
 import { dateAgo } from '../../timeline/format';
+import { ChoiceCards } from '../../../ui/ChoiceCards';
 import { CONFIDENCE, confidenceMeta, countryLabel, hostOf } from '../catalog';
 import { SOURCE_BULK, SOURCE_TYPE, useSaveSource, useSource } from '../hooks';
 import type { Source } from '../types';
@@ -80,18 +80,30 @@ function SourceForm({ source, onClose }: { source: Source | null; onClose: () =>
                             autoFocus
                             multiline={several}
                             minRows={several ? 5 : undefined}
+                            maxRows={several ? 8 : undefined}
                             value={several ? url : url.split(/\r?\n/)[0]}
                             onChange={(e) => setUrl(e.target.value)}
                             placeholder="https://www.cert.ssi.gouv.fr/feed/"
-                            helperText={several ? `${count} feed${count === 1 ? '' : 's'} detected. The other fields apply to every one.` : undefined}
+                            helperText={several ? `${count} feed${count === 1 ? '' : 's'} detected. The other fields apply to every one.${batchNote(count)}` : undefined}
                             slotProps={{ htmlInput: { spellCheck: false, style: { fontFamily: fonts.mono, fontSize: 13 } } }}
                             fullWidth
                         />
                         {!editing && (
-                            <FormControlLabel
-                                control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
-                                label={<Typography variant="body2">Add several, one per line</Typography>}
-                            />
+                            <>
+                                <FormControlLabel
+                                    control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
+                                    label={<Typography variant="body2">Add several, one per line</Typography>}
+                                />
+                                <ListFileImport
+                                    kind="feeds"
+                                    max={200}
+                                    weighs={{ above: 50, text: 'Every source is read every 30 minutes, one after the other: a long list makes each pass longer.' }}
+                                    onValues={(values) => {
+                                        setSeveral(true);
+                                        setUrl(values.join('\n'));
+                                    }}
+                                />
+                            </>
                         )}
                     </Stack>
                     <Stack direction="row" spacing={2}>
@@ -111,15 +123,14 @@ function SourceForm({ source, onClose }: { source: Source | null; onClose: () =>
                         <Typography variant="overline" color="text.secondary">
                             Reliability
                         </Typography>
-                        <ToggleButtonGroup size="small" exclusive value={confident} onChange={(_, v: number | null) => v && setConfident(v)} aria-label="Reliability">
-                            {CONFIDENCE.map((c) => (
-                                <ToggleButton key={c.value} value={c.value} sx={{ px: 2 }}>
-                                    {c.label} - {c.percent}%
-                                </ToggleButton>
-                            ))}
-                        </ToggleButtonGroup>
-                        <Typography variant="caption" color="text.secondary">
-                            A word's reliability is the average of the sources that mention it: official CERTs are High.
+                        <ChoiceCards
+                            label="Reliability"
+                            value={confident}
+                            onChange={setConfident}
+                            options={CONFIDENCE.map((c) => ({ value: c.value, title: c.label, figure: `${c.percent} %`, hint: c.hint }))}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ pt: 0.75 }}>
+                            A word takes the average of the sources that mention it: High from 70 %, Medium above 30 %, Low at 30 % or less. It is shown and filtered on the word list; it does not decide whether a word appears.
                         </Typography>
                     </Stack>
                 </Stack>

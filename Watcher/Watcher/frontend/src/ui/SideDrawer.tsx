@@ -109,17 +109,6 @@ export function SideDrawer({ open, onClose, labelledBy, children, width = 480 }:
                         boxShadow: dark
                             ? `0 18px 48px ${alpha('#000', 0.55)}, 0 0 0 1px ${alpha(theme.palette.primary.main, 0.08)}`
                             : `0 18px 48px ${alpha(theme.palette.primary.dark, 0.14)}`,
-                        // A thin accent on the edge that faces the list: it reads as part of the page, not a layer.
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            insetBlock: 16,
-                            left: 0,
-                            width: 3,
-                            borderRadius: '0 3px 3px 0',
-                            bgcolor: 'primary.main',
-                            opacity: 0.7,
-                        },
                     },
                 } as object,
             }}

@@ -22,7 +22,7 @@ describe('Activity', () => {
   });
 
   const FEED = [
-    event(1, { action: 'updated', action_label: 'Updated', object_repr: 'thales.com', diff: { contact: { old: null, new: 'soc@thales.com' } } }),
+    event(1, { action: 'updated', action_label: 'Updated', object_repr: 'thales.com', diff: { contact: { old: null, new: 'soc@example.com' } } }),
     // A bulk import: folded into one line.
     event(10), event(11), event(12), event(13),
     event(30, { content_type: 'site_monitoring.site', action: 'deleted', action_label: 'Deleted', object_repr: 'phish.example' }),
@@ -72,7 +72,7 @@ describe('Activity', () => {
 
   it('expands the changes of an update', () => {
     cy.contains('button', 'Contact').click();
-    cy.get('[data-testid="event-diff"]').should('contain', 'soc@thales.com');
+    cy.get('[data-testid="event-diff"]').should('contain', 'soc@example.com');
   });
 
   it('puts the filters in the request and the URL', () => {
@@ -98,7 +98,7 @@ describe('Activity', () => {
     cy.get('.MuiDrawer-paper').within(() => {
       cy.contains('#history-drawer-title', 'thales.com').should('be.visible');
       cy.contains('2 events').should('be.visible');
-      cy.get('[data-testid="event-diff"]').should('contain', 'soc@thales.com');
+      cy.get('[data-testid="event-diff"]').should('contain', 'soc@example.com');
       cy.get('button[aria-label="Close history"]').click();
     });
     cy.get('.MuiDrawer-paper:visible').should('not.exist');

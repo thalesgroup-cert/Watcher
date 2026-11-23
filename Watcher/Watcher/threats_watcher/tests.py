@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import patch
 from django.test import TestCase, TransactionTestCase, SimpleTestCase
 from django.contrib.auth.models import User, Permission
+from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
@@ -472,6 +473,12 @@ class MonitoredKeywordAPITest(APITestCase):
         instance, token = AuthToken.objects.create(self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
 
+    def test_monitored_keywords_are_not_readable_without_signing_in(self):
+        MonitoredKeyword.objects.create(name='TestKW1', all_of=['actor', 'partner'])
+        self.client.credentials()
+        for url in ('/api/threats_watcher/monitored-keywords/', '/api/threats_watcher/monitored-keywords/1/'):
+            self.assertEqual(self.client.get(url).status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_list_monitored_keywords(self):
         MonitoredKeyword.objects.create(name="TestKW1")
         MonitoredKeyword.objects.create(name="TestKW2")
@@ -644,6 +651,10 @@ class ThreatsWatcherPageAPITest(APITestCase):
         self.assertEqual(len(stats['wordsPerDay']), 30)
         self.assertEqual(stats['wordsPerDay'][-1]['count'], 1)
         self.assertEqual(stats['articlesPerDay'][-1]['count'], 1)
+
+    def test_statistics_say_how_many_titles_a_word_needs(self):
+        stats = self.client.get('/api/threats_watcher/source/statistics/').data
+        self.assertEqual(stats['minTitles'], settings.WORDS_OCCURRENCE)
 
 
 # Problems of the feeds in the log
@@ -920,3 +931,201 @@ class KeywordRuleApiTest(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.hit.refresh_from_db()
         self.assertEqual((self.hit.is_archived, self.hit.title, self.hit.url), (True, 'One', 'https://x.example/1'))
+
+
+class TrendingMomentumTest(APITestCase):
+    """The words that jump come first: the last 24 hours against the daily average of the 6 days before."""
+
+    WORDS = '/api/threats_watcher/trendyword/'
+
+    def setUp(self):
+        now = timezone.now()
+        self.n = 0
+
+        def word(name, hours_ago):
+            # Created with one occurrence, then updated without signals (from 3 the post_save signal loads the language model)
+            tw = TrendyWord.objects.create(name=name, occurrences=1, score=90)
+            TrendyWord.objects.filter(pk=tw.pk).update(occurrences=len(hours_ago) + 1)
+            for h in hours_ago:
+                self.n += 1
+                tw.posturls.add(PostUrl.objects.create(url=f'https://news.example/{self.n}', created_at=now - timedelta(hours=h)))
+            return tw
+
+        # Four articles today, none before: a jump
+        self.surge = word('surge', [1, 2, 3, 4])
+        # Always there: one article a day for a week, one today
+        self.giant = word('giant', [2, 30, 54, 78, 102, 126, 150])
+        # Was talked about, not any more
+        self.fading = word('fading', [30, 54, 78, 102, 126, 150])
+        # Old news only
+        self.old = word('old', [24 * 20, 24 * 21])
+
+    def rows(self, query):
+        response = self.client.get(self.WORDS + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return response.data['results']
+
+    def test_rows_say_how_the_word_is_doing_now(self):
+        rows = {r['name']: r for r in self.rows('?page_size=50')}
+        self.assertEqual((rows['surge']['mentions_24h'], rows['surge']['mentions_week']), (4, 4))
+        self.assertEqual((rows['giant']['mentions_24h'], rows['giant']['mentions_week']), (1, 7))
+        self.assertEqual((rows['old']['mentions_24h'], rows['old']['mentions_week']), (0, 0))
+
+    def test_the_words_that_jump_come_first(self):
+        names = [r['name'] for r in self.rows('?ordering=-rising')]
+        self.assertEqual(names[0], 'surge')
+        self.assertEqual(names[-1], 'fading')
+        self.assertLess(names.index('giant'), names.index('old'))
+
+    def test_a_steady_word_scores_about_zero_and_a_fading_one_below(self):
+        rows = {r['name']: r['rising'] for r in self.rows('?page_size=50')}
+        self.assertGreater(rows['surge'], 2)
+        self.assertAlmostEqual(rows['giant'], 0, delta=0.2)
+        self.assertLess(rows['fading'], 0)
+        self.assertEqual(rows['old'], 0)
+
+    def test_ordering_by_the_last_24_hours(self):
+        names = [r['name'] for r in self.rows('?ordering=-mentions_24h')]
+        self.assertEqual(names[0], 'surge')
+
+    def test_a_tie_keeps_a_fixed_order(self):
+        first = [r['id'] for r in self.rows('?ordering=-rising&page_size=50')]
+        again = [r['id'] for r in self.rows('?ordering=-rising&page_size=50')]
+        self.assertEqual(first, again)
+
+    def test_the_word_detail_carries_the_same_figures(self):
+        detail = self.client.get(self.WORDS + f'{self.surge.id}/').data
+        self.assertEqual(detail['mentions_24h'], 4)
+        self.assertGreater(detail['rising'], 2)
+
+    def test_it_is_public_like_the_trends(self):
+        self.client.credentials()
+        self.assertEqual(self.client.get(self.WORDS + '?ordering=-rising').status_code, status.HTTP_200_OK)
+
+    def test_rows_give_the_articles_of_each_of_the_last_7_days(self):
+        rows = {r['name']: r['daily'] for r in self.rows('?page_size=50')}
+        for daily in rows.values():
+            self.assertEqual(len(daily), 7)
+        # Today is the last day; a few hours ago can fall on yesterday just after midnight, so only the total is exact
+        self.assertEqual(sum(rows['surge']), 4)
+        self.assertGreaterEqual(sum(rows['giant']), 6)
+        self.assertEqual(sum(rows['old']), 0)
+        self.assertEqual(rows['surge'][:5], [0, 0, 0, 0, 0])
+
+    def test_the_days_are_counted_for_the_whole_page_at_once(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as few:
+            self.rows('?page_size=1')
+        with CaptureQueriesContext(connection) as many:
+            self.rows('?page_size=50')
+        self.assertEqual(len(few), len(many))
+
+    def test_ordering_by_the_week(self):
+        names = [r['name'] for r in self.rows('?ordering=-mentions_week')]
+        self.assertEqual(names[-1], 'old')
+
+    def test_the_word_detail_gives_its_days_too(self):
+        detail = self.client.get(self.WORDS + f'{self.surge.id}/').data
+        self.assertEqual(sum(detail['daily']), 4)
+
+
+class FaviconTest(APITestCase):
+    """The icon of the sites of the articles: fetched by Watcher, only for its own sites, small images only."""
+
+    URL = '/api/threats_watcher/favicon/'
+    PNG = b'\x89PNG\r\n\x1a\n' + b'0' * 40
+
+    def setUp(self):
+        from threats_watcher import favicons
+        self.favicons = favicons
+        favicons._cache.clear()
+        self.addCleanup(favicons._cache.clear)
+        PostUrl.objects.create(url='https://www.cert.example/advisory-1')
+        Source.objects.create(url='https://feeds.blog.example/rss.xml', confident=1, country='France', country_code='FR')
+
+    def test_a_site_of_watcher_gets_its_icon(self):
+        with patch.object(self.favicons, 'fetch_icon', return_value=('image/png', self.PNG)) as fetch:
+            response = self.client.get(self.URL + '?host=cert.example')
+            self.client.get(self.URL + '?host=cert.example')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'image/png')
+        self.assertEqual(response['X-Content-Type-Options'], 'nosniff')
+        self.assertIn('max-age=86400', response['Cache-Control'])
+        self.assertEqual(response.content, self.PNG)
+        # The site is read at the address the article is on (with its www), and only once while the icon is kept
+        fetch.assert_called_once_with('www.cert.example')
+
+    def test_a_site_of_a_source_counts_too(self):
+        with patch.object(self.favicons, 'fetch_icon', return_value=('image/png', self.PNG)):
+            self.assertEqual(self.client.get(self.URL + '?host=feeds.blog.example').status_code, 200)
+
+    def test_a_site_watcher_does_not_know_is_never_fetched(self):
+        with patch.object(self.favicons, 'fetch_icon') as fetch:
+            self.assertEqual(self.client.get(self.URL + '?host=evil.example').status_code, 404)
+            self.assertEqual(self.client.get(self.URL + '?host=192.168.0.1').status_code, 404)
+        fetch.assert_not_called()
+        self.assertEqual(len(self.favicons._cache), 0)
+
+    def test_what_is_not_a_host_is_refused_before_anything_is_looked_up(self):
+        with patch.object(self.favicons, 'known_host') as known:
+            for host in ('', 'localhost', '../etc/passwd', 'a b.example', 'cert.example/x', 'cert.example:8080', '-a.example', 'x' * 300 + '.example'):
+                self.assertEqual(self.client.get(self.URL, {'host': host}).status_code, 404, host)
+        known.assert_not_called()
+
+    def test_a_missing_icon_is_remembered_for_a_while(self):
+        with patch.object(self.favicons, 'fetch_icon', return_value=None) as fetch:
+            first = self.client.get(self.URL + '?host=cert.example')
+            self.client.get(self.URL + '?host=cert.example')
+        self.assertEqual(first.status_code, 404)
+        self.assertIn('max-age=3600', first['Cache-Control'])
+        fetch.assert_called_once()
+
+    def test_a_failure_is_a_missing_icon_not_an_error(self):
+        with patch.object(self.favicons, 'fetch_icon', side_effect=RuntimeError('boom')):
+            self.assertEqual(self.client.get(self.URL + '?host=cert.example').status_code, 404)
+
+    def test_it_is_public_like_the_articles(self):
+        self.client.credentials()
+        with patch.object(self.favicons, 'fetch_icon', return_value=('image/png', self.PNG)):
+            self.assertEqual(self.client.get(self.URL + '?host=cert.example').status_code, 200)
+
+    def test_only_small_images_of_a_known_kind_are_shown(self):
+        sniff = self.favicons.sniff
+        self.assertEqual(sniff(self.PNG), 'image/png')
+        self.assertEqual(sniff(b'\x00\x00\x01\x00' + b'0' * 20), 'image/x-icon')
+        self.assertEqual(sniff(b'GIF89a' + b'0' * 20), 'image/gif')
+        self.assertEqual(sniff(b'\xff\xd8\xff\xe0' + b'0' * 20), 'image/jpeg')
+        self.assertEqual(sniff(b'RIFF0000WEBPVP8 '), 'image/webp')
+        # A vector image or a page could carry script: never served
+        self.assertIsNone(sniff(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'))
+        self.assertIsNone(sniff(b'<html><script>alert(1)</script></html>'))
+
+    def test_the_icon_a_page_declares_is_found(self):
+        link = self.favicons.icon_link
+        self.assertEqual(link('<head><link rel="stylesheet" href="/a.css"><link rel="shortcut icon" href="/img/i.png"></head>', 'https://x.example/'), 'https://x.example/img/i.png')
+        self.assertEqual(link("<link href='//cdn.example/i.ico' rel='icon'>", 'https://x.example/'), 'https://cdn.example/i.ico')
+        self.assertIsNone(link('<link rel="mask-icon" href="/m.svg"><link rel="stylesheet" href="/a.css">', 'https://x.example/'))
+
+    def test_the_icon_is_taken_from_favicon_ico_else_from_the_home_page(self):
+        favicons = self.favicons
+
+        def download(session, url, limit, truncate=False):
+            return {
+                'https://a.example/favicon.ico': self.PNG,
+                'https://b.example/favicon.ico': b'<html>not an icon</html>',
+                'https://b.example/': b'<link rel="icon" href="/real.png">',
+                'https://b.example/real.png': self.PNG,
+            }.get(url)
+
+        with patch.object(favicons, '_download', side_effect=download), patch.object(favicons, 'page_session'):
+            self.assertEqual(favicons.fetch_icon('a.example'), ('image/png', self.PNG))
+            self.assertEqual(favicons.fetch_icon('b.example'), ('image/png', self.PNG))
+            self.assertIsNone(favicons.fetch_icon('c.example'))
+
+    def test_watcher_does_not_reach_its_own_network_through_an_icon(self):
+        favicons = self.favicons
+        session = type('S', (), {'get': lambda *a, **k: (_ for _ in ()).throw(AssertionError('connected'))})()
+        with patch.object(favicons, 'is_public', return_value=False):
+            self.assertIsNone(favicons._download(session, 'https://internal.example/favicon.ico', 1000))
+        self.assertIsNone(favicons._download(session, 'ftp://x.example/favicon.ico', 1000))

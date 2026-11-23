@@ -31,6 +31,13 @@ services:
       retries: 12
       start_period: 60s
 
+  screenshotter:
+    extends:
+      file: compose_apps.yaml
+      service: screenshotter
+    image: watcher-screenshotter:${SCREENSHOTTER_VERSION:-latest}
+    container_name: screenshotter
+
   db_watcher:
     extends:
       file: compose_databases.yaml
@@ -82,3 +89,5 @@ networks:
   watcher_network:
     external: true
     name: ${NETWORK_NAME}
+  # Watcher and the screenshot service only
+  screenshots: {}

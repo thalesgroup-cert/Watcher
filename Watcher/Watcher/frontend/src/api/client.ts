@@ -23,6 +23,9 @@ export function getErrorMessage(err: unknown, fallback = 'Request failed'): stri
                 const value = data[key];
                 if (typeof value === 'string') return value;
             }
+            // A refused sign-in or a refused form: the reason of Django REST framework, e.g. "Incorrect Credentials"
+            const general = data.non_field_errors;
+            if (Array.isArray(general) && typeof general[0] === 'string') return general.join(' ');
         }
         return err.message || fallback;
     }

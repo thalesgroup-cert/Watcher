@@ -85,7 +85,8 @@ export function BannedTab() {
                 ) : (
                     <>
                         <Box sx={{ opacity: list.isPlaceholderData ? 0.6 : 1, transition: 'opacity 120ms' }}>
-                            <BannedTable highlight={search}
+                            <BannedTable
+                                highlight={search}
                                 rows={rows}
                                 loading={list.isPending}
                                 ordering={ordering}

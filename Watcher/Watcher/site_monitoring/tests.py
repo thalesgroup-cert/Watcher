@@ -403,8 +403,8 @@ class APITest(APITestCase):
         self.assertIn(response.status_code, [200, 201, 400])
 
 
-class RDAPWhoisTest(TestCase):
-    """Test RDAP and WHOIS functionality."""
+class RDAPLookupTest(TestCase):
+    """Test the RDAP lookup of a site."""
     
     @patch('site_monitoring.core.RDAPDiscovery')
     def test_rdap_lookup(self, mock_rdap):
@@ -421,19 +421,6 @@ class RDAPWhoisTest(TestCase):
         site.refresh_from_db()
         self.assertEqual(site.registrar, "RDAP Registrar")
     
-    @patch('site_monitoring.core.WhoisDiscovery')
-    def test_whois_fallback(self, mock_whois):
-        """Test WHOIS fallback when RDAP fails."""
-        mock_instance = MagicMock()
-        mock_instance.fetch_whois_data.return_value = True
-        mock_instance.get_registrar.return_value = "WHOIS Registrar"
-        mock_whois.return_value = mock_instance
-        site = Site.objects.create(domain_name="whois-test.com")
-        from site_monitoring.core import perform_site_rdap_lookup
-        perform_site_rdap_lookup(site)
-        site.refresh_from_db()
-        self.assertIsNotNone(site.registrar)
-
 
 class IntegrationTest(TransactionTestCase):
     """Integration and workflow tests."""
@@ -1044,7 +1031,9 @@ class SitePageAPITest(APITestCase):
         self.assertEqual(self.names('?web=online'), ['online.com'])
         self.assertEqual(self.names('?web=offline'), ['offline.com'])
         self.assertEqual(self.names('?web=pending'), ['pending.com'])
-        self.assertEqual(self.names('?expiry=expired'), ['offline.com'])
+        # A past date nobody checked is not "expired" yet: it is unconfirmed (see SiteExpiryOnThePageTest)
+        self.assertEqual(self.names('?expiry=expired'), [])
+        self.assertEqual(self.names('?expiry=unconfirmed'), ['offline.com'])
         self.assertEqual(self.names('?expiry=expiring_soon'), ['online.com'])
         self.assertEqual(self.names('?action=takedown'), ['online.com'])
         self.assertEqual(self.names('?action=none'), ['offline.com', 'pending.com'])
@@ -1168,6 +1157,19 @@ class ExtractTextTest(SimpleTestCase):
         with self.assertRaises(ValueError):
             core.compile_ignore_patterns('a' * 201)
 
+    def test_a_pattern_that_can_freeze_the_worker_is_refused(self):
+        for pattern in ('(a+)+b', r'(?:\w+\s?)*', '(a*)*', '((ab)+c*)+', '(x+x+)+y'):
+            with self.subTest(pattern=pattern), self.assertRaises(ValueError):
+                core.compile_ignore_patterns(pattern)
+
+    def test_ordinary_patterns_are_kept(self):
+        patterns = core.compile_ignore_patterns('ABC-\\d+\nvisits: \\d{1,6}\n(?:cookies|tracking)\n\\d+ (views|likes)\n(ab){1,5}')
+        self.assertEqual(len(patterns), 5)
+
+    def test_an_old_slow_pattern_does_not_stop_the_check(self):
+        self.assertEqual(core.extract_page_text(_html('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!'), ignore_patterns='(a+)+b'),
+                         'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!')
+
 
 class CompareTest(SimpleTestCase):
     def test_same_text_is_zero_and_different_text_is_a_hundred(self):
@@ -1207,10 +1209,29 @@ class AddressTest(SimpleTestCase):
             headers = {'Location': 'http://127.0.0.1/secret'}
             def close(self): pass
 
-        with patch.object(core, '_is_public', side_effect=lambda host: host != '127.0.0.1'), \
-                patch('site_monitoring.core.requests.get', return_value=Redirect()):
+        session = MagicMock()
+        session.get.return_value = Redirect()
+        with patch.object(core, 'is_public', side_effect=lambda host: host != '127.0.0.1'), \
+                patch.object(core, 'page_session', return_value=session):
             with self.assertRaises(core.PageError):
                 core.fetch_page('https://blog.example.org/')
+
+    def test_the_connection_goes_to_the_address_that_was_checked(self):
+        """DNS rebinding: a name that answers a public address to the check and a private one afterwards is refused."""
+        answers = iter([[(2, 1, 6, '', ('93.184.216.34', 0))], [(2, 1, 6, '', ('127.0.0.1', 0))]])
+        with patch.object(core.socket, 'getaddrinfo', side_effect=lambda *a, **k: next(answers)):
+            self.assertTrue(core.is_public('rebind.example.org'))
+            connection = core._PublicOnlyHTTPConnection('rebind.example.org', 80)
+            with self.assertRaises(core.PageError):
+                connection._new_conn()
+
+    def test_a_public_address_is_connected_with_the_name_kept(self):
+        connection = core._PublicOnlyHTTPConnection('blog.example.org', 80)
+        with patch.object(core.socket, 'getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 0))]), \
+                patch('urllib3.util.connection.create_connection') as create:
+            connection._new_conn()
+        self.assertEqual(create.call_args.args[0], ('93.184.216.34', 80))
+        self.assertEqual(connection.host, 'blog.example.org')
 
 
 class CheckPageTest(TestCase):
@@ -1621,3 +1642,507 @@ class ScreenshotApiTest(TestCase):
         response = self.client.patch(self._url(), {'capture_screenshots': False}, format='json')
         self.assertEqual(response.status_code, 200, response.content)
         self.assertFalse(response.json()['capture_screenshots'])
+
+
+class UserAgentTest(SimpleTestCase):
+    """The User-Agent of a monitored site's check comes from a fixed list: no network call, and no waiting on a dead service."""
+
+    def test_the_user_agent_is_a_desktop_browser_from_the_fixed_list(self):
+        for _ in range(50):
+            agent = core.shadow_useragent.random_nomobile
+            self.assertIn(agent, core.DESKTOP_USER_AGENTS)
+            self.assertNotIn('Mobile', agent)
+            self.assertNotIn('Android', agent)
+
+    def test_picking_one_makes_no_network_call(self):
+        with patch('requests.get', side_effect=AssertionError('network call')), \
+                patch('socket.create_connection', side_effect=AssertionError('network call')):
+            self.assertTrue(core.shadow_useragent.random_nomobile)
+
+    @patch('site_monitoring.core._handle_banner_change')
+    @patch('site_monitoring.core.Site.objects')
+    @patch('site_monitoring.core.requests.get')
+    def test_a_site_check_sends_one_request_with_that_user_agent(self, mock_get, mock_sites, _banner):
+        mock_get.return_value = MagicMock(status_code=500)
+        site = MagicMock(domain_name='example.test', content_monitoring=False)
+        core.check_content(site, 0, core.shadow_useragent)
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertIn(mock_get.call_args.kwargs['headers']['User-Agent'], core.DESKTOP_USER_AGENTS)
+
+
+class SiteExpiryGuardsTest(TestCase):
+    """The expiry date of a monitored site follows the same guards as the legitimate domains."""
+
+    def _lookup(self, site, rdap=None, status='ok', registrar='Registrar Inc.', created=None):
+        """One pass of the lookup. `rdap` is the expiry date the registry answers (None: it has nothing)."""
+        from site_monitoring.core import perform_site_rdap_lookup
+        with patch('site_monitoring.core.RDAPDiscovery') as r:
+            r.return_value.status = status
+            r.return_value.fetch_rdap_data.return_value = rdap is not None
+            r.return_value.get_expiration_date.return_value = rdap
+            r.return_value.get_registrar.return_value = registrar
+            r.return_value.get_registration_date.return_value = created
+            result = perform_site_rdap_lookup(site)
+        site.refresh_from_db()
+        return result
+
+    def _site(self, name='guard-test.com', **extra):
+        return Site.objects.create(domain_name=name, registrar='Registrar Inc.', **extra)
+
+    def _expiry_alerts(self, site):
+        return Alert.objects.filter(site=site, type="RDAP domain expiration change detected").count()
+
+    def test_a_date_from_rdap_is_stored_and_confirmed(self):
+        site = self._site()
+        self._lookup(site, rdap='2027-05-05')
+        self.assertEqual(site.domain_expiry, date(2027, 5, 5))
+        self.assertEqual((site.domain_expiry_source, site.domain_expiry_check), ('RDAP', 'ok'))
+        self.assertTrue(site.domain_expiry_confirmed)
+
+    def test_a_registration_date_is_stored_and_follows_the_registry(self):
+        site = self._site()
+        self._lookup(site, rdap='2027-05-05', created='2020-01-02')
+        self.assertEqual(site.domain_created_at, date(2020, 1, 2))
+        self._lookup(site, rdap='2027-05-05', created='2026-11-01')  # registered again after it lapsed
+        self.assertEqual(site.domain_created_at, date(2026, 11, 1))
+
+    def test_nothing_is_asked_of_a_third_party(self):
+        with self.assertRaises(ImportError):
+            __import__('common.utils.whois')
+
+    def test_an_earlier_rdap_date_waits_for_a_second_answer(self):
+        site = self._site(domain_expiry=date(2027, 5, 5))
+        self._lookup(site, rdap='2026-12-01')
+        self.assertEqual(site.domain_expiry, date(2027, 5, 5))  # kept
+        self.assertEqual(site.domain_expiry_pending, date(2026, 12, 1))
+        self.assertEqual(site.domain_expiry_check, 'contradicted')
+        self.assertFalse(site.domain_expiry_confirmed)
+        self.assertEqual(self._expiry_alerts(site), 0)  # nothing changed yet: no alert
+        self._lookup(site, rdap='2026-12-01')
+        self.assertEqual(site.domain_expiry, date(2026, 12, 1))  # the same answer twice: written
+        self.assertIsNone(site.domain_expiry_pending)
+        self.assertEqual(self._expiry_alerts(site), 1)
+
+    def test_a_different_earlier_answer_does_not_confirm_the_first(self):
+        site = self._site(domain_expiry=date(2027, 5, 5))
+        self._lookup(site, rdap='2026-12-01')
+        self._lookup(site, rdap='2026-11-01')
+        self.assertEqual(site.domain_expiry, date(2027, 5, 5))
+        self.assertEqual(site.domain_expiry_pending, date(2026, 11, 1))
+
+    def test_a_renewal_is_written_at_once_with_an_alert(self):
+        site = self._site(domain_expiry=date(2026, 12, 1))
+        self._lookup(site, rdap='2027-12-01')
+        self.assertEqual(site.domain_expiry, date(2027, 12, 1))
+        self.assertEqual(self._expiry_alerts(site), 1)
+
+    def test_a_domain_the_registry_does_not_know_is_recorded(self):
+        site = Site.objects.create(domain_name='unknown-domain.com')  # never registered: no registrar, nothing known
+        result = self._lookup(site, rdap=None, status='not_found')
+        self.assertFalse(result)
+        self.assertEqual(site.domain_expiry_check, 'not_registered')
+
+    def test_nobody_answering_is_told_apart_and_does_not_touch_the_last_answer_time(self):
+        site = self._site()
+        self._lookup(site, rdap=None, status='unsupported')
+        self.assertEqual(site.domain_expiry_check, 'unsupported')
+        self.assertIsNone(site.domain_expiry_checked_at)
+        self._lookup(site, rdap=None, status='error')
+        self.assertEqual(site.domain_expiry_check, 'unreachable')
+
+    def test_a_site_the_registry_gives_no_date_for_does_not_raise_an_alert_on_every_pass(self):
+        site = self._site()
+        for _ in range(3):
+            self._lookup(site, rdap=None, status='unsupported')
+        self.assertEqual(Alert.objects.filter(site=site).count(), 0)
+
+    def test_the_first_answer_of_the_registry_is_the_starting_point_not_an_alert(self):
+        site = Site.objects.create(domain_name='first-answer.com')  # no registrar, no date yet
+        self._lookup(site, rdap='2027-05-05')
+        self._lookup(site, rdap='2027-05-05')
+        self.assertEqual(Alert.objects.filter(site=site).count(), 0)
+        self.assertEqual(site.registrar, 'Registrar Inc.')
+        self.assertEqual(str(site.domain_expiry), '2027-05-05')
+
+    def test_a_later_change_of_registrar_is_still_an_alert(self):
+        site = Site.objects.create(domain_name='moved-registrar.com')
+        self._lookup(site, rdap='2027-05-05')
+        self._lookup(site, rdap='2027-05-05', registrar='Another Registrar')
+        self.assertEqual(Alert.objects.filter(site=site, type='RDAP registrar change detected').count(), 1)
+
+    def test_the_lookup_does_not_put_back_what_the_monitoring_wrote_meanwhile(self):
+        """The sites are read at the start of a long pass: saving the whole row undid the work of the monitoring."""
+        site = Site.objects.create(domain_name='stale-snapshot.com', MX_records=['10 old.mx.'], ip='10.0.0.1', content_fuzzy_hash='old')
+        Site.objects.filter(pk=site.pk).update(MX_records=['10 new.mx.'], ip='10.0.0.2', content_fuzzy_hash='new', server_banner='nginx/1')
+        self._lookup(site, rdap='2027-05-05')  # the object given is the one read before
+        self.assertEqual(site.registrar, 'Registrar Inc.')
+        self.assertEqual(site.MX_records, ['10 new.mx.'])
+        self.assertEqual((site.ip, site.content_fuzzy_hash, site.server_banner), ('10.0.0.2', 'new', 'nginx/1'))
+
+
+class SiteExpiryOnThePageTest(APITestCase):
+    """What the Website Monitoring page learns about the domain expiry: confirmed or not, and where it comes from."""
+
+    SITES = '/api/site_monitoring/site/'
+
+    def setUp(self):
+        _, token = AuthToken.objects.create(User.objects.create_superuser(username='site_expiry', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.today = timezone.now().date()
+        past = self.today - timedelta(days=5)
+        checked = dict(domain_expiry_check='ok', domain_expiry_source='RDAP', domain_expiry_checked_at=timezone.now())
+        self.confirmed = Site.objects.create(domain_name='confirmed.com', domain_expiry=past, **checked)
+        self.whois = Site.objects.create(domain_name='whois.com', domain_expiry=past, domain_expiry_check='ok',
+                                         domain_expiry_source='WHOIS', domain_expiry_checked_at=timezone.now())
+        self.stale = Site.objects.create(domain_name='stale.com', domain_expiry=past, domain_expiry_check='ok',
+                                         domain_expiry_source='RDAP',
+                                         domain_expiry_checked_at=timezone.now() - timedelta(days=8))
+        self.unchecked = Site.objects.create(domain_name='unchecked.com', domain_expiry=past)
+        self.future = Site.objects.create(domain_name='future.com', domain_expiry=self.today + timedelta(days=90), **checked)
+
+    def names(self, query):
+        response = self.client.get(self.SITES + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return sorted(r['domain_name'] for r in response.data['results'])
+
+    def test_a_past_date_is_expired_only_when_a_registry_confirmed_it(self):
+        self.assertEqual(self.names('?expiry=expired'), ['confirmed.com'])
+        self.assertEqual(self.names('?expiry=unconfirmed'), ['stale.com', 'unchecked.com', 'whois.com'])
+
+    def test_unverified_lists_the_dates_no_registry_checked_lately(self):
+        self.assertEqual(self.names('?expiry=unverified'), ['stale.com', 'unchecked.com'])
+
+    def test_the_list_says_whether_each_date_is_confirmed_and_hides_the_pending_answer(self):
+        rows = {r['domain_name']: r for r in self.client.get(self.SITES).data['results']}
+        self.assertTrue(rows['confirmed.com']['domain_expiry_confirmed'])
+        self.assertFalse(rows['whois.com']['domain_expiry_confirmed'])
+        self.assertFalse(rows['stale.com']['domain_expiry_confirmed'])
+        self.assertEqual(rows['whois.com']['domain_expiry_source'], 'WHOIS')
+        self.assertNotIn('domain_expiry_pending', rows['whois.com'])
+
+    def test_the_statistics_count_the_unconfirmed_and_the_unverified(self):
+        stats = self.client.get(self.SITES + 'statistics/').data
+        self.assertEqual((stats['unconfirmed'], stats['unverified']), (3, 2))
+
+    def test_a_date_typed_by_hand_is_marked_manual_and_stops_waiting_for_a_registry(self):
+        Site.objects.filter(pk=self.confirmed.pk).update(domain_expiry_pending=self.today, domain_expiry_pending_source='RDAP',
+                                                         domain_expiry_pending_at=timezone.now())
+        response = self.client.patch(f'{self.SITES}{self.confirmed.pk}/', {'domain_expiry': '2030-01-01'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.confirmed.refresh_from_db()
+        self.assertEqual((self.confirmed.domain_expiry_source, self.confirmed.domain_expiry_check), ('manual', None))
+        self.assertIsNone(self.confirmed.domain_expiry_pending)
+        self.assertFalse(self.confirmed.domain_expiry_confirmed)
+
+    def test_saving_the_same_date_again_keeps_what_the_registry_said(self):
+        response = self.client.patch(f'{self.SITES}{self.confirmed.pk}/',
+                                     {'domain_expiry': self.confirmed.domain_expiry.isoformat(), 'legitimacy': 3}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.confirmed.refresh_from_db()
+        self.assertEqual(self.confirmed.domain_expiry_source, 'RDAP')
+        self.assertTrue(self.confirmed.domain_expiry_confirmed)
+
+
+class SiteExpiringNotificationTest(TestCase):
+    """The notification about the domain of a monitored website close to expiry."""
+
+    def setUp(self):
+        self.today = timezone.now().date()
+
+    def _site(self, days, name='soon.com', **extra):
+        values = dict(domain_expiry=self.today + timedelta(days=days), domain_expiry_source='RDAP', domain_expiry_check='ok',
+                      domain_expiry_checked_at=timezone.now(), legitimacy=5, registrar='Gandi')
+        values.update(extra)
+        return Site.objects.create(domain_name=name, **values)
+
+    def _notify(self, site):
+        from common.utils import expiry_alerts
+        with patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            return expiry_alerts.notify_site_expiring(site), send
+
+    def test_a_confirmed_date_within_thirty_days_notifies_once_per_date(self):
+        site = self._site(12, takedown_request=True, ticket_id='T-9')
+        sent, send = self._notify(site)
+        self.assertTrue(sent)
+        type_id, ctx = send.call_args.args[0], send.call_args.args[1]
+        self.assertEqual(type_id, 'site_domain_expiring')
+        self.assertEqual((ctx['days_text'], ctx['actions'], ctx['ticket']), ('in 12 days', 'Takedown requested', 'T-9'))
+        self.assertEqual(ctx['legitimacy_label'], 'Malicious (registered)')
+        site.refresh_from_db()
+        self.assertEqual(site.domain_expiry_alerted, site.domain_expiry)
+        self.assertFalse(self._notify(site)[0])  # the same date: nothing more
+        site.domain_expiry = self.today + timedelta(days=5)  # renewed: a new date
+        self.assertTrue(self._notify(site)[0])
+
+    def test_nothing_goes_out_for_a_far_past_unconfirmed_or_empty_date(self):
+        cases = [
+            self._site(31, 'far.com'), self._site(-1, 'past.com'),
+            self._site(10, 'whois.com', domain_expiry_source='WHOIS'),
+            self._site(10, 'manual.com', domain_expiry_source='manual', domain_expiry_check=None),
+            self._site(10, 'stale.com', domain_expiry_checked_at=timezone.now() - timedelta(days=8)),
+            Site.objects.create(domain_name='empty.com'),
+        ]
+        for site in cases:
+            with self.subTest(site=site.domain_name):
+                sent, send = self._notify(site)
+                self.assertFalse(sent)
+                send.assert_not_called()
+
+    def test_with_every_channel_off_nothing_is_marked(self):
+        from common.utils import expiry_alerts
+        site = self._site(12)
+        with patch('connectors.notifications.is_enabled', return_value=False):
+            self.assertFalse(expiry_alerts.notify_site_expiring(site))
+        site.refresh_from_db()
+        self.assertIsNone(site.domain_expiry_alerted)
+
+    def test_it_is_off_by_default(self):
+        from connectors.notifications import is_enabled
+        for channel in ('slack', 'citadel', 'email'):
+            self.assertFalse(is_enabled('site_domain_expiring', channel))
+
+    def test_the_lookup_notifies_when_the_registry_says_the_date_is_close(self):
+        site = Site.objects.create(domain_name='lookup.com', registrar='Gandi')
+        answer = (self.today + timedelta(days=9)).isoformat()
+        with patch('site_monitoring.core.RDAPDiscovery') as rdap, \
+                patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            rdap.return_value.status = 'ok'
+            rdap.return_value.fetch_rdap_data.return_value = True
+            rdap.return_value.get_registrar.return_value = 'Gandi'
+            rdap.return_value.get_expiration_date.return_value = answer
+            from site_monitoring.core import perform_site_rdap_lookup
+            perform_site_rdap_lookup(site)
+            perform_site_rdap_lookup(site)  # the next pass of the job: no second message
+        self.assertEqual([c.args[0] for c in send.call_args_list], ['site_domain_expiring'])
+
+    def test_a_date_that_gets_close_without_changing_still_notifies(self):
+        # The date was stored weeks ago and the registry still says the same: it became close by itself
+        site = self._site(20, 'waiting.com')
+        with patch('site_monitoring.core.RDAPDiscovery') as rdap, \
+                patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            rdap.return_value.status = 'ok'
+            rdap.return_value.fetch_rdap_data.return_value = True
+            rdap.return_value.get_registrar.return_value = 'Gandi'
+            rdap.return_value.get_expiration_date.return_value = site.domain_expiry.isoformat()
+            from site_monitoring.core import perform_site_rdap_lookup
+            self.assertFalse(perform_site_rdap_lookup(site))  # nothing changed...
+        send.assert_called_once()  # ...and it still says so
+
+    def test_a_failing_channel_does_not_stop_the_lookup(self):
+        site = self._site(12)
+        with patch('common.utils.expiry_alerts._send', side_effect=RuntimeError('down')):
+            from common.utils import expiry_alerts
+            self.assertFalse(expiry_alerts.notify_site_expiring(site))
+
+
+class SiteDomainAvailableNotificationTest(TestCase):
+    """The notification for a monitored website whose domain goes from registered to not registered."""
+
+    def _pass(self, site, status='not_found'):
+        """One pass of the lookup in which the registry answers `status` (not_found: the domain does not exist)."""
+        from site_monitoring.core import perform_site_rdap_lookup
+        with patch('site_monitoring.core.RDAPDiscovery') as rdap, \
+                patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            rdap.return_value.status = status
+            rdap.return_value.fetch_rdap_data.return_value = status == 'ok'
+            rdap.return_value.get_registrar.return_value = 'Gandi'
+            rdap.return_value.get_expiration_date.return_value = '2027-05-05'
+            perform_site_rdap_lookup(site)
+        site.refresh_from_db()
+        return [c.args[0] for c in send.call_args_list if c.args[0] == 'site_domain_available']
+
+    def test_a_registered_domain_the_registry_no_longer_knows_notifies_at_the_second_answer(self):
+        site = Site.objects.create(domain_name='dropped.com', registrar='Gandi', domain_expiry_check='ok',
+                                   domain_expiry_source='RDAP', domain_expiry_checked_at=timezone.now())
+        self.assertEqual(self._pass(site), [])  # one answer is not enough
+        self.assertEqual(site.domain_expiry_check, 'vanished')
+        self.assertEqual(self._pass(site), ['site_domain_available'])  # the same answer twice in a row
+        self.assertEqual(site.domain_expiry_check, 'not_registered')
+
+    def test_it_is_said_once_not_on_every_pass(self):
+        site = Site.objects.create(domain_name='dropped.com', registrar='Gandi', domain_expiry_check='ok')
+        sent = [self._pass(site) for _ in range(4)]
+        self.assertEqual(sum(len(s) for s in sent), 1)
+
+    def test_a_domain_that_never_was_registered_says_nothing(self):
+        site = Site.objects.create(domain_name='never.com')
+        for _ in range(3):
+            self.assertEqual(self._pass(site), [])
+        self.assertEqual(site.domain_expiry_check, 'not_registered')
+
+    def test_a_domain_already_known_as_not_registered_says_nothing(self):
+        site = Site.objects.create(domain_name='gone.com', registrar='Gandi', domain_expiry_check='not_registered')
+        self.assertEqual(self._pass(site), [])
+        self.assertEqual(site.domain_expiry_check, 'not_registered')
+
+    def test_a_registry_that_answers_again_between_the_two_cancels_the_first(self):
+        site = Site.objects.create(domain_name='flaky.com', registrar='Gandi', domain_expiry_check='ok')
+        self._pass(site)  # vanished
+        self._pass(site, status='ok')  # the registry knows it again
+        self.assertEqual(site.domain_expiry_check, 'ok')
+        self.assertEqual(self._pass(site), [])  # a new first answer, not a second one
+        self.assertEqual(site.domain_expiry_check, 'vanished')
+
+    def test_a_domain_that_comes_back_and_goes_again_notifies_again(self):
+        site = Site.objects.create(domain_name='again.com', registrar='Gandi', domain_expiry_check='ok')
+        self._pass(site)
+        self.assertEqual(self._pass(site), ['site_domain_available'])
+        self._pass(site, status='ok')  # registered again
+        self._pass(site)
+        self.assertEqual(self._pass(site), ['site_domain_available'])
+
+    def test_the_message_names_the_last_registrar_and_expiry(self):
+        from common.utils import expiry_alerts
+        site = Site.objects.create(domain_name='dropped.com', registrar='Gandi', legitimacy=5, takedown_request=True,
+                                   domain_expiry=date(2026, 11, 2), ticket_id='T-5')
+        ctx = expiry_alerts.site_available_context(site)
+        self.assertEqual((ctx['registrar'], ctx['expiry'], ctx['actions'], ctx['ticket']), ('Gandi', '2026-11-02', 'Takedown requested', 'T-5'))
+        self.assertEqual(ctx['domain_name_sanitized'], 'dropped[.]com')
+
+    def test_it_is_off_by_default(self):
+        from connectors.notifications import is_enabled
+        for channel in ('slack', 'citadel', 'email'):
+            self.assertFalse(is_enabled('site_domain_available', channel))
+
+    def test_a_failing_channel_does_not_stop_the_lookup(self):
+        from common.utils import expiry_alerts
+        site = Site.objects.create(domain_name='dropped.com', registrar='Gandi')
+        with patch('common.utils.expiry_alerts._send', side_effect=RuntimeError('down')):
+            self.assertFalse(expiry_alerts.notify_site_available(site))
+
+
+class MxConfirmationTest(TestCase):
+    """The MX records are said to be gone only when two passes in a row find none: one empty answer can be a resolver failing."""
+
+    DOMAIN = 'mx-confirm.test'
+
+    def _site(self, mx=('10 mx.mx-confirm.test.',)):
+        return Site.objects.create(domain_name=self.DOMAIN, MX_records=None if mx is None else list(mx), mail_A_record_ip=None, mail_monitoring=True)
+
+    def _check(self, site, answer=None):
+        from site_monitoring.core import check_mail
+        answers = {} if answer is None else {(self.DOMAIN, 'MX'): answer}  # nothing in the table: the name does not exist
+        with patch('site_monitoring.core.resolver.Resolver', return_value=FakeResolver(answers)):
+            alert = check_mail(site, 0)
+        site.refresh_from_db()
+        return alert
+
+    def test_one_empty_answer_is_not_a_change(self):
+        site = self._site()
+        self.assertEqual(self._check(site), 0)
+        self.assertEqual(site.MX_records, ['10 mx.mx-confirm.test.'])
+        self.assertEqual(site.mx_missed, 1)
+
+    def test_a_second_empty_answer_in_a_row_confirms_it_once(self):
+        site = self._site()
+        self._check(site)
+        self.assertEqual(self._check(site), 8)
+        self.assertEqual((site.MX_records, site.mx_missed), ([], 0))
+        self.assertEqual(self._check(site), 0)  # told once
+
+    def test_the_records_coming_back_start_the_count_again(self):
+        site = self._site()
+        self._check(site)
+        self.assertEqual(self._check(site, ['10 mx.mx-confirm.test.']), 0)
+        self.assertEqual(site.mx_missed, 0)
+        self.assertEqual(self._check(site), 0)  # a new first miss, not the second
+        self.assertEqual(site.MX_records, ['10 mx.mx-confirm.test.'])
+
+    def test_servers_that_do_not_answer_say_nothing_about_the_records(self):
+        import dns.exception
+        import dns.resolver
+        for error in (dns.resolver.NoNameservers(), dns.exception.Timeout(), dns.exception.DNSException()):
+            site = self._site()
+            for _ in range(3):
+                self.assertEqual(self._check(site, error), 0)
+            self.assertEqual((site.MX_records, site.mx_missed), (['10 mx.mx-confirm.test.'], 0), type(error).__name__)
+            site.delete()
+
+    def test_a_site_never_checked_gets_its_starting_point_without_an_alert(self):
+        site = self._site(mx=None)
+        self.assertEqual(self._check(site), 0)
+        self.assertEqual(site.MX_records, [])
+
+    def test_records_that_change_are_still_told_at_once(self):
+        site = self._site()
+        self.assertEqual(self._check(site, ['10 other.mx-confirm.test.']), 8)
+        self.assertEqual(site.MX_records, ['10 other.mx-confirm.test.'])
+
+
+class BannerKeyTest(TestCase):
+    """A banner changes when its products or their major version do, not for a patch or a distribution in brackets."""
+
+    def _handle(self, site, server, powered=''):
+        from site_monitoring.core import _handle_banner_change
+        response = MagicMock(headers={'Server': server, 'X-Powered-By': powered})
+        with patch('site_monitoring.core.send_website_monitoring_notifications'):
+            _handle_banner_change(site, response)
+        site.refresh_from_db()
+        return Alert.objects.filter(site=site, type='Server banner change detected').count()
+
+    def _site(self, server='nginx/1.28.3 (Ubuntu)', powered=''):
+        return Site.objects.create(domain_name='banner-key.test', server_banner=server, x_powered_by=powered)
+
+    def test_the_key_keeps_products_and_major_versions(self):
+        from site_monitoring.core import banner_key
+        self.assertEqual(banner_key('nginx/1.28.3 (Ubuntu)'), banner_key('nginx/1.28.3'))
+        self.assertEqual(banner_key('Apache/2.4.58 (Debian) OpenSSL/3.0.13'), banner_key('openssl/3.1.0 apache/2.4.1'))
+        self.assertNotEqual(banner_key('Apache/2.4.58'), banner_key('Apache/3.0.0'))
+        self.assertNotEqual(banner_key('nginx'), banner_key('Apache'))
+        self.assertEqual(banner_key(None), banner_key(''))
+
+    def test_a_distribution_in_brackets_is_not_a_change_but_is_stored(self):
+        site = self._site('nginx/1.28.3 (Ubuntu)')
+        self.assertEqual(self._handle(site, 'nginx/1.28.3'), 0)
+        self.assertEqual(site.server_banner, 'nginx/1.28.3')
+
+    def test_a_patch_of_the_same_major_version_is_not_a_change(self):
+        site = self._site('nginx/1.28.3')
+        self.assertEqual(self._handle(site, 'nginx/1.28.9'), 0)
+        self.assertEqual(site.server_banner, 'nginx/1.28.9')
+
+    def test_another_product_or_major_version_is_a_change(self):
+        site = self._site('Apache/2.4.58')
+        self.assertEqual(self._handle(site, 'nginx/1.28.3'), 1)
+        Alert.objects.all().delete()  # a second banner alert within the hour is held back by create_banner_alert
+        self.assertEqual(self._handle(site, 'nginx/2.0.0'), 1)
+
+    def test_the_powered_by_header_follows_the_same_rule(self):
+        site = self._site('nginx/1', powered='PHP/8.2.1')
+        self.assertEqual(self._handle(site, 'nginx/1', 'PHP/8.2.9'), 0)
+        self.assertEqual(self._handle(site, 'nginx/1', 'PHP/9.0.0'), 1)
+
+
+class SiteCommentsTest(APITestCase):
+    """A website has comments, as a legitimate domain has: written, kept, searched, limited to 300 characters."""
+
+    URL = '/api/site_monitoring/site/'
+
+    def setUp(self):
+        user = User.objects.create_superuser(username='site_comments', password='testpass123')
+        _, token = AuthToken.objects.create(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_a_website_is_created_and_changed_with_its_comments(self):
+        site = Site.objects.create(domain_name='commented-site.com', comments='Seen in a phishing campaign')
+        self.assertEqual(self.client.get(f'{self.URL}{site.pk}/').data['comments'], 'Seen in a phishing campaign')
+        response = self.client.patch(f'{self.URL}{site.pk}/', {'comments': 'Takedown sent'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        site.refresh_from_db()
+        self.assertEqual(site.comments, 'Takedown sent')
+
+    def test_the_list_is_searched_in_the_comments_too(self):
+        Site.objects.create(domain_name='one-site.com', comments='Moved from Legitimate Domains')
+        Site.objects.create(domain_name='two-site.com', comments='Campaign of March')
+        names = [r['domain_name'] for r in self.client.get(self.URL, {'search': 'Legitimate Domains'}).data['results']]
+        self.assertEqual(names, ['one-site.com'])
+
+    def test_a_comment_is_limited_to_300_characters(self):
+        site = Site.objects.create(domain_name='long-comment.com')
+        self.assertEqual(self.client.patch(f'{self.URL}{site.pk}/', {'comments': 'x' * 301}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch(f'{self.URL}{site.pk}/', {'comments': 'x' * 300}, format='json').status_code, 200)
+
+    def test_the_comments_of_a_bulk_add_go_to_every_website(self):
+        response = self.client.post(f'{self.URL}bulk_create/', {'values': 'bulk-a.com\nbulk-b.com', 'shared': {'comments': 'From the campaign'}}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(list(Site.objects.filter(domain_name__startswith='bulk-').values_list('comments', flat=True)), ['From the campaign'] * 2)

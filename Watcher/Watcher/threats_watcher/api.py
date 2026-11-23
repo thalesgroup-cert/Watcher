@@ -2,7 +2,9 @@ import logging
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
-from django.db.models import Count, Q
+from django.conf import settings
+from django.db.models import Count, ExpressionWrapper, F, FloatField, Q
+from django.db.models.functions import Cast, Sqrt
 
 logger = logging.getLogger('watcher.threats_watcher')
 from rest_framework.decorators import action
@@ -12,7 +14,7 @@ from django.db.models import Prefetch
 from datetime import timedelta
 from common.bulk import BulkActionMixin, BulkCreateMixin
 from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword, PostUrl, KeywordHit
-from .serializers import SourceSerializer, TrendyWordSerializer, TrendyWordListSerializer, TrendyWordDetailSerializer, \
+from .serializers import daily_counts, SourceSerializer, TrendyWordSerializer, TrendyWordListSerializer, TrendyWordDetailSerializer, \
     BannedWordSerializer, SummarySerializer, MonitoredKeywordSerializer, MonitoredKeywordListSerializer, \
     KeywordHitSerializer
 from .core import generate_trendy_word_summary
@@ -46,6 +48,24 @@ def created_since(queryset, params, field='created_at'):
         since = timezone.now().date() - timedelta(days=PERIODS[params['period']])
         queryset = queryset.filter(**{f'{field}__date__gte': since})
     return queryset
+
+
+def with_momentum(queryset):
+    """
+    Adds how a word is doing now: `mentions_24h` and `mentions_week` (articles published in the last 24 hours and 7 days that
+    mention it) and `rising`, how far the last 24 hours are above the daily average of the 6 days before, in units of the
+    usual noise: (today - average) / sqrt(average + 1). A word that is always there scores about 0, a word that jumps from
+    nothing to several articles scores high, a word that fades scores below 0.
+    """
+    now = timezone.now()
+    queryset = queryset.annotate(
+        mentions_24h=Count('posturls', filter=Q(posturls__created_at__gte=now - timedelta(days=1)), distinct=True),
+        mentions_week=Count('posturls', filter=Q(posturls__created_at__gte=now - timedelta(days=7)), distinct=True),
+    )
+    average = Cast(F('mentions_week') - F('mentions_24h'), FloatField()) / 6.0
+    return queryset.annotate(
+        rising=ExpressionWrapper((Cast(F('mentions_24h'), FloatField()) - average) / Sqrt(average + 1.0), output_field=FloatField()),
+    )
 
 
 class SourceViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
@@ -123,6 +143,8 @@ class SourceViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
                 'newToday':          TrendyWord.objects.filter(created_at__date=today).count(),
                 'newThisWeek':       TrendyWord.objects.filter(created_at__gte=week_ago).count(),
                 'totalSources':      sources.count(),
+                # Titles that have to carry a word, in one pass, for it to join the list
+                'minTitles':         settings.WORDS_OCCURRENCE,
                 'failingSources':    sources.filter(last_status_code__isnull=False).exclude(last_status_code=200).count(),
                 'bannedWords':       BannedWord.objects.count(),
                 'monitoredKeywords': MonitoredKeyword.objects.count(),
@@ -147,7 +169,8 @@ class SourceViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
 class TrendyWordViewSet(viewsets.ModelViewSet):
     """
     Trending words. List filters: ?search=, ?period=today|7d|30d (first seen), ?confidence=high|medium|low
-    (TrendyWord.score); list rows carry `posts_count`, a single word carries its articles (`posts`).
+    (TrendyWord.score); list rows carry `posts_count`, how the word is doing now (`mentions_24h`, `mentions_week`, `rising`,
+    see with_momentum), a single word carries its articles (`posts`). `?ordering=-rising` puts the words that jump first.
     """
     queryset = TrendyWord.objects.all()
     permission_classes = [
@@ -157,7 +180,24 @@ class TrendyWordViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name']
-    ordering_fields = ['name', 'occurrences', 'score', 'created_at', 'posts_count']
+    ordering_fields = ['name', 'occurrences', 'score', 'created_at', 'posts_count', 'mentions_24h', 'mentions_week', 'rising']
+
+    def paginate_queryset(self, queryset):
+        page = super().paginate_queryset(queryset)
+        if page is not None and self.action == 'list':
+            # The articles of the last 7 days, day by day, for the words of this page in one query
+            self._daily = daily_counts([word.id for word in page])
+        return page
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['daily'] = getattr(self, '_daily', None)
+        return context
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        # Words with the same figure keep a fixed order, so a page never repeats a word of the page before
+        return queryset.order_by(*queryset.query.order_by, '-occurrences', '-id')
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -167,7 +207,7 @@ class TrendyWordViewSet(viewsets.ModelViewSet):
         return TrendyWordSerializer
 
     def get_queryset(self):
-        qs = TrendyWord.objects.annotate(posts_count=Count('posturls', distinct=True)).order_by('-occurrences', '-created_at', '-id')
+        qs = with_momentum(TrendyWord.objects.annotate(posts_count=Count('posturls', distinct=True))).order_by('-occurrences', '-created_at', '-id')
         if self.action != 'list':
             return qs
         params = self.request.query_params
@@ -253,7 +293,8 @@ class BannedWordViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet)
 class MonitoredKeywordViewSet(BulkCreateMixin, BulkActionMixin, viewsets.ModelViewSet):
     bulk_field = 'name'
     bulk_update_fields = ('level', 'is_active')
-    permission_classes = [permissions.DjangoModelPermissionsOrAnonReadOnly]
+    # Not readable without signing in: the words of a rule can be sensitive (a threat actor and a partner company).
+    permission_classes = [permissions.DjangoModelPermissions]
     serializer_class = MonitoredKeywordSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

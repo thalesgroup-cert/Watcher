@@ -8,9 +8,9 @@ describe('Cyber Watch', () => {
   const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
   const CVES = [
-    { id: 1, cve_id: 'CVE-2026-1001', description: 'Fortinet FortiOS SSL-VPN heap overflow allows remote code execution without authentication.', cvss_score: 9.8, severity: 'CRITICAL', published: ago(120), references: [{ url: 'https://fortiguard.example/psirt/FG-IR-26-001', type: 'ADVISORY' }, { url: 'https://nvd.nist.gov/vuln/detail/CVE-2026-1001', type: 'WEB' }], fetched_at: ago(100), is_archived: false, hits_count: 1 },
-    { id: 2, cve_id: 'CVE-2026-1002', description: 'WordPress plugin Forms stored XSS.', cvss_score: 5.4, severity: 'MEDIUM', published: ago(600), references: [], fetched_at: ago(590), is_archived: false, hits_count: 0 },
-    { id: 3, cve_id: 'CVE-2026-1003', description: 'Linux kernel use-after-free in netfilter.', cvss_score: null, severity: '', published: ago(900), references: [], fetched_at: ago(890), is_archived: false, hits_count: 0 },
+    { id: 1, cve_id: 'CVE-2026-1001', description: 'Fortinet FortiOS SSL-VPN heap overflow allows remote code execution without authentication.', cvss_score: 9.8, severity: 'CRITICAL', published: ago(120), exploited: true, kev_added: day(-3), kev_due: day(4), kev_ransomware: true, epss: 0.94, epss_percentile: 0.998, references: [{ url: 'https://fortiguard.example/psirt/FG-IR-26-001', type: 'ADVISORY' }, { url: 'https://nvd.nist.gov/vuln/detail/CVE-2026-1001', type: 'WEB' }], fetched_at: ago(100), is_archived: false, hits_count: 1 },
+    { id: 2, cve_id: 'CVE-2026-1002', description: 'WordPress plugin Forms stored XSS.', cvss_score: 5.4, severity: 'MEDIUM', published: ago(600), exploited: false, kev_added: null, kev_due: null, kev_ransomware: false, epss: 0.021, epss_percentile: 0.41, references: [], fetched_at: ago(590), is_archived: false, hits_count: 0 },
+    { id: 3, cve_id: 'CVE-2026-1003', description: 'Linux kernel use-after-free in netfilter.', cvss_score: null, severity: '', published: ago(900), exploited: false, kev_added: null, kev_due: null, kev_ransomware: false, epss: null, epss_percentile: null, references: [], fetched_at: ago(890), is_archived: false, hits_count: 0 },
   ];
   const VICTIMS = [
     { id: 11, group: 7, group_name: 'akira', victim_name: 'Clinique du Nord', country: 'FR', sector: 'Healthcare', attacked_at: ago(300), url: 'https://www.ransomware.live/id/abc', fetched_at: ago(290), is_archived: false, hits_count: 1 },
@@ -24,23 +24,29 @@ describe('Cyber Watch', () => {
   const MATCHES = [
     {
       id: 21, rule: 1, rule_name: 'Edge devices', rule_scope: 'cve', hit_type: 'cve', object_id: 'CVE-2026-1001', hit_display: 'CVE-2026-1001 - Fortinet FortiOS SSL-VPN heap overflow',
-      matched_keyword: 'Fortinet', hit_at: ago(110), is_archived: false,
+      matched_keywords: ['Fortinet', 'FortiOS'], hit_at: ago(110), is_archived: false,
       target: { kind: 'cve', id: 1, cve_id: 'CVE-2026-1001', severity: 'CRITICAL', cvss_score: 9.8, published: ago(120), is_archived: false },
     },
     {
       id: 22, rule: 2, rule_name: 'Healthcare sector', rule_scope: 'ransomware', hit_type: 'ransomware_victim', object_id: 'akira::Clinique du Nord', hit_display: 'Clinique du Nord (akira) - FR',
-      matched_keyword: 'Healthcare', hit_at: ago(290), is_archived: false,
+      matched_keywords: ['Healthcare'], hit_at: ago(290), is_archived: false,
       target: { kind: 'victim', id: 11, victim_name: 'Clinique du Nord', group_id: 7, group_name: 'akira', country: 'FR', sector: 'Healthcare', attacked_at: ago(300), url: 'https://www.ransomware.live/id/abc', is_archived: false },
     },
   ];
   const series = (f) => Array.from({ length: 30 }, (_, i) => ({ date: day(i - 29), ...f(i) }));
   const STATS = {
-    cves: { total: 3, critical7d: 1, newToday: 1, new7d: 3, archived: 4, matched: 1, bySeverity: { CRITICAL: 1, MEDIUM: 1, NONE: 1 }, perDay: series((i) => ({ count: i % 5 })) },
+    cves: { total: 3, critical7d: 1, newToday: 1, new7d: 3, archived: 4, matched: 1, exploited: 1, advisories: 123, bySeverity: { CRITICAL: 1, MEDIUM: 1, NONE: 1 }, perDay: series((i) => ({ count: i % 5 })) },
     victims: {
       total: 2, newToday: 1, new7d: 2, archived: 0, matched: 1, groups: 2, activeGroups7d: 2, perDay: series((i) => ({ count: (i * 3) % 7 })),
       topGroups: [{ id: 7, name: 'akira', count: 1 }, { id: 8, name: 'qilin', count: 1 }],
       topSectors: [{ name: 'Healthcare', count: 1 }, { name: 'Manufacturing', count: 1 }],
       topCountries: [{ name: 'FR', count: 1 }, { name: 'DE', count: 1 }],
+      // Every group that has victims (not only the busiest), every sector and country, and the victims the source knows nothing of
+      groupsWithVictims: 3,
+      byGroup: [{ id: 7, name: 'akira', count: 1 }, { id: 8, name: 'qilin', count: 1 }, { id: 9, name: 'lynx', count: 1 }],
+      bySector: [{ name: 'Healthcare', count: 1 }, { name: 'Manufacturing', count: 1 }, { name: 'Energy', count: 1 }],
+      byCountry: [{ name: 'FR', count: 1 }, { name: 'DE', count: 1 }, { name: 'ES', count: 1 }],
+      unknown: { sector: 4, country: 2 },
     },
     hits: { open: 2, openCve: 1, openVictims: 1, new7d: 2, archived: 5, perDay: series((i) => ({ count: 1, cve: i % 2, ransomware_victim: 1 - (i % 2) })) },
     rules: { total: 2, active: 2, byRule: [{ id: 1, name: 'Edge devices', open: 1, total: 3, active: true }, { id: 2, name: 'Healthcare sector', open: 1, total: 1, active: true }] },
@@ -74,6 +80,8 @@ describe('Cyber Watch', () => {
   });
 
   describe('matches', () => {
+
+
     it('opens on what is left to review and filters from the KPI cards and the toolbar', () => {
       cy.wait('@matches').its('request.url').should('include', 'status=active');
       cy.get('[data-testid="match-row"]').first().should('contain', 'CVE-2026-1001').and('contain', 'Critical - 9.8').and('contain', 'Fortinet');
@@ -88,9 +96,13 @@ describe('Cyber Watch', () => {
 
     it('explains a match, archives it and moves on to the next one, then opens the victim', () => {
       cy.intercept('PATCH', `${API}watch-rule-hits/21/`, (req) => req.reply({ statusCode: 200, body: { ...MATCHES[0], ...req.body } })).as('archive');
+      // One row for the match, with all the keywords that matched
+      cy.get('[data-testid="match-row"]').first().find('[data-testid="match-keywords"]').should('contain', 'Fortinet').and('contain', 'FortiOS');
       cy.get('[data-testid="match-row"]').first().click();
       cy.location('hash').should('include', 'match=21');
       cy.get('.MuiDrawer-paper').within(() => {
+        cy.contains('Keywords');
+        cy.get('[data-testid="match-keywords"]').should('contain', 'Fortinet').and('contain', 'FortiOS');
         cy.contains('Edge devices');
         cy.contains('remote code execution');
         cy.get('mark').should('contain', 'Fortinet');
@@ -130,6 +142,134 @@ describe('Cyber Watch', () => {
     cy.wait('@archiveCve').its('request.body').should('deep.equal', { is_archived: true });
     cy.get('[data-testid="rules-matched"] [role="button"]').first().click();
     cy.location('hash').should('include', 'match=21').and('not.include', 'tab=');
+  });
+
+  describe('the CVEs and the other advisories', () => {
+    beforeEach(() => {
+      cy.contains('[role="tab"]', 'CVEs').click();
+      cy.get('[data-testid="cve-row"]', { timeout: 20000 }).should('have.length', 3);
+    });
+
+    it('lists the CVEs only at first, and says how many other advisories there are', () => {
+      cy.get('@cves.all').should((calls) => expect(calls.at(-1).request.url).to.include('kind=cve'));
+      cy.contains('.MuiTextField-root', 'Type').click();
+      cy.get('[role="listbox"]').should('contain', 'CVEs').and('contain', 'Other advisories (123)').and('contain', 'CVEs and advisories');
+      cy.contains('[role="option"]', 'Other advisories (123)').click();
+      cy.get('@cves.all').should((calls) => expect(calls.at(-1).request.url).to.include('kind=advisory'));
+      cy.location('hash').should('include', 'ckind=advisory');
+      cy.contains('button', 'Clear').click();
+      cy.location('hash').should('not.include', 'ckind');
+      cy.get('@cves.all').should((calls) => expect(calls.at(-1).request.url).to.include('kind=cve'));
+    });
+
+    it('asks for everything when both are wanted', () => {
+      cy.contains('.MuiTextField-root', 'Type').click();
+      cy.contains('[role="option"]', 'CVEs and advisories').click();
+      cy.get('@cves.all').should((calls) => expect(calls.at(-1).request.url).not.to.include('kind='));
+    });
+
+    it('marks an advisory that is not a CVE, and gives no NVD page for it', () => {
+      cy.intercept('GET', `${API}cves/?*`, {
+        statusCode: 200,
+        body: page([{ ...CVES[0], id: 91, cve_id: 'OSV-2026-17', description: 'A flaw in a package', exploited: false, kev_added: null, epss: null }, CVES[1]]),
+      }).as('mixed');
+      cy.contains('.MuiTextField-root', 'Type').click();
+      cy.contains('[role="option"]', 'CVEs and advisories').click();
+      cy.wait('@mixed');
+      cy.contains('[data-testid="cve-row"]', 'OSV-2026-17').within(() => {
+        cy.get('[data-testid="advisory-chip"]').should('contain', 'Advisory');
+        cy.get('a[aria-label^="Open"]').should('not.exist');
+      });
+      cy.contains('[data-testid="cve-row"]', 'CVE-2026-1002').within(() => {
+        cy.get('[data-testid="advisory-chip"]').should('not.exist');
+        cy.get('a[aria-label="Open CVE-2026-1002 on NVD"]').should('exist');
+      });
+    });
+  });
+
+  describe('the filters of the victims', () => {
+    beforeEach(() => {
+      cy.contains('[role="tab"]', 'Ransomware').click();
+      cy.get('[data-testid="victim-row"]', { timeout: 20000 }).should('have.length', 2);
+    });
+
+    it('offers every group that has victims, not only the busiest ones', () => {
+      cy.contains('.MuiTextField-root', 'Group').click();
+      cy.get('[role="listbox"] [role="option"]').then(($o) => expect([...$o].map((o) => o.textContent)).to.deep.equal(['Any', 'akira', 'qilin', 'lynx']));
+    });
+
+    it('offers every country and sector, and Unknown for the victims the source knows nothing of', () => {
+      cy.contains('.MuiTextField-root', 'Country').click();
+      cy.get('[role="listbox"]').should('contain', 'Spain').and('contain', 'Unknown (2)');
+      cy.get('body').type('{esc}');
+      cy.contains('.MuiTextField-root', 'Sector').click();
+      cy.get('[role="listbox"]').should('contain', 'Energy').and('contain', 'Unknown (4)');
+    });
+
+    it('lists the victims with no sector with Unknown, kept in the URL', () => {
+      cy.contains('.MuiTextField-root', 'Sector').click();
+      cy.contains('[role="option"]', 'Unknown (4)').click();
+      cy.get('@victims.all').should((calls) => expect(calls.at(-1).request.url).to.include('sector=unknown'));
+      cy.location('hash').should('include', 'vsector=unknown');
+      cy.contains('.MuiChip-root', 'Unknown').should('exist');
+    });
+
+    it('lists the victims with no country with Unknown', () => {
+      cy.contains('.MuiTextField-root', 'Country').click();
+      cy.contains('[role="option"]', 'Unknown (2)').click();
+      cy.get('@victims.all').should((calls) => expect(calls.at(-1).request.url).to.include('country=unknown'));
+    });
+  });
+
+  describe('exploitation', () => {
+    beforeEach(() => {
+      cy.contains('[role="tab"]', 'CVEs').click();
+      cy.get('[data-testid="cve-row"]', { timeout: 20000 }).should('have.length', 3);
+    });
+
+    it('flags the CVEs exploited in the wild and says how likely the others are to be', () => {
+      cy.get('[data-testid="cve-row"]').eq(0).within(() => {
+        cy.get('[data-testid="exploited-chip"]').should('contain', 'Exploited - ransomware');
+        cy.get('[data-testid="epss"]').should('contain', 'EPSS 94 %');
+      });
+      cy.get('[data-testid="cve-row"]').eq(1).within(() => {
+        cy.get('[data-testid="exploited-chip"]').should('not.exist');
+        cy.get('[data-testid="epss"]').should('contain', 'EPSS 2.1 %');
+      });
+      // A CVE not scored yet shows no figure rather than a zero
+      cy.get('[data-testid="cve-row"]').eq(2).find('[data-testid="epss"]').should('not.exist');
+    });
+
+    it('filters on the CVEs exploited in the wild, from the card and from the toolbar', () => {
+      cy.contains('button', 'Exploited in the wild').click();
+      cy.get('@cves.all').should((calls) => expect(calls.at(-1).request.url).to.include('exploited=yes'));
+      cy.location('hash').should('include', 'cexploited=yes');
+      cy.contains('button', 'Clear').click();
+      cy.location('hash').should('not.include', 'cexploited');
+      cy.contains('.MuiTextField-root', 'Exploitation').should('exist');
+    });
+
+    it('tells in the window of a CVE since when it is exploited, by when to fix it, and how likely it is to be', () => {
+      cy.get('[data-testid="cve-row"]').first().click();
+      cy.get('.MuiDrawer-paper').within(() => {
+        cy.contains('h3', 'Exploitation').closest('section').within(() => {
+          cy.contains('Yes, in the CISA catalogue of exploited vulnerabilities since');
+          cy.contains('Fix by');
+          cy.contains('Known to be used by ransomware groups');
+          cy.contains('94 % chance of being exploited in the next 30 days (EPSS), more likely than 99 % of the CVEs');
+        });
+      });
+    });
+
+    it('says plainly when a CVE is not exploited and not scored yet', () => {
+      cy.intercept('GET', `${API}cves/3/`, { statusCode: 200, body: CVES[2] });
+      cy.get('[data-testid="cve-row"]').eq(2).click();
+      cy.get('.MuiDrawer-paper', { timeout: 20000 }).contains('h3', 'Exploitation').closest('section').within(() => {
+        cy.contains('Not in the CISA catalogue of exploited vulnerabilities');
+        cy.contains('Not scored yet (EPSS)');
+        cy.contains('Ransomware').should('not.exist');
+      });
+    });
   });
 
   describe('watch rules', () => {
@@ -174,7 +314,7 @@ describe('Cyber Watch', () => {
     cy.get('button[aria-label="Show the critical CVEs"]').click();
     cy.location('hash').should('include', 'tab=cves').and('include', 'csev=CRITICAL');
     cy.contains('[role="tab"]', 'Insights').click();
-    cy.get('button[aria-label="Review the matches of Healthcare sector"]').click();
+    cy.get('button[aria-label="Review the matches of Healthcare sector"]', { timeout: 10000 }).click();
     cy.location('hash').should('include', 'rule=2').and('not.include', 'tab=');
   });
 });

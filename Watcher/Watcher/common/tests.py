@@ -1,5 +1,6 @@
 import os
 import re
+import requests as requests_module
 import types
 from unittest.mock import patch, MagicMock
 from django.test import SimpleTestCase, TestCase, TransactionTestCase, RequestFactory, override_settings
@@ -772,7 +773,8 @@ class LegitimateDomainListAPITest(APITestCase):
         today = timezone.now().date()
         make = LegitimateDomain.objects.create
         self.expired = make(domain_name='expired.com', expiry=today - timedelta(days=3), ticket_id='T-1',
-                            comments='internal note')
+                            comments='internal note', expiry_source='RDAP', expiry_check='ok',
+                            expiry_checked_at=timezone.now())
         self.soon = make(domain_name='soon.fr', expiry=today + timedelta(days=10), ssl_expiry=today - timedelta(days=1))
         self.valid = make(domain_name='valid.com', expiry=today + timedelta(days=200), repurchased=True,
                           ssl_expiry=today + timedelta(days=20))
@@ -1482,7 +1484,37 @@ class LeakScreenshotApiTest(TestCase):
     def test_taking_one_says_when_the_page_cannot_be_captured(self):
         self._allow('change_alert')
         with patch('common.core.requests.post', return_value=_service_answer(502, b'', 'capture failed')):
-            self.assertEqual(self.client.post(self._url('capture/')).status_code, 502)
+            response = self.client.post(self._url('capture/'))
+        self.assertEqual(response.status_code, 502)
+        # A service that gives no reason (an older one) gets the plain sentence
+        self.assertEqual(response.json()['error'], 'The screenshot could not be taken. The cause is not known: see the log of Watcher.')
+
+    def test_the_answer_says_why_the_page_could_not_be_captured(self):
+        self._allow('change_alert')
+        cases = [
+            (_service_answer(502, b'', 'timeout'), 'The site did not answer in time.'),
+            (_service_answer(502, b'', 'dns'), 'The domain name could not be resolved.'),
+            (_service_answer(502, b'', 'refused'), 'The site refused the connection.'),
+            (_service_answer(502, b'', 'tls'), 'The certificate of the site is not valid.'),
+            (_service_answer(502, b'', 'unreachable'), 'The site could not be reached (name not found, connection refused, or an address that is not public).'),
+            (_service_answer(400, b'', 'address'), 'This is not an address the service can visit: it must be a public http(s) address.'),
+            (_service_answer(400, b'', 'address not allowed'), 'This is not an address the service can visit: it must be a public http(s) address.'),
+            (_service_answer(400, b'', 'dns'), 'The domain name could not be resolved.'),
+            (_service_answer(400, b'', 'private'), 'This address is not a public one: the service only visits public addresses.'),
+            (_service_answer(500, b'', 'boom'), 'The screenshot service failed.'),
+            (_service_answer(200, b'x' * (3 * 1024 * 1024 + 1)), 'The capture is too big to keep.'),
+        ]
+        for answer, sentence in cases:
+            with self.subTest(sentence=sentence), patch('common.core.requests.post', return_value=answer):
+                response = self.client.post(self._url('capture/'))
+                self.assertEqual(response.status_code, 502)
+                self.assertEqual(response.json()['error'], 'The screenshot could not be taken. ' + sentence)
+
+    def test_the_answer_says_when_the_service_does_not_answer(self):
+        self._allow('change_alert')
+        with patch('common.core.requests.post', side_effect=requests.exceptions.ConnectionError('down')):
+            response = self.client.post(self._url('capture/'))
+        self.assertEqual(response.json()['error'], 'The screenshot could not be taken. The screenshot service did not answer.')
 
     def test_an_alert_without_an_address_has_nothing_to_capture(self):
         self._allow('change_alert')
@@ -1533,6 +1565,30 @@ class DomainScreenshotApiTest(TestCase):
         domain_id = self.domain.pk
         self.domain.delete()
         self.assertFalse(Screenshot.objects.filter(target='common.legitimate_domain', target_id=domain_id).exists())
+
+    def test_a_user_cannot_flood_the_browser_with_captures(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.user.user_permissions.add(*Permission.objects.filter(codename='change_legitimatedomain'))
+        self.client.force_authenticate(User.objects.get(pk=self.user.pk))
+        with override_settings(WATCHER_THROTTLES={'screenshot': '2/min'}), \
+                patch('common.core.requests.post', return_value=_service_answer(content=b'new')):
+            codes = [self.client.post(self._url('capture/')).status_code for _ in range(3)]
+        self.assertEqual(codes, [201, 201, 429])
+
+    def test_only_a_few_captures_run_at_the_same_time(self):
+        from common import api
+        self.user.user_permissions.add(*Permission.objects.filter(codename='change_legitimatedomain'))
+        self.client.force_authenticate(User.objects.get(pk=self.user.pk))
+        slots = [api._capture_slots.acquire(blocking=False) for _ in range(4)]
+        try:
+            self.assertEqual(self.client.post(self._url('capture/')).status_code, 429)
+        finally:
+            for _ in filter(None, slots):
+                api._capture_slots.release()
+        with patch('common.core.requests.post', return_value=_service_answer(content=b'new')):
+            self.assertEqual(self.client.post(self._url('capture/')).status_code, 201)
 
 
 # Global search
@@ -1591,6 +1647,9 @@ class SearchQueryTest(SearchTestBase):
         for i in range(8):
             TrendyWord.objects.create(name=f'zeus-{i}')
         keyword = MonitoredKeyword.objects.create(name='zeus')
+        self.assertNotIn(f'/threats_watcher?tab=keywords&keyword={keyword.id}',
+                         [r['to'] for r in self.groups('zeus')['threats_watcher']['results']])  # not without signing in
+        self.login()
         results = self.groups('zeus')['threats_watcher']['results']
         self.assertEqual(len(results), search.LIMIT)
         self.assertIn(f'/threats_watcher?tab=keywords&keyword={keyword.id}', [r['to'] for r in results])
@@ -1609,6 +1668,14 @@ class SearchAccessTest(SearchTestBase):
         TrendyWord.objects.create(name='acme')
         found = self.groups('acme')
         self.assertEqual(set(found), {'threats_watcher', 'legitimate_domains'})
+
+    def test_the_search_is_limited_per_visitor(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with override_settings(WATCHER_THROTTLES={'search': '3/min'}):
+            codes = [self.client.get(URL, {'q': 'acme'}).status_code for _ in range(4)]
+        self.assertEqual(codes, [200, 200, 200, 429])
 
     def test_anonymous_does_not_search_internal_fields(self):
         self.assertNotIn('legitimate_domains', self.groups('TCK-77'))
@@ -1942,3 +2009,1635 @@ class ObjectLinkTest(SimpleTestCase):
         self.assertTrue(render_text(ntype, 'thehive', dict(base, object_url='http://w/#/data_leak?alert=1'))
                         .rstrip().endswith('[Open in Watcher](http://w/#/data_leak?alert=1)'))
         self.assertTrue(render_text(ntype, 'thehive', base).rstrip().endswith('[Open in Watcher](http://w/#data_leak)'))
+
+
+class ScheduledJobsEndLineTest(SimpleTestCase):
+    """Every long scheduled job writes one `CRON TASK done` line (duration and counts): without it a job that never ends,
+    or that ends in an hour instead of a quarter of an hour, cannot be told from the logs."""
+
+    JOBS = (
+        ('threats_watcher.core', 'main_watch'),
+        ('cyber_watch.core', 'fetch_latest_cves'),
+        ('cyber_watch.core', 'fetch_ransomware_data'),
+        ('cyber_watch.core', 'fetch_ransomlook_data'),
+        ('dns_finder.core', 'main_dns_twist'),
+        ('dns_finder.core', 'recheck_dangling_subdomains'),
+        ('data_leak.core', 'main_data_leak'),
+        ('site_monitoring.core', 'monitoring_check'),
+        ('site_monitoring.core', 'check_monitored_pages'),
+        ('site_monitoring.core', 'update_site_monitoring_rdap_data'),
+        ('common.core', 'update_legitimate_domains_rdap_data'),
+        ('common.core', 'update_all_ssl_certificates'),
+        ('connectors.core', 'run_weekly_health_checks'),
+    )
+
+    def test_each_job_is_wrapped_by_the_end_line(self):
+        import importlib
+        for module, name in self.JOBS:
+            job = getattr(importlib.import_module(module), name)
+            self.assertTrue(hasattr(job, '__wrapped__'), f'{module}.{name} writes no end line')
+
+    def test_a_job_that_fails_says_so(self):
+        import logging
+        from common.utils import job_log
+        logger = logging.getLogger('watcher.test_end_line')
+
+        @job_log.logged_job('Probe', logger)
+        def failing():
+            job_log.job_count('items', 3)
+            raise RuntimeError('boom')
+
+        with self.assertLogs('watcher.test_end_line', level='INFO') as logs:
+            with self.assertRaises(RuntimeError):
+                failing()
+        self.assertIn('CRON TASK done: Probe - items=3', logs.output[0])
+        self.assertIn('stopped by an error', logs.output[0])
+
+
+class ChannelBreakerTest(SimpleTestCase):
+    """A channel that fails several times in a row is skipped for a while, then tried once again."""
+
+    def setUp(self):
+        from common.utils import job_log
+        self.job_log = job_log
+        job_log.reset_breakers()
+        self.clock = [1000.0]
+        patcher = patch('common.utils.job_log._now', new=lambda: self.clock[0])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(job_log.reset_breakers)
+        self.calls = {'slack': 0, 'email': 0}
+
+    def _sender(self, channel, outcome):
+        import logging
+
+        def send():
+            self.calls[channel] += 1
+            if outcome[0] == 'fail':
+                logging.getLogger('watcher.common').error(f'Failed to send message to {channel}: 500')
+            elif outcome[0] == 'note':
+                self.job_log.note_channel('no recipient')
+        return send
+
+    def _run(self, channel, outcome):
+        return self.job_log.run_channel(channel, self._sender(channel, outcome))
+
+    def test_the_channel_is_skipped_after_five_failures_in_a_row(self):
+        outcome = ['fail']
+        for _ in range(5):
+            self.assertTrue(self._run('slack', outcome).startswith('failed'))
+        status = self._run('slack', outcome)
+        self.assertTrue(status.startswith('skipped'), status)
+        self.assertEqual(self.calls['slack'], 5)  # the sixth was not even tried
+        for _ in range(10):
+            self._run('slack', outcome)
+        self.assertEqual(self.calls['slack'], 5)
+
+    def test_one_success_clears_the_count(self):
+        for _ in range(4):
+            self._run('slack', ['fail'])
+        self._run('slack', ['ok'])
+        for _ in range(4):
+            self._run('slack', ['fail'])
+        self.assertTrue(self._run('slack', ['ok']) == 'ok')  # still tried: four in a row, not five
+
+    def test_a_channel_that_has_nothing_to_send_is_not_a_failure(self):
+        for _ in range(20):
+            self.assertEqual(self._run('email', ['note']), 'no recipient')
+        self.assertEqual(self.calls['email'], 20)
+
+    def test_the_channels_are_independent(self):
+        for _ in range(5):
+            self._run('slack', ['fail'])
+        self.assertTrue(self._run('slack', ['fail']).startswith('skipped'))
+        self.assertEqual(self._run('email', ['ok']), 'ok')
+
+    def test_after_the_cooldown_one_attempt_is_let_through_and_a_success_reopens_the_channel(self):
+        for _ in range(5):
+            self._run('slack', ['fail'])
+        self.clock[0] += 301
+        self.assertEqual(self._run('slack', ['ok']), 'ok')
+        self.assertEqual(self.calls['slack'], 6)
+        self.assertEqual(self._run('slack', ['ok']), 'ok')  # back to normal, nothing skipped
+
+    def test_a_failed_attempt_after_the_cooldown_skips_the_channel_again(self):
+        for _ in range(5):
+            self._run('slack', ['fail'])
+        self.clock[0] += 301
+        self.assertTrue(self._run('slack', ['fail']).startswith('failed'))
+        self.assertTrue(self._run('slack', ['fail']).startswith('skipped'))
+        self.assertEqual(self.calls['slack'], 6)
+
+    def test_the_breaker_says_when_it_opens_and_when_the_channel_is_back(self):
+        with self.assertLogs('watcher.common', level='INFO') as logs:
+            for _ in range(5):
+                self._run('slack', ['fail'])
+            self.clock[0] += 301
+            self._run('slack', ['ok'])
+        lines = [line for line in logs.output if 'Notification channel' in line]
+        self.assertEqual(len(lines), 2, logs.output)
+        self.assertIn('slack keeps failing (5 in a row', lines[0])
+        self.assertIn('skipped for 5 min', lines[0])
+        self.assertIn('slack answers again', lines[1])
+
+    def test_the_end_line_of_a_job_counts_what_was_skipped(self):
+        import logging
+        for _ in range(5):
+            self._run('slack', ['fail'])
+
+        @self.job_log.logged_job('Probe', logging.getLogger('watcher.test_breaker'))
+        def job():
+            for _ in range(8):
+                self._run('slack', ['fail'])
+
+        with self.assertLogs('watcher.test_breaker', level='INFO') as logs:
+            job()
+        self.assertIn('notifications_skipped=8', logs.output[0])
+
+    def test_twenty_notifications_try_a_failing_channel_five_times(self):
+        from common import core
+        attempts = []
+
+        def send():
+            attempts.append(1)
+            import logging
+            logging.getLogger('watcher.common').error('Failed to send message to Slack: 500')
+
+        with patch.object(core, 'is_enabled', return_value=True):
+            for _ in range(20):
+                core._send_channel('new_cve', 'slack', 'cyber_watch', send)
+        self.assertEqual(len(attempts), 5)
+
+
+class ExpiryCheckTest(SimpleTestCase):
+    """Where the stored expiry date stands against what the registry says."""
+
+    TODAY = __import__('datetime').date(2026, 11, 13)
+
+    def _verdict(self, stored, rdap):
+        from common.utils import expiry_check
+        return expiry_check.verdict(stored, rdap, self.TODAY)
+
+    def test_the_same_date_is_ok(self):
+        self.assertEqual(self._verdict('2027-11-07', '2027-11-07')[0], 'ok')
+
+    def test_a_past_date_for_a_domain_still_registered_is_the_wrong_expired(self):
+        code, text, source = self._verdict('2026-03-01', '2027-11-07')
+        self.assertEqual(code, 'expired_but_registered')
+        self.assertEqual(str(source), '2027-11-07')
+        self.assertIn('still registered', text)
+
+    def test_a_date_that_really_passed_is_only_stale(self):
+        # The registry says it expired as well: nothing is wrong, the domain is expired
+        self.assertEqual(self._verdict('2026-03-01', '2026-03-01')[0], 'ok')
+        self.assertEqual(self._verdict('2026-03-01', '2026-06-01')[0], 'stale')
+
+    def test_a_different_future_date_is_stale_with_its_direction(self):
+        self.assertIn('earlier', self._verdict('2027-01-01', '2027-11-07')[1])
+        self.assertIn('later', self._verdict('2028-01-01', '2027-11-07')[1])
+
+    def test_no_stored_date_is_missing_and_no_answer_is_no_data(self):
+        self.assertEqual(self._verdict(None, '2027-11-07')[0], 'missing')
+        self.assertEqual(self._verdict('2027-11-07', None)[0], 'no_data')
+        self.assertEqual(self._verdict(None, None)[0], 'no_data')
+
+    def test_an_unreadable_date_is_not_a_date(self):
+        from common.utils import expiry_check
+        self.assertIsNone(expiry_check.parse_day('not a date'))
+        self.assertEqual(self._verdict('2027-11-07', 'garbage')[0], 'no_data')
+
+
+class CheckExpiryDatesCommandTest(TestCase):
+    """The command reads, compares and says; it never writes."""
+
+    def _run(self, *args, found=None):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        found = found or {'rdap': '2027-11-07', 'rdap_source': 'https://rdap.example/'}
+        with patch('common.utils.expiry_check.lookup', return_value=found) as lookup:
+            call_command('check_expiry_dates', *args, '--delay', '0', stdout=out)
+        return out.getvalue(), lookup
+
+    def test_it_flags_a_domain_shown_as_expired_that_is_still_registered(self):
+        from datetime import date
+        LegitimateDomain.objects.create(domain_name='thalesgroup.com', expiry=date(2026, 3, 1))
+        output, _ = self._run('thalesgroup.com')
+        self.assertIn('expired_but_registered', output)
+        self.assertIn('stored=2026-03-01', output)
+        self.assertIn('rdap=2027-11-07', output)
+        self.assertIn('To correct: thalesgroup.com', output)
+
+    def test_it_never_writes(self):
+        from datetime import date
+        LegitimateDomain.objects.create(domain_name='thalesgroup.com', expiry=date(2026, 3, 1))
+        self._run('thalesgroup.com')
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='thalesgroup.com').expiry, date(2026, 3, 1))
+
+    def test_a_right_date_is_ok_and_nothing_is_to_correct(self):
+        from datetime import date
+        LegitimateDomain.objects.create(domain_name='thalesgroup.com', expiry=date(2027, 11, 7))
+        output, _ = self._run('thalesgroup.com')
+        self.assertIn('-> ok', output)
+        self.assertNotIn('To correct', output)
+
+    def test_expired_checks_only_the_domains_shown_as_expired(self):
+        from datetime import date, timedelta
+        past, future = timezone.now().date() - timedelta(days=30), timezone.now().date() + timedelta(days=300)
+        LegitimateDomain.objects.create(domain_name='old.example', expiry=past)
+        LegitimateDomain.objects.create(domain_name='fine.example', expiry=future)
+        LegitimateDomain.objects.create(domain_name='nodate.example')
+        _, lookup = self._run('--expired')
+        self.assertEqual([call.args[0] for call in lookup.call_args_list], ['old.example'])
+
+    def test_a_domain_unknown_to_watcher_is_checked_as_missing(self):
+        output, _ = self._run('not-in-watcher.example')
+        self.assertIn('stored=-', output)
+        self.assertIn('-> missing', output)
+
+    def test_it_asks_for_something_to_check(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+        with self.assertRaises(CommandError):
+            call_command('check_expiry_dates')
+
+
+class LegitimateExpiryJobGuardTest(TestCase):
+    """The job does not lower an expiry date on one answer: the registry has to say it twice."""
+
+    def _run(self, rdap_answer):
+        from common.core import update_legitimate_domains_rdap_data
+        with patch('common.core.close_old_connections'), patch('common.utils.rdap.RDAPDiscovery') as rdap:
+            rdap.return_value.status = 'ok' if rdap_answer is not None else 'error'
+            rdap.return_value.fetch_rdap_data.return_value = rdap_answer is not None
+            rdap.return_value.get_expiration_date.return_value = rdap_answer
+            rdap.return_value.get_registration_date.return_value = None
+            with self.assertLogs('watcher.common', level='INFO') as logs:
+                update_legitimate_domains_rdap_data()
+        return '\n'.join(logs.output)
+
+    def _end(self, output):
+        return [line for line in output.splitlines() if 'CRON TASK done' in line][0]
+
+    def _domain(self, name='back.example', **fields):
+        return LegitimateDomain.objects.create(domain_name=name, **fields)
+
+    def _reload(self, name='back.example'):
+        return LegitimateDomain.objects.get(domain_name=name)
+
+    def test_an_unchanged_date_is_counted_with_its_source(self):
+        from datetime import date
+        self._domain('same.example', expiry=date(2027, 11, 7))
+        end = self._end(self._run('2027-11-07'))
+        self.assertIn('via_rdap=1', end)
+        self.assertIn('unchanged=1', end)
+        self.assertNotIn('held', end)
+
+    def test_a_date_that_goes_back_is_held_the_first_time(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        future, earlier = today + timedelta(days=100), today - timedelta(days=10)
+        self._domain(expiry=future)
+        output = self._run(earlier.isoformat())
+        domain = self._reload()
+        self.assertEqual(domain.expiry, future)          # the stored date is kept: it does not show as Expired
+        self.assertEqual(domain.expiry_pending, earlier)  # the answer waits
+        self.assertEqual(domain.expiry_pending_source, 'RDAP')
+        self.assertIn('held=1', self._end(output))
+        self.assertNotIn('regressed', self._end(output))
+        warning = [line for line in output.splitlines() if 'EARLIER than the one stored' in line][0]
+        self.assertTrue(warning.startswith('WARNING'))
+        self.assertIn('kept until a second pass confirms it', warning)
+        self.assertIn('check_expiry_dates back.example', warning)
+
+    def test_the_same_earlier_date_twice_is_written(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        earlier = today - timedelta(days=10)
+        self._domain(expiry=today + timedelta(days=100))
+        self._run(earlier.isoformat())
+        output = self._run(earlier.isoformat())
+        domain = self._reload()
+        self.assertEqual(domain.expiry, earlier)
+        self.assertIsNone(domain.expiry_pending)
+        end = self._end(output)
+        self.assertIn('regressed=1', end)
+        self.assertIn('turned_expired=1', end)
+        self.assertIn('the same earlier expiry date twice', output)
+        self.assertIn('it now shows as Expired', output)
+
+    def test_a_different_earlier_date_on_the_second_pass_does_not_confirm(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        future = today + timedelta(days=100)
+        self._domain(expiry=future)
+        self._run((today - timedelta(days=10)).isoformat())
+        self._run((today - timedelta(days=20)).isoformat())
+        domain = self._reload()
+        self.assertEqual(domain.expiry, future)
+        self.assertEqual(domain.expiry_pending, today - timedelta(days=20))
+
+    def test_the_stored_date_coming_back_clears_the_waiting_answer(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        future = today + timedelta(days=100)
+        self._domain(expiry=future)
+        self._run((today - timedelta(days=10)).isoformat())
+        self._run(future.isoformat())
+        domain = self._reload()
+        self.assertEqual(domain.expiry, future)
+        self.assertIsNone(domain.expiry_pending)
+        self.assertIsNone(domain.expiry_pending_source)
+        self.assertIsNone(domain.expiry_pending_at)
+
+    def test_a_waiting_answer_older_than_a_day_does_not_confirm(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        earlier, future = today - timedelta(days=10), today + timedelta(days=100)
+        self._domain(expiry=future, expiry_pending=earlier, expiry_pending_source='RDAP',
+                     expiry_pending_at=timezone.now() - timedelta(hours=25))
+        self._run(earlier.isoformat())
+        domain = self._reload()
+        self.assertEqual(domain.expiry, future)  # held again: the first sighting was too long ago
+
+    def test_a_later_date_is_a_renewal_and_clears_what_waited(self):
+        from datetime import date, timedelta
+        today = timezone.now().date()
+        self._domain('renewed.example', expiry=date(2027, 1, 1), expiry_pending=today - timedelta(days=5),
+                     expiry_pending_source='RDAP', expiry_pending_at=timezone.now())
+        end = self._end(self._run('2028-01-01'))
+        domain = self._reload('renewed.example')
+        self.assertEqual(domain.expiry, date(2028, 1, 1))
+        self.assertIsNone(domain.expiry_pending)
+        self.assertNotIn('regressed', end)
+
+    def test_an_answer_without_a_date_is_counted_and_changes_nothing(self):
+        from datetime import date
+        self._domain('nodate.example', expiry=date(2027, 1, 1))
+        end = self._end(self._run(''))
+        self.assertIn('no_date_in_answer=1', end)
+        self.assertEqual(self._reload('nodate.example').expiry, date(2027, 1, 1))
+
+
+class ExpiryDecisionTest(SimpleTestCase):
+    """The rule that decides what an answer does to a stored date."""
+
+    NOW = __import__('datetime').datetime(2026, 11, 13, 12, 0)
+
+    def _decide(self, stored, new, pending=None, source=None, at=None):
+        from common.utils import expiry_check
+        return expiry_check.decide(stored, new, pending, source, at, self.NOW)
+
+    def test_each_case(self):
+        from datetime import date, timedelta
+        hour, day = timedelta(hours=1), timedelta(hours=30)
+        # (stored, new, pending, source, at) -> action
+        cases = [
+            (None, '2027-01-01', None, None, None, 'fill'),
+            ('2027-01-01', '2027-01-01', None, None, None, 'keep'),
+            ('2027-01-01', '2028-01-01', None, None, None, 'renew'),
+            ('2027-01-01', '2026-03-01', None, None, None, 'hold'),
+            ('2027-01-01', '2026-03-01', date(2026, 3, 1), 'RDAP', self.NOW - hour, 'confirm'),
+            ('2027-01-01', '2026-03-01', date(2026, 3, 1), 'RDAP', self.NOW - day, 'hold'),
+            ('2027-01-01', '2026-03-01', date(2026, 4, 1), 'RDAP', self.NOW - hour, 'hold'),
+        ]
+        for stored, new, pending, source, at, expected in cases:
+            action = self._decide(stored, new, pending, source, at)[0]
+            self.assertEqual(action, expected, (stored, new, pending, source, at))
+
+    def test_a_confirmation_or_a_renewal_leaves_nothing_waiting(self):
+        for args in (('2027-01-01', '2028-01-01'), ('2027-01-01', '2027-01-01')):
+            self.assertEqual(self._decide(*args)[1:], (None, None, None))
+
+    def test_a_hold_remembers_the_answer_the_source_and_the_time(self):
+        action, pending, source, at = self._decide('2027-01-01', '2026-03-01')
+        self.assertEqual((action, str(pending), source, at), ('hold', '2026-03-01', 'RDAP', self.NOW))
+
+
+class CheckExpiryDatesLabelTest(TestCase):
+    """For a domain without a date, the command says whether the registry answered without one or did not answer."""
+
+    def _output(self, rdap_source):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        found = {'rdap': None, 'rdap_source': rdap_source}
+        with patch('common.utils.expiry_check.lookup', return_value=found):
+            call_command('check_expiry_dates', 'thales.de', '--delay', '0', stdout=out)
+        return out.getvalue()
+
+    def test_a_registry_that_answers_without_an_expiry_date_is_told_apart(self):
+        self.assertIn('rdap=- (answered, no expiry date)', self._output('https://rdap.denic.de/domain/thales.de'))
+
+    def test_a_registry_that_does_not_answer_is_told_apart(self):
+        self.assertIn('rdap=- (no answer)', self._output(None))
+
+
+class CheckExpiryDatesPendingTest(TestCase):
+    """The command shows an answer that waits for a second pass, so a held date is visible."""
+
+    def test_a_waiting_answer_is_shown_next_to_the_stored_date(self):
+        from datetime import date
+        from io import StringIO
+        from django.core.management import call_command
+        LegitimateDomain.objects.create(domain_name='held.example', expiry=date(2027, 11, 7), expiry_pending=date(2026, 3, 1),
+                                        expiry_pending_source='RDAP')
+        out = StringIO()
+        found = {'rdap': '2027-11-07', 'rdap_source': 'https://rdap.example/'}
+        with patch('common.utils.expiry_check.lookup', return_value=found):
+            call_command('check_expiry_dates', 'held.example', '--delay', '0', stdout=out)
+        self.assertIn('stored=2027-11-07 (waiting for confirmation: 2026-03-01)', out.getvalue())
+
+
+class RdapBootstrapTest(SimpleTestCase):
+    """The RDAP server of a domain comes from the IANA bootstrap, not from a list kept in the code."""
+
+    BOOTSTRAP = {'services': [
+        [['com', 'net'], ['https://rdap.verisign.com/com/v1/']],
+        [['UK'], ['http://rdap.nominet.uk/uk/', 'https://rdap.nominet.uk/uk/']],
+        [['ca'], ['https://rdap.ca.fury.ca/rdap']],
+    ]}
+
+    def setUp(self):
+        from common.utils import rdap
+        self.rdap = rdap
+        rdap.reset_bootstrap()
+        self.addCleanup(rdap.reset_bootstrap)
+        sleeper = patch('common.utils.rdap.time.sleep')
+        sleeper.start()
+        self.addCleanup(sleeper.stop)
+
+    def _response(self, status=200, body=None, headers=None):
+        response = MagicMock(status_code=status, headers=headers or {})
+        response.json.return_value = body if body is not None else {}
+        response.raise_for_status.side_effect = None if status < 400 else requests_module.HTTPError(str(status))
+        return response
+
+    def _get(self, *answers):
+        """requests.get: the bootstrap first, then the given answers one after the other."""
+        calls = iter([self._response(200, self.BOOTSTRAP), *answers])
+        return patch('common.utils.rdap.requests.get', side_effect=lambda *a, **k: next(calls))
+
+    def test_the_server_of_an_extension_comes_from_the_bootstrap(self):
+        with self._get():
+            self.assertEqual(self.rdap.rdap_servers_for('thalesgroup.com'), ['https://rdap.verisign.com/com/v1/'])
+            self.assertEqual(self.rdap.rdap_servers_for('thales.ca'), ['https://rdap.ca.fury.ca/rdap/'])  # the slash is added
+
+    def test_the_https_server_comes_first_and_the_extension_is_matched_in_lowercase(self):
+        with self._get():
+            self.assertEqual(self.rdap.rdap_servers_for('BBC.CO.UK'),
+                             ['https://rdap.nominet.uk/uk/', 'http://rdap.nominet.uk/uk/'])
+
+    def test_an_extension_the_bootstrap_does_not_list_has_no_server(self):
+        with self._get():
+            self.assertEqual(self.rdap.rdap_servers_for('thales.de'), [])
+            self.assertEqual(self.rdap.rdap_servers_for('localhost'), [])
+            self.assertEqual(self.rdap.rdap_servers_for(''), [])
+
+    def test_the_bootstrap_is_read_once_a_day_not_for_each_domain(self):
+        with self._get() as get:
+            for domain in ('a.com', 'b.net', 'c.ca', 'd.uk'):
+                self.rdap.rdap_servers_for(domain)
+            self.assertEqual(get.call_count, 1)
+
+    def test_a_failed_read_keeps_the_last_copy_and_does_not_retry_at_once(self):
+        calls = {'n': 0}
+
+        def get(*args, **kwargs):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                return self._response(200, self.BOOTSTRAP)
+            raise requests_module.ConnectionError('down')
+
+        with patch('common.utils.rdap.requests.get', side_effect=get), \
+                patch('common.utils.rdap.time.monotonic', side_effect=[0, 100000, 100010]):
+            self.assertTrue(self.rdap.rdap_servers_for('a.com'))       # read
+            with self.assertLogs('watcher.common', level='WARNING') as logs:
+                self.assertTrue(self.rdap.rdap_servers_for('b.com'))   # a day later: the read fails, the old copy serves
+            self.assertTrue(self.rdap.rdap_servers_for('c.com'))       # ten seconds later: no new attempt
+        self.assertEqual(calls['n'], 2)
+        self.assertIn('the last copy is used', logs.output[0])
+
+    def test_no_bootstrap_at_all_means_no_server_and_no_crash(self):
+        with patch('common.utils.rdap.requests.get', side_effect=requests_module.ConnectionError('down')):
+            with self.assertLogs('watcher.common', level='WARNING') as logs:
+                self.assertEqual(self.rdap.rdap_servers_for('a.com'), [])
+        self.assertIn('no RDAP lookup is possible until it is read', logs.output[0])
+
+    def test_an_international_name_is_asked_in_punycode(self):
+        with self._get(self._response(200, {'events': []})) as get:
+            lookup = self.rdap.RDAPDiscovery('BÜCHER.com')
+            self.assertTrue(lookup.fetch_rdap_data())
+        self.assertTrue(get.call_args.args[0].endswith('/domain/xn--bcher-kva.com'))
+
+    def test_a_record_is_ok_and_gives_its_expiry(self):
+        record = {'events': [{'eventAction': 'expiration', 'eventDate': '2027-11-07T00:00:00Z'}]}
+        with self._get(self._response(200, record)):
+            lookup = self.rdap.RDAPDiscovery('thalesgroup.com')
+            self.assertTrue(lookup.fetch_rdap_data())
+        self.assertEqual((lookup.status, lookup.get_expiration_date()), ('ok', '2027-11-07'))
+
+    def test_a_404_from_the_registry_is_an_answer_not_a_failure(self):
+        with self._get(self._response(404)):
+            lookup = self.rdap.RDAPDiscovery('not-registered.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual(lookup.status, 'not_found')
+
+    def test_an_extension_without_a_server_is_unsupported(self):
+        with self._get():
+            lookup = self.rdap.RDAPDiscovery('thales.de')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual(lookup.status, 'unsupported')
+
+    def test_a_registry_that_says_slow_down_is_waited_for_once(self):
+        record = {'events': []}
+        with self._get(self._response(429, headers={'Retry-After': '2'}), self._response(200, record)) as get, \
+                patch('common.utils.rdap.time.sleep') as sleep:
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertTrue(lookup.fetch_rdap_data())
+        sleep.assert_called_once_with(2.0)
+        self.assertEqual(get.call_count, 3)  # the bootstrap, the refused try, the new one
+
+    def test_two_refusals_in_a_row_are_a_rate_limit_and_a_long_wait_is_not_waited_for(self):
+        with self._get(self._response(429, headers={'Retry-After': '1'}), self._response(429, headers={'Retry-After': '1'})), \
+                patch('common.utils.rdap.time.sleep'):
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual(lookup.status, 'rate_limited')
+        with self._get(self._response(429, headers={'Retry-After': '600'})), patch('common.utils.rdap.time.sleep') as sleep:
+            self.rdap.reset_bootstrap()
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        sleep.assert_not_called()
+        self.assertEqual(lookup.status, 'rate_limited')
+
+    def test_a_timeout_or_a_bad_answer_is_an_error(self):
+        calls = iter([self._response(200, self.BOOTSTRAP)])
+
+        def get(*args, **kwargs):
+            try:
+                return next(calls)
+            except StopIteration:
+                raise requests_module.ConnectTimeout('slow')
+
+        with patch('common.utils.rdap.requests.get', side_effect=get):
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual(lookup.status, 'error')
+        not_json = self._response(200)
+        not_json.json.side_effect = ValueError('not json')
+        with self._get(not_json):
+            self.rdap.reset_bootstrap()
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual(lookup.status, 'error')
+
+    def test_a_500_is_an_error_and_the_other_servers_of_the_extension_are_tried(self):
+        with self._get(self._response(500), self._response(200, {'events': []})):
+            lookup = self.rdap.RDAPDiscovery('bbc.co.uk')  # two servers listed for .uk
+            self.assertTrue(lookup.fetch_rdap_data())
+        self.assertEqual(lookup.status, 'ok')
+
+    def test_the_hard_coded_list_is_gone(self):
+        import inspect
+        source = inspect.getsource(self.rdap)
+        self.assertNotIn('tld_mappings', source)
+        self.assertNotIn('rdap_endpoints', source)
+
+
+class LegitimateExpiryJobRegistryTest(TestCase):
+    """What the job does with what the registry says about the domain itself."""
+
+    def _run(self, status, rdap_answer=None):
+        from common.core import update_legitimate_domains_rdap_data
+        with patch('common.core.close_old_connections'), patch('common.utils.rdap.RDAPDiscovery') as rdap:
+            rdap.return_value.status = status
+            rdap.return_value.fetch_rdap_data.return_value = rdap_answer is not None
+            rdap.return_value.get_expiration_date.return_value = rdap_answer
+            rdap.return_value.get_registration_date.return_value = None
+            with self.assertLogs('watcher.common', level='INFO') as logs:
+                update_legitimate_domains_rdap_data()
+        return '\n'.join(logs.output)
+
+    def _end(self, output):
+        return [line for line in output.splitlines() if 'CRON TASK done' in line][0]
+
+    def test_a_domain_the_registry_says_does_not_exist_is_counted_and_has_no_date(self):
+        LegitimateDomain.objects.create(domain_name='gone.example')
+        end = self._end(self._run('not_found'))
+        self.assertIn('not_registered=1', end)
+        self.assertIsNone(LegitimateDomain.objects.get(domain_name='gone.example').expiry)
+
+    def test_an_extension_without_an_rdap_server_is_counted_and_remembered(self):
+        LegitimateDomain.objects.create(domain_name='thales.example')
+        end = self._end(self._run('unsupported'))
+        self.assertIn('rdap_unsupported=1', end)
+        domain = LegitimateDomain.objects.get(domain_name='thales.example')
+        self.assertEqual(domain.expiry_check, 'unsupported')
+        self.assertIsNone(domain.expiry)
+
+    def test_a_registry_that_failed_is_counted_and_remembered_as_unreachable(self):
+        LegitimateDomain.objects.create(domain_name='flaky.example')
+        end = self._end(self._run('error'))
+        self.assertIn('without_data=1', end)
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='flaky.example').expiry_check, 'unreachable')
+
+    def test_nothing_goes_to_a_third_party(self):
+        import common.utils
+        self.assertFalse(hasattr(common.utils, 'whois'))
+        with self.assertRaises(ImportError):
+            __import__('common.utils.whois')
+
+
+class RdapRetryTest(SimpleTestCase):
+    """A passing failure is tried once more; a lasting one says what it was."""
+
+    BOOTSTRAP = {'services': [[['com'], ['https://rdap.verisign.com/com/v1/']]]}
+
+    def setUp(self):
+        from common.utils import rdap
+        self.rdap = rdap
+        rdap.reset_bootstrap()
+        self.addCleanup(rdap.reset_bootstrap)
+        sleeper = patch('common.utils.rdap.time.sleep')
+        self.sleep = sleeper.start()
+        self.addCleanup(sleeper.stop)
+
+    def _response(self, status=200, body=None):
+        response = MagicMock(status_code=status, headers={})
+        response.json.return_value = body if body is not None else {}
+        return response
+
+    def _answers(self, *answers):
+        """The bootstrap, then the answers given in order: an exception is raised, a response is returned."""
+        queue = iter([self._response(200, self.BOOTSTRAP), *answers])
+
+        def get(*args, **kwargs):
+            answer = next(queue)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        return patch('common.utils.rdap.requests.get', side_effect=get)
+
+    def test_a_timeout_then_an_answer_is_an_answer(self):
+        record = {'events': [{'eventAction': 'expiration', 'eventDate': '2027-11-07T00:00:00Z'}]}
+        with self._answers(requests_module.ConnectTimeout('slow'), self._response(200, record)):
+            lookup = self.rdap.RDAPDiscovery('thalesgroup.com')
+            self.assertTrue(lookup.fetch_rdap_data())
+        self.assertEqual((lookup.status, lookup.get_expiration_date()), ('ok', '2027-11-07'))
+        self.sleep.assert_called_once_with(1)
+
+    def test_a_503_then_an_answer_is_an_answer(self):
+        with self._answers(self._response(503), self._response(200, {'events': []})):
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertTrue(lookup.fetch_rdap_data())
+
+    def test_a_lasting_timeout_is_an_error_that_says_what_it_was(self):
+        with self._answers(requests_module.ConnectTimeout('slow'), requests_module.ConnectTimeout('slow')):
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual((lookup.status, lookup.detail), ('error', 'ConnectTimeout'))
+
+    def test_a_lasting_503_is_an_error_with_its_code(self):
+        with self._answers(self._response(503), self._response(503)):
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual((lookup.status, lookup.detail), ('error', 'HTTP 503'))
+
+    def test_a_403_is_not_tried_again(self):
+        with self._answers(self._response(403)) as get:
+            lookup = self.rdap.RDAPDiscovery('a.com')
+            self.assertFalse(lookup.fetch_rdap_data())
+        self.assertEqual(get.call_count, 2)  # the bootstrap, then the one try
+        self.assertEqual((lookup.status, lookup.detail), ('error', 'HTTP 403'))
+        self.sleep.assert_not_called()
+
+    def test_a_success_and_a_404_have_no_detail(self):
+        with self._answers(self._response(404)):
+            lookup = self.rdap.RDAPDiscovery('gone.com')
+            lookup.fetch_rdap_data()
+        self.assertEqual((lookup.status, lookup.detail), ('not_found', None))
+
+
+class LegitimateDomainExpiryConfirmationTest(APITestCase):
+    """A past date is Expired only when a registry confirmed it lately; otherwise it is Unconfirmed."""
+
+    URL = '/api/common/legitimate_domains/'
+
+    def setUp(self):
+        today = timezone.now().date()
+        now = timezone.now()
+        make = LegitimateDomain.objects.create
+        past = today - timedelta(days=3)
+        self.confirmed = make(domain_name='confirmed.com', expiry=past, expiry_source='RDAP', expiry_check='ok', expiry_checked_at=now)
+        self.whois = make(domain_name='whois.example', expiry=past, expiry_source='WHOIS', expiry_check='ok', expiry_checked_at=now)
+        self.manual = make(domain_name='manual.example', expiry=past, expiry_source='manual')
+        self.stale = make(domain_name='stale.com', expiry=past, expiry_source='RDAP', expiry_check='ok',
+                          expiry_checked_at=now - timedelta(days=10))
+        self.valid = make(domain_name='valid.com', expiry=today + timedelta(days=200), expiry_source='RDAP', expiry_check='ok',
+                          expiry_checked_at=now)
+        self.never = make(domain_name='never.example')
+        _, self.token = AuthToken.objects.create(User.objects.create_user(username='editor', password='testpass123'))
+
+    def names(self, query=''):
+        response = self.client.get(self.URL + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return sorted(row['domain_name'] for row in response.data['results'])
+
+    def login(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token}')
+
+    def test_only_a_date_a_registry_confirmed_lately_is_expired(self):
+        self.assertEqual(self.names('?status=expired'), ['confirmed.com'])
+
+    def test_a_past_date_nobody_confirmed_is_unconfirmed(self):
+        # left by the old WHOIS service, typed by hand, or confirmed more than a week ago
+        self.assertEqual(self.names('?status=unconfirmed'), ['manual.example', 'stale.com', 'whois.example'])
+
+    def test_unverified_is_what_no_registry_answered_for_lately(self):
+        self.assertEqual(self.names('?status=unverified'), ['manual.example', 'never.example', 'stale.com'])
+
+    def test_attention_still_includes_every_past_date(self):
+        self.assertEqual(self.names('?status=attention'), ['confirmed.com', 'manual.example', 'stale.com', 'whois.example'])
+
+    def test_the_other_filters_are_unchanged(self):
+        self.assertEqual(self.names('?status=valid'), ['valid.com'])
+        self.assertEqual(self.names('?status=none'), ['never.example'])
+
+    def test_the_statistics_count_the_same_way(self):
+        stats = self.client.get(self.URL + 'statistics/').data
+        self.assertEqual((stats['expired'], stats['unconfirmed'], stats['unverified']), (1, 3, 3))
+
+    def test_the_rows_say_whether_the_date_is_confirmed_and_where_it_comes_from(self):
+        rows = {row['domain_name']: row for row in self.client.get(self.URL).data['results']}
+        self.assertTrue(rows['confirmed.com']['expiry_confirmed'])
+        for name in ('whois.example', 'manual.example', 'stale.com', 'never.example'):
+            self.assertFalse(rows[name]['expiry_confirmed'], name)
+        self.assertEqual((rows['confirmed.com']['expiry_source'], rows['confirmed.com']['expiry_check']), ('RDAP', 'ok'))
+        self.assertIsNotNone(rows['confirmed.com']['expiry_checked_at'])
+        self.assertIsNone(rows['never.example']['expiry_source'])
+
+    def test_typing_a_new_date_marks_it_manual_and_forgets_what_waited(self):
+        self.login()
+        self.confirmed.expiry_pending = timezone.now().date()
+        self.confirmed.expiry_pending_source = 'RDAP'
+        self.confirmed.expiry_pending_at = timezone.now()
+        self.confirmed.save()
+        response = self.client.patch(f'{self.URL}{self.confirmed.pk}/', {'expiry': '2030-01-01'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        domain = LegitimateDomain.objects.get(pk=self.confirmed.pk)
+        self.assertEqual((domain.expiry_source, domain.expiry_check, domain.expiry_checked_at), ('manual', None, None))
+        self.assertEqual((domain.expiry_pending, domain.expiry_pending_source, domain.expiry_pending_at), (None, None, None))
+        self.assertFalse(response.data['expiry_confirmed'])
+
+    def test_changing_something_else_or_the_same_date_leaves_the_check_alone(self):
+        self.login()
+        same = self.confirmed.expiry.isoformat()
+        self.client.patch(f'{self.URL}{self.confirmed.pk}/', {'contact': 'someone@example.com'}, format='json')
+        self.client.patch(f'{self.URL}{self.confirmed.pk}/', {'expiry': same}, format='json')
+        domain = LegitimateDomain.objects.get(pk=self.confirmed.pk)
+        self.assertEqual((domain.expiry_source, domain.expiry_check), ('RDAP', 'ok'))
+        self.assertTrue(domain.expiry_confirmed)
+
+    def test_a_domain_created_with_a_date_is_manual_and_without_one_is_not(self):
+        self.login()
+        with_date = self.client.post(self.URL, {'domain_name': 'typed.example', 'expiry': '2031-01-01'}, format='json')
+        without = self.client.post(self.URL, {'domain_name': 'blank.example'}, format='json')
+        self.assertEqual((with_date.status_code, without.status_code), (201, 201), (with_date.data, without.data))
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='typed.example').expiry_source, 'manual')
+        self.assertIsNone(LegitimateDomain.objects.get(domain_name='blank.example').expiry_source)
+
+    def test_the_model_rule_is_a_week(self):
+        self.assertTrue(self.confirmed.expiry_confirmed)
+        self.assertFalse(self.stale.expiry_confirmed)
+        self.assertFalse(self.whois.expiry_confirmed)
+        self.assertFalse(self.manual.expiry_confirmed)
+
+
+class LegitimateExpiryJobRecordsTheCheckTest(TestCase):
+    """The job remembers where each date comes from and what the last lookup said, without writing a timeline event."""
+
+    def _run(self, status, rdap_answer=None):
+        from common.core import update_legitimate_domains_rdap_data
+        with patch('common.core.close_old_connections'), patch('common.utils.rdap.RDAPDiscovery') as rdap:
+            rdap.return_value.status = status
+            rdap.return_value.fetch_rdap_data.return_value = rdap_answer is not None
+            rdap.return_value.get_expiration_date.return_value = rdap_answer or None
+            rdap.return_value.get_registration_date.return_value = None
+            update_legitimate_domains_rdap_data()
+
+    def _get(self, name):
+        return LegitimateDomain.objects.get(domain_name=name)
+
+    def test_a_date_from_rdap_is_confirmed(self):
+        LegitimateDomain.objects.create(domain_name='a.example')
+        self._run('ok', rdap_answer='2027-11-07')
+        domain = self._get('a.example')
+        self.assertEqual((domain.expiry_source, domain.expiry_check), ('RDAP', 'ok'))
+        self.assertIsNotNone(domain.expiry_checked_at)
+        self.assertTrue(domain.expiry_confirmed)
+
+    def test_the_registry_agreeing_with_a_typed_date_confirms_it(self):
+        from datetime import date
+        LegitimateDomain.objects.create(domain_name='a.example', expiry=date(2027, 11, 7), expiry_source='manual')
+        self._run('ok', rdap_answer='2027-11-07')
+        domain = self._get('a.example')
+        self.assertEqual((domain.expiry_source, domain.expiry_check), ('RDAP', 'ok'))
+        self.assertTrue(domain.expiry_confirmed)
+
+    def test_an_earlier_date_that_waits_is_called_contradicted_and_does_not_confirm_the_stored_one(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        LegitimateDomain.objects.create(domain_name='a.example', expiry=today + timedelta(days=100), expiry_source='manual')
+        self._run('ok', rdap_answer=(today - timedelta(days=10)).isoformat())
+        domain = self._get('a.example')
+        self.assertEqual(domain.expiry_check, 'contradicted')
+        self.assertEqual(domain.expiry_source, 'manual')  # the date is still the typed one
+        self.assertFalse(domain.expiry_confirmed)
+
+    def test_each_kind_of_answer_without_a_date_is_told_apart(self):
+        # (what the registry said, its answer, check recorded, whether a registry answered)
+        cases = [
+            ('not_found', None, 'vanished', True),  # a first "does not exist" waits for a second answer (see LostLegitimateDomainsTest)
+            ('ok', '', 'no_date', True),       # a record exists but gives no expiry date
+            ('unsupported', None, 'unsupported', False),
+            ('error', None, 'unreachable', False),
+        ]
+        for status, answer, expected, answered in cases:
+            with self.subTest(status=status):
+                LegitimateDomain.objects.all().delete()  # one domain per case: a pass handles all of them
+                LegitimateDomain.objects.create(domain_name='case.example')
+                self._run(status, rdap_answer=answer)
+                domain = self._get('case.example')
+                self.assertEqual(domain.expiry_check, expected)
+                self.assertEqual(domain.expiry_checked_at is not None, answered)
+
+    def test_a_pass_that_changes_no_date_writes_no_timeline_event(self):
+        from datetime import date
+        from timeline.models import TimelineEvent
+        LegitimateDomain.objects.create(domain_name='quiet.example', expiry=date(2027, 11, 7))
+        before = TimelineEvent.objects.count()
+        for _ in range(3):
+            self._run('ok', rdap_answer='2027-11-07')
+        self.assertEqual(TimelineEvent.objects.count(), before)
+
+
+class ExpiryAlertsTest(TestCase):
+    """The notifications about the expiry date of a legitimate domain: when they go out, once, and never by surprise."""
+
+    def setUp(self):
+        from datetime import timedelta
+        self.today = timezone.now().date()
+        self.timedelta = timedelta
+
+    def _domain(self, days, **extra):
+        values = dict(domain_name='alert.example', expiry=self.today + self.timedelta(days=days), expiry_source='RDAP',
+                      expiry_check='ok', expiry_checked_at=timezone.now())
+        values.update(extra)
+        return LegitimateDomain.objects.create(**values)
+
+    def _notify(self, domain):
+        from common.utils import expiry_alerts
+        with patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            return expiry_alerts.notify_expiring(domain), send
+
+    def test_a_confirmed_date_within_thirty_days_notifies_once(self):
+        domain = self._domain(12)
+        sent, send = self._notify(domain)
+        self.assertTrue(sent)
+        self.assertEqual(send.call_args.args[0], 'legitimate_domain_expiring')
+        self.assertEqual(send.call_args.args[1]['days_text'], 'in 12 days')
+        self.assertEqual(LegitimateDomain.objects.get(pk=domain.pk).expiry_alerted, domain.expiry)
+        sent_again, send_again = self._notify(LegitimateDomain.objects.get(pk=domain.pk))
+        self.assertFalse(sent_again)
+        send_again.assert_not_called()
+
+    def test_a_renewal_can_notify_again(self):
+        domain = self._domain(12)
+        self._notify(domain)
+        domain = LegitimateDomain.objects.get(pk=domain.pk)
+        domain.expiry = self.today + self.timedelta(days=5)  # a new date
+        sent, _ = self._notify(domain)
+        self.assertTrue(sent)
+
+    def test_nothing_goes_out_when_the_date_is_far_past_unconfirmed_or_empty(self):
+        cases = {
+            'far': self._domain(31),
+            'past': self._domain(-1, domain_name='past.example'),
+            'whois': self._domain(10, domain_name='whois.example', expiry_source='WHOIS'),
+            'manual': self._domain(10, domain_name='manual.example', expiry_source='manual', expiry_check=None),
+            'stale': self._domain(10, domain_name='stale.example',
+                                  expiry_checked_at=timezone.now() - self.timedelta(days=8)),
+            'empty': LegitimateDomain.objects.create(domain_name='empty.example'),
+        }
+        for name, domain in cases.items():
+            with self.subTest(case=name):
+                sent, send = self._notify(domain)
+                self.assertFalse(sent)
+                send.assert_not_called()
+
+    def test_the_last_day_counts_and_so_does_today(self):
+        for days in (0, 30):
+            with self.subTest(days=days):
+                sent, _ = self._notify(self._domain(days, domain_name=f'd{days}.example'))
+                self.assertTrue(sent)
+
+    def test_with_every_channel_off_nothing_is_marked_so_a_later_switch_still_alerts(self):
+        from common.utils import expiry_alerts
+        domain = self._domain(12)
+        with patch('connectors.notifications.is_enabled', return_value=False), \
+                patch('common.utils.send_slack_messages.send_slack_message') as slack:
+            self.assertFalse(expiry_alerts.notify_expiring(domain))
+        slack.assert_not_called()
+        self.assertIsNone(LegitimateDomain.objects.get(pk=domain.pk).expiry_alerted)
+
+    def test_a_channel_that_fails_does_not_stop_the_next_one(self):
+        from common.utils import expiry_alerts
+        domain = self._domain(12)
+        with patch('connectors.notifications.is_enabled', return_value=True), \
+                patch('common.utils.send_slack_messages.send_slack_message', side_effect=RuntimeError('down')), \
+                patch('common.utils.send_citadel_messages.send_citadel_message') as citadel, \
+                patch('common.utils.send_email_notifications.send_email_notifications'), \
+                patch('connectors.core.get_slack_config', return_value={'channel': 'c'}), \
+                patch('connectors.core.get_citadel_config', return_value={'room_id': 'r'}):
+            self.assertTrue(expiry_alerts.notify_expiring(domain))
+        citadel.assert_called_once()
+
+    def test_the_regression_message_says_whether_the_domain_now_shows_as_expired(self):
+        from common.utils import expiry_alerts
+        domain = self._domain(-3)
+        ctx = expiry_alerts.regression_context(domain, self.today + self.timedelta(days=200), self.today)
+        self.assertEqual(ctx['status_text'], 'Expired')
+        self.assertEqual(ctx['domain_name_sanitized'], 'alert[.]example')
+
+    def test_both_notifications_are_off_by_default(self):
+        from connectors.notifications import is_enabled
+        for type_id in ('legitimate_domain_expiring', 'legitimate_domain_expiry_regression'):
+            for channel in ('slack', 'citadel', 'email'):
+                self.assertFalse(is_enabled(type_id, channel))
+
+
+class ExpiryAlertsInTheJobTest(TestCase):
+    """What the scheduled job hands to the notifications."""
+
+    def _run(self, rdap_answer):
+        from common.core import update_legitimate_domains_rdap_data
+        with patch('common.core.close_old_connections'), patch('common.utils.rdap.RDAPDiscovery') as rdap:
+            rdap.return_value.status = 'ok'
+            rdap.return_value.fetch_rdap_data.return_value = True
+            rdap.return_value.get_expiration_date.return_value = rdap_answer
+            rdap.return_value.get_registration_date.return_value = None
+            update_legitimate_domains_rdap_data()
+
+    def test_a_domain_the_registry_says_is_close_to_expiry_notifies(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        LegitimateDomain.objects.create(domain_name='soon.example')
+        with patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            self._run((today + timedelta(days=9)).isoformat())
+        self.assertEqual([c.args[0] for c in send.call_args_list], ['legitimate_domain_expiring'])
+
+    def test_a_date_moved_earlier_twice_notifies_the_regression_only_at_the_second_answer(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        LegitimateDomain.objects.create(domain_name='back.example', expiry=today + timedelta(days=300))
+        earlier = (today + timedelta(days=100)).isoformat()
+        with patch('common.utils.expiry_alerts._send', return_value=True) as send:
+            self._run(earlier)
+            send.assert_not_called()  # the first answer only waits
+            self._run(earlier)
+        self.assertEqual([c.args[0] for c in send.call_args_list], ['legitimate_domain_expiry_regression'])
+        self.assertEqual(send.call_args.args[1]['old_expiry'], (today + timedelta(days=300)).isoformat())
+
+    def test_a_failing_notification_does_not_stop_the_job(self):
+        from datetime import timedelta
+        today = timezone.now().date()
+        LegitimateDomain.objects.create(domain_name='one.example')
+        LegitimateDomain.objects.create(domain_name='two.example')
+        with patch('common.utils.expiry_alerts._send', side_effect=RuntimeError('boom')):
+            self._run((today + timedelta(days=9)).isoformat())
+        for name in ('one.example', 'two.example'):
+            self.assertIsNotNone(LegitimateDomain.objects.get(domain_name=name).expiry)
+
+
+class RegistrationActionsTest(APITestCase):
+    """A domain Watcher follows that the registry stops knowing goes to Pending actions, and approving does the move."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='registrar_pa', password='testpass123')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _legit_pass(self, status='not_found', expiry='2027-05-05'):
+        from common.core import update_legitimate_domains_rdap_data
+        with patch('common.core.close_old_connections'), patch('common.utils.rdap.RDAPDiscovery') as rdap:
+            rdap.return_value.status = status
+            rdap.return_value.fetch_rdap_data.return_value = status == 'ok'
+            rdap.return_value.get_expiration_date.return_value = expiry
+            rdap.return_value.get_registration_date.return_value = None
+            update_legitimate_domains_rdap_data()
+
+    def _queued(self, action_type):
+        from common.models import PendingAction
+        return list(PendingAction.objects.filter(action_type=action_type, status='pending'))
+
+    def _approve(self, pa):
+        response = self.client.post(f'/api/common/pending_actions/{pa.pk}/approve/')
+        self.assertEqual(response.status_code, 200, response.data)
+
+    # --- a legitimate domain that is lost ---
+
+    def test_a_registered_legitimate_domain_the_registry_no_longer_knows_is_queued_at_the_second_answer(self):
+        domain = LegitimateDomain.objects.create(domain_name='lost.example', expiry_check='ok', expiry_source='RDAP')
+        self._legit_pass()
+        self.assertEqual(self._queued('legitimate_domain_lost'), [])  # one answer is not enough
+        self.assertEqual(LegitimateDomain.objects.get(pk=domain.pk).expiry_check, 'vanished')
+        self._legit_pass()
+        queued = self._queued('legitimate_domain_lost')
+        self.assertEqual(len(queued), 1)
+        self.assertEqual(queued[0].metadata['domain_name'], 'lost.example')
+        self.assertEqual(LegitimateDomain.objects.get(pk=domain.pk).expiry_check, 'not_registered')
+
+    def test_it_is_queued_once_whatever_the_number_of_passes(self):
+        LegitimateDomain.objects.create(domain_name='lost.example', expiry_check='ok', expiry_source='RDAP')
+        LegitimateDomain.objects.create(domain_name='never.example')
+        LegitimateDomain.objects.create(domain_name='typed.example', expiry_source='manual')
+        for _ in range(4):
+            self._legit_pass()
+        # A domain never found is a lost one too (see LostLegitimateDomainsTest): one action each, however many passes
+        self.assertEqual(sorted(pa.metadata['domain_name'] for pa in self._queued('legitimate_domain_lost')),
+                         ['lost.example', 'never.example', 'typed.example'])
+
+    def test_a_registry_that_answers_again_between_the_two_cancels_the_first(self):
+        domain = LegitimateDomain.objects.create(domain_name='flaky.example', expiry_check='ok', expiry_source='RDAP')
+        self._legit_pass()
+        self._legit_pass(status='ok')
+        self.assertEqual(LegitimateDomain.objects.get(pk=domain.pk).expiry_check, 'ok')
+        self._legit_pass()
+        self.assertEqual(self._queued('legitimate_domain_lost'), [])
+
+    def test_approving_moves_a_lost_domain_to_website_monitoring(self):
+        from site_monitoring.models import Site
+        LegitimateDomain.objects.create(domain_name='lost.example', expiry_check='ok', expiry_source='RDAP', ticket_id='T-7')
+        self._legit_pass()
+        self._legit_pass()
+        self._approve(self._queued('legitimate_domain_lost')[0])
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='lost.example').exists())
+        site = Site.objects.get(domain_name='lost.example')
+        self.assertEqual((site.legitimacy, site.ticket_id, site.domain_expiry_check), (4, 'T-7', 'not_registered'))
+
+    def test_approving_does_nothing_when_the_domain_is_registered_again(self):
+        from site_monitoring.models import Site
+        LegitimateDomain.objects.create(domain_name='back.example', expiry_check='ok', expiry_source='RDAP')
+        self._legit_pass()
+        self._legit_pass()
+        pa = self._queued('legitimate_domain_lost')[0]
+        self._legit_pass(status='ok')  # the registry knows it again before anyone decides
+        self._approve(pa)
+        self.assertTrue(LegitimateDomain.objects.filter(domain_name='back.example').exists())
+        self.assertFalse(Site.objects.filter(domain_name='back.example').exists())
+
+    def test_rejecting_keeps_the_domain(self):
+        LegitimateDomain.objects.create(domain_name='lost.example', expiry_check='ok', expiry_source='RDAP')
+        self._legit_pass()
+        self._legit_pass()
+        pa = self._queued('legitimate_domain_lost')[0]
+        response = self.client.post(f'/api/common/pending_actions/{pa.pk}/reject/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(LegitimateDomain.objects.filter(domain_name='lost.example').exists())
+
+    def test_a_lost_domain_already_in_website_monitoring_is_not_duplicated(self):
+        from site_monitoring.models import Site
+        LegitimateDomain.objects.create(domain_name='twice.example', expiry_check='ok', expiry_source='RDAP')
+        Site.objects.create(domain_name='twice.example', legitimacy=6)
+        self._legit_pass()
+        self._legit_pass()
+        self._approve(self._queued('legitimate_domain_lost')[0])
+        self.assertEqual(Site.objects.filter(domain_name='twice.example').count(), 1)
+        self.assertEqual(Site.objects.get(domain_name='twice.example').legitimacy, 6)  # left as it was
+        self.assertFalse(LegitimateDomain.objects.filter(domain_name='twice.example').exists())
+
+    # --- a monitored website whose domain is now available ---
+
+    def _site_dropped(self, name, legitimacy):
+        from site_monitoring.models import Site
+        from site_monitoring.core import perform_site_rdap_lookup
+        site = Site.objects.create(domain_name=name, registrar='Gandi', legitimacy=legitimacy, domain_expiry_check='ok')
+        for _ in range(2):
+            with patch('site_monitoring.core.RDAPDiscovery') as rdap, \
+                    patch('common.utils.expiry_alerts._send', return_value=True):
+                rdap.return_value.status = 'not_found'
+                rdap.return_value.fetch_rdap_data.return_value = False
+                perform_site_rdap_lookup(site)
+        site.refresh_from_db()
+        return site
+
+    def test_a_dropped_site_domain_is_queued_and_approving_moves_its_legitimacy(self):
+        for before, after in ((5, 6), (3, 4)):
+            with self.subTest(level=before):
+                site = self._site_dropped(f'dropped{before}.com', before)
+                queued = [pa for pa in self._queued('site_domain_available') if pa.metadata['site_id'] == site.pk]
+                self.assertEqual(len(queued), 1)
+                self.assertEqual(queued[0].metadata['new_legitimacy'], after)
+                self.assertEqual(site.legitimacy, before)  # nothing changes until someone approves
+                self._approve(queued[0])
+                site.refresh_from_db()
+                self.assertEqual(site.legitimacy, after)
+
+    def test_a_level_without_an_available_twin_is_only_acknowledged(self):
+        site = self._site_dropped('mild.com', 2)
+        pa = [pa for pa in self._queued('site_domain_available') if pa.metadata['site_id'] == site.pk][0]
+        self.assertIsNone(pa.metadata['new_legitimacy'])
+        self._approve(pa)
+        site.refresh_from_db()
+        self.assertEqual(site.legitimacy, 2)
+
+    def test_approving_does_nothing_when_the_site_domain_is_registered_again(self):
+        site = self._site_dropped('back.com', 5)
+        pa = [pa for pa in self._queued('site_domain_available') if pa.metadata['site_id'] == site.pk][0]
+        from site_monitoring.models import Site
+        Site.objects.filter(pk=site.pk).update(domain_expiry_check='ok')
+        self._approve(pa)
+        site.refresh_from_db()
+        self.assertEqual(site.legitimacy, 5)
+
+    def test_a_site_domain_that_never_was_registered_queues_nothing(self):
+        from site_monitoring.models import Site
+        from site_monitoring.core import perform_site_rdap_lookup
+        site = Site.objects.create(domain_name='never.com', legitimacy=5)
+        for _ in range(3):
+            with patch('site_monitoring.core.RDAPDiscovery') as rdap:
+                rdap.return_value.status = 'not_found'
+                rdap.return_value.fetch_rdap_data.return_value = False
+                perform_site_rdap_lookup(site)
+        self.assertEqual([pa for pa in self._queued('site_domain_available') if pa.metadata['site_id'] == site.pk], [])
+
+
+
+class LostLegitimateDomainsTest(APITestCase):
+    """A legitimate domain the registry does not know is not ours: it goes to Pending actions, whether it was registered before or not."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='lost_pa', password='testpass123')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def _pass(self, status='not_found'):
+        from common.core import update_legitimate_domains_rdap_data
+        with patch('common.core.close_old_connections'), patch('common.utils.rdap.RDAPDiscovery') as rdap:
+            rdap.return_value.status = status
+            rdap.return_value.fetch_rdap_data.return_value = status == 'ok'
+            rdap.return_value.get_expiration_date.return_value = '2027-05-05'
+            rdap.return_value.get_registration_date.return_value = None
+            update_legitimate_domains_rdap_data()
+
+    def _queued(self):
+        return sorted(pa.metadata['domain_name'] for pa in PendingAction.objects.filter(action_type='legitimate_domain_lost', status='pending'))
+
+    def test_a_name_with_a_subdomain_is_told_apart_from_a_registrable_domain(self):
+        from common.utils.rdap import has_subdomain
+        for name in ('en.wordpress.com', 'zimbra.free.fr', 'www.example.co.uk', 'a.b.example.org'):
+            self.assertTrue(has_subdomain(name), name)
+        for name in ('wordpress.com', 'example.co.uk', 'thales.fr', 'lost.example', 'localhost', ''):
+            self.assertFalse(has_subdomain(name), name)
+
+    def test_a_domain_never_found_is_queued_at_the_second_answer_like_a_registered_one(self):
+        LegitimateDomain.objects.create(domain_name='never-found.com')
+        LegitimateDomain.objects.create(domain_name='typed-by-hand.com', expiry_source='manual')
+        self._pass()
+        self.assertEqual(self._queued(), [])  # one answer is not enough
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='never-found.com').expiry_check, 'vanished')
+        self._pass()
+        self.assertEqual(self._queued(), ['never-found.com', 'typed-by-hand.com'])
+
+    def test_it_is_queued_once_even_after_it_was_rejected(self):
+        LegitimateDomain.objects.create(domain_name='kept.com')
+        for _ in range(2):
+            self._pass()
+        pa = PendingAction.objects.get(action_type='legitimate_domain_lost')
+        self.assertEqual(self.client.post(f'/api/common/pending_actions/{pa.pk}/reject/').status_code, 200)
+        for _ in range(4):
+            self._pass()
+        self.assertEqual(PendingAction.objects.filter(action_type='legitimate_domain_lost').count(), 1)
+
+    def test_a_subdomain_is_never_queued_because_the_registry_does_not_know_it(self):
+        LegitimateDomain.objects.create(domain_name='en.wordpress.com')
+        for _ in range(4):
+            self._pass()
+        self.assertEqual(self._queued(), [])
+        self.assertEqual(LegitimateDomain.objects.get().expiry_check, 'subdomain')
+
+    def test_a_registry_that_answers_again_between_the_two_cancels_the_first(self):
+        LegitimateDomain.objects.create(domain_name='flaky-never.com')
+        self._pass()
+        self._pass(status='ok')
+        self._pass()
+        self.assertEqual(self._queued(), [])
+
+    def test_the_list_and_the_figures_have_a_not_registered_view(self):
+        LegitimateDomain.objects.create(domain_name='gone.com', expiry_check='not_registered')
+        LegitimateDomain.objects.create(domain_name='here.com', expiry_check='ok', expiry_source='RDAP', expiry_checked_at=timezone.now())
+        rows = self.client.get('/api/common/legitimate_domains/?status=not_registered').data['results']
+        self.assertEqual([r['domain_name'] for r in rows], ['gone.com'])
+        self.assertEqual(self.client.get('/api/common/legitimate_domains/statistics/').data['notRegistered'], 1)
+
+    def test_a_lost_domain_arrives_in_website_monitoring_with_its_comments(self):
+        from site_monitoring.models import Site
+        from common.utils import registration_actions
+        domain = LegitimateDomain.objects.create(domain_name='carried.com', expiry_check='not_registered', comments='Bought for the 2019 campaign')
+        bare = LegitimateDomain.objects.create(domain_name='bare.com', expiry_check='not_registered')
+        long = LegitimateDomain.objects.create(domain_name='verbose.com', expiry_check='not_registered', comments='y' * 300)
+        ids = [registration_actions.queue_domain_lost(d).pk for d in (domain, bare, long)]
+        self.client.post('/api/common/pending_actions/resolve/', {'ids': ids, 'decision': 'approve'}, format='json')
+        from datetime import date
+        reason = f'[{date.today().isoformat()}] Moved from Legitimate Domains: not registered.'
+        self.assertEqual(Site.objects.get(domain_name='carried.com').comments, f'{reason}\nBought for the 2019 campaign')
+        self.assertEqual(Site.objects.get(domain_name='bare.com').comments, reason)
+        # A comment that leaves no room for the line is kept as it is: the text of a person is never cut
+        self.assertEqual(Site.objects.get(domain_name='verbose.com').comments, 'y' * 300)
+
+    # --- deciding several at once ---
+
+    def _lost(self, *names):
+        from common.utils import registration_actions
+        for name in names:
+            registration_actions.queue_domain_lost(LegitimateDomain.objects.create(domain_name=name, expiry_check='not_registered'))
+        return list(PendingAction.objects.filter(action_type='legitimate_domain_lost').order_by('id').values_list('id', flat=True))
+
+    def test_several_lost_domains_are_approved_in_one_request(self):
+        from site_monitoring.models import Site
+        ids = self._lost('one-lost.com', 'two-lost.com', 'three-lost.com')
+        response = self.client.post('/api/common/pending_actions/resolve/', {'ids': ids, 'decision': 'approve'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data, {'succeeded': 3, 'failed': []})
+        self.assertEqual(sorted(Site.objects.values_list('domain_name', flat=True)), ['one-lost.com', 'three-lost.com', 'two-lost.com'])
+        self.assertEqual(LegitimateDomain.objects.count(), 0)
+        self.assertEqual(PendingAction.objects.filter(status='approved').count(), 3)
+
+    def test_several_are_rejected_without_doing_anything(self):
+        ids = self._lost('keep-one.com', 'keep-two.com')
+        response = self.client.post('/api/common/pending_actions/resolve/', {'ids': ids, 'decision': 'reject'}, format='json')
+        self.assertEqual(response.data['succeeded'], 2)
+        self.assertEqual(LegitimateDomain.objects.count(), 2)
+        self.assertEqual(PendingAction.objects.filter(status='rejected').count(), 2)
+
+    def test_one_that_cannot_be_decided_is_reported_and_the_others_still_go(self):
+        ids = self._lost('go-one.com', 'go-two.com')
+        PendingAction.objects.filter(pk=ids[0]).update(status='rejected')
+        response = self.client.post('/api/common/pending_actions/resolve/', {'ids': ids + [999999], 'decision': 'approve'}, format='json')
+        self.assertEqual(response.data['succeeded'], 1)
+        self.assertEqual(sorted(f['id'] for f in response.data['failed']), sorted([ids[0], 999999]))
+
+    def test_the_request_is_checked(self):
+        for body in ({'ids': [1], 'decision': 'maybe'}, {'ids': [], 'decision': 'approve'}, {'ids': 'x', 'decision': 'approve'},
+                     {'ids': list(range(1, 502)), 'decision': 'approve'}):
+            self.assertEqual(self.client.post('/api/common/pending_actions/resolve/', body, format='json').status_code, 400, body)
+        self.client.credentials()
+        self.assertIn(self.client.post('/api/common/pending_actions/resolve/', {'ids': [1], 'decision': 'approve'}, format='json').status_code, (401, 403))
+
+
+class QueueLostDomainsCommandTest(TestCase):
+    """The domains found 'not registered' before they were queued: listed first, queued only on request."""
+
+    def _run(self, *args):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('queue_lost_domains', *args, stdout=out)
+        return out.getvalue()
+
+    def setUp(self):
+        LegitimateDomain.objects.create(domain_name='lost-one.com', expiry_check='not_registered', ticket_id='T-1')
+        LegitimateDomain.objects.create(domain_name='lost-two.com', expiry_check='not_registered')
+        LegitimateDomain.objects.create(domain_name='en.wordpress.com', expiry_check='not_registered')
+        LegitimateDomain.objects.create(domain_name='fine.com', expiry_check='ok')
+
+    def test_it_only_lists_without_apply(self):
+        text = self._run()
+        self.assertIn('lost-one.com\tT-1', text)
+        self.assertIn('lost-two.com', text)
+        self.assertNotIn('en.wordpress.com', text)
+        self.assertNotIn('fine.com', text)
+        self.assertEqual(PendingAction.objects.count(), 0)
+
+    def test_apply_queues_each_once_and_leaves_alone_the_ones_already_decided(self):
+        from common.utils import registration_actions
+        registration_actions.queue_domain_lost(LegitimateDomain.objects.get(domain_name='lost-two.com'))
+        PendingAction.objects.update(status='rejected')  # someone decided: it is not asked again
+        self._run('--apply')
+        self.assertEqual(sorted(PendingAction.objects.filter(status='pending').values_list('metadata__domain_name', flat=True)), ['lost-one.com'])
+        self._run('--apply')
+        self.assertEqual(PendingAction.objects.count(), 2)
+
+
+class LegitimateDomainsSslTest(TestCase):
+    """The certificates of the legitimate domains are read, side by side, and only written when they change."""
+
+    def test_the_dates_are_kept_and_a_domain_the_registry_does_not_know_is_left_out(self):
+        from common.utils import ssl_checker
+        LegitimateDomain.objects.create(domain_name='a.com')
+        LegitimateDomain.objects.create(domain_name='b.com', ssl_expiry='2026-12-01')
+        LegitimateDomain.objects.create(domain_name='c.com', ssl_expiry='2026-01-01')
+        LegitimateDomain.objects.create(domain_name='gone.com', expiry_check='not_registered')
+        answers = {'a.com': '2027-03-03', 'b.com': '2026-12-01', 'c.com': None, 'gone.com': '2030-01-01'}
+        with patch('django.db.close_old_connections'), \
+                patch.object(ssl_checker, '_certificate_expiry', side_effect=lambda name: answers[name]) as read:
+            checked, updated = ssl_checker.update_legitimate_domains_ssl_certificates(workers=3)
+        self.assertEqual((checked, updated), (2, 1))  # c.com did not answer, gone.com is not asked
+        self.assertEqual(read.call_count, 3)
+        rows = {d.domain_name: str(d.ssl_expiry) for d in LegitimateDomain.objects.all()}
+        self.assertEqual(rows, {'a.com': '2027-03-03', 'b.com': '2026-12-01', 'c.com': '2026-01-01', 'gone.com': 'None'})
+
+    def test_a_certificate_that_cannot_be_read_gives_none(self):
+        from common.utils import ssl_checker
+        with patch.object(ssl_checker, 'SSLCertificateChecker', side_effect=OSError('refused')):
+            self.assertIsNone(ssl_checker._certificate_expiry('nowhere.example'))
+
+    def test_the_job_counts_both_kinds(self):
+        from common.core import update_all_ssl_certificates
+        with patch('common.core.close_old_connections'), \
+                patch('common.utils.ssl_checker.update_all_sites_ssl_certificates', return_value=5), \
+                patch('common.utils.ssl_checker.update_legitimate_domains_ssl_certificates', return_value=(7, 3)) as domains:
+            update_all_ssl_certificates()
+        domains.assert_called_once()
+
+
+class SiteSubdomainTest(TestCase):
+    """The registry does not know a name with a subdomain: a monitored website under one is not 'available' because of it."""
+
+    def test_a_site_under_a_subdomain_is_not_queued_as_available(self):
+        from site_monitoring.models import Site
+        from site_monitoring.core import perform_site_rdap_lookup
+        site = Site.objects.create(domain_name='www.dropped-example.com', legitimacy=5, domain_expiry_check='ok', domain_expiry_source='RDAP')
+        for _ in range(3):
+            with patch('site_monitoring.core.RDAPDiscovery') as rdap:
+                rdap.return_value.status = 'not_found'
+                rdap.return_value.fetch_rdap_data.return_value = False
+                perform_site_rdap_lookup(site)
+        site.refresh_from_db()
+        self.assertEqual(site.domain_expiry_check, 'subdomain')
+        self.assertEqual(PendingAction.objects.filter(action_type='site_domain_available').count(), 0)
+
+
+class AutoCommentsTest(APITestCase):
+    """The lines Watcher writes by itself in the comments: dated, above what a person wrote, never cutting it."""
+
+    def setUp(self):
+        from datetime import date
+        self.today = date.today().isoformat()
+        self.user = User.objects.create_superuser(username='auto_comments', password='testpass123')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    # --- the helper ---
+
+    def test_a_line_is_dated_and_goes_above_what_was_written(self):
+        from common.utils import auto_comments
+        self.assertEqual(auto_comments.line('Moved.'), f'[{self.today}] Moved.')
+        self.assertEqual(auto_comments.combine('Moved.', ''), f'[{self.today}] Moved.')
+        self.assertEqual(auto_comments.combine('Moved.', 'A note.'), f'[{self.today}] Moved.\nA note.')
+
+    def test_what_does_not_fit_is_not_written_and_the_text_is_never_cut(self):
+        from common.utils import auto_comments
+        text = 'x' * 290
+        self.assertEqual(auto_comments.combine('Moved from somewhere.', text), text)
+        self.assertEqual(auto_comments.join('First', 'y' * 300), 'First')
+        self.assertEqual(auto_comments.join('First', 'Second'), 'First\nSecond')
+
+    def test_a_note_is_written_on_what_the_object_has_now_not_on_what_a_job_read_before(self):
+        from common.utils import auto_comments
+        from site_monitoring.models import Site
+        site = Site.objects.create(domain_name='fresh-note.com', comments='first')
+        Site.objects.filter(pk=site.pk).update(comments='written meanwhile by a person')  # `site` is now out of date
+        self.assertTrue(auto_comments.add_note(Site, site.pk, 'Note.'))
+        self.assertEqual(Site.objects.get(pk=site.pk).comments, f'[{self.today}] Note.\nwritten meanwhile by a person')
+        Site.objects.filter(pk=site.pk).update(comments='z' * 300)
+        self.assertFalse(auto_comments.add_note(Site, site.pk, 'No room.'))
+        self.assertEqual(Site.objects.get(pk=site.pk).comments, 'z' * 300)
+
+    # --- the paths ---
+
+    def test_a_udrp_win_carries_the_comments_of_the_website(self):
+        from site_monitoring.models import Site
+        from site_monitoring.udrp import transfer_to_legitimate_domains
+        site = Site.objects.create(domain_name='won-udrp.com', comments='Phishing kit on the home page')
+        self.assertTrue(transfer_to_legitimate_domains(site))
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='won-udrp.com').comments,
+                         f'[{self.today}] UDRP won (WIPO): moved from Website Monitoring.\nPhishing kit on the home page')
+
+    def test_a_udrp_win_writes_its_line_on_a_domain_that_was_already_there(self):
+        from site_monitoring.models import Site
+        from site_monitoring.udrp import transfer_to_legitimate_domains
+        LegitimateDomain.objects.create(domain_name='already-here.com', comments='Ours since 2012')
+        self.assertFalse(transfer_to_legitimate_domains(Site.objects.create(domain_name='already-here.com')))
+        self.assertEqual(LegitimateDomain.objects.get().comments, f'[{self.today}] UDRP won (WIPO): moved from Website Monitoring.\nOurs since 2012')
+
+    def test_a_bulk_export_says_where_it_comes_from_and_keeps_the_comments_of_the_website(self):
+        from site_monitoring.models import Site
+        site = Site.objects.create(domain_name='exported.com', legitimacy=5, comments='Seen in March')
+        response = self.client.post('/api/site_monitoring/site/bulk_export_legitimate/', {'ids': [site.pk]}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='exported.com').comments,
+                         f'[{self.today}] Exported from Website Monitoring - Original legitimacy: Malicious (registered)\nSeen in March')
+
+    def test_an_export_with_its_own_comment_keeps_it_and_the_comments_of_the_website_only_when_they_fit(self):
+        from site_monitoring.models import Site
+        short = Site.objects.create(domain_name='short-export.com', comments='Seen in March')
+        long = Site.objects.create(domain_name='long-export.com', comments='w' * 300)
+        self.client.post('/api/site_monitoring/site/bulk_export_legitimate/', {'ids': [short.pk, long.pk], 'comment': 'Typed by hand'}, format='json')
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='short-export.com').comments, 'Typed by hand\nSeen in March')
+        self.assertEqual(LegitimateDomain.objects.get(domain_name='long-export.com').comments, 'Typed by hand')
+
+    def test_a_site_marked_available_says_so(self):
+        from site_monitoring.models import Site
+        from common.utils import registration_actions
+        site = Site.objects.create(domain_name='gone-available.com', legitimacy=5, domain_expiry_check='not_registered', comments='Kept an eye on it')
+        pa = registration_actions.queue_site_available(site)
+        self.client.post(f'/api/common/pending_actions/{pa.pk}/approve/')
+        site.refresh_from_db()
+        self.assertEqual(site.legitimacy, 6)
+        self.assertEqual(site.comments, f'[{self.today}] Legitimacy set to "Malicious (available/disabled)": the domain is not registered.\nKept an eye on it')
+
+    def test_the_lookup_that_raises_a_legitimacy_says_so_without_erasing_a_comment_written_meanwhile(self):
+        from site_monitoring.models import Site
+        from site_monitoring.core import perform_site_rdap_lookup
+        site = Site.objects.create(domain_name='registered-now.com', legitimacy=6)
+        Site.objects.filter(pk=site.pk).update(comments='Written while the job ran')  # `site` is the copy read before
+        with patch('site_monitoring.core.RDAPDiscovery') as rdap:
+            rdap.return_value.status = 'ok'
+            rdap.return_value.fetch_rdap_data.return_value = True
+            rdap.return_value.get_registrar.return_value = 'Gandi'
+            rdap.return_value.get_expiration_date.return_value = '2028-01-01'
+            rdap.return_value.get_registration_date.return_value = None
+            perform_site_rdap_lookup(site)
+        site.refresh_from_db()
+        self.assertEqual(site.legitimacy, 5)
+        self.assertEqual(site.comments, f'[{self.today}] Legitimacy raised to "Malicious (registered)": the domain is registered.\nWritten while the job ran')
+
+
+# The scheduled jobs: their passages are kept, and the Scheduled jobs page and the headers of the modules read them
+import logging as _logging
+from unittest import mock as _mock
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+
+from common.models import JobRun
+from common.utils import job_log
+
+
+def _demo_job():
+    job_log.job_count('items', 3)
+    job_log.job_count('nothing', 0)
+
+
+_logged_demo = job_log.logged_job('Demo job', _logging.getLogger('watcher.tests'))(_demo_job)
+
+
+class JobRunTest(TestCase):
+    def test_a_logged_job_keeps_its_pass(self):
+        _logged_demo()
+        run = JobRun.objects.get()
+        self.assertEqual(run.job, 'common._demo_job')
+        self.assertEqual(run.label, 'Demo job')
+        self.assertEqual(run.counts, {'items': 3})  # what is zero is not kept
+        self.assertFalse(run.failed)
+        self.assertEqual(run.error, '')
+        self.assertGreaterEqual(run.duration, 0)
+
+    def test_a_failure_is_kept_with_its_cause_and_still_raised(self):
+        @job_log.logged_job('Failing job', _logging.getLogger('watcher.tests'))
+        def broken():
+            raise ValueError('boom')
+        with self.assertLogs('watcher.tests', level='ERROR'):
+            with self.assertRaises(ValueError):
+                broken()
+        run = JobRun.objects.get()
+        self.assertTrue(run.failed)
+        self.assertEqual(run.error, 'ValueError: boom')
+
+    def test_only_the_last_passes_of_a_job_are_kept(self):
+        with _mock.patch.object(JobRun, 'KEEP', 3):
+            for _ in range(5):
+                _logged_demo()
+        self.assertEqual(JobRun.objects.filter(job='common._demo_job').count(), 3)
+
+    def test_the_jobs_are_not_mixed_up(self):
+        _logged_demo()
+        JobRun.objects.create(job='cyber_watch.other', label='Other', started_at=timezone.now(), duration=1)
+        self.assertEqual(JobRun.objects.filter(job='common._demo_job').count(), 1)
+        self.assertEqual(JobRun.objects.count(), 2)
+
+    def test_a_job_is_running_from_its_start_to_its_end(self):
+        seen = {}
+
+        @job_log.logged_job('Watching job', _logging.getLogger('watcher.tests'))
+        def watching():
+            seen['during'] = dict(job_log.running_jobs())
+        watching()
+        self.assertIn('common.watching', seen['during'])
+        self.assertNotIn('common.watching', job_log.running_jobs())
+
+    def test_a_pass_that_cannot_be_kept_never_breaks_the_job(self):
+        with _mock.patch.object(JobRun.objects, 'create', side_effect=RuntimeError('database gone')):
+            _logged_demo()  # no exception
+        self.assertEqual(JobRun.objects.count(), 0)
+
+    def test_schedules_are_told_in_words(self):
+        said = job_log.describe_schedule
+        self.assertEqual(said(IntervalTrigger(minutes=30)), 'every 30 minutes')
+        self.assertEqual(said(IntervalTrigger(hours=1)), 'every hour')
+        self.assertEqual(said(CronTrigger(day_of_week='mon-sun', minute='*/15')), 'every 15 minutes')
+        self.assertEqual(said(CronTrigger(day_of_week='mon-sun', hour='*/6')), 'every 6 hours')
+        self.assertEqual(said(CronTrigger(day_of_week='mon-sun', hour='*/1')), 'every hour')
+        self.assertEqual(said(CronTrigger(day_of_week='mon-sun', hour=8, minute=0)), 'every day at 08:00')
+        self.assertEqual(said(CronTrigger(day_of_week='mon', hour=6, minute=0)), 'every Monday at 06:00')
+
+
+class ScheduledJobsApiTest(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('boss', 'boss@example.com', 'pw')
+        self.user = User.objects.create_user('analyst', 'a@example.com', 'pw')
+        self.scheduler = BackgroundScheduler()  # never started: its jobs are pending, which is enough to list them
+        self.scheduler.add_job(_logged_demo, 'interval', minutes=30, id='demo_job')
+        job_log.register_scheduler(self.scheduler)
+        self.addCleanup(lambda: job_log._schedulers.remove(self.scheduler))
+
+    def test_only_a_superuser_sees_the_jobs(self):
+        self.assertIn(self.client.get('/api/common/scheduled_jobs/').status_code, (401, 403))
+        self.client.force_authenticate(self.user)
+        self.assertEqual(self.client.get('/api/common/scheduled_jobs/').status_code, 403)
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.get('/api/common/scheduled_jobs/').status_code, 200)
+
+    def test_a_job_that_never_reported_is_listed_without_a_last_pass(self):
+        self.client.force_authenticate(self.admin)
+        job = next(j for j in self.client.get('/api/common/scheduled_jobs/').data['jobs'] if j['key'] == 'common._demo_job')
+        self.assertEqual((job['module'], job['schedule'], job['reported'], job['last'], job['running']),
+                         ('Legitimate Domains', 'every 30 minutes', False, None, False))
+        # It keeps summaries, so it is known by its name even before its first pass
+        self.assertEqual((job['tracked'], job['label']), (True, 'Demo job'))
+
+    def test_the_last_passes_of_a_job_are_told(self):
+        _logged_demo()
+        _logged_demo()
+        self.client.force_authenticate(self.admin)
+        job = next(j for j in self.client.get('/api/common/scheduled_jobs/').data['jobs'] if j['key'] == 'common._demo_job')
+        self.assertTrue(job['reported'])
+        self.assertEqual(job['label'], 'Demo job')
+        self.assertEqual(job['last']['counts'], {'items': 3})
+        self.assertFalse(job['last']['failed'])
+        self.assertEqual(len(job['recent']), 2)
+        self.assertIsNotNone(job['average_duration'])
+
+
+class OverviewApiTest(APITestCase):
+    """One answer for the whole Overview, under the permissions of each module."""
+
+    URL = '/api/overview/'
+
+    def setUp(self):
+        now = timezone.now()
+        for n in range(7):
+            CVEAlert.objects.create(cve_id=f'CVE-2026-80{n:02d}', severity='CRITICAL', cvss_score=9.5 - n / 10, published=now)
+        group = RansomwareGroup.objects.create(name='overviewgroup')
+        RansomwareVictim.objects.create(group=group, victim_name='Corp O', country='FR', sector='Energy', attacked_at=now)
+        self.analyst = User.objects.create_user('overview_analyst', 'o@example.com', 'pw')
+
+    def test_a_visitor_gets_the_public_parts_only(self):
+        data = self.client.get(self.URL).data
+        self.assertEqual(set(data), {'threats', 'cyber', 'domains', 'graph', 'brief', 'topCves', 'pending', 'leaks', 'dns', 'sites', 'latest'})
+        self.assertIsNotNone(data['threats'])
+        self.assertIsNotNone(data['cyber'])
+        self.assertIsNotNone(data['domains'])
+        self.assertEqual(len(data['topCves']), 5)
+        for private in ('leaks', 'dns', 'sites', 'pending'):
+            self.assertIsNone(data[private], private)
+        self.assertEqual(data['latest'], {'cves': [], 'victims': [], 'leaks': [], 'threats': [], 'changes': []})
+        self.assertEqual({row['hits_count'] for row in data['topCves']}, {0})
+
+    def test_a_signed_in_person_gets_everything(self):
+        self.client.force_authenticate(self.analyst)
+        data = self.client.get(self.URL).data
+        # No right on the modules themselves: the figures need an account only
+        self.assertIsNotNone(data['leaks'])
+        self.assertIsNotNone(data['dns'])
+        self.assertIsNotNone(data['sites'])
+        self.assertEqual(data['pending'], {'count': 0})
+        self.assertEqual(len(data['latest']['cves']), 7)
+        self.assertEqual(len(data['latest']['victims']), 1)
+
+    def test_the_top_cves_are_the_best_scored_first(self):
+        scores = [row['cvss_score'] for row in self.client.get(self.URL).data['topCves']]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_a_module_that_fails_leaves_the_rest(self):
+        with patch('threats_watcher.api.SourceViewSet.get_statistics', side_effect=RuntimeError('boom')):
+            response = self.client.get(self.URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data['threats'])
+        self.assertIsNotNone(response.data['cyber'])
+
+    def test_it_changes_nothing(self):
+        self.assertEqual(self.client.post(self.URL, {}).status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

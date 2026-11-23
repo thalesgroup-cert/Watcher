@@ -65,11 +65,88 @@ describe('Global search', () => {
     });
   });
 
+  describe('the effects of a theme with a backdrop', () => {
+    it('are offered as commands, except the level already set, and are kept on the account', () => {
+      cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'clay', preferences: { effects: 'full' }, avatar_color: null } });
+      cy.intercept('PATCH', '/api/auth/profile', (req) => req.reply({ statusCode: 200, body: { theme: 'clay', avatar_color: null, ...req.body } })).as('effects');
+      visit();
+      cy.get(ENTRY, { timeout: 20000 }).click();
+      cy.get(BOX).type('effects');
+      cy.contains('[data-testid="command"]', 'Background effects: Full').should('not.exist');
+      cy.contains('[data-testid="command"]', 'Background effects: Off').should('be.visible');
+      cy.contains('[data-testid="command"]', 'Background effects: Calm').click();
+      cy.wait('@effects').its('request.body').should('deep.equal', { preferences: { effects: 'calm' } });
+      cy.get('[data-testid="ambient-backdrop"]').should('have.attr', 'data-effects', 'calm');
+    });
+  });
+
   describe('the window', () => {
     beforeEach(() => {
       visit();
       cy.get(ENTRY, { timeout: 20000 }).click();
       cy.get(DIALOG).should('be.visible');
+    });
+
+    describe('commands', () => {
+      const COMMAND = '[data-testid="command"]';
+
+      it('offers the pages and the actions before anything is typed', () => {
+        cy.get('[data-testid="command-group-Go to"]').should('contain', 'Threats Watcher').and('contain', 'Overview');
+        cy.get('[data-testid="command-group-Actions"]').should('contain', 'Documentation').and('contain', 'Sign out');
+        cy.get('[data-testid="command-group-Themes"]').should('not.exist');
+      });
+
+      it('finds one tab of a page and opens it', () => {
+        cy.get(BOX).type('insights');
+        cy.contains(COMMAND, 'Data Leak · Insights').should('be.visible');
+        cy.contains(COMMAND, 'Website Monitoring · Insights').click();
+        cy.location('hash').should('eq', '#/website_monitoring?tab=insights');
+        cy.get(DIALOG).should('not.exist');
+      });
+
+      it('finds a command by its keywords, without accents or case', () => {
+        cy.get(BOX).type('TYPOSQUATTING');
+        cy.contains(COMMAND, 'DNS Threats').should('be.visible');
+      });
+
+      it('runs the first command with Enter', () => {
+        cy.get(BOX).type('activity{enter}');
+        cy.location('hash').should('eq', '#/activity');
+      });
+
+      it('is driven by the keyboard across the commands and the results', () => {
+        cy.get(BOX).type('acm');
+        cy.get(BOX).type('{backspace}');
+        cy.get(BOX).type('{downArrow}');
+        cy.get('[role="option"][aria-selected="true"]').should('exist');
+      });
+
+      it('shows to a person only the pages they may open', () => {
+        cy.get(BOX).type('connectors');
+        cy.wait('@search');
+        cy.get(COMMAND).should('not.exist');
+      });
+
+      it('changes the theme and keeps it on the account', () => {
+        cy.intercept('PATCH', '/api/auth/profile', (req) => req.reply({ statusCode: 200, body: { theme: '', preferences: {}, avatar_color: null, ...req.body } })).as('theme');
+        cy.get(BOX).type('midnight');
+        cy.contains(COMMAND, 'Theme: Midnight').click();
+        cy.wait('@theme').its('request.body').should('deep.equal', { theme: 'midnight' });
+        cy.get('html').should('have.attr', 'data-theme', 'midnight');
+      });
+
+      it('offers no effects with a theme that has no backdrop', () => {
+        cy.get(BOX).type('effects');
+        cy.get(COMMAND).should('not.exist');
+      });
+
+      it('signs out', () => {
+        cy.intercept('POST', '/api/auth/logout/', { statusCode: 204, body: '' }).as('logout');
+        cy.get(BOX).type('sign out');
+        cy.contains(COMMAND, 'Sign out').click();
+        cy.wait('@logout');
+        cy.window().its('localStorage').invoke('getItem', 'token').should('be.null');
+      });
     });
 
     it('waits for two characters', () => {

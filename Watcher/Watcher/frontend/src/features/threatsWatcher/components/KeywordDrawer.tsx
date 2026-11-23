@@ -166,7 +166,7 @@ export function KeywordDrawer({ open, id, initial, onClose, actions, pending = f
                     <>
                         <Box sx={{ px: 2.5, py: 2 }}>
                             <Typography variant="body2" color="text.secondary">
-                                Watcher alerts the subscribers every time it reads this keyword in an RSS article. Level: {levelMeta(keyword.level).description.toLowerCase()}.{' '}
+                                Watcher alerts the subscribers every time it reads this keyword in an RSS article. {levelMeta(keyword.level).label}: {levelMeta(keyword.level).description}.{' '}
                                 {keyword.last_seen ? <>Last seen <When iso={keyword.last_seen} inline />.</> : 'Not seen yet.'} Added {formatDateTime(keyword.created_at)}.
                             </Typography>
                         </Box>

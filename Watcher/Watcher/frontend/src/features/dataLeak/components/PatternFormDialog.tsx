@@ -16,7 +16,8 @@ import {
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { fonts } from '../../../styles/theme';
-import { countLines, useBulk } from '../../bulk/useBulk';
+import { ListFileImport } from '../../bulk/ListFileImport';
+import { batchNote, countLines, useBulk } from '../../bulk/useBulk';
 import { compilePattern, splitMatches } from '../format';
 import { PATTERN_BULK, useSavePattern } from '../hooks';
 import { PATTERN_TEMPLATES } from '../templates';
@@ -105,6 +106,7 @@ function PatternForm({ pattern, onClose }: { pattern: Pattern | null; onClose: (
                             autoFocus
                             multiline={several}
                             minRows={several ? 5 : undefined}
+                            maxRows={several ? 8 : undefined}
                             value={several ? name : name.split(/\r?\n/)[0]}
                             onChange={(e) => setName(e.target.value)}
                             placeholder={isRegex ? '[a-z0-9._%+-]+@company\\.com' : 'company-name'}
@@ -113,17 +115,28 @@ function PatternForm({ pattern, onClose }: { pattern: Pattern | null; onClose: (
                                 regexError
                                     ? `Invalid regular expression: ${regexError}`
                                     : several
-                                      ? `${count} pattern${count === 1 ? '' : 's'} detected.`
+                                      ? `${count} pattern${count === 1 ? '' : 's'} detected.${batchNote(count)}`
                                       : undefined
                             }
                             slotProps={{ htmlInput: { maxLength: several ? undefined : 100, spellCheck: false, style: { fontFamily: fonts.mono } } }}
                             fullWidth
                         />
                         {!editing && (
-                            <FormControlLabel
-                                control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
-                                label={<Typography variant="body2">Add several, one per line</Typography>}
-                            />
+                            <>
+                                <FormControlLabel
+                                    control={<Switch size="small" checked={several} onChange={(e) => setSeveral(e.target.checked)} />}
+                                    label={<Typography variant="body2">Add several, one per line</Typography>}
+                                />
+                                <ListFileImport
+                                    kind="patterns"
+                                    max={100}
+                                    weighs={{ above: 20, text: 'Every pattern is searched every 5 minutes: a long list makes each pass longer, and a pass that takes more than 5 minutes skips the next ones.' }}
+                                    onValues={(values) => {
+                                        setSeveral(true);
+                                        setName(values.join('\n'));
+                                    }}
+                                />
+                            </>
                         )}
                         <FormControlLabel
                             control={<Switch size="small" checked={isRegex} onChange={(e) => setIsRegex(e.target.checked)} />}

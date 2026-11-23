@@ -4,6 +4,8 @@ export interface Site {
     id: number;
     domain_name: string;
     ticket_id: string | null;
+    /** Free text: why it is watched, what was done, where it comes from (300 characters). */
+    comments?: string | null;
     rtir: number | null;
     ip: string | null;
     ip_second: string | null;
@@ -29,6 +31,12 @@ export interface Site {
     expiry: string | null;
     /** `YYYY-MM-DD` */
     domain_expiry: string | null;
+    /** Where the date comes from (RDAP or typed by hand), when a registry last answered, and what the last lookup said. */
+    domain_expiry_source?: 'RDAP' | 'manual' | null;
+    domain_expiry_checked_at?: string | null;
+    domain_expiry_check?: string | null;
+    /** A registry gave the date lately; absent from an older server. */
+    domain_expiry_confirmed?: boolean;
     domain_created_at: string | null;
     ssl_expiry: string | null;
     udrp_status: string | null;
@@ -45,6 +53,7 @@ export type SiteInput = Partial<
         Site,
         | 'domain_name'
         | 'ticket_id'
+        | 'comments'
         | 'registrar'
         | 'legitimacy'
         | 'expiry'
@@ -92,7 +101,7 @@ export interface SiteChange {
 
 export type ChangeKind = 'hosting' | 'mail' | 'content' | 'registration' | 'certificate' | 'server';
 export type Web = '' | 'online' | 'error' | 'offline' | 'pending';
-export type ExpiryFilter = '' | 'expired' | 'expiring_soon' | 'valid' | 'none';
+export type ExpiryFilter = '' | 'expired' | 'unconfirmed' | 'unverified' | 'expiring_soon' | 'valid' | 'none';
 export type ActionFilter = '' | 'takedown' | 'legal' | 'blocking' | 'none';
 export type Period = '' | 'today' | '7d' | '30d';
 
@@ -137,6 +146,9 @@ export interface SiteStatistics {
     newThisWeek: number;
     offline: number;
     expiringSoon: number;
+    /** Past dates no registry confirmed lately, and dates no registry checked lately (absent from an older server). */
+    unconfirmed?: number;
+    unverified?: number;
     byLegitimacy: Record<string, number>;
     openAlerts: number;
     archivedAlerts: number;

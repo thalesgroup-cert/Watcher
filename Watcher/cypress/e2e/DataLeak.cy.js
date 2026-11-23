@@ -56,6 +56,8 @@ describe('Data Leak', () => {
   });
 
   describe('alerts', () => {
+
+
     it('opens on the alerts to review', () => {
       cy.wait('@alerts').its('request.url').should('include', 'status=active');
       cy.contains('button', 'To review').should('have.attr', 'aria-pressed', 'true').and('contain', '2');
@@ -141,6 +143,45 @@ describe('Data Leak', () => {
       cy.get('[data-testid="pattern-row"]').first().click();
       cy.get('.MuiDrawer-paper').contains('button', 'Show its alerts').click();
       cy.location('hash').should('include', 'keyword=1').and('include', 'status=all').and('not.include', 'tab=');
+    });
+
+    describe('importing a file of patterns', () => {
+    // The file chosen through the zone's input, or dropped on the zone: the same in every form
+    const choose = (contents, fileName) =>
+      cy.get('[data-testid="list-file"]').selectFile({ contents: Cypress.Buffer.from(contents), fileName }, { force: true });
+    const many = (n, make) => Array.from({ length: n }, (_, i) => make(i + 1));
+
+      const open = () => {
+        cy.contains('button', 'Add patterns').click();
+        cy.get('[data-testid="file-dropzone"]').should('contain', 'one pattern per line - up to 100 patterns');
+      };
+
+      it('reads one pattern per line: the commas and semicolons of a regular expression stay in it', () => {
+        open();
+        choose('pattern\n[a-z0-9._%+-]+@company\\.com\nid{2,5};x\nacme\n', 'patterns.txt');
+        cy.get('textarea[name="name"]').should('have.value', '[a-z0-9._%+-]+@company\\.com\nid{2,5};x\nacme');
+        cy.get('[data-testid="import-summary"]').should('contain', 'Read 3 patterns from patterns.txt (one per line, "pattern" header ignored)');
+      });
+
+      it('warns that a long list makes each pass longer, and refuses more than 100', () => {
+        open();
+        choose(many(30, (n) => 'secret' + n).join('\n'), 'thirty.txt');
+        cy.get('[data-testid="import-warning"]').should('contain', 'every 5 minutes').and('contain', 'a long list makes each pass longer');
+        choose(many(101, (n) => 'secret' + n).join('\n'), 'huge.txt');
+        cy.get('[data-testid="import-error"]').should('contain', 'huge.txt has 101 patterns').and('contain', 'the most one import takes is 100');
+      });
+
+      it('sends the regular-expression choice with every pattern of the file', () => {
+        cy.intercept('POST', `${PATTERNS}bulk_create/`, (req) => {
+          const values = req.body.values.split('\n');
+          req.reply({ statusCode: 200, body: { succeeded: values.length, skipped: 0, errors: 0, ok_status: 'created', results: values.map((value, i) => ({ value, status: 'created', reason: '', id: i + 1 })) } });
+        }).as('bulkCreate');
+        open();
+        cy.contains('label', 'Regular expression').click();
+        choose('a{1,2}\nb+\n', 'regex.txt');
+        cy.contains('button', 'Add 2').click();
+        cy.wait('@bulkCreate').its('request.body').should('deep.include', { values: 'a{1,2}\nb+', shared: { is_regex: true } });
+      });
     });
 
     it('checks a regular expression, offers templates and highlights a sample', () => {
