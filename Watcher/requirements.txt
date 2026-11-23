@@ -26,6 +26,7 @@ python-tlsh==4.5.0
 # Networking and DNS Utilities
 dnspython==2.8.0
 dnstwist==20250130
+six==1.17.0
 # certstream==1.12  # Replaced by internal certstream-server-go + websocket-client
 websocket-client==1.9.0
 tldextract==5.3.1
@@ -42,10 +43,16 @@ cryptography==50.0.0
 
 # NER-BERT model
 transformers==5.12.1
-tokenizers>=0.22.0
+tokenizers==0.22.2
 
 # OIDC / SSO
 mozilla-django-oidc==5.0.2
 
 # Numerical computation
 numpy==1.26.4
+
+#LLM Gateway
+requests==2.34.2
+litellm==1.95.0
+openai==2.53.0
+tiktoken==0.13.0

@@ -125,6 +125,13 @@ BULK_ACTION_MAX_ITEMS = int(os.environ.get('BULK_ACTION_MAX_ITEMS', 200))
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
 
+LITELLM_VERIFY_SSL = os.environ.get('LITELLM_VERIFY_SSL', 'False')
+
+CA_PATH = os.environ.get('CA_PATH', '')
+if CA_PATH and os.path.exists(CA_PATH):
+    os.environ['REQUESTS_CA_BUNDLE'] = CA_PATH
+    os.environ['SSL_CERT_FILE'] = CA_PATH
+
 # CertStream URL
 CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io')
 
@@ -172,11 +179,42 @@ CITADEL_ROOM_ID = os.environ.get('CITADEL_ROOM_ID', '')
 CITADEL_URL = os.environ.get('CITADEL_URL', '')
 
 # Weekly Summary Configuration
-WEEKLY_SUMMARY_DAY = os.environ.get('WEEKLY_SUMMARY_DAY', 'Monday')
+WEEKLY_SUMMARY_DAY = os.environ.get('WEEKLY_SUMMARY_DAY', 'Thursday')
 WEEKLY_SUMMARY_HOUR = os.environ.get('WEEKLY_SUMMARY_HOUR', '09:30')
 
 # Breaking News Configuration
 BREAKING_NEWS_THRESHOLD = int(os.environ.get('BREAKING_NEWS_THRESHOLD', 15))
+
+#Configuration LLM
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_MODEL = os.environ.get('OPENAI_MODEL', '')
+OPENAI_BASE_URL = os.environ.get('OPENAI_BASE_URL', '')
+
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', '')
+ANTHROPIC_BASE_URL = os.environ.get('ANTHROPIC_BASE_URL', '')
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', '')
+GEMINI_BASE_URL = os.environ.get('GEMINI_BASE_URL', '')
+
+OLLAMA_API_URL = os.environ.get('OLLAMA_API_URL', '')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', '')
+OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
+
+HF_LOCAL_MODEL = os.environ.get('HF_LOCAL_MODEL', 'Qwen/Qwen2.5-0.5B-Instruct')
+
+#Configuration LLM enterprise
+GENERIC_LLM_URL = os.environ.get('GENERIC_LLM_URL', '')
+GENERIC_LLM_KEY = os.environ.get('GENERIC_LLM_KEY', '')
+GENERIC_LLM_MODEL = os.environ.get('GENERIC_LLM_MODEL', '')
+
+DEFAULT_LLM_PROVIDER = os.environ.get('DEFAULT_LLM_PROVIDER', '')
+FALLBACK_LLM_PROVIDER = os.environ.get('FALLBACK_LLM_PROVIDER', 'huggingface_local')
+
+# Context for IA to Threats Watcher
+THREATS_WATCHER_CONTEXT = os.environ.get('THREATS_WATCHER_CONTEXT', '')
+ORGANIZATION_NAME = os.environ.get('ORGANIZATION_NAME', '')
 
 # Application definition
 INSTALLED_APPS = [
@@ -202,6 +240,7 @@ INSTALLED_APPS = [
     'connectors',
     'drf_spectacular',
     'mozilla_django_oidc',
+    'llm_gateway',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

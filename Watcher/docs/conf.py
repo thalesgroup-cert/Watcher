@@ -18,6 +18,7 @@ from django.conf import settings
 from sphinxawesome_theme.postprocess import Icons
 
 sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('../Watcher'))
 settings.configure()
 django.setup()
 
@@ -27,7 +28,7 @@ project = 'Watcher'
 author = 'Ygal Nezri, Félix Herrenschmidt & Damien Marechal'
 
 # The full version, including alpha/beta/rc tags
-release = '3.7.0'
+release = '3.8.0'
 
 copyright = '2026 - Thales CERT'
 

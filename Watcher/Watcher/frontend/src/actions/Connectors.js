@@ -69,3 +69,10 @@ export const testConnector = (id) => (dispatch, getState) => {
             return { success: false, message: 'Request failed' };
         });
 };
+
+export const setDefaultLlm = (connectorId, isDefault) => (dispatch, getState) =>
+    axios.post(
+        `/api/connectors/${connectorId}/set-default-llm/`,
+        { is_default_llm: isDefault },
+        tokenConfig(getState)
+    ).then(res => res.data);

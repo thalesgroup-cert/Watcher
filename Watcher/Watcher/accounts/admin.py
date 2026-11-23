@@ -310,7 +310,6 @@ admin.site.unregister(AuthToken)
 
 
 THEME_CHOICES = [
-    ('bootstrap', 'Watcher Default'),
     ('flatly', 'Flatly'),
     ('cosmo', 'Cosmo'),
     ('lux', 'Lux'),

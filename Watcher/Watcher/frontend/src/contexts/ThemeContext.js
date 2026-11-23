@@ -6,7 +6,6 @@ const ThemeContext = createContext();
 export { ThemeContext };
 
 export const THEMES = {
-    bootstrap: { name: 'Watcher Default', description: 'Classic blue theme', dark: false, hidden: true },
     flatly: { name: 'Flatly', description: 'Flat and modern', dark: false },
     cosmo: { name: 'Cosmo', description: 'An ode to Metro', dark: false },
     lux: { name: 'Lux', description: 'A touch of class', dark: false },
@@ -31,7 +30,7 @@ function applyTheme(themeName) {
 }
 
 export const ThemeProvider = ({ children }) => {
-    const [currentTheme, setCurrentTheme] = useState('bootstrap');
+    const [currentTheme, setCurrentTheme] = useState('darkly');
 
     useEffect(() => {
         const token = localStorage.getItem('token');

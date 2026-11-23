@@ -24,12 +24,14 @@ def health_check(plain):
         return {'success': False, 'message': 'Citadel URL or token not configured'}
     try:
         resp = requests.get(
-            f'{url}/api/v2/rooms',
+            f'{url}/_matrix/client/r0/account/whoami',
             headers={'Authorization': f'Bearer {token}'},
             timeout=5,
         )
         if resp.status_code in (200, 204):
             return {'success': True, 'message': f'Connected to Citadel at {url}'}
+        if resp.status_code == 401:
+            return {'success': False, 'message': 'HTTP 401: invalid or expired API token'}
         return {'success': False, 'message': f'HTTP {resp.status_code}'}
     except Exception as exc:
         return {'success': False, 'message': str(exc)}

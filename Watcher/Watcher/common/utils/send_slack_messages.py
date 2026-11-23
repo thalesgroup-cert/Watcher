@@ -7,13 +7,15 @@ from connectors.core import get_slack_config
 # Configure logger
 logger = logging.getLogger('watcher.common')
 
-def send_slack_message(content, channel, app_name):
+def send_slack_message(content, channel, app_name, attachments=None):
     """
     Sends a message to the specified Slack channel.
 
     Args:
         content (str): The content of the message to send.
         channel (str): The Slack channel where the message will be sent.
+        app_name (str): The app name.
+        attachments (list, optional): JSON array for rich formatting (Block Kit).
     """
 
     slack = get_slack_config()
@@ -33,6 +35,9 @@ def send_slack_message(content, channel, app_name):
         'channel': channel,
         'text': f"[{timestamp}] {content}",
     }
+
+    if attachments:
+        payload['attachments'] = attachments
 
     response = requests.post(url, headers=headers, json=payload)
 

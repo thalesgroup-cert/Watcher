@@ -99,3 +99,26 @@ class ConnectorViewSet(viewsets.ViewSet):
         except Exception as exc:
             logger.error("Error resetting field '%s' on connector '%s': %s", field_name, pk, exc)
             return Response({'error': f"Failed to reset field '{field_name}' on connector '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'], url_path='set-default-llm')
+    def set_default_llm(self, request, pk=None):
+        """
+        POST /api/connectors/{id}/set-default-llm/ 
+        Set or unset this connector as the default LLM.
+        """
+        from .models import ConnectorOverride
+        
+        is_default = request.data.get('is_default_llm', True)
+        
+        try:
+            override, _ = ConnectorOverride.objects.get_or_create(connector_id=pk)
+            
+            override.is_default_llm = bool(is_default)
+            override.save()
+            
+            data = get_connector_by_id(pk)
+            return Response(data)
+            
+        except Exception as exc:
+            logger.error("Error setting default LLM for connector '%s': %s", pk, exc)
+            return Response({'error': f"Failed to set default LLM for '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

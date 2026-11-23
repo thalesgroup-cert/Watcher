@@ -39,7 +39,11 @@ def send_citadel_message(content, room_id, app_name):
         'formatted_body': f"<b>[{timestamp}]</b> {formatted_body}" if formatted_body else None,
     }
 
-    response = requests.post(url, headers=headers, json=payload)
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+    except requests.exceptions.RequestException as exc:
+        logger.error(f"Failed to send message to Citadel for {app_name}: {type(exc).__name__}: {exc}")
+        return
 
     if response.status_code == 200:
         logger.info(f"Message sent to Citadel successfully for {app_name}.")

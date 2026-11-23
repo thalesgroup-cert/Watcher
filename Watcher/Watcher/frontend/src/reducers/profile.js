@@ -1,10 +1,11 @@
 import { PROFILE_LOADED, PROFILE_UPDATED, PROFILE_LOADING, PROFILE_ERROR } from "../actions/types";
 
 const initialState = {
-    theme: 'bootstrap',
+    theme: 'darkly',
     preferences: {},
     isLoading: false,
-    error: false
+    error: false,
+    typewriter_enabled: true,
 };
 
 export default function profileReducer(state = initialState, action) {

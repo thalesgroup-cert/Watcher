@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword
+from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword, WatcherConfiguration
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 from django.utils.html import format_html
@@ -150,5 +150,13 @@ class SubscriberAdmin(admin.ModelAdmin):
             'description': "Choose which Threats Watcher event types trigger a notification."
         }),
     )
+
+@admin.register(WatcherConfiguration)
+class WatcherConfigurationAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return not WatcherConfiguration.objects.exists()
+    
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 admin.site.register(Subscriber, SubscriberAdmin)
