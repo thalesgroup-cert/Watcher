@@ -53,6 +53,6 @@ numpy==1.26.4
 
 #LLM Gateway
 requests==2.34.2
-litellm==1.95.0
+litellm==1.109.0.dev1
 openai==2.53.0
 tiktoken==0.13.0
