@@ -3,6 +3,8 @@ import os
 from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.views.defaults import page_not_found
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
 
 # The bundle keeps the same name from one release to the next (frontend/main.js, main.css): without a version in its
@@ -24,6 +26,7 @@ def asset_version():
     return '0'
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class IndexView(TemplateView):
     template_name = 'frontend/index.html'
 

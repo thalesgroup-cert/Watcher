@@ -1,10 +1,10 @@
-// Connectors page: smoke test + screenshots (SHOT=<prefix> to name them, e.g. before / after), then the state lights
+// Connectors page: smoke test + screenshots (--expose SHOT=<prefix> to name them, e.g. before / after), then the state lights
 // (mocked).
-const shot = (name) => cy.screenshot(`${Cypress.env('SHOT') || 'run'}-${name}`, { capture: 'viewport', overwrite: true });
+const shot = (name) => cy.screenshot(`${Cypress.expose('SHOT') || 'run'}-${name}`, { capture: 'viewport', overwrite: true });
 
 describe('Connectors', () => {
     beforeEach(() => {
-        const { username, password } = Cypress.env('testCredentials');
+        const { username, password } = Cypress.expose('testCredentials');
         cy.viewport(1440, 900);
         cy.visit('/#/login');
         cy.get('input[name="username"], input[type="text"]').first().type(username);
@@ -21,10 +21,17 @@ describe('Connectors', () => {
         shot('connectors');
     });
 
-    it('opens the edit dialog and keeps it open when the save fails', () => {
+    it('opens a connector in the panel on the right, on its Overview, and keeps it in the address', () => {
         cy.visit('/#/connectors');
         cy.contains('button', 'Edit', { timeout: 15000 }).first().click();
-        cy.contains(/^Edit /).should('be.visible');
+        cy.get('#connector-drawer-title').should('be.visible');
+        cy.get('.MuiDialog-root').should('not.exist');
+        cy.location('hash').should('include', 'connector=').and('not.include', 'ctab=');
+        cy.get('[aria-label="Connector sections"]').within(() => {
+          cy.contains('[role="tab"]', 'Overview').should('have.attr', 'aria-selected', 'true');
+          cy.contains('[role="tab"]', 'Configuration');
+          cy.contains('[role="tab"]', 'Deliveries');
+        });
         shot('connectors-edit');
     });
 
@@ -38,6 +45,91 @@ describe('Connectors', () => {
         cy.wait('@testRun');
         cy.contains('Connection OK').should('be.visible');
     });
+});
+
+// The AI connectors (3.8): one of them is the default AI, the others take over when it fails.
+describe('Connectors - the default AI', () => {
+    const USER = { id: 1, username: 'admin', first_name: 'Ada', last_name: 'Admin', email: '', is_superuser: true, is_staff: true, groups: [], permissions: [] };
+    const ai = (id, name, isDefault) => ({ id, name, category: 'Artificial Intelligence', description: '', version: '1.0', status: 'configured', health: { status: 'healthy', checked_at: new Date().toISOString(), message: 'ok' }, readonly: false, is_default_llm: isDefault,
+        author: 'Thales CERT', fields: [{ name: 'OPENAI_BASE_URL', label: 'OpenAI Base URL', type: 'text', settings_key: 'OPENAI_BASE_URL', placeholder: 'https://your-proxy.example.com/v1', value: 'https://api.openai.com/v1', overridden: false, from_default: true }] });
+    const slack = { id: 'slack', name: 'Slack', category: 'Notifications', description: '', version: '1.0', status: 'configured', health: { status: 'healthy', checked_at: new Date().toISOString(), message: 'ok' }, readonly: false, fields: [] };
+    let defaultId;
+
+    beforeEach(() => {
+        cy.on('uncaught:exception', () => false);
+        defaultId = 'openai';
+        cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
+        cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: '', preferences: {}, avatar_color: null } });
+        cy.intercept('GET', '/api/connectors/', (req) => req.reply({ statusCode: 200, body: [slack, ai('openai', 'OpenAI', defaultId === 'openai'), ai('anthropic', 'Anthropic', defaultId === 'anthropic')] }));
+        cy.intercept('POST', '/api/connectors/anthropic/set-default-llm/', (req) => {
+            defaultId = req.body.is_default_llm ? 'anthropic' : null;
+            req.reply({ statusCode: 200, body: ai('anthropic', 'Anthropic', !!req.body.is_default_llm) });
+        }).as('setDefault');
+        cy.visit('/#/connectors', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
+    });
+
+    it('makes another AI the default one, and the first one loses the mark', () => {
+        cy.get('input[aria-label="Use OpenAI as the default AI"]', { timeout: 20000 }).should('be.checked');
+        cy.get('input[aria-label="Use Anthropic as the default AI"]').should('not.be.checked').click();
+        cy.wait('@setDefault').its('request.body').should('deep.equal', { is_default_llm: true });
+        cy.get('input[aria-label="Use Anthropic as the default AI"]').should('be.checked');
+        cy.get('input[aria-label="Use OpenAI as the default AI"]').should('not.be.checked');
+    });
+
+    it('says that a field still holds the default of the library, and shows its example while it is empty', () => {
+        cy.contains('button', 'Edit', { timeout: 20000 }).first().click();
+        cy.contains('[role="tab"]', 'Configuration').click();
+        cy.contains('LiteLLM default').should('be.visible');
+        cy.get('input[placeholder="https://your-proxy.example.com/v1"]').should('exist');
+    });
+
+    it('groups the connectors by category, the categories and the connectors by name', () => {
+        cy.contains('Artificial Intelligence', { timeout: 20000 }).should('be.visible');
+        cy.get('.MuiCard-root h4, .MuiCard-root [class*="MuiTypography-h4"]').then(($names) => {
+          expect([...$names].map((n) => n.textContent)).to.deep.equal(['Anthropic', 'OpenAI', 'Slack']);
+        });
+        cy.contains('button', 'Group by category').should('have.attr', 'aria-pressed', 'true');
+        // Ungrouped, they are still by name
+        cy.contains('button', 'Group by category').click();
+        cy.get('.MuiCard-root [class*="MuiTypography-h4"]').then(($names) => {
+          expect([...$names].map((n) => n.textContent)).to.deep.equal(['Anthropic', 'OpenAI', 'Slack']);
+        });
+      });
+
+    it('tells what a connector is and what it reads, on its Overview tab', () => {
+        cy.contains('button', 'Edit', { timeout: 20000 }).first().click();
+        cy.location('hash').should('not.include', 'ctab=');
+        cy.contains('Thales CERT').should('be.visible');
+        cy.get('[data-testid="connector-settings"]').within(() => {
+          cy.contains('OPENAI_BASE_URL');
+          cy.contains('LiteLLM default');
+          cy.contains('https://your-proxy.example.com/v1');
+        });
+      });
+
+    it('lists what the connector did on its Deliveries tab, and filters it', () => {
+        const DELIVERIES = [
+          { id: 2, kind: 'ai', ok: false, message: 'AuthenticationError: invalid x-api-key', subject: 'anthropic/claude-haiku-5-5', duration: 0.4, created_at: new Date(Date.now() - 600000).toISOString() },
+          { id: 1, kind: 'test', ok: true, message: 'Connection OK', subject: '', duration: 1.2, created_at: new Date(Date.now() - 3600000).toISOString() },
+        ];
+        cy.intercept({ method: 'GET', pathname: '/api/connectors/anthropic/deliveries/' }, (req) => {
+          req.reply({ statusCode: 200, body: req.query.kind ? DELIVERIES.filter((d) => d.kind === req.query.kind) : DELIVERIES });
+        }).as('deliveries');
+        cy.contains('button', 'Edit', { timeout: 20000 }).first().click();
+        cy.contains('[role="tab"]', 'Deliveries').click();
+        cy.get('[data-testid="delivery-row"]').should('have.length', 2);
+        cy.get('[data-testid="delivery-row"]').first().should('contain', 'AI call').and('contain', 'Failed').and('contain', 'invalid x-api-key');
+        cy.contains('button', 'Tests').click();
+        cy.get('@deliveries.all').should((calls) => expect(calls.at(-1).request.url).to.include('kind=test'));
+        cy.get('[data-testid="delivery-row"]').should('have.length', 1).and('contain', 'Connection OK');
+      });
+
+    it('says so when a connector has done nothing yet', () => {
+        cy.intercept({ method: 'GET', pathname: '/api/connectors/anthropic/deliveries/' }, { statusCode: 200, body: [] });
+        cy.contains('button', 'Edit', { timeout: 20000 }).first().click();
+        cy.contains('[role="tab"]', 'Deliveries').click();
+        cy.get('[data-testid="deliveries-empty"]').should('be.visible');
+      });
 });
 
 describe('Connectors - the state lights', () => {
@@ -60,7 +152,7 @@ describe('Connectors - the state lights', () => {
         cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
         cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'darkly', preferences: {}, avatar_color: null } });
         cy.intercept('GET', '/api/connectors/', { statusCode: 200, body: CONNECTORS });
-        cy.visit('/#/connectors', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-connectors') });
+        cy.visit('/#/connectors', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
         cy.get('[data-testid="light-ok"]', { timeout: 20000 }).should('be.visible');
     });
 
@@ -74,7 +166,7 @@ describe('Connectors - the state lights', () => {
 
     it('shows one light on each card, with when it was checked', () => {
         cy.get('[data-light="ok"]').filter('.MuiCard-root').should('have.length', 2);
-        cy.get('.MuiCard-root[data-light="problem"]').should('contain', 'TheHive').and('contain', 'Problem').and('contain', 'Checked 15 minutes ago');
+        cy.get('.MuiCard-root[data-light="problem"]').should('contain', 'TheHive').and('contain', 'Problem').invoke('text').should('match', /Checked 1[4-7] minutes ago/); // the spec was loaded a little before this test runs
         cy.get('.MuiCard-root[data-light="unfinished"]').should('contain', 'SMTP').and('contain', 'To finish');
         cy.get('.MuiCard-root[data-light="untested"]').should('contain', 'Citadel').and('contain', 'Never tested');
         cy.get('.MuiCard-root[data-light="off"]').should('contain', 'LDAP').and('contain', 'Not set up').and('not.contain', 'Never tested');
@@ -132,7 +224,7 @@ describe('Connectors - scheduled jobs', () => {
         cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'darkly', preferences: {}, avatar_color: null } });
         cy.intercept('GET', '/api/connectors/', { statusCode: 200, body: [] });
         cy.intercept('GET', '/api/common/scheduled_jobs/', { statusCode: 200, body: { jobs: JOBS } }).as('jobs');
-        cy.visit('/#/connectors?tab=jobs', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-jobs') });
+        cy.visit('/#/connectors?tab=jobs', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
         cy.get('[data-testid="job-row"]', { timeout: 20000 }).should('have.length', 4);
     });
 
@@ -153,7 +245,7 @@ describe('Connectors - scheduled jobs', () => {
             cy.contains('7 min 6 s');
             cy.contains('average 6 min 20 s');
             cy.contains('feeds 217 - keyword matches 12');
-            cy.contains('in 12 minutes');
+            cy.contains(/in 1[0-2] minutes/);
             cy.get('[data-testid="job-trend"]').should('exist');
             cy.get('[data-testid="job-running"]').should('not.exist');
         });
@@ -201,7 +293,7 @@ describe('Connectors - every connector on one page', () => {
         cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
         cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'darkly', preferences: {}, avatar_color: null } });
         cy.intercept('GET', '/api/connectors/', { statusCode: 200, body: connectors(count) });
-        cy.visit('/#/connectors', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-connectors') });
+        cy.visit('/#/connectors', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
         cy.contains('Showing', { timeout: 20000 });
     };
 

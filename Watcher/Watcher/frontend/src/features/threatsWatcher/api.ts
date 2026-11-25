@@ -10,6 +10,7 @@ import type {
     Source,
     SourceInput,
     Summary,
+    SummaryConfig,
     ThreatsStatistics,
     Word,
     WordFilters,
@@ -93,3 +94,23 @@ export const fetchWordSummary = (word: string) =>
 
 /** Generates the AI summary of a word from its articles (slow); the API explains when there is not enough content. */
 export const generateWordSummary = (word: string) => api.get<Summary>(`${BASE}summary/by-keyword/${encodeURIComponent(word)}/`).then((res) => res.data);
+
+/** Writes the weekly report again (slow); a 429 says how long to wait. */
+export const regenerateWeekly = () => api.post<{ data: Summary }>(`${BASE}summary/regenerate-weekly/`).then((res) => res.data.data);
+
+/** Writes the summary of a word again from its articles. */
+export const regenerateWordSummary = (word: string) =>
+    api.post<{ data: Summary }>(`${BASE}summary/by-keyword/${encodeURIComponent(word)}/regenerate/`).then((res) => res.data.data);
+
+/** Writes the breaking news of a word again. */
+export const regenerateBreaking = (word: string) =>
+    api.post<{ data: Summary }>(`${BASE}summary/by-keyword/${encodeURIComponent(word)}/regenerate-breaking/`).then((res) => res.data.data);
+
+export const fetchSummaryConfig = () => api.get<SummaryConfig>(`${BASE}summary/config/`).then((res) => res.data);
+
+/** Superusers only. */
+export const saveSummaryCooldown = (minutes: number) =>
+    api.post<SummaryConfig & { success: boolean }>(`${BASE}summary/config/`, { regenerate_cooldown_minutes: minutes }).then((res) => res.data);
+
+/** What the server is writing right now ('weekly', 'breaking:word', 'word:word'): it survives a refresh of the page. */
+export const fetchGenerating = () => api.get<{ running: string[] }>(`${BASE}summary/generating/`).then((res) => res.data.running);

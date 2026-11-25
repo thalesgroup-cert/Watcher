@@ -51,7 +51,7 @@ describe('Data Leak', () => {
         diff: { status: { old: false, new: true } }, object_repr: 'https://pastebin.com/AbCd1234',
       }],
     }).as('history');
-    cy.visit('/#/data_leak', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-leak') });
+    cy.visit('/#/data_leak', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     cy.get('[data-testid="alert-row"]', { timeout: 20000 }).should('have.length', 2);
   });
 

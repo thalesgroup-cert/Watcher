@@ -4,6 +4,7 @@ const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 /** "in 12 minutes", "in 3 hours", "in 2 days"; "any moment" when it is now or already due. */
 export function until(iso: string, now = Date.now()): string {
     const minutes = Math.round((new Date(iso).getTime() - now) / 60_000);
+    if (!Number.isFinite(minutes)) return '-';
     if (minutes < 1) return 'any moment';
     if (minutes < 60) return relative.format(minutes, 'minute');
     if (minutes < 24 * 60) return relative.format(Math.round(minutes / 60), 'hour');

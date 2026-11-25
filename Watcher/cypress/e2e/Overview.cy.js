@@ -29,6 +29,8 @@ describe('Overview', () => {
   ];
   const VICTIMS = [{ id: 11, group: 7, group_name: 'akira', victim_name: 'Clinique du Nord', country: 'FR', sector: 'Healthcare', attacked_at: ago(300), url: '', fetched_at: ago(290), is_archived: false, hits_count: 0 }];
   const BREAKING = { id: 5, type: 'breaking_news', keywords: 'fortinet', summary_text: 'Fortinet warns of an actively exploited flaw in FortiOS.', created_at: ago(90), updated_at: ago(90) };
+  // A breaking news with a threat context after its first paragraph: there is more to read than the card shows
+  const BREAKING_MORE = { ...BREAKING, id: 6, summary_text: "<p>Fortinet warns of an actively exploited flaw in FortiOS.</p><div><strong>Impact Level:</strong> <span class='badge bg-danger'>High</span></div>" };
   const WEEKLY = { id: 4, type: 'weekly_summary', keywords: '', summary_text: 'This week: ransomware activity rose in healthcare.', created_at: ago(2000), updated_at: ago(2000) };
 
   const DOMAINS = { total: 30, expired: 1, expiringSoon: 2, sslExpiringSoon: 1, repurchased: 3 };
@@ -71,7 +73,7 @@ describe('Overview', () => {
       cy.intercept('GET', '/api/threats_watcher/trendyword/1/', { statusCode: 200, body: { ...NODES[0], created_at: ago(30), posts: [], monitored: false } });
       cy.intercept('GET', '/api/cyber_watch/cves/1/', { statusCode: 200, body: CVES[0] });
       cy.intercept('GET', '/api/cyber_watch/watch-rule-hits/?*', { statusCode: 200, body: page([]) });
-      cy.visit('/#/', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-overview') });
+      cy.visit('/#/', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
       cy.contains('h1', 'Overview', { timeout: 20000 });
     });
 
@@ -114,17 +116,40 @@ describe('Overview', () => {
       });
 
       it('shows the breaking news of the week, and how long ago it was written', () => {
-        mockOverview(true, { brief: { breaking_news: BREAKING, weekly_summary: WEEKLY } });
+        mockOverview(true, { brief: { breaking_news: BREAKING_MORE, weekly_summary: WEEKLY } });
         cy.reload();
         cy.get('[data-testid="home-brief"]', { timeout: 20000 }).should('contain', 'Breaking news').and('contain', 'actively exploited flaw').and('contain', 'Generated');
-        cy.contains('[data-testid="home-brief"] a', 'Open Threats Watcher').click();
-        cy.location('hash').should('eq', '#/threats_watcher');
+        // What follows the first paragraph is announced, so nobody takes it for the whole text
+        cy.get('[data-testid="home-brief"] [data-testid="summary-outline"]').should('contain', 'Impact: High');
+        cy.get('[data-testid="home-brief"] [data-testid="read-more"]').click();
+        // Read more opens the whole text where it belongs: Threats Watcher, with the reading panel open
+        cy.location('hash').should('include', '#/threats_watcher').and('include', 'read=breaking');
+      });
+
+      it('has no Read more when the summary is short: there is nothing behind it', () => {
+        mockOverview(true, { brief: { breaking_news: BREAKING, weekly_summary: WEEKLY } });
+        cy.reload();
+        cy.get('[data-testid="home-brief"]', { timeout: 20000 }).should('contain', 'Fortinet warns');
+        cy.get('[data-testid="home-brief"] [data-testid="read-more"]').should('not.exist');
+      });
+
+      it('takes the breaking news off 24 hours after it was written, as on Threats Watcher', () => {
+        mockOverview(true, { brief: { breaking_news: { ...BREAKING, created_at: ago(26 * 60), updated_at: ago(26 * 60) }, weekly_summary: WEEKLY } });
+        cy.reload();
+        cy.get('[data-testid="home-brief"]', { timeout: 20000 }).should('contain', 'This week in cyber threats').and('contain', 'ransomware activity rose');
+        cy.get('[data-testid="home-brief"]').should('not.contain', 'Fortinet warns').and('not.contain', 'Breaking news');
+      });
+
+      it('still shows a breaking news written 22 hours ago', () => {
+        mockOverview(true, { brief: { breaking_news: { ...BREAKING, created_at: ago(22 * 60), updated_at: ago(22 * 60) }, weekly_summary: WEEKLY } });
+        cy.reload();
+        cy.get('[data-testid="home-brief"]', { timeout: 20000 }).should('contain', 'Fortinet warns').and('contain', 'Breaking news');
       });
 
       it('falls back on the weekly report when there is no breaking news', () => {
         mockOverview(true, { brief: { breaking_news: null, weekly_summary: WEEKLY } });
         cy.reload();
-        cy.get('[data-testid="home-brief"]', { timeout: 20000 }).should('contain', 'Weekly report').and('contain', 'ransomware activity rose');
+        cy.get('[data-testid="home-brief"]', { timeout: 20000 }).should('contain', 'This week in cyber threats').and('contain', 'ransomware activity rose');
       });
     });
 

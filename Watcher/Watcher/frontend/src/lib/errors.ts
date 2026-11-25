@@ -29,9 +29,14 @@ export function flattenApiErrors(payload: unknown): string[] {
     return lines;
 }
 
+/** What the server says when there is no signed-in person (DRF, or Django's CSRF check on a stale session), in plain words. */
+export function friendlyDetail(detail: string): string {
+    return /^CSRF Failed|^Authentication credentials were not provided/i.test(detail) ? 'Sign in to do this.' : detail;
+}
+
 export function errorLines(err: unknown, fallback = 'Request failed'): string[] {
     if (axios.isAxiosError(err)) {
-        const lines = flattenApiErrors(err.response?.data);
+        const lines = flattenApiErrors(err.response?.data).map(friendlyDetail);
         return lines.length ? lines : [err.message || fallback];
     }
     return [err instanceof Error ? err.message : fallback];

@@ -47,7 +47,7 @@ def _level_labels():
     return dict(Site._meta.get_field('legitimacy').choices)
 
 
-# --- A monitored website whose domain is now available ----------------------------------------------------------------------
+# A monitored website whose domain is now available
 
 def queue_site_available(site):
     """Queue the action for a monitored website whose domain is no longer registered. None when one already waits."""
@@ -94,7 +94,7 @@ def execute_site_available(pa):
         logger.info("PendingAction %d: legitimacy of %s moved to level %d (available).", pa.id, site.domain_name, new)
 
 
-# --- A legitimate domain that is lost ---------------------------------------------------------------------------------------
+# A legitimate domain that is lost
 
 def queue_domain_lost(domain):
     """Queue the action for a legitimate domain the registry no longer knows. None when one already waits."""

@@ -21,7 +21,8 @@ FROM node:22-bookworm-slim AS frontend-builder
 WORKDIR /frontend
 
 COPY package*.json .npmrc ./
-RUN npm ci
+# Cypress downloads its test browser (250 MB) when it installs: the image only builds the bundle
+RUN CYPRESS_INSTALL_BINARY=0 npm ci
 
 COPY . .
 
@@ -37,6 +38,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /build
+
+# A slow network must not fail the build of the dependencies (the default timeout is 30 s)
+ENV UV_HTTP_TIMEOUT=300
 
 # Build-time dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -68,6 +72,16 @@ import nltk
 nltk.download("punkt", download_dir="/usr/local/share/nltk_data")
 nltk.download("stopwords", download_dir="/usr/local/share/nltk_data")
 EOF
+
+# The local models (the entity model of Threats Watcher and the fallback language model) go in the image: Watcher then
+# starts without reaching Hugging Face, and can be told to stay offline (HF_HUB_OFFLINE=1). Only the weights and the
+# tokenizer files are taken. PRELOAD_HF_MODELS=false builds a smaller image that downloads them at the first use.
+ARG PRELOAD_HF_MODELS=true
+ARG HF_LOCAL_MODEL=Qwen/Qwen2.5-0.5B-Instruct
+ENV HF_HOME=/opt/huggingface
+RUN if [ "$PRELOAD_HF_MODELS" = "true" ]; then \
+        python -c "from huggingface_hub import snapshot_download; p=['*.json','*.safetensors','*.txt','*.model']; snapshot_download('dslim/bert-base-NER', allow_patterns=p); snapshot_download('$HF_LOCAL_MODEL', allow_patterns=p)"; \
+    else mkdir -p "$HF_HOME"; fi
 
 
 #################################################
@@ -105,6 +119,10 @@ COPY --from=backend-builder /usr/local /usr/local
 
 # Copy NLTK data
 COPY --from=backend-builder /usr/local/share/nltk_data /usr/local/share/nltk_data
+
+# Copy the local models (see the backend build)
+ENV HF_HOME=/opt/huggingface
+COPY --from=backend-builder /opt/huggingface /opt/huggingface
 
 # Copy application code
 COPY . .

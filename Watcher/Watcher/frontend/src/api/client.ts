@@ -1,15 +1,24 @@
 import axios, { AxiosError } from 'axios';
-import { useAuthStore } from '../features/auth/store';
+import { friendlyDetail } from '../lib/errors';
 
-/** Shared HTTP client; sends the session token (`features/auth/store`) on every request. */
+/** The CSRF token the server set in a cookie when the page was served. */
+export function csrfToken(): string {
+    const cookie = document.cookie
+        .split(';')
+        .map((c) => c.trim())
+        .find((c) => c.startsWith('csrftoken='));
+    return cookie ? cookie.slice('csrftoken='.length) : '';
+}
+
+/** Shared HTTP client. The session is a cookie the browser sends on its own; a request that changes something adds the CSRF token. */
 export const api = axios.create({
     headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
-    const token = useAuthStore.getState().token;
-    if (token) {
-        config.headers.set('Authorization', `Token ${token}`);
+    if (!['get', 'head', 'options'].includes((config.method ?? 'get').toLowerCase())) {
+        const csrf = csrfToken();
+        if (csrf) config.headers.set('X-CSRFToken', csrf);
     }
     return config;
 });
@@ -21,7 +30,7 @@ export function getErrorMessage(err: unknown, fallback = 'Request failed'): stri
         if (data && typeof data === 'object') {
             for (const key of ['detail', 'message', 'error']) {
                 const value = data[key];
-                if (typeof value === 'string') return value;
+                if (typeof value === 'string') return friendlyDetail(value);
             }
             // A refused sign-in or a refused form: the reason of Django REST framework, e.g. "Incorrect Credentials"
             const general = data.non_field_errors;

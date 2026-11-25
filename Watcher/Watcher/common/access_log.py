@@ -62,3 +62,21 @@ class AccessLogMiddleware:
         # The address of the proxy is what the server sees; the one it forwards is only what the client claims
         origin = f"{address} (forwarded for {forwarded})" if forwarded else address
         logger.log(level, f"{name} {origin} {request.method} {path} {status} {duration * 1000:.0f}ms")
+
+
+class HealthCheckFilter(logging.Filter):
+    """
+    Drops the line of the web server for `GET /` when it comes from the container itself: that is the health check
+    of Docker, every 30 seconds. A request from anywhere else (a browser, the host through the published port) is
+    kept, and so is any other request from the container.
+    """
+
+    def filter(self, record):
+        message = record.getMessage()
+        if not message.startswith('"GET / HTTP/'):
+            return True
+        try:
+            return record.request.getpeername()[0] not in _LOOPBACK
+        except Exception:
+            # The peer cannot be told: keep the line rather than hide a request
+            return True

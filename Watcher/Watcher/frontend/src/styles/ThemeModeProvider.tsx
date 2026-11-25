@@ -62,7 +62,7 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
     const theme = useMemo(() => createWatcherTheme(themeName, effects, display), [themeName, effects, display]);
     const dark = THEMES[themeName].dark;
     const ambient = !!THEMES[themeName].ambient;
-    const signedIn = useAuthStore((s) => !!s.token);
+    const signedIn = useAuthStore((s) => s.signedIn);
     const { data: profile } = useProfile();
     const { mutate: saveProfile } = useUpdateProfile();
 

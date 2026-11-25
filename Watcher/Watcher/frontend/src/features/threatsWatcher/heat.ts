@@ -5,6 +5,9 @@ export type Heat = 'hot' | 'rising' | 'new' | 'steady' | 'fading' | 'quiet';
 
 type Figures = Pick<Word, 'mentions_24h' | 'mentions_week'>;
 
+/** Whether the figures of the heat are there: a word that comes without them has no heat to tell, and the page never writes "undefined" or "NaN". */
+export const hasFigures = (word: Partial<Figures>): boolean => Number.isFinite(word.mentions_24h) && Number.isFinite(word.mentions_week);
+
 /** Articles a day over the 6 days before today. */
 export function usualDay(word: Figures): number {
     return (word.mentions_week - word.mentions_24h) / 6;
@@ -15,6 +18,7 @@ export function usualDay(word: Figures): number {
  * New: first articles. Steady: about the usual. Fading: fewer than usual, or none today. Quiet: nothing this week.
  */
 export function heatOf(word: Figures): Heat {
+    if (!hasFigures(word)) return 'quiet';
     const today = word.mentions_24h;
     const usual = usualDay(word);
     if (today === 0) return word.mentions_week > 0 ? 'fading' : 'quiet';
@@ -38,6 +42,7 @@ export function usualText(word: Figures): string {
 
 /** The figures of the heat in a sentence: "8 articles in the last 24 h, normally less than 1 a day". */
 export function heatSentence(word: Figures): string {
+    if (!hasFigures(word)) return '';
     const today = word.mentions_24h;
     if (today === 0) return 'No article in the last 24 h';
     return `${today} article${today === 1 ? '' : 's'} in the last 24 h, ${usualText(word)}`;

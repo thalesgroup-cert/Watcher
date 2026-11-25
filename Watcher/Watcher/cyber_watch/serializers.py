@@ -183,10 +183,15 @@ class WatchRuleHitSerializer(serializers.ModelSerializer):
     rule_name = serializers.CharField(source='rule.name', read_only=True)
     rule_scope = serializers.CharField(source='rule.scope', read_only=True)
     target = serializers.SerializerMethodField()
+    # 3.8 gave one keyword per hit: kept for the scripts that read it, `matched_keywords` lists all of them
+    matched_keyword = serializers.SerializerMethodField()
 
     class Meta:
         model = WatchRuleHit
         fields = '__all__'
+
+    def get_matched_keyword(self, obj):
+        return obj.matched_keywords[0] if obj.matched_keywords else ''
 
     def get_target(self, obj):
         targets = self.context.get('targets')

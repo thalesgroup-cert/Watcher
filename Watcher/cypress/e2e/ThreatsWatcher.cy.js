@@ -51,9 +51,12 @@ describe('Threats Watcher', () => {
   const expectLastRequest = (alias, text) => cy.get(`@${alias}.all`).should((calls) => expect(calls.at(-1).request.url).to.include(text));
   // Set once the word summary is written, from then on the summaries list returns it.
   let summarized = false;
+  // What the server says it is writing right now ('weekly'...), told to the buttons
+  let generating = [];
 
   const mockApi = () => {
     summarized = false;
+    generating = [];
     cy.intercept('GET', `${API}trendyword/?*`, { statusCode: 200, body: page(WORDS) }).as('words');
     cy.intercept('GET', '/api/threats_watcher/favicon/?*', { statusCode: 404, body: '' });
     cy.intercept('GET', `${API}trendyword/1/`, { statusCode: 200, body: { ...WORDS[0], posts: POSTS, monitored: false } });
@@ -71,6 +74,8 @@ describe('Threats Watcher', () => {
     cy.intercept('GET', `${API}source/2/`, { statusCode: 200, body: SOURCES[1] });
     cy.intercept('GET', `${API}bannedword/?*`, { statusCode: 200, body: page(BANNED) });
     cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
+    // After the list of the summaries: its pattern (summary/?*) would also match summary/generating/
+    cy.intercept('GET', `${API}summary/generating/`, (req) => req.reply({ statusCode: 200, body: { running: generating } }));
   };
 
   describe('signed in', () => {
@@ -79,17 +84,226 @@ describe('Threats Watcher', () => {
       cy.intercept('GET', '/api/auth/user', { statusCode: 200, body: USER });
       cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'bootstrap', preferences: {}, avatar_color: null } });
       mockApi();
-      cy.visit('/#/threats_watcher', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-threats') });
+      cy.visit('/#/threats_watcher', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
       cy.get('[data-testid="word-row"]', { timeout: 20000 }).should('have.length', 12);
     });
 
-    it('shows the breaking news and the weekly digest, with real links only', () => {
-      cy.get('[data-testid="breaking-news"]').should('contain', 'Ivanti zero-day exploited in the wild.');
-      cy.get('[data-testid="weekly-summary"]').within(() => {
+    it('shows how the breaking news and the weekly digest start, and all of them in a panel, with real links only', () => {
+      cy.get('[data-testid="breaking-news"]').should('contain', 'Ivanti zero-day exploited in the wild.').and('contain', 'Breaking news');
+      cy.get('[data-testid="weekly-summary"]').should('contain', 'This week in cyber threats').and('contain', 'Ivanti patched');
+      // On the page only the beginning, no list: "Read more" opens the whole of it
+      cy.get('[data-testid="weekly-summary"] li').should('not.exist');
+      // A short summary has nothing behind it: no "Read more" (the panel is still there, by its address)
+      cy.get('[data-testid="breaking-news"] [data-testid="read-more"]').should('not.exist');
+      cy.visit('/#/threats_watcher?read=weekly');
+      cy.location('hash').should('include', 'read=weekly');
+      cy.get('[data-testid="briefing-reader"]').within(() => {
         cy.contains('a', 'CVE-2026-1234').should('have.attr', 'href', 'https://nvd.nist.gov/vuln/detail/CVE-2026-1234');
         cy.get('li').should('have.length', 2);
         cy.contains('button', 'Read the whole digest - 3 topics').click();
         cy.get('li').should('have.length', 3);
+      });
+    });
+
+    // Since 3.8 the summaries are HTML written by summary_manager.py: the page rebuilds them, it never injects them.
+    describe('HTML summaries', () => {
+      const HTML_WEEKLY = {
+        id: 11, type: 'weekly_summary', keywords: 'nvidia, foreign, anssi, austrian, ministry, crime, autonomous', created_at: ago(3000), updated_at: ago(3000), ai_model: 'gpt-4o',
+        summary_text: "<div style='border-left: 3px solid #64748b;'><div class='d-flex'><strong class='text-info'>Executive Summary</strong>"
+          + "<span id='watcher-toggle-all' class='text-muted'>Collapse All</span></div><p>Surge of threats this week.</p></div>"
+          + "<details open class='watcher-cluster' style='border-left: 3px solid #ef4444;'><summary><strong>Atlassian flaws</strong>"
+          + "<span class='badge'>Critical</span></summary><p>Atlassian disclosed several flaws.</p>"
+          + "<div><strong>CVEs:</strong> <a href='https://nvd.nist.gov/vuln/detail/CVE-2023-1111'>CVE-2023-1111</a> <a href='javascript:alert(1)'>bad</a></div></details>"
+          + "<script>window.__pwned = true</script><img src='x' onerror='window.__pwned = true'>",
+      };
+      const showHtmlWeekly = (withBreaking = false) => {
+        cy.intercept('GET', `${API}summary/?*`, (req) => {
+          const byType = { weekly_summary: [HTML_WEEKLY], breaking_news: withBreaking ? [BREAKING] : [] };
+          req.reply({ statusCode: 200, body: byType[req.query.type] ?? [] });
+        });
+        cy.intercept('GET', `${API}summary/config/`, { statusCode: 200, body: { regenerate_cooldown_minutes: 60 } });
+        cy.intercept('GET', `${API}summary/generating/`, (req) => req.reply({ statusCode: 200, body: { running: generating } }));
+        cy.reload();
+        cy.get('[data-testid="weekly-summary"]', { timeout: 20000 }).should('exist');
+      };
+      it('tells on the card that the report goes on: how many topics, how severe, and Read more', () => {
+        showHtmlWeekly(true);
+        // The first paragraph alone looks like the whole text: the card says there is more behind it
+        cy.get('[data-testid="weekly-summary"] [data-testid="summary-outline"]').should('contain', '1 topic in this report').and('contain', '1 Critical');
+        cy.get('[data-testid="weekly-summary"] [data-testid="read-more"]').should('be.visible');
+        // A short breaking news with nothing after it has neither an outline nor Read more
+        cy.get('[data-testid="breaking-news"] [data-testid="summary-outline"]').should('not.exist');
+        cy.get('[data-testid="breaking-news"] [data-testid="read-more"]').should('not.exist');
+      });
+
+      it('cites the sources of a report: stacked icons on the card and a chip per site in the panel', () => {
+        const WITH_SOURCES = {
+          ...HTML_WEEKLY,
+          id: 40,
+          summary_text: HTML_WEEKLY.summary_text.replace('</details>', "<div><strong>Sources:</strong> <a href='https://www.bleepingcomputer.com/a' target='_blank' class='watcher-source'>bleepingcomputer.com</a> | <a href='https://cert.example/b' target='_blank' class='watcher-source'>cert.example</a></div></details>"),
+        };
+        cy.intercept('GET', '/api/threats_watcher/favicon/*', { statusCode: 404, body: '' });
+        cy.intercept('GET', `${API}summary/?*`, (req) => req.reply({ statusCode: 200, body: req.query.type === 'weekly_summary' ? [WITH_SOURCES] : [] }));
+        cy.reload();
+        cy.get('[data-testid="weekly-summary"] [data-testid="source-stack"]', { timeout: 20000 }).within(() => {
+          cy.get('[data-testid="source-icon"]').should('have.length', 2);
+          cy.get('[data-testid="source-icon"]').first().should('have.attr', 'href', 'https://www.bleepingcomputer.com/a').and('have.attr', 'target', '_blank');
+        });
+        cy.get('[data-testid="weekly-summary"] [data-testid="read-more"]').click();
+        cy.get('[data-testid="briefing-reader"]', { timeout: 20000 }).within(() => {
+          cy.contains('Atlassian flaws').click();
+          cy.get('[data-testid="source-chip"]').should('have.length', 2).first().should('contain', 'bleepingcomputer.com').and('have.attr', 'href', 'https://www.bleepingcomputer.com/a');
+        });
+      });
+
+      const readWeekly = () => {
+        cy.get('[data-testid="weekly-summary"] [data-testid="read-more"]').click();
+        cy.get('[data-testid="briefing-reader"]', { timeout: 20000 }).should('be.visible');
+      };
+
+      it('keeps turning after a refresh while the server is still writing, then shows the new text', () => {
+        showHtmlWeekly();
+        // Set when the commands run, not when the test is written
+        cy.then(() => { generating = ['weekly']; });
+        cy.reload();
+        cy.get('[data-testid="weekly-summary"] [data-testid="regenerate-summary"]', { timeout: 20000 }).should('be.disabled').and('contain', 'Writing');
+        // The server is done: the button is back, and the summary that was written is read again
+        cy.intercept('GET', `${API}summary/?*`, (req) => {
+          req.reply({ statusCode: 200, body: req.query.type === 'weekly_summary' ? [{ ...HTML_WEEKLY, id: 30, summary_text: '<p>Written while you were away.</p>' }] : [] });
+        });
+        // The list of the summaries is declared again above: so is the word of the server on what it is writing
+        cy.intercept('GET', `${API}summary/generating/`, (req) => req.reply({ statusCode: 200, body: { running: generating } }));
+        cy.then(() => { generating = []; });
+        cy.get('[data-testid="weekly-summary"] [data-testid="regenerate-summary"]', { timeout: 20000 }).should('not.be.disabled').and('contain', 'Regenerate');
+        cy.get('[data-testid="weekly-summary"]').should('contain', 'Written while you were away.');
+      });
+
+      it('lets a long summary be read to the end in the panel', () => {
+        // On a wide screen the panel is docked and does not scroll by itself: its text has to
+        cy.viewport(1500, 700);
+        const LONG = { ...HTML_WEEKLY, id: 31, summary_text: Array.from({ length: 80 }, (_, i) => `<p>Paragraph ${i + 1}: a sentence that takes some room in the panel.</p>`).join('') + '<p>THE VERY LAST PARAGRAPH</p>' };
+        cy.intercept('GET', `${API}summary/?*`, (req) => req.reply({ statusCode: 200, body: req.query.type === 'weekly_summary' ? [LONG] : [] }));
+        cy.intercept('GET', `${API}summary/config/`, { statusCode: 200, body: { regenerate_cooldown_minutes: 60 } });
+        cy.reload();
+        readWeekly();
+        // The text is written out progressively: once it is all there, there is more than the panel shows
+        cy.contains('THE VERY LAST PARAGRAPH', { timeout: 20000 }).should('exist');
+        cy.get('[data-testid="briefing-reader"]').should(($panel) => expect($panel[0].scrollHeight, 'there is more than the panel shows').to.be.greaterThan($panel[0].clientHeight));
+        cy.get('[data-testid="briefing-reader"]').scrollTo('bottom');
+        cy.contains('THE VERY LAST PARAGRAPH').should('be.visible');
+      });
+
+      it('shows when it was written and by which model as badges, with the logo of the connector', () => {
+        cy.intercept('GET', `${API}summary/?*`, (req) => req.reply({ statusCode: 200, body: req.query.type === 'weekly_summary' ? [{ ...HTML_WEEKLY, ai_model: 'anthropic/claude-haiku-5-5' }] : [] }));
+        cy.intercept('GET', `${API}summary/config/`, { statusCode: 200, body: { regenerate_cooldown_minutes: 60 } });
+        cy.reload();
+        cy.get('[data-testid="weekly-summary"] [data-testid="summary-footer"]', { timeout: 20000 }).within(() => {
+          cy.contains('.MuiChip-root', 'Generated');
+          cy.get('[data-testid="model-badge"]').should('contain', 'claude-haiku-5-5').find('img').should('have.attr', 'src').and('include', 'anthropic.png');
+        });
+      });
+
+      it('has the same header on both cards: the title, the first words and how many more, and when', () => {
+        showHtmlWeekly(true);
+        cy.get('[data-testid="breaking-news"]').should('contain', 'Breaking news').and('contain', 'ivanti');
+        cy.get('[data-testid="weekly-summary"]').within(() => {
+          cy.contains('This week in cyber threats');
+          // Half a row has room for three words, the two others are "+2"
+          cy.contains('nvidia');
+          cy.contains('anssi');
+          cy.contains('+2');
+          cy.contains('austrian').should('not.exist');
+        });
+      });
+
+      it('shows the executive summary as the beginning of the report, cut to the card, with Read more', () => {
+        showHtmlWeekly();
+        cy.get('[data-testid="weekly-summary"] [data-testid="summary-preview"]').should('contain', 'Surge of threats this week.').and('have.css', 'overflow', 'hidden');
+        cy.get('[data-testid="weekly-summary"] [data-testid="summary-html"]').should('not.exist');
+        cy.contains('[data-testid="weekly-summary"] button', 'Read more').should('be.visible');
+      });
+
+      it('puts the breaking news and the weekly report half and half on a wide screen', () => {
+        cy.viewport(1500, 900);
+        showHtmlWeekly(true);
+        cy.get('[data-testid="breaking-news"]').then(($b) => {
+          cy.get('[data-testid="weekly-summary"]').then(($w) => {
+            const b = $b[0].getBoundingClientRect();
+            const w = $w[0].getBoundingClientRect();
+            expect(Math.abs(b.top - w.top), 'same row').to.be.lessThan(4);
+            expect(Math.abs(b.width - w.width), 'half and half').to.be.lessThan(4);
+          });
+        });
+      });
+
+      it('reads a whole summary in a panel kept in the address, and can write it again from there', () => {
+        showHtmlWeekly();
+        readWeekly();
+        cy.location('hash').should('include', 'read=weekly');
+        cy.get('[data-testid="briefing-reader"]').should('contain', 'Surge of threats this week.');
+        cy.get('[data-testid="briefing-reader"]').find('[data-testid="regenerate-summary"]').should('exist');
+        // The panel comes back after a reload, as the address says
+        cy.reload();
+        cy.get('[data-testid="briefing-reader"]', { timeout: 20000 }).should('be.visible');
+        cy.get('[aria-label="Close"]').click();
+        cy.get('[data-testid="briefing-reader"]').should('not.exist');
+        cy.location('hash').should('not.include', 'read=');
+      });
+
+      it('offers to write the report when there is none yet', () => {
+        cy.intercept('GET', `${API}summary/?*`, (req) => req.reply({ statusCode: 200, body: [] }));
+        cy.intercept('GET', `${API}summary/config/`, { statusCode: 200, body: { regenerate_cooldown_minutes: 60 } });
+        cy.intercept('POST', `${API}summary/regenerate-weekly/`, { statusCode: 200, body: { success: true, data: { ...HTML_WEEKLY, id: 20, summary_text: '<p>First report.</p>' } } }).as('first');
+        cy.reload();
+        cy.contains('There is no weekly report yet', { timeout: 20000 }).should('be.visible');
+        cy.contains('button', 'Generate the report').click();
+        cy.wait('@first');
+        cy.get('[data-testid="weekly-summary"]').should('contain', 'First report.');
+      });
+
+      it('draws the clusters and never what could run', () => {
+        showHtmlWeekly();
+        readWeekly();
+        // The clusters start folded: unfold them to read them
+        cy.contains('[role="button"]', 'Expand All').click();
+        cy.get('[data-testid="briefing-reader"]').within(() => {
+          cy.contains('Executive Summary');
+          cy.contains('Atlassian flaws');
+          cy.contains('a', 'CVE-2023-1111').should('have.attr', 'href', 'https://nvd.nist.gov/vuln/detail/CVE-2023-1111').and('have.attr', 'rel', 'noopener noreferrer');
+          cy.contains('bad').should('not.have.attr', 'href');
+          cy.get('script, img, iframe').should('not.exist');
+        });
+        cy.window().its('__pwned').should('be.undefined');
+      });
+
+      it('folds a cluster, and all of them with the button of the executive summary', () => {
+        showHtmlWeekly();
+        readWeekly();
+        cy.contains('Atlassian disclosed several flaws.').should('not.exist');
+        cy.contains('Atlassian flaws').click();
+        cy.contains('Atlassian disclosed several flaws.').should('be.visible');
+        cy.contains('Atlassian flaws').click();
+        cy.contains('Atlassian disclosed several flaws.').should('not.exist');
+        cy.contains('[role="button"]', 'Expand All').click();
+        cy.contains('Atlassian disclosed several flaws.').should('be.visible');
+        cy.contains('[role="button"]', 'Collapse All').click();
+        cy.contains('Atlassian disclosed several flaws.').should('not.exist');
+      });
+
+      it('writes the weekly report again, and says when the waiting time is not over', () => {
+        showHtmlWeekly();
+        cy.get('[data-testid="weekly-summary"]').should('contain', 'gpt-4o');
+        cy.intercept('POST', `${API}summary/regenerate-weekly/`, {
+          statusCode: 200,
+          body: { success: true, data: { ...HTML_WEEKLY, id: 12, ai_model: 'claude-sonnet', summary_text: "<p>A fresh report.</p>" } },
+        }).as('regenerate');
+        cy.get('[data-testid="weekly-summary"]').find('[data-testid="regenerate-summary"]').click();
+        cy.wait('@regenerate');
+        cy.get('[data-testid="weekly-summary"]').should('contain', 'A fresh report.').and('contain', 'claude-sonnet');
+
+        cy.intercept('POST', `${API}summary/regenerate-weekly/`, { statusCode: 429, body: { success: false, message: 'Please wait 42 minute(s) before the next regeneration.' } });
+        cy.get('[data-testid="weekly-summary"]').find('[data-testid="regenerate-summary"]').click();
+        cy.contains('Please wait 42 minute(s) before the next regeneration.').should('be.visible');
       });
     });
 
@@ -462,5 +676,20 @@ describe('Threats Watcher', () => {
     cy.contains('button', /^Add$/).should('not.exist');
     cy.get('[data-testid="word-row"]').first().click();
     cy.get('.MuiDrawer-paper').contains('button', /^(Monitor|Ban|Delete)$/).should('not.exist');
+  });
+
+  it('shows a visitor the summaries, but no button to have one written', () => {
+    cy.on('uncaught:exception', () => false);
+    cy.intercept('GET', '/api/auth/user', { statusCode: 401, body: { detail: 'Authentication credentials were not provided.' } });
+    mockApi();
+    cy.visit('/#/threats_watcher');
+    cy.get('[data-testid="breaking-news"]', { timeout: 20000 }).should('be.visible');
+    cy.get('[data-testid="weekly-summary"]').should('be.visible');
+    cy.get('[data-testid="regenerate-summary"]').should('not.exist');
+    cy.contains('button', 'Generate the report').should('not.exist');
+    // A word without a summary: the visitor is told why there is no button
+    cy.get('[data-testid="word-row"]').first().click();
+    cy.get('.MuiDrawer-paper').should('contain', 'Sign in to have one written');
+    cy.contains('button', 'Summarize the articles').should('not.exist');
   });
 });

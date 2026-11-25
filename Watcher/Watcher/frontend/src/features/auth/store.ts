@@ -1,53 +1,36 @@
 import { create } from 'zustand';
 import type { AuthStatus, User } from './types';
 
-const TOKEN_KEY = 'token';
+/**
+ * The server keeps the Knox token in a cookie the page cannot read. It sets this one next to it, so that the page knows
+ * there is a session (and asks who it is) without a request that a visitor would see refused.
+ */
+const SESSION_COOKIE = 'session_active';
 
-function readToken(): string | null {
-    try {
-        return localStorage.getItem(TOKEN_KEY);
-    } catch {
-        return null;
-    }
-}
-
-function writeToken(token: string | null): void {
-    try {
-        if (token) localStorage.setItem(TOKEN_KEY, token);
-        else localStorage.removeItem(TOKEN_KEY);
-    } catch {
-        /* storage unavailable: the session only lives in memory */
-    }
+function hasSession(): boolean {
+    return document.cookie.split(';').some((c) => c.trim() === `${SESSION_COOKIE}=1`);
 }
 
 interface AuthState {
-    token: string | null;
+    /** A session exists, or is being checked: the requests that need an account can be sent. */
+    signedIn: boolean;
     user: User | null;
     status: AuthStatus;
-    /** Stores a new token; without a user the session stays `checking` until `setUser`. */
-    setSession: (token: string, user?: User) => void;
     setUser: (user: User) => void;
     clear: () => void;
 }
 
-/**
- * Client session: the Knox token (mirrored in localStorage, read by `api/client.ts`) and the current user.
- * Server data tied to the account (profile, preferences) lives in TanStack Query.
- */
+/** Client session: whether there is one and the current user. Server data tied to the account lives in TanStack Query. */
 export const useAuthStore = create<AuthState>((set) => {
-    const token = readToken();
+    const signedIn = hasSession();
     return {
-        token,
+        signedIn,
         user: null,
-        status: token ? 'checking' : 'anonymous',
-        setSession: (newToken, user) => {
-            writeToken(newToken);
-            set({ token: newToken, user: user ?? null, status: user ? 'authenticated' : 'checking' });
-        },
-        setUser: (user) => set({ user, status: 'authenticated' }),
+        status: signedIn ? 'checking' : 'anonymous',
+        setUser: (user) => set({ signedIn: true, user, status: 'authenticated' }),
         clear: () => {
-            writeToken(null);
-            set({ token: null, user: null, status: 'anonymous' });
+            document.cookie = `${SESSION_COOKIE}=; Max-Age=0; path=/`;
+            set({ signedIn: false, user: null, status: 'anonymous' });
         },
     };
 });

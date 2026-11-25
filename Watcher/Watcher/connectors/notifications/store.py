@@ -3,8 +3,7 @@ import re
 from ..core import get_all_connectors
 from ..models import NotificationSetting
 from . import template
-from .catalogue import CHANNELS, CHANNEL_CONNECTORS, render_text, render_title
-from .registry import all_types, get_type
+from .catalogue import CHANNELS, CHANNEL_CONNECTORS, all_types, get_type, render_text, render_title
 
 UNSET = object()  # "leave as it is", where None means "back to the default"
 

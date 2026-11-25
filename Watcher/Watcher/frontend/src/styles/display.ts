@@ -5,7 +5,7 @@ import { createContext, useContext } from 'react';
  * They are kept in the browser and on the account (profile.preferences.display).
  */
 export type Density = 'comfortable' | 'compact';
-export type TextSize = 'small' | 'normal' | 'large';
+export type TextSize = 'xsmall' | 'small' | 'normal' | 'large';
 /** `system` follows the operating system; `reduced` stills the interface whatever the system says. */
 export type Motion = 'system' | 'reduced';
 export type ChartColours = 'default' | 'colourblind';
@@ -25,9 +25,10 @@ export const DENSITIES: Record<Density, { label: string; hint: string }> = {
 };
 
 /** How much the text of the interface is scaled. */
-export const TEXT_SCALE: Record<TextSize, number> = { small: 0.92, normal: 1, large: 1.12 };
+export const TEXT_SCALE: Record<TextSize, number> = { xsmall: 0.85, small: 0.92, normal: 1, large: 1.12 };
 
 export const TEXT_SIZES: Record<TextSize, { label: string; hint: string }> = {
+    xsmall: { label: 'Very small', hint: '15 % smaller, for a laptop screen' },
     small: { label: 'Small', hint: '8 % smaller' },
     normal: { label: 'Normal', hint: 'The default size' },
     large: { label: 'Large', hint: '12 % larger' },

@@ -52,7 +52,7 @@ describe('Legitimate Domains', () => {
   };
 
   const visit = (path = '') =>
-    cy.visit(`/#/legitimate_domains${path}`, { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-legit') });
+    cy.visit(`/#/legitimate_domains${path}`, { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
 
   describe('screenshots of a domain', () => {
     const SHOTS = `${API}1/screenshots/`;

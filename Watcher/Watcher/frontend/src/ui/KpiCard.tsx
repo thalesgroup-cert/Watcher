@@ -3,7 +3,7 @@ import { alpha, Box, Card, CardActionArea, Typography } from '@mui/material';
 
 interface KpiCardProps {
     title: string;
-    /** `undefined` while loading: shown as a dash rather than a misleading 0. */
+    /** `undefined` while loading, or not a number: shown as a dash rather than a misleading 0 or a "NaN". */
     value: number | undefined;
     icon: ReactNode;
     color: 'primary' | 'success' | 'warning' | 'error' | 'inherit';
@@ -38,7 +38,7 @@ export function KpiCard({ title, value, icon, color, onClick, selected = false }
                     {title}
                 </Typography>
                 <Typography variant="h2" component="div" sx={{ lineHeight: 1.1 }}>
-                    {value === undefined ? '-' : value.toLocaleString('en-GB')}
+                    {value === undefined || !Number.isFinite(value) ? '-' : value.toLocaleString('en-GB')}
                 </Typography>
             </Box>
         </Box>

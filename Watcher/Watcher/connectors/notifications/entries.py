@@ -7,8 +7,7 @@ before the messages became configurable (checked against test_data/notification_
 from django.conf import settings
 
 from . import samples
-from .catalogue import EmailSpec, Field, Layout, NotificationType
-from .registry import register
+from .catalogue import EmailSpec, Field, Layout, NotificationType, register
 
 TAG = getattr(settings, 'SUBJECT_TAG_SITE_MONITORING', '')
 
@@ -96,11 +95,11 @@ THREATS_WATCHER_WEEKLY = NotificationType(
     sample=samples.threats_watcher_weeklysummary,
     layouts={
         'slack': Layout(
-            head="*📊 Cyber Threat Intelligence Report 📊*\n\nHere is the weekly threat intelligence summary:\n\n"
+            head="*📊 Weekly Report 📊*\n\nHere is the weekly report summary:\n\n"
                  "{summary_text}\n\n<{object_url}|Open in Watcher>"),
         'citadel': Layout(
-            head="<h4>📊 Cyber Threat Intelligence Report 📊</h4>"
-                 "<p>Here is the weekly threat intelligence summary:</p><p>{summary_text}</p>"
+            head="<h4>📊 Weekly Report 📊</h4>"
+                 "<p>Here is the weekly report summary:</p><p>{summary_text}</p>"
                  "<p><a href='{object_url}'>Open in Watcher</a></p>"),
     },
     email=EmailSpec('[REPORT] Weekly Cyber Threat Intelligence Summary', samples.email_threats_watcher_weeklysummary),
@@ -111,13 +110,11 @@ THREATS_WATCHER_BREAKING = NotificationType(
     sample=samples.threats_watcher_breakingnews,
     layouts={
         'slack': Layout(
-            head="*🚨 Critical Threat Alert 🚨*\n\nWatcher has detected a new critical threat alert. "
-                 "Please review the breaking news summary below:\n\n{summary_text}\n\n"
+            head="*🚨 Breaking News 🚨*\n\nWatcher has detected a new breaking news:\n\n{summary_text}\n\n"
                  "<{object_url}|Open in Watcher>"),
         'citadel': Layout(
-            head="<h4>🚨 Critical Threat Alert 🚨</h4>"
-                 "<p>Watcher has detected a new critical threat alert. "
-                 "Please review the breaking news summary below:</p><p>{summary_text}</p>"
+            head="<h4>🚨 Breaking News 🚨</h4>"
+                 "<p>Watcher has detected a new breaking news:</p><p>{summary_text}</p>"
                  "<p><a href='{object_url}'>Open in Watcher</a></p>"),
     },
     email=EmailSpec('[ALERT] Breaking News – Critical Threat Detected', samples.email_threats_watcher_breakingnews),

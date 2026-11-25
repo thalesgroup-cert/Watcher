@@ -102,6 +102,47 @@ class ConnectorViewSet(viewsets.ViewSet):
             logger.error("Error resetting field '%s' on connector '%s': %s", field_name, pk, exc)
             return Response({'error': f"Failed to reset field '{field_name}' on connector '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=['get'], url_path='deliveries')
+    def deliveries(self, request, pk=None):
+        """GET /api/connectors/{id}/deliveries/ - what the connector did, newest first (?kind= keeps one kind of it)."""
+        from .models import ConnectorEvent
+        try:
+            get_connector_by_id(pk)
+        except KeyError:
+            return Response({'error': f"Connector '{pk}' not found"}, status=status.HTTP_404_NOT_FOUND)
+        events = ConnectorEvent.objects.filter(connector_id=pk)
+        kind = request.query_params.get('kind')
+        if kind:
+            events = events.filter(kind=kind)
+        return Response([
+            {'id': e.pk, 'kind': e.kind, 'ok': e.ok, 'message': e.message, 'subject': e.subject, 'duration': e.duration,
+             'created_at': e.created_at}
+            for e in events[:ConnectorEvent.KEEP]
+        ])
+
+    @action(detail=True, methods=['post'], url_path='set-default-llm')
+    def set_default_llm(self, request, pk=None):
+        """
+        POST /api/connectors/{id}/set-default-llm/ 
+        Set or unset this connector as the default AI.
+        """
+        from .models import ConnectorOverride
+        
+        is_default = request.data.get('is_default_llm', True)
+        
+        try:
+            override, _ = ConnectorOverride.objects.get_or_create(connector_id=pk)
+            
+            override.is_default_llm = bool(is_default)
+            override.save()
+            
+            data = get_connector_by_id(pk)
+            return Response(data)
+            
+        except Exception as exc:
+            logger.error("Error setting default AI for connector '%s': %s", pk, exc)
+            return Response({'error': f"Failed to set default AI for '{pk}'"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class NotificationListView(APIView):
     """GET /api/connectors/notifications/ - every notification with what is on for each channel."""

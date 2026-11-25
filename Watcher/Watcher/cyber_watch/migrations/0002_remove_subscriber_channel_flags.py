@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('cyber_watch', '0001_initial'),
-        ('connectors', '0006_seed_notification_settings'),
+        ('connectors', '0008_seed_notification_settings'),
     ]
 
     operations = [

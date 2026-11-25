@@ -19,7 +19,7 @@ from . import certstream_client
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
-import common.utils.job_log as job_log  # not a "from common" line: the documentation build keeps it
+from common.utils import job_log
 
 # Configure logger
 logger = logging.getLogger('watcher.dns_finder')
@@ -54,6 +54,7 @@ def get_monitored():
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
+
         - Fire main_dns_twist from Monday to Sunday: every 2 hours.
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
         - Fire recheck_dangling_subdomains from Monday to Sunday: every 6 hours.
@@ -577,7 +578,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     Sends grouped notifications to Slack, Citadel, TheHive or Email based on dns_finder_group.
     If the application is TheHive, individual notifications are sent for each alert.
 
-    :param keyword: The keyword or term associated with the DNS Threats Monitored.
+    :param dns_monitored: The DNS Threats Monitored (the domain or keyword the alerts are about).
     :param alerts_number: The total number of alerts in the group.
     :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """

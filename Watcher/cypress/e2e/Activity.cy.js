@@ -43,7 +43,7 @@ describe('Activity', () => {
       body: [FEED[0], event(2, { object_repr: 'thales.com', object_id: 1, timestamp: at(500) })],
     }).as('history');
 
-    cy.visit('/#/activity', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-activity') });
+    cy.visit('/#/activity', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     cy.get('[data-testid="event-feed"]', { timeout: 20000 }).should('be.visible');
   });
 

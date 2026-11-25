@@ -43,7 +43,7 @@ describe('DNS threats', () => {
     cy.intercept('GET', `${DNS}dns_monitored/7/`, { statusCode: 200, body: DOMAINS[0] });
     cy.intercept('GET', `${DNS}dns_monitored/statistics/`, { statusCode: 200, body: STATS });
     cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] }).as('history');
-    cy.visit('/#/dns_finder', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-dns') });
+    cy.visit('/#/dns_finder', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     cy.get('[data-testid="threat-row"]', { timeout: 20000 }).should('have.length', 3);
   });
 

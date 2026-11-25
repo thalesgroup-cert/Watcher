@@ -1,18 +1,8 @@
 import { api } from '../../api/client';
 import type { LoginResponse, Profile, User } from './types';
 
-function csrfToken(): string {
-    const cookie = document.cookie
-        .split(';')
-        .map((c) => c.trim())
-        .find((c) => c.startsWith('csrftoken='));
-    return cookie ? cookie.slice('csrftoken='.length) : '';
-}
-
 export const login = (username: string, password: string) =>
-    api
-        .post<LoginResponse>('/api/auth/login', { username, password }, { headers: { 'X-CSRFToken': csrfToken() } })
-        .then((res) => res.data);
+    api.post<LoginResponse>('/api/auth/login', { username, password }).then((res) => res.data);
 
 export const logout = () => api.post('/api/auth/logout/', null);
 

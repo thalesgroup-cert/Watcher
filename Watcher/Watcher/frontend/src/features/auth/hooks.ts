@@ -10,24 +10,20 @@ export const profileQuery = queryOptions({
 });
 
 /**
- * Restores the session on page load: an `sso_token` query parameter (OIDC callback redirect) wins over the
- * stored token; a token the server refuses is dropped.
+ * Restores the session on page load: when the server says there is one (its cookie, also set by the OIDC callback that
+ * redirects with `sso=1`), it is asked who is signed in; a session the server refuses is dropped.
  */
 export async function initSession(): Promise<void> {
-    const params = new URLSearchParams(window.location.search);
-    const ssoToken = params.get('sso_token');
-    if (ssoToken) {
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-        useAuthStore.getState().setSession(ssoToken);
-    }
+    const sso = new URLSearchParams(window.location.search).has('sso');
+    if (sso) window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
 
-    const { token, setUser, clear } = useAuthStore.getState();
-    if (!token) return;
+    const { signedIn, setUser, clear } = useAuthStore.getState();
+    if (!signedIn) return;
     try {
         setUser(await api.fetchUser());
     } catch (err) {
         clear();
-        if (ssoToken) notifyError(err);
+        if (sso) notifyError(err);
     }
 }
 
@@ -35,9 +31,9 @@ export function useLogin() {
     const client = useQueryClient();
     return useMutation({
         mutationFn: ({ username, password }: { username: string; password: string }) => api.login(username, password),
-        onSuccess: ({ token, user }) => {
+        onSuccess: ({ user }) => {
             client.clear();
-            useAuthStore.getState().setSession(token, user);
+            useAuthStore.getState().setUser(user);
             notifySuccess('Successful Login');
         },
         // The sign-in page shows the error in its card.
@@ -68,8 +64,8 @@ export function usePasswordChange() {
 }
 
 export function useProfile() {
-    const token = useAuthStore((s) => s.token);
-    return useQuery({ ...profileQuery, enabled: !!token });
+    const signedIn = useAuthStore((s) => s.signedIn);
+    return useQuery({ ...profileQuery, enabled: signedIn });
 }
 
 export function useUpdateProfile() {

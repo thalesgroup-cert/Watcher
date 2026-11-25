@@ -49,7 +49,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ('theme', 'preferences', 'avatar_color', 'avatar')
+        fields = ('theme', 'preferences', 'avatar_color', 'avatar', 'typewriter_enabled', 'ui_zoom_level')
 
 
 # Login Serializer

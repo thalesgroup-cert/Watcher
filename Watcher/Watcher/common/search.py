@@ -47,7 +47,7 @@ def _short(text, size=110):
     return text if len(text) <= size else text[:size - 1] + '…'
 
 
-# --- Threats Watcher (public, like the page) ---------------------------------------------------------------------
+# Threats Watcher (public, like the page)
 
 def _trending_words(q, limit, user):
     from threats_watcher.models import TrendyWord
@@ -62,7 +62,7 @@ def _monitored_keywords(q, limit, user):
                 f'/threats_watcher?tab=keywords&keyword={k.id}') for k in rows]
 
 
-# --- Legitimate domains (public; ticket ids are internal) --------------------------------------------------------
+# Legitimate domains (public; ticket ids are internal)
 
 def _legitimate_domains(q, limit, user):
     from django.db.models import Q
@@ -75,7 +75,7 @@ def _legitimate_domains(q, limit, user):
             for d in rows]
 
 
-# --- Cyber Watch (signed-in users, like the page; rules need their own permission, like the tab) -----------------
+# Cyber Watch (signed-in users, like the page; rules need their own permission, like the tab)
 
 def _cves(q, limit, user):
     from django.db.models import Q
@@ -101,7 +101,7 @@ def _watch_rules(q, limit, user):
             for r in rows]
 
 
-# --- Data Leak ----------------------------------------------------------------------------------------------------
+# Data Leak
 
 def _leak_alerts(q, limit, user):
     from django.db.models import Q
@@ -119,7 +119,7 @@ def _leak_patterns(q, limit, user):
             for k in rows]
 
 
-# --- DNS Threats --------------------------------------------------------------------------------------------------
+# DNS Threats
 # "Contains" inside the ~425 000 detected domains reads the whole table (measured: 1.5 to 1.7 s per search on the local
 # data); "starts with" uses the domain name index. The monitored domains and keywords above stay "contains": small tables.
 THREAT_MATCH = 'istartswith'
@@ -145,7 +145,7 @@ def _dns_threats(q, limit, user):
                 f'/dns_finder?threat={a.id}') for a in rows]
 
 
-# --- Website Monitoring -------------------------------------------------------------------------------------------
+# Website Monitoring
 
 def _sites(q, limit, user):
     from django.db.models import Q
@@ -154,7 +154,7 @@ def _sites(q, limit, user):
     return [hit('site', s.id, s.domain_name, s.ticket_id or s.registrar, f'/website_monitoring?site={s.id}') for s in rows]
 
 
-# --- Connectors (superusers; the page has no object in its URL, so the link opens the list) -----------------------
+# Connectors (superusers; the page has no object in its URL, so the link opens the list)
 
 def _connectors(q, limit, user):
     from connectors.core import get_all_connectors

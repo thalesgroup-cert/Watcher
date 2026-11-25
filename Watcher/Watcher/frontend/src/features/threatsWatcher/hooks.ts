@@ -1,9 +1,11 @@
+import { useEffect, useRef } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryClient } from '../../api/queryClient';
 import { notifyError, notifySuccess } from '../../lib/notify';
+import { useAuthStore } from '../auth/store';
 import type { BulkTarget } from '../bulk/useBulk';
 import * as api from './api';
-import type { KeywordHit, ListQuery, MonitoredKeyword, MonitoredKeywordInput, Source, SourceInput, Word, WordFilters } from './types';
+import type { KeywordHit, ListQuery, Summary, MonitoredKeyword, MonitoredKeywordInput, Source, SourceInput, Word, WordFilters } from './types';
 
 const KEY = ['threatsWatcher'] as const;
 export const KEYWORD_TYPE = 'threats_watcher.monitoredkeyword';
@@ -81,7 +83,7 @@ export function useThreatsStatistics() {
 }
 
 export function useLatestSummary(type: 'weekly_summary' | 'breaking_news') {
-    return useQuery({ queryKey: [...KEY, 'summary', type], queryFn: () => api.fetchLatestSummary(type), staleTime: 5 * 60_000 });
+    return useQuery({ queryKey: [...KEY, 'summary', type], queryFn: () => api.fetchLatestSummary(type), staleTime: 5 * 60_000, refetchInterval: 15_000 });
 }
 
 export function useWordSummary(word: string | undefined) {
@@ -93,6 +95,63 @@ export function useGenerateWordSummary() {
     return useMutation({
         mutationFn: (word: string) => api.generateWordSummary(word),
         onSuccess: (summary, word) => client.setQueryData([...KEY, 'wordSummary', word], summary),
+    });
+}
+
+/** Writes a summary again, keeps the new one in place of the old and says so; the server refuses (429) during the cooldown. */
+function useRegenerate<V>(call: (variables: V) => Promise<Summary>, cacheKey: (variables: V) => readonly unknown[]) {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn: call,
+        onSuccess: (summary, variables) => {
+            client.setQueryData(cacheKey(variables), summary);
+            notifySuccess('Summary written again');
+        },
+        onError: notifyError,
+    });
+}
+
+export const useRegenerateWeekly = () => useRegenerate<void>(() => api.regenerateWeekly(), () => [...KEY, 'summary', 'weekly_summary']);
+export const useRegenerateWordSummary = () => useRegenerate<string>((word) => api.regenerateWordSummary(word), (word) => [...KEY, 'wordSummary', word]);
+export const useRegenerateBreaking = () => useRegenerate<string>((word) => api.regenerateBreaking(word), () => [...KEY, 'summary', 'breaking_news']);
+
+const NOTHING: string[] = [];
+
+/**
+ * What is being written right now, as the server tells it: the button that asked for it keeps turning after a refresh of
+ * the page, or after another page was visited, and the summaries are read again when a writing ends.
+ */
+export function useGenerating() {
+    const signedIn = useAuthStore((s) => s.signedIn);
+    const { data } = useQuery({
+        queryKey: [...KEY, 'generating'],
+        queryFn: api.fetchGenerating,
+        enabled: signedIn,
+        refetchInterval: (query) => (query.state.data?.length ? 2_000 : 10_000),
+    });
+    const before = useRef<string[]>(NOTHING);
+    useEffect(() => {
+        const now = data ?? NOTHING;
+        if (before.current.some((key) => !now.includes(key))) void invalidateThreatsWatcher();
+        before.current = now;
+    }, [data]);
+    return data ?? NOTHING;
+}
+
+export function useSummaryConfig() {
+    const signedIn = useAuthStore((s) => s.signedIn);
+    return useQuery({ queryKey: [...KEY, 'summaryConfig'], queryFn: api.fetchSummaryConfig, enabled: signedIn, staleTime: 5 * 60_000 });
+}
+
+export function useSaveSummaryCooldown() {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn: (minutes: number) => api.saveSummaryCooldown(minutes),
+        onSuccess: (config) => {
+            client.setQueryData([...KEY, 'summaryConfig'], { regenerate_cooldown_minutes: config.regenerate_cooldown_minutes });
+            notifySuccess('Regeneration cooldown saved');
+        },
+        onError: notifyError,
     });
 }
 

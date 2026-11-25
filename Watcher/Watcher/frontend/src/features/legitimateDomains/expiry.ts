@@ -30,6 +30,7 @@ const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 /** "in 12 days", "3 months ago": days up to two months, then months, then years. */
 export function expiryDistance(value: string, now = new Date()): string {
     const days = daysFromToday(value, now);
+    if (!Number.isFinite(days)) return '-';
     const abs = Math.abs(days);
     if (abs < 60) return relative.format(days, 'day');
     if (abs < 730) return relative.format(Math.round(days / 30.44), 'month');

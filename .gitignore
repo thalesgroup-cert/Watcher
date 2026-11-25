@@ -325,6 +325,11 @@ SKILLS.md
 deployment/certificates/certfile.pem
 deployment/certificates/keyfile.pem
 deployment/certificates/rootcafile.pem
+# The local PKI that init.sh generates (its root CA private key included)
+deployment/certificates/default/
+*.key.pem
+*.csr.pem
+*.srl
 db_watcher/
 Watcher/Watcher/static/
 .worktrees/
@@ -365,3 +370,10 @@ Watcher/Watcher/frontend/static/frontend/assets/
 *.dump
 *.zip
 *.ipynb
+
+# Documentation (built from the README and the docstrings)
+Watcher/docs/content/guide/
+Watcher/docs/content/index.md
+Watcher/docs/content/reference/
+Watcher/docs/mkdocs.yml
+Watcher/docs/site/

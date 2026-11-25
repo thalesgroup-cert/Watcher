@@ -68,6 +68,10 @@ def resolve(ctx, name):
     return current
 
 
+def slack_escape(text):
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
 def has_value(value):
     return not (value is None or value == '' or value == [] or value == {} or (isinstance(value, str) and not value.strip()))
 

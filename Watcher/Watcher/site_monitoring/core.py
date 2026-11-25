@@ -24,7 +24,7 @@ import time
 import random
 from common.utils.rdap import RDAPDiscovery
 from common.utils import expiry_alerts, expiry_check, registration_actions
-import common.utils.job_log as job_log  # not a "from common" line: the documentation build keeps it
+from common.utils import job_log
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Comment
 import difflib
@@ -70,6 +70,7 @@ shadow_useragent = DesktopUserAgents()
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
+
         - Fire `monitoring_check` every 15 minutes from Monday to Sunday
         - Fire `update_site_monitoring_rdap_data` every 15 minute for the RDAP lookup
     """
@@ -82,12 +83,13 @@ def start_scheduler():
                       max_instances=10,
                       replace_existing=True)
     
-    scheduler.add_job(update_site_monitoring_rdap_data, 'cron', day_of_week='mon-sun', minute='*/15', id='site_rdap_job',
+    # Every job has its own minute: the ones of every 15 or 30 minutes used to start on the same second and took every core together
+    scheduler.add_job(update_site_monitoring_rdap_data, 'cron', day_of_week='mon-sun', minute='3-59/15', id='site_rdap_job',
                       max_instances=1,
                       replace_existing=True)
 
     # The pages are checked at the pace of their own interval: the job only looks at the ones that are due
-    scheduler.add_job(check_monitored_pages, 'cron', day_of_week='mon-sun', minute='*/15', id='monitored_pages_job',
+    scheduler.add_job(check_monitored_pages, 'cron', day_of_week='mon-sun', minute='6-59/15', id='monitored_pages_job',
                       max_instances=1, coalesce=True, replace_existing=True)
 
     scheduler.start()
@@ -1033,7 +1035,6 @@ class PageError(Exception):
     """The page could not be downloaded; the message says why in a few words."""
 
 
-# Download
 def _public_addresses(host):
     """The addresses the host resolves to. Empty when it does not resolve or when one of them is not public."""
     try:
@@ -1146,7 +1147,6 @@ def fetch_page(url):
     raise PageError("too many redirects")
 
 
-# Text
 # A pattern runs in the only worker, which also runs the scheduler: one that backtracks without end (ReDoS) would freeze
 # Watcher. The shape that does it is a repeat without limit inside another one, as in (a+)+ ; those are refused, and
 # the patterns of a page only look at the first characters of a line.
@@ -1241,7 +1241,6 @@ def compile_patterns_quietly(source):
     return patterns
 
 
-# Comparison
 def compare_texts(old_text, new_text):
     """
     How much the text changed.
@@ -1297,7 +1296,6 @@ def summarize_change(added, removed):
             'more_added': max(0, len(added) - PAGE_SUMMARY_LINES), 'more_removed': max(0, len(removed) - PAGE_SUMMARY_LINES)}
 
 
-# Check
 def _record_status(page, status):
     """Say once, when the page changes of state, that it stops or starts answering. `status` 0: unreachable."""
     status = status or None
@@ -1392,10 +1390,6 @@ def check_monitored_pages():
 PAGE_NOTIFICATION = 'page_change'
 
 
-def _slack_escape(text):
-    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-
-
 def _page_list(lines, more, escape, bullet, separator):
     """The changed lines as one value of a message; empty (so the line is left out) when there are none."""
     if not lines:
@@ -1411,7 +1405,8 @@ def _page_context(page, version, summary, channel):
     from connectors.notifications import get_type
 
     name = (page.name or page.url).replace('\r', ' ').replace('\n', ' ')
-    escape = {'slack': _slack_escape, 'citadel': html.escape}.get(channel, lambda text: text)
+    from connectors.notifications.template import slack_escape
+    escape = {'slack': slack_escape, 'citadel': html.escape}.get(channel, lambda text: text)
     separator, bullet = ('<br>', '• ') if channel == 'citadel' else ('\n', '• ')
     return {
         'page_name': escape(name),

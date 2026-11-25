@@ -38,7 +38,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
     const search = useSearch(query);
 
     const user = useAuthStore(selectUser);
-    const signedIn = useAuthStore((s) => !!s.token);
+    const signedIn = useAuthStore((s) => s.signedIn);
     const logout = useLogout();
     const { themeName, setThemeName, ambient, effects, setEffects } = useThemeMode();
     const config = useInstanceConfig();

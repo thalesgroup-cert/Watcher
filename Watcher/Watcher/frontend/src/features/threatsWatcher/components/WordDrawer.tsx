@@ -17,9 +17,11 @@ import { SideDrawer } from '../../../ui/SideDrawer';
 import { formatDateTime } from '../../timeline/format';
 import { articleTitle, useReadArticles } from '../articles';
 import { hostOf } from '../catalog';
-import { heatOf, heatSentence } from '../heat';
+import { hasFigures, heatOf, heatSentence } from '../heat';
 import { useHeatColors } from '../heatColors';
-import { useGenerateWordSummary, useThreatsStatistics, useWord, useWordSummary } from '../hooks';
+import { useAuthStore } from '../../auth/store';
+import { useGenerateWordSummary, useGenerating, useRegenerateWordSummary, useThreatsStatistics, useWord, useWordSummary } from '../hooks';
+import { Dots, SummaryFooter, TURNING } from './RegenerateButton';
 import type { Post, Word } from '../types';
 import { SummaryText } from './Briefing';
 import { Favicon } from './Favicon';
@@ -43,25 +45,37 @@ function Section({ title, action, children }: { title: string; action?: ReactNod
 function AiSummary({ word }: { word: string }) {
     const { data: summary, isPending } = useWordSummary(word);
     const generate = useGenerateWordSummary();
+    const regenerate = useRegenerateWordSummary();
+    const signedIn = useAuthStore((s) => s.signedIn);
+    // Being written for this page, or for the server (the page was refreshed, or another one asked)
+    const running = useGenerating();
+    const writing = generate.isPending || regenerate.isPending || running.includes(`word:${word.toLowerCase()}`);
     if (isPending) return <Skeleton height={60} />;
     if (summary) {
         return (
             <>
                 <SummaryText text={summary.summary_text} />
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                    AI summary of its articles - {since(summary.updated_at || summary.created_at)}
-                </Typography>
+                <SummaryFooter summary={summary} pending={writing} onRegenerate={() => regenerate.mutate(word)} />
             </>
         );
     }
     return (
         <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
             <Typography variant="body2" color="text.secondary">
-                No summary yet. Watcher can write one from the articles that mention this word (it takes a little while).
+                {signedIn ? 'No summary yet. Watcher can write one from the articles that mention this word (it takes a little while).' : 'No summary yet. Sign in to have one written from the articles that mention this word.'}
             </Typography>
-            <Button size="small" variant="outlined" startIcon={<AutoAwesomeOutlined />} disabled={generate.isPending} onClick={() => generate.mutate(word)}>
-                {generate.isPending ? 'Writing the summary…' : 'Summarize the articles'}
-            </Button>
+            {signedIn && (
+                <Button size="small" variant="outlined" startIcon={<AutoAwesomeOutlined sx={writing ? TURNING : undefined} />} disabled={writing} onClick={() => generate.mutate(word)}>
+                    {writing ? (
+                        <>
+                            Writing the summary
+                            <Dots />
+                        </>
+                    ) : (
+                        'Summarize the articles'
+                    )}
+                </Button>
+            )}
             {generate.error && (
                 <MuiAlert severity="info" sx={{ width: '100%' }}>
                     {getErrorMessage(generate.error, 'The summary could not be written.')}
@@ -248,6 +262,7 @@ export function WordDrawer({ open, id, initial, onClose, actions }: WordDrawerPr
             </Stack>
             {word && (
                 <Box sx={{ px: 2.5, pb: 2 }}>
+                    {hasFigures(word) && (
                     <Stack
                         direction="row"
                         spacing={1.5}
@@ -260,6 +275,7 @@ export function WordDrawer({ open, id, initial, onClose, actions }: WordDrawerPr
                         </Typography>
                         <MiniBars values={word.daily ?? []} color={colors[heat]} width={70} height={26} label={`Articles per day over the last 7 days: ${(word.daily ?? []).join(', ')}`} />
                     </Stack>
+                    )}
                     <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', rowGap: 1 }}>
                         {actions.monitor && !word.monitored && (
                             <Button size="small" variant="outlined" startIcon={<NotificationAddOutlined />} onClick={() => actions.monitor?.(word)}>

@@ -7,6 +7,17 @@ export interface ConnectorField {
     value: string | null;
     sensitive?: boolean;
     overridden?: boolean;
+    /** The value is the default of the LiteLLM library for this provider, not one that was typed. */
+    from_default?: boolean;
+    /** The library knows a default for it (the base URL of OpenAI, Anthropic, Gemini). */
+    has_default?: boolean;
+    /** An example of what goes in the field, shown while it is empty. */
+    placeholder?: string;
+    required?: boolean;
+    type?: string;
+    /** The name of the setting (settings.py / .env) the field reads. */
+    settings_key?: string;
+    litellm_provider?: string | null;
 }
 
 export interface ConnectorHealth {
@@ -21,11 +32,28 @@ export interface Connector {
     category: string;
     description?: string;
     version?: string;
+    author?: string;
     logo?: string;
     status: ConnectorStatus;
     health?: ConnectorHealth | null;
     readonly?: boolean;
+    /** The AI connector that writes the summaries (one at most); the others are tried when it fails. */
+    is_default_llm?: boolean;
     fields: ConnectorField[];
+}
+
+export type DeliveryKind = 'test' | 'health' | 'notification' | 'ai';
+
+/** One thing a connector did: a test, a notification sent through it, a call to an AI. */
+export interface Delivery {
+    id: number;
+    kind: DeliveryKind;
+    ok: boolean;
+    message: string;
+    /** What it was about: the notification, the model. */
+    subject: string;
+    duration: number | null;
+    created_at: string;
 }
 
 export interface TestResult {

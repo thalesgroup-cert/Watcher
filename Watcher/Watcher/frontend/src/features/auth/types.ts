@@ -18,6 +18,10 @@ export interface Profile {
     avatar_color: string | null;
     /** A DiceBear avatar built on the profile; null keeps the coloured initials. */
     avatar: AvatarConfig | null;
+    /** AI summaries are written out letter by letter, once. */
+    typewriter_enabled: boolean;
+    /** Kept by the server since 3.8; the size of the text is now one setting, in Display (profile.preferences.display). */
+    ui_zoom_level?: number;
 }
 
 export interface LoginResponse {
@@ -25,5 +29,5 @@ export interface LoginResponse {
     token: string;
 }
 
-/** `checking`: a stored token is being validated against `/api/auth/user`. */
+/** `checking`: a session cookie is being validated against `/api/auth/user`. */
 export type AuthStatus = 'checking' | 'authenticated' | 'anonymous';

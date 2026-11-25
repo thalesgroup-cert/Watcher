@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Card, CardActions, CardContent, Chip, CircularProgress, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardActions, CardContent, Chip, CircularProgress, FormControlLabel, Switch, Tooltip, Typography } from '@mui/material';
 import EditOutlined from '@mui/icons-material/EditOutlined';
+import StarRounded from '@mui/icons-material/StarRounded';
 import WifiTethering from '@mui/icons-material/WifiTethering';
 import { getErrorMessage } from '../../../api/client';
-import { useTestConnector } from '../hooks';
+import { useSetDefaultLlm, useTestConnector } from '../hooks';
 import type { Connector, TestResult } from '../types';
 import { checkedText, connectorLight, StateIcon, useLight } from './State';
 import { ConnectorLogo } from './ConnectorLogo';
@@ -19,6 +20,8 @@ export function ConnectorCard({ connector, onEditClick }: ConnectorCardProps) {
     const [testResult, setTestResult] = useState<TestResult | null>(null);
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
     const test = useTestConnector();
+    const setDefault = useSetDefaultLlm();
+    const isAi = connector.category === 'Artificial Intelligence';
 
     useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -52,6 +55,7 @@ export function ConnectorCard({ connector, onEditClick }: ConnectorCardProps) {
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5 }}>
                     v{connector.version}
                 </Typography>
+                {connector.is_default_llm && <Chip size="small" color="primary" icon={<StarRounded />} label="Default" data-testid="default-ai-badge" sx={{ mb: 1.5, mt: -0.75 }} />}
                 <Tooltip title={`${meaning}${detail}`}>
                     <Box data-testid="connector-light" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <StateIcon light={light} />
@@ -65,6 +69,23 @@ export function ConnectorCard({ connector, onEditClick }: ConnectorCardProps) {
                     {connector.status !== 'disabled' && ` - ${checkedText(connector)}`}
                 </Typography>
                 {connector.readonly && <Chip variant="outlined" color="warning" label="Read-only" sx={{ mt: 1 }} />}
+                {isAi && (
+                    <Tooltip title="The AI that writes the summaries. If it fails, the other configured AIs are tried.">
+                        <FormControlLabel
+                            sx={{ mt: 1, mr: 0 }}
+                            control={
+                                <Switch
+                                    size="small"
+                                    checked={!!connector.is_default_llm}
+                                    disabled={setDefault.isPending || connector.status === 'disabled'}
+                                    onChange={(e) => setDefault.mutate({ id: connector.id, isDefault: e.target.checked })}
+                                    slotProps={{ input: { 'aria-label': `Use ${connector.name} as the default AI` } }}
+                                />
+                            }
+                            label={<Typography variant="caption">Default AI</Typography>}
+                        />
+                    </Tooltip>
+                )}
 
                 {testResult && (
                     <Alert

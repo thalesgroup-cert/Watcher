@@ -115,6 +115,16 @@ SCREENSHOT_SERVICE_URL = os.environ.get('SCREENSHOT_SERVICE_URL', '')
 SCREENSHOT_TIMEOUT = int(os.environ.get('SCREENSHOT_TIMEOUT', '60'))
 # Screenshots kept for each object (the oldest are deleted)
 SCREENSHOT_KEEP = int(os.environ.get('SCREENSHOT_KEEP', '10'))
+
+# Cyber Watch keeps the CVEs and the ransomware victims this many days, then a nightly job takes them out (0 keeps everything).
+# The CVEs exploited in the wild (CISA catalogue) and what a watch rule matched always stay.
+CYBER_WATCH_CVE_RETENTION_DAYS = int(os.environ.get('CYBER_WATCH_CVE_RETENTION_DAYS', '365'))
+CYBER_WATCH_VICTIM_RETENTION_DAYS = int(os.environ.get('CYBER_WATCH_VICTIM_RETENTION_DAYS', '365'))
+# The AI summaries (one more at each Regenerate) and the activity journal (every change made in the modules); 0 keeps everything
+SUMMARY_RETENTION_DAYS = int(os.environ.get('SUMMARY_RETENTION_DAYS', '90'))
+TIMELINE_RETENTION_DAYS = int(os.environ.get('TIMELINE_RETENTION_DAYS', '365'))
+# Computing threads the entity model (Threats Watcher) may use while it reads the titles; 0 leaves torch free to take every core
+NER_TORCH_THREADS = int(os.environ.get('NER_TORCH_THREADS', '2'))
 # Watcher Logo
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
 GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
@@ -131,6 +141,15 @@ BULK_ACTION_MAX_ITEMS = int(os.environ.get('BULK_ACTION_MAX_ITEMS', 200))
 # Proxy setup
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
+
+# The certificates of the AI endpoints are checked, the API keys go to them. Only an endpoint with a self-signed certificate
+# needs LITELLM_VERIFY_SSL=False (or CA_PATH, to trust its authority).
+LITELLM_VERIFY_SSL = os.environ.get('LITELLM_VERIFY_SSL', 'True')
+
+CA_PATH = os.environ.get('CA_PATH', '')
+if CA_PATH and os.path.exists(CA_PATH):
+    os.environ['REQUESTS_CA_BUNDLE'] = CA_PATH
+    os.environ['SSL_CERT_FILE'] = CA_PATH
 
 # CertStream URL
 CERT_STREAM_URL = os.environ.get('CERT_STREAM_URL', 'wss://certstream.calidog.io')
@@ -182,11 +201,42 @@ CITADEL_ROOM_ID = os.environ.get('CITADEL_ROOM_ID', '')
 CITADEL_URL = os.environ.get('CITADEL_URL', '')
 
 # Weekly Summary Configuration
-WEEKLY_SUMMARY_DAY = os.environ.get('WEEKLY_SUMMARY_DAY', 'Monday')
+WEEKLY_SUMMARY_DAY = os.environ.get('WEEKLY_SUMMARY_DAY', 'Thursday')
 WEEKLY_SUMMARY_HOUR = os.environ.get('WEEKLY_SUMMARY_HOUR', '09:30')
 
 # Breaking News Configuration
 BREAKING_NEWS_THRESHOLD = int(os.environ.get('BREAKING_NEWS_THRESHOLD', 15))
+
+#Configuration LLM
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_MODEL = os.environ.get('OPENAI_MODEL', '')
+OPENAI_BASE_URL = os.environ.get('OPENAI_BASE_URL', '')
+
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+ANTHROPIC_MODEL = os.environ.get('ANTHROPIC_MODEL', '')
+ANTHROPIC_BASE_URL = os.environ.get('ANTHROPIC_BASE_URL', '')
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', '')
+GEMINI_BASE_URL = os.environ.get('GEMINI_BASE_URL', '')
+
+OLLAMA_API_URL = os.environ.get('OLLAMA_API_URL', '')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', '')
+OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
+
+HF_LOCAL_MODEL = os.environ.get('HF_LOCAL_MODEL', 'Qwen/Qwen2.5-0.5B-Instruct')
+
+#Configuration LLM enterprise
+GENERIC_LLM_URL = os.environ.get('GENERIC_LLM_URL', '')
+GENERIC_LLM_KEY = os.environ.get('GENERIC_LLM_KEY', '')
+GENERIC_LLM_MODEL = os.environ.get('GENERIC_LLM_MODEL', '')
+
+DEFAULT_LLM_PROVIDER = os.environ.get('DEFAULT_LLM_PROVIDER', '')
+FALLBACK_LLM_PROVIDER = os.environ.get('FALLBACK_LLM_PROVIDER', 'huggingface_local')
+
+# Context for IA to Threats Watcher
+THREATS_WATCHER_CONTEXT = os.environ.get('THREATS_WATCHER_CONTEXT', '')
+ORGANIZATION_NAME = os.environ.get('ORGANIZATION_NAME', '')
 
 # Application definition
 INSTALLED_APPS = [
@@ -212,12 +262,14 @@ INSTALLED_APPS = [
     'connectors',
     'drf_spectacular',
     'mozilla_django_oidc',
+    'llm_gateway',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'accounts.core.KnoxCookieAuthentication',
         'knox.auth.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
@@ -390,7 +442,7 @@ LOGGING = {
     "version": 1,
     'filters': {
         # The health check of Docker asks the web server for `/` every 30 seconds: its line says nothing
-        'skip_health_check': {'()': 'common.utils.log_filters.HealthCheckFilter'},
+        'skip_health_check': {'()': 'common.access_log.HealthCheckFilter'},
     },
     'formatters': {
         # The format Django gives to the lines of its development server (see django.utils.log.DEFAULT_LOGGING)

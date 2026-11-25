@@ -42,6 +42,24 @@ export function useResetConnectorField() {
     });
 }
 
+/** What a connector did lately (superusers): it stays current while the tab is open. */
+export function useDeliveries(id: string, kind: string) {
+    return useQuery({ queryKey: [...CONNECTORS_KEY, 'deliveries', id, kind], queryFn: () => api.fetchDeliveries(id, kind), refetchInterval: 15_000 });
+}
+
+/** Makes an AI connector the default one (or not): the others lose the mark, so the whole list is read again. */
+export function useSetDefaultLlm() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, isDefault }: { id: string; isDefault: boolean }) => api.setDefaultLlm(id, isDefault),
+        onSuccess: (connector) => {
+            void queryClient.invalidateQueries({ queryKey: CONNECTORS_KEY });
+            notifySuccess(connector.is_default_llm ? `${connector.name} is now the default AI` : `${connector.name} is no longer the default AI`);
+        },
+        onError: notifyError,
+    });
+}
+
 export function useTestConnector() {
     const replace = useReplaceInCache();
     return useMutation({

@@ -1,5 +1,9 @@
 import re
 
+from knox.auth import TokenAuthentication
+from rest_framework import exceptions
+from rest_framework.authentication import CSRFCheck
+
 # The themes a user can pick, in the order the profile page shows them. The ids and labels are the ones of
 # frontend/src/styles/themes.ts: change both together.
 THEME_CHOICES = [
@@ -72,3 +76,51 @@ def avatar_of(user):
         return user.profile.avatar or None
     except Exception:
         return None
+
+
+# The Knox token of the browser is kept in a cookie the page cannot read, so that a script injected in a page cannot steal it.
+# `session_active` only tells the page that there is a session (the interface asks for the user when it is there).
+KNOX_COOKIE = 'knox_token'
+SESSION_COOKIE = 'session_active'
+
+
+class KnoxCookieAuthentication(TokenAuthentication):
+    """
+    The Knox token read from the httpOnly cookie. Without the cookie (a script, an API key) the next class tries the
+    `Authorization` header. A cookie the server does not know any more is a visitor, not a refusal, otherwise it would
+    lock its owner out of the sign-in page. As a cookie is sent by the browser on its own, a request that changes something
+    must carry the CSRF token, as for a session.
+    """
+
+    def authenticate(self, request):
+        token = request.COOKIES.get(KNOX_COOKIE)
+        if not token:
+            return None
+        try:
+            user_auth = self.authenticate_credentials(token.encode('utf-8'))
+        except exceptions.AuthenticationFailed:
+            return None
+        self.enforce_csrf(request)
+        return user_auth
+
+    @staticmethod
+    def enforce_csrf(request):
+        check = CSRFCheck(lambda request: None)
+        check.process_request(request)
+        reason = check.process_view(request, None, (), {})
+        if reason:
+            raise exceptions.PermissionDenied(f'CSRF Failed: {reason}')
+
+
+def set_auth_cookies(request, response, token):
+    """The token cookie and the session indicator, kept as long as the token lives; Secure when the request came in HTTPS."""
+    from django.conf import settings
+    ttl = settings.REST_KNOX.get('TOKEN_TTL')
+    options = {'max_age': int(ttl.total_seconds()) if ttl else None, 'secure': request.is_secure(), 'samesite': 'Strict', 'path': '/'}
+    response.set_cookie(KNOX_COOKIE, token, httponly=True, **options)
+    response.set_cookie(SESSION_COOKIE, '1', httponly=False, **options)
+
+
+def clear_auth_cookies(response):
+    for name in (KNOX_COOKIE, SESSION_COOKIE):
+        response.delete_cookie(name, path='/', samesite='Strict')

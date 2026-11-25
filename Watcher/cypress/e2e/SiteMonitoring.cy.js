@@ -44,7 +44,7 @@ describe('Website Monitoring', () => {
     cy.intercept('GET', `${API}alert/11/`, { statusCode: 200, body: { ...CHANGES[0], site: SITES[0] } });
     cy.intercept('GET', `${API}alert/12/`, { statusCode: 200, body: { ...CHANGES[1], site: SITES[0] } });
     cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
-    cy.visit('/#/website_monitoring', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-site') });
+    cy.visit('/#/website_monitoring', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     cy.get('[data-testid="site-row"]', { timeout: 20000 }).should('have.length', 2);
   });
 
@@ -204,6 +204,8 @@ describe('Website Monitoring', () => {
     });
 
     it('shows no Comments section for a website without comments', () => {
+      // After the list: its pattern (site/?*) would also match site/2/
+      cy.intercept('GET', `${API}site/2/`, { statusCode: 200, body: SITES[1] });
       cy.get('[data-testid="site-row"]').eq(1).click();
       cy.get('.MuiDrawer-paper').should('contain', 'phish-2.com');
       cy.get('.MuiDrawer-paper').contains('Comments').should('not.exist');

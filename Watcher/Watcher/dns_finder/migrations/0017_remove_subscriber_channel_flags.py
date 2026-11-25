@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('dns_finder', '0016_alert_feed_indexes'),
-        ('connectors', '0006_seed_notification_settings'),
+        ('connectors', '0008_seed_notification_settings'),
     ]
 
     operations = [

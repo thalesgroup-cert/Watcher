@@ -28,7 +28,7 @@ import { getErrorMessage } from '../../api/client';
 import { selectUser, useAuthStore } from '../auth/store';
 import { useUrlParams } from '../../lib/useUrlParams';
 import { ConnectorCard } from './components/ConnectorCard';
-import { ConnectorEditModal } from './components/ConnectorEditModal';
+import { ConnectorDrawer, type ConnectorTab } from './components/ConnectorDrawer';
 import { LightBoard } from './components/LightBoard';
 import { JobsTab } from '../jobs/JobsTab';
 import { NotificationsTab } from './components/NotificationsTab';
@@ -38,17 +38,18 @@ import { EMPTY_FILTERS, filterConnectors, PAGE_SIZE, paginate, type ConnectorFil
 import { useConnectors } from './hooks';
 import type { Connector } from './types';
 
-const CATEGORY_ORDER = [
-    'Notifications',
-    'Incident Response',
-    'Threat Intelligence',
-    'Certificate Monitoring',
-    'Domain Monitoring',
-    'Search',
-    'Authentication',
-    'Database',
-    'Other',
-];
+const TAB_VALUES: ConnectorTab[] = ['overview', 'configuration', 'deliveries'];
+
+const GROUPED_KEY = 'watcher.connectors.grouped';
+
+/** Grouped by category unless the person ungrouped them, which is remembered. */
+const readGrouped = () => {
+    try {
+        return localStorage.getItem(GROUPED_KEY) !== 'no';
+    } catch {
+        return true;
+    }
+};
 
 const STATUS_OPTIONS = [
     { value: 'configured', label: 'Configured' },
@@ -105,9 +106,8 @@ function ConnectorsGrid({
     data.forEach((c) => {
         (byCategory[c.category || 'Other'] ??= []).push(c);
     });
-    const categories = CATEGORY_ORDER.filter((cat) => byCategory[cat]).concat(
-        Object.keys(byCategory).filter((cat) => !CATEGORY_ORDER.includes(cat)),
-    );
+    // The categories by name, and in each of them the connectors by name (the list arrives sorted by name)
+    const categories = Object.keys(byCategory).sort((a, b) => a.localeCompare(b));
 
     return (
         <Stack spacing={3}>
@@ -191,8 +191,7 @@ export default function ConnectorsPage() {
     const isSuperuser = !!user?.is_superuser;
 
     const { data: connectors = [], isLoading, error } = useConnectors(isSuperuser);
-    const [editing, setEditing] = useState<Connector | null>(null);
-    const [grouped, setGrouped] = useState(false);
+    const [grouped, setGrouped] = useState(readGrouped);
     const [filters, setFilters] = useState<ConnectorFilters>(EMPTY_FILTERS);
     const [page, setPage] = useState(1);
 
@@ -333,7 +332,14 @@ export default function ConnectorsPage() {
                             size="small"
                             value="group"
                             selected={grouped}
-                            onChange={() => setGrouped((v) => !v)}
+                            onChange={() => {
+                                setGrouped(!grouped);
+                                try {
+                                    localStorage.setItem(GROUPED_KEY, grouped ? 'no' : 'yes');
+                                } catch {
+                                    /* private window: grouped again next time */
+                                }
+                            }}
                             title="Group connectors by category"
                             sx={{ textTransform: 'none', gap: 0.75, px: 1.5, height: 30 }}
                         >
@@ -341,7 +347,7 @@ export default function ConnectorsPage() {
                         </ToggleButton>
                     </Box>
 
-                    <ConnectorsGrid data={visible} grouped={grouped} onEdit={setEditing} />
+                    <ConnectorsGrid data={visible} grouped={grouped} onEdit={(c) => update({ connector: c.id, ctab: null })} />
 
                     {pageCount > 1 && (
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
@@ -351,7 +357,12 @@ export default function ConnectorsPage() {
                 </>
             )}
 
-            <ConnectorEditModal connector={editing} show={editing !== null} onClose={() => setEditing(null)} />
+            <ConnectorDrawer
+                connector={connectors.find((c) => c.id === params.get('connector')) ?? null}
+                tab={TAB_VALUES.includes(params.get('ctab') as ConnectorTab) ? (params.get('ctab') as ConnectorTab) : 'overview'}
+                onTab={(t) => update({ ctab: t === 'overview' ? null : t })}
+                onClose={() => update({ connector: null, ctab: null })}
+            />
         </Page>
     );
 }

@@ -1,4 +1,4 @@
-// Connectors > Notifications tab, fully mocked: the list, the switches, the drawer, the choice of fields, the preview.
+// Connectors > Notifications tab, fully mocked: the list and its pills, the filters, the drawer, the choice of fields, the preview.
 describe('Connectors - Notifications tab', () => {
   const USER = {
     id: 1, username: 'admin', first_name: 'Ada', last_name: 'Admin', email: 'admin@watcher.local',
@@ -64,27 +64,71 @@ describe('Connectors - Notifications tab', () => {
   });
 
   const visitTab = (path = '/#/connectors?tab=notifications') =>
-    cy.visit(path, { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-notifications') });
+    cy.visit(path, { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
 
-  it('lists the notifications by module with a switch per channel', () => {
+  const pill = (label) => cy.get(`[role="switch"][aria-label="${label}"]`);
+
+  it('lists the notifications by module with a pill per channel, green when it is sent', () => {
     visitTab();
     cy.contains('tr', 'Data Leak', { timeout: 20000 }).should('be.visible');
     cy.contains('tr', 'Threats Watcher').should('be.visible');
     // Its own group, with its notifications off until switched on
     cy.contains('tr', 'Legitimate Domains').should('be.visible');
-    cy.get('input[aria-label="Legitimate domain close to expiry on Slack"]').should('not.be.checked');
-    cy.get('input[aria-label="Data leak alert on Slack"]').should('not.be.checked');
-    cy.get('input[aria-label="Data leak alert on Email"]').should('be.checked');
+    pill('Legitimate domain close to expiry on Slack').should('have.attr', 'aria-checked', 'false').and('contain', 'Off');
+    pill('Data leak alert on Slack').should('have.attr', 'aria-checked', 'false');
+    pill('Data leak alert on Email').should('have.attr', 'aria-checked', 'true').and('contain', 'On');
     // The weekly summary has no Citadel, TheHive or email message here: nothing to switch.
-    cy.contains('tr', 'Weekly threat summary').find('input[type="checkbox"]').should('have.length', 1);
+    cy.contains('tr', 'Weekly threat summary').find('[role="switch"]').should('have.length', 1);
+  });
+
+  it('counts the active notifications of each module and folds a module away', () => {
+    visitTab();
+    cy.get('[data-testid="module-count-data_leak"]', { timeout: 20000 }).should('contain', '1/1 active');
+    cy.get('[data-testid="module-count-threats_watcher"]').should('contain', '0/1 active');
+    cy.contains('tr', 'Data leak alert').should('be.visible');
+    cy.contains('tr', 'Data Leak').click();
+    cy.contains('tr', 'Data leak alert').should('not.exist');
+    cy.get('[data-testid="module-count-data_leak"]').should('contain', '1/1 active');
+    cy.contains('button', 'Collapse all').click();
+    cy.contains('tr', 'Weekly threat summary').should('not.exist');
+    cy.contains('button', 'Expand all').click();
+    cy.contains('tr', 'Weekly threat summary').should('be.visible');
+  });
+
+  it('searches the notifications and keeps only the active ones on demand', () => {
+    visitTab();
+    cy.contains('tr', 'Data leak alert', { timeout: 20000 }).should('be.visible');
+    cy.get('input[aria-label="Search a notification"]').type('weekly');
+    cy.contains('tr', 'Weekly threat summary').should('be.visible');
+    cy.contains('tr', 'Data leak alert').should('not.exist');
+    cy.location('hash').should('include', 'nq=weekly');
+    cy.get('input[aria-label="Search a notification"]').clear().type('zzz');
+    cy.contains('No notification matches.').should('be.visible');
+    cy.get('input[aria-label="Search a notification"]').clear();
+    // Only what is sent somewhere: the data leak alert (its email is on), not the two that are off everywhere
+    cy.contains('[role="button"]', 'Active only').click();
+    cy.contains('tr', 'Data leak alert').should('be.visible');
+    cy.contains('tr', 'Weekly threat summary').should('not.exist');
+    cy.contains('tr', 'Legitimate domain close to expiry').should('not.exist');
+    cy.location('hash').should('include', 'nactive=1');
+  });
+
+  it('shows the state of every channel in its column header', () => {
+    visitTab();
+    cy.get('[data-testid="channel-state-slack"]', { timeout: 20000 }).should('be.visible');
+    cy.get('[data-testid="channel-state-email"]').should('be.visible');
+    // Nothing in this mock uses Citadel or TheHive
+    cy.get('[data-testid="channel-state-citadel"]').trigger('mouseover');
+    cy.contains('no notification uses it').should('be.visible');
   });
 
   it('switches a channel on from the list', () => {
     cy.intercept('PATCH', '/api/connectors/notifications/data_leak/slack/', { statusCode: 200, body: leak({ slack: true }) }).as('toggle');
     visitTab();
-    cy.get('input[aria-label="Data leak alert on Slack"]', { timeout: 20000 }).check();
+    cy.contains('tr', 'Data leak alert', { timeout: 20000 }).should('be.visible');
+    pill('Data leak alert on Slack').click();
     cy.wait('@toggle').its('request.body').should('deep.equal', { enabled: true });
-    cy.get('input[aria-label="Data leak alert on Slack"]').should('be.checked');
+    pill('Data leak alert on Slack').should('have.attr', 'aria-checked', 'true');
   });
 
   it('warns when a switched-on channel has no working connector', () => {

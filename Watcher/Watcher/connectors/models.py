@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class ConnectorOverride(models.Model):
@@ -7,6 +8,12 @@ class ConnectorOverride(models.Model):
     overrides = models.JSONField(default=dict, blank=True)
 
     auto_seeded_fields = models.JSONField(default=list, blank=True)
+
+    is_default_llm = models.BooleanField(
+        default=False, 
+        verbose_name="Default LLM",
+        help_text="Check to set this AI as the default."
+    )
 
     class Meta:
         verbose_name = 'Connector Override'
@@ -21,6 +28,8 @@ class ConnectorOverride(models.Model):
             self.overrides = {}
         if self.auto_seeded_fields is None:
             self.auto_seeded_fields = []
+        if self.is_default_llm:
+            ConnectorOverride.objects.filter(is_default_llm=True).exclude(pk=self.pk).update(is_default_llm=False)
         super().save(*args, **kwargs)
 
 
@@ -64,3 +73,30 @@ class NotificationSetting(models.Model):
 
     def __str__(self):
         return f'{self.notification_type} / {self.channel}'
+
+
+class ConnectorEvent(models.Model):
+    """
+    What a connector did, for its Deliveries tab: a test, a notification sent through it, a call to an AI. The last
+    ConnectorEvent.KEEP of each connector are kept; nothing here is read by Watcher itself.
+    """
+    KEEP = 100  # events kept per connector
+    KINDS = [('test', 'Test'), ('health', 'Weekly check'), ('notification', 'Notification'), ('ai', 'AI call')]
+
+    connector_id = models.CharField(max_length=100, db_index=True)
+    kind = models.CharField(max_length=16, choices=KINDS)
+    ok = models.BooleanField()
+    message = models.CharField(max_length=300, blank=True, default='')
+    # What it was about: the notification, the model that was called
+    subject = models.CharField(max_length=150, blank=True, default='')
+    duration = models.FloatField(null=True, blank=True, help_text='Seconds')
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        indexes = [models.Index(fields=['connector_id', '-created_at'])]
+        verbose_name = 'Connector Event'
+        verbose_name_plural = 'Connector Events'
+
+    def __str__(self):
+        return f"{self.connector_id} {self.kind} {'ok' if self.ok else 'failed'}"

@@ -1,6 +1,6 @@
 import { api } from '../../api/client';
 
-/** A scheduled job, as `GET /api/common/scheduled_jobs/` tells it (common/jobs_api.py). */
+/** A scheduled job, as `GET /api/common/scheduled_jobs/` tells it (`ScheduledJobsView` in common/api.py). */
 export interface ScheduledJob {
     /** `app.function`, e.g. `threats_watcher.main_watch`. */
     key: string;

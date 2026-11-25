@@ -23,7 +23,7 @@ describe('Pending actions', () => {
     cy.intercept('GET', '/api/common/pending_actions/count/', { statusCode: 200, body: { count: 2 } });
     cy.intercept('GET', '/api/common/pending_actions/?*', { statusCode: 200, body: ACTIONS }).as('list');
     cy.intercept('GET', '/api/connectors/', { statusCode: 200, body: [] });
-    cy.visit('/#/activity', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-pending') });
+    cy.visit('/#/activity', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
   });
 
   it('puts a cross and a green button at the right of each action, named after what approving does', () => {

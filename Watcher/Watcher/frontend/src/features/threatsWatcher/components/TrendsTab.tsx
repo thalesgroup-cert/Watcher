@@ -285,7 +285,7 @@ export function TrendsTab() {
 
             <ConfirmDialog
                 open={confirm !== null}
-                title={confirm?.action === 'ban' ? `Ban “${confirm.word.name}”?` : `Delete “${confirm?.word.name}”?`}
+                title={confirm?.action === 'ban' ? `Ban “${confirm.word.name}”?` : `Delete “${confirm?.word.name ?? ''}”?`}
                 confirmLabel={confirm?.action === 'ban' ? 'Ban' : 'Delete'}
                 danger
                 pending={ban.isPending || remove.isPending}

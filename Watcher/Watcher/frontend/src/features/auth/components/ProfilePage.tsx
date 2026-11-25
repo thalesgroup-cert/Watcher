@@ -25,6 +25,7 @@ import { AccessPanel } from './AccessPanel';
 import { AvatarEditor } from './AvatarEditor';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { useThemeMode } from '../../../styles/ThemeModeProvider';
+import { AiPreferences } from './AiPreferences';
 import { DisplayPicker } from './DisplayPicker';
 import { EffectsPicker } from './EffectsPicker';
 import { ThemePicker } from './ThemePicker';
@@ -155,6 +156,9 @@ function AppearanceTab() {
             )}
             <SectionCard title="Display" subtitle="How tables, text, motion and charts look, whatever the theme. Stored with your account.">
                 <DisplayPicker />
+            </SectionCard>
+            <SectionCard title="AI summaries" subtitle="How the weekly report, the breaking news and the word summaries are shown.">
+                <AiPreferences />
             </SectionCard>
             <Box>
                 <Button

@@ -1,4 +1,5 @@
 import logging
+import time
 from .utils.send_slack_messages import send_slack_message
 from .utils.send_citadel_messages import send_citadel_message
 from .utils.send_email_notifications import send_email_notifications
@@ -26,7 +27,7 @@ from .utils.job_log import job_count, logged_job, note_channel, report_channel, 
 from .utils import expiry_alerts, expiry_check, registration_actions
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 from connectors.core import get_thehive_config, get_slack_config, get_citadel_config
-# One line: docs/build_the_docs.sh comments out the `from connectors` lines one by one.
+from connectors.core import record_event
 from connectors.notifications import email_subject, find_type, is_enabled, render_message, render_per_alert, render_thehive_title, thehive_meta
 import tldextract
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -40,9 +41,56 @@ import requests
 logger = logging.getLogger('watcher.common')
 
 
+def retention_days(name):
+    """Days kept, from the setting called name; 0 (or nothing usable) keeps everything."""
+    try:
+        return max(0, int(getattr(settings, name, 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def purge_history(dry_run=False):
+    """
+    Take out the summaries and the activity journal lines older than their retention, the journal in batches (a long delete
+    holds the table). The latest summary of each kind is always kept. With `dry_run` it only counts.
+    Returns {'summaries': n, 'timeline': n}.
+    """
+    from datetime import timedelta
+    from threats_watcher.models import Summary
+    from timeline.models import TimelineEvent
+    counts = {'summaries': 0, 'timeline': 0}
+    days = retention_days('SUMMARY_RETENTION_DAYS')
+    if days:
+        old = Summary.older_than(days)
+        counts['summaries'] = old.count() if dry_run else old.delete()[0]
+    days = retention_days('TIMELINE_RETENTION_DAYS')
+    if days:
+        old = TimelineEvent.objects.filter(timestamp__lt=timezone.now() - timedelta(days=days))
+        if dry_run:
+            counts['timeline'] = old.count()
+        else:
+            while True:
+                ids = list(old.order_by().values_list('pk', flat=True)[:1000])
+                if not ids:
+                    break
+                counts['timeline'] += TimelineEvent.objects.filter(pk__in=ids).delete()[0]
+    return counts
+
+
+@logged_job("History cleanup (old summaries and activity)", logger)
+def cleanup_history():
+    """Scheduled job (every night): the retention of the AI summaries and of the activity journal."""
+    from django.db import close_old_connections
+    close_old_connections()
+    counts = purge_history()
+    job_count("summaries_removed", counts['summaries'])
+    job_count("timeline_removed", counts['timeline'])
+
+
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
+
         - Fire Legitimate Domains RDAP every 30 minutes (the sites have theirs, in site_monitoring, every 15 minutes)
         - Fire SSL certificate check every 6 hours
         - Fire Connectors health check every Monday at 06:00
@@ -52,12 +100,17 @@ def start_scheduler():
     from common.utils.job_log import register_scheduler
     register_scheduler(scheduler)
 
-    scheduler.add_job(update_legitimate_domains_rdap_data, 'cron', day_of_week='mon-sun', minute='*/30', id='legitimate_rdap_job',
+    scheduler.add_job(update_legitimate_domains_rdap_data, 'cron', day_of_week='mon-sun', minute='9-59/30', id='legitimate_rdap_job',
                       max_instances=1,
                       replace_existing=True)
 
     scheduler.add_job(update_all_ssl_certificates, 'cron', day_of_week='mon-sun', hour='*/6', id='ssl_check_job',
                       max_instances=1,
+                      replace_existing=True)
+
+    # Every night: the old AI summaries and the old lines of the activity journal go (SUMMARY_/TIMELINE_RETENTION_DAYS)
+    scheduler.add_job(cleanup_history, 'cron', hour=3, minute=50, id='history_cleanup_job',
+                      max_instances=1, coalesce=True, misfire_grace_time=3600,
                       replace_existing=True)
 
     from site_monitoring.udrp import check_udrp_statuses
@@ -366,6 +419,197 @@ def collect_observables(app_name, context_data):
     return observables
 
 
+def html_to_slack_attachments(html_text):
+    """Parses the summary's HTML to construct the Slack JSON blocks with their respective colors."""
+    attachments = []
+
+    html_text = html_text.replace('\n', ' ')
+    
+    exec_match = re.search(r"border-left:\s*3px\s*solid\s*(#[0-9a-fA-F]{6}).*?Executive Summary.*?<p[^>]*>(.*?)</p>", html_text, re.DOTALL | re.IGNORECASE)
+    if exec_match:
+        color = exec_match.group(1)
+        text = re.sub(r'<.*?>', '', exec_match.group(2)).strip()
+        attachments.append({
+            "color": color,
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": "Executive Summary"}},
+                {"type": "section", "text": {"type": "mrkdwn", "text": text}}
+            ]
+        })
+        
+    clusters = re.finditer(r"<details[^>]*border-left:\s*3px\s*solid\s*(#[0-9a-fA-F]{6}).*?<strong[^>]*>(.*?)</strong>.*?<p[^>]*>(.*?)</p>(.*?)</details>", html_text, re.DOTALL | re.IGNORECASE)
+    for match in clusters:
+        color = match.group(1)
+        title = re.sub(r'<.*?>', '', match.group(2)).strip()
+        desc = re.sub(r'<.*?>', '', match.group(3)).strip()
+        
+        footer = match.group(4)
+        cve_match = re.search(r"CVEs:(.*?)(</div>|</p>)", footer, re.DOTALL)
+        if cve_match:
+            cves = re.sub(r'<.*?>', '', cve_match.group(1)).strip()
+            desc += f"\n\n*CVEs :* {cves}"
+
+        attachments.append({
+            "color": color,
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": title}},
+                {"type": "section", "text": {"type": "mrkdwn", "text": desc}}
+            ]
+        })
+
+    if not attachments:
+        clean_text = html_text
+        
+        clean_text = re.sub(r'<strong[^>]*>(.*?)</strong>', r'*\1*', clean_text, flags=re.DOTALL | re.IGNORECASE)
+        clean_text = re.sub(r'<b[^>]*>(.*?)</b>', r'*\1*', clean_text, flags=re.DOTALL | re.IGNORECASE)
+        clean_text = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'\n\n*\1*\n', clean_text, flags=re.IGNORECASE)
+        
+        clean_text = re.sub(r'</p>', '\n\n', clean_text, flags=re.IGNORECASE)
+        clean_text = re.sub(r'</div>', '\n', clean_text, flags=re.IGNORECASE)
+        clean_text = re.sub(r'<br\s*/?>', '\n', clean_text, flags=re.IGNORECASE)
+        
+        clean_text = re.sub(r'<.*?>', '', clean_text).strip()
+        
+        clean_text = re.sub(r'\n\s*\n\s*\n+', '\n\n', clean_text)
+        
+        attachments.append({
+            "color": "#ef4444",
+            "blocks": [
+                {"type": "section", "text": {"type": "mrkdwn", "text": clean_text[:2900]}}
+            ]
+        })
+
+    return attachments
+
+def html_to_citadel_html(html_text):
+    """
+    Converts the web summary HTML (details/summary, Bootstrap classes, Material icons)
+    into the HTML subset supported by Matrix/Citadel (strong, em, font data-mx-color, a, br).
+    Output contains no newline, since the caller turns '\\n' into '<br>'.
+    """
+    def strip_tags(value):
+        return re.sub(r'<.*?>', '', value).strip()
+
+    html_text = html_text.replace('\n', ' ')
+    parts = []
+
+    exec_match = re.search(
+        r"border-left:\s*3px\s*solid\s*(#[0-9a-fA-F]{6}).*?Executive Summary.*?<p[^>]*>(.*?)</p>",
+        html_text, re.DOTALL | re.IGNORECASE)
+    if exec_match:
+        parts.append(
+            f'<font data-mx-color="{exec_match.group(1)}"><strong>EXECUTIVE SUMMARY</strong></font><br>'
+            f'{strip_tags(exec_match.group(2))}<br><br>'
+        )
+
+    for cluster in re.finditer(r"<details[^>]*border-left:\s*3px\s*solid\s*(#[0-9a-fA-F]{6})[^>]*>(.*?)</details>",
+                               html_text, re.DOTALL | re.IGNORECASE):
+        color, body = cluster.group(1), cluster.group(2)
+
+        title_match = re.search(r'<strong[^>]*>(.*?)</strong>', body, re.DOTALL | re.IGNORECASE)
+        title = strip_tags(title_match.group(1)) if title_match else ''
+        date_match = re.search(r'<span[^>]*text-muted[^>]*>(.*?)</span>', body, re.DOTALL | re.IGNORECASE)
+        sev_match = re.search(r'<span[^>]*badge[^>]*>(.*?)</span>', body, re.DOTALL | re.IGNORECASE)
+        desc_match = re.search(r'</summary>.*?<p[^>]*>(.*?)</p>', body, re.DOTALL | re.IGNORECASE)
+
+        if not title:
+            continue
+
+        header = f'<font data-mx-color="{color}"><strong>▌ {title}</strong></font>'
+        tags = [strip_tags(m.group(1)) for m in (date_match, sev_match) if m]
+        if tags:
+            header += f' <em>({" · ".join(t for t in tags if t)})</em>'
+        parts.append(header + '<br>')
+
+        if desc_match:
+            parts.append(strip_tags(desc_match.group(1)) + '<br><br>')
+
+        footer = body[desc_match.end():] if desc_match else ''
+        threats_match = re.search(r'Threats:</strong>\s*(.*?)</div>', footer, re.DOTALL | re.IGNORECASE)
+        if threats_match:
+            parts.append(f'<strong>Threats:</strong> {strip_tags(threats_match.group(1))}<br>')
+        cves_match = re.search(r'CVEs:</strong>\s*(.*?)</div>', footer, re.DOTALL | re.IGNORECASE)
+        if cves_match:
+            # Plain text on purpose: any link makes Citadel append a URL preview block at the end of the message
+            cves = re.findall(r'CVE-\d{4}-\d{4,}', strip_tags(cves_match.group(1)), re.IGNORECASE)
+            cves = ', '.join(dict.fromkeys(c.upper() for c in cves)) or strip_tags(cves_match.group(1))
+            parts.append(f'<strong>CVEs:</strong> {cves}<br>')
+        parts.append('<br>')
+
+    if parts:
+        return ''.join(parts)
+
+    # Not a clustered summary (breaking news, fallback): keep the basic structure only
+    impact_colors = {
+        'critical': '#ef4444', 'actively exploited': '#ef4444',
+        'high': '#eab308',
+        'medium': '#38bdf8',
+    }
+
+    def colorize_badge(match):
+        text = strip_tags(match.group(1))
+        color = impact_colors.get(text.lower())
+        if color:
+            return f'<font data-mx-color="{color}"><strong>{text}</strong></font>'
+        return text
+
+    clean = html_text
+    # Plain text on purpose: any link makes Citadel append a URL preview block at the end of the message
+    clean = re.sub(r'<a [^>]*>(.*?)</a>', lambda m: strip_tags(m.group(1)), clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'\s*\|\s*(?=CVE-)', ', ', clean)
+    clean = re.sub(r'<span[^>]*badge[^>]*>(.*?)</span>', colorize_badge, clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'<(strong|b)[^>]*>(.*?)</\1>', r'<strong>\2</strong>', clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'<br><strong>\1</strong><br>', clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'</(p|div)>', '<br>', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'<(?!/?(strong|font|br)\b)[^>]*>', '', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'(<br\s*/?>\s*){3,}', '<br><br>', clean, flags=re.IGNORECASE)
+    return clean.strip()
+
+
+def clean_html_for_email(html_text):
+    """Removes web interface artifacts (icons, buttons) for static display in emails."""
+    clean = re.sub(r'<span[^>]*>Collapse All</span>', '', html_text, flags=re.IGNORECASE)
+    
+    clean = re.sub(r'<details([^>]*)>', r'<div\1 style="margin-bottom: 16px;">', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'</details>', '</div>', clean, flags=re.IGNORECASE)
+    
+    def rebuild_summary(match):
+        summary_html = match.group(0)
+        
+        title_match = re.search(r'<strong[^>]*>(.*?)</strong>', summary_html, re.IGNORECASE)
+        title = title_match.group(1).strip() if title_match else ""
+        if not title:
+            return ""
+        
+        date_match = re.search(r'<span[^>]*text-muted[^>]*>(.*?)</span>', summary_html, re.IGNORECASE)
+        date_str = f'<span style="font-size: 0.85em; color: #6c757d; margin-right: 8px;">{date_match.group(1)}</span>' if date_match else ""
+        
+        badge_str = ""
+        badge_tag_match = re.search(r'<span[^>]*badge[^>]*>.*?</span>', summary_html, re.IGNORECASE)
+        if badge_tag_match:
+            badge_full = badge_tag_match.group(0)
+            badge_text = re.sub(r'<.*?>', '', badge_full).strip()
+            color_match = re.search(r'color:\s*(#[0-9a-fA-F]{6})', badge_full, re.IGNORECASE)
+            color = color_match.group(1) if color_match else "#ef4444"
+            badge_str = f'<span style="font-size: 0.85em; padding: 2px 6px; color: {color}; border: 1px solid {color}; border-radius: 4px;">{badge_text}</span>'
+        
+        rebuilt = '<div style="margin-bottom: 8px;">'
+        rebuilt += f'<strong style="font-size: 1.05em; display: block; color: #1f2937;">{title}</strong>'
+        if date_str or badge_str:
+            rebuilt += f'<div style="margin-top: 4px;">{date_str}{badge_str}</div>'
+        rebuilt += '</div>'
+        
+        return rebuilt
+
+    clean = re.sub(r'<summary[^>]*>.*?</summary>', rebuild_summary, clean, flags=re.DOTALL | re.IGNORECASE)
+    
+    clean = re.sub(r'<p[^>]*>\s*</p>', '', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'<div[^>]*>\s*</div>', '', clean, flags=re.IGNORECASE)
+    
+    clean = re.sub(r'(<br\s*/?>\s*){2,}', '<br>', clean, flags=re.IGNORECASE)
+    
+    return clean
+
 def remove_html_tags(text):
     """
     Remove HTML tags from a string.
@@ -412,6 +656,23 @@ def citadel_content(type_id, ctx):
     }
 
 
+# The notifications whose text is the HTML of an AI summary
+HTML_SUMMARY_TYPES = ('threats_watcher_weeklysummary', 'threats_watcher_breakingnews')
+
+
+# The connector each channel goes through (the e-mail goes through the SMTP one)
+_CHANNEL_CONNECTOR = {'slack': 'slack', 'citadel': 'citadel', 'thehive': 'thehive', 'email': 'smtp'}
+
+
+def _keep_delivery(type_id, channel, status, duration):
+    """Tell the Deliveries tab of the connector how a notification went on its channel."""
+    connector = _CHANNEL_CONNECTOR.get(channel)
+    if not connector:
+        return
+    failed = status.startswith(('failed', 'skipped', 'not configured'))
+    record_event(connector, 'notification', not failed, status if status != 'ok' else '', subject=type_id, duration=duration)
+
+
 def _send_channel(type_id, channel, app_name, send):
     """
     Run `send` when the instance has `channel` switched on for this notification (Connectors > Notifications).
@@ -423,8 +684,11 @@ def _send_channel(type_id, channel, app_name, send):
         if not is_enabled(type_id, channel):
             report_channel(channel, 'off')
             return
-        run_channel(channel, send)
+        started = time.monotonic()
+        status = run_channel(channel, send)
+        _keep_delivery(type_id, channel, status, time.monotonic() - started)
     except Exception as exc:
+        _keep_delivery(type_id, channel, f"failed ({str(exc)[:110]})", None)
         logger.error(f"Could not read the setting or send the {type_id} notification on {channel} for {app_name}: {exc}")
 
 
@@ -853,11 +1117,22 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
     common_data['object_url'] = object_link or common_data.get('details_url')
 
+    # The weekly report and the breaking news are HTML (see summary_manager): Slack gets coloured attachments, Citadel the
+    # HTML it understands, the e-mail a version without the parts that need the web page (the collapse button...).
+    slack_data, citadel_data, slack_attachments = common_data, common_data, None
+    if template_key in HTML_SUMMARY_TYPES and common_data.get('summary_text'):
+        slack_attachments = html_to_slack_attachments(common_data['summary_text'])
+        slack_data = {**common_data, 'summary_text': ''}
+        citadel_data = {**common_data, 'summary_text': html_to_citadel_html(common_data['summary_text'])}
+        if isinstance(email_body, str):
+            email_body = clean_html_for_email(email_body)
+
     _send_channel(template_key, 'slack', app_name, lambda: send_slack_message(
-        render_message(template_key, 'slack', common_data), get_slack_config()['channel'], app_name))
+        render_message(template_key, 'slack', slack_data), get_slack_config()['channel'], app_name,
+        attachments=slack_attachments))
 
     _send_channel(template_key, 'citadel', app_name, lambda: send_citadel_message(
-        content=citadel_content(template_key, common_data),
+        content=citadel_content(template_key, citadel_data),
         room_id=get_citadel_config()['room_id'],
         app_name=common_data.get('app_name')
     ))

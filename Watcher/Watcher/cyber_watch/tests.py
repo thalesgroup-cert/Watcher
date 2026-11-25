@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase, TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
@@ -7,6 +7,7 @@ from rest_framework import status
 from knox.models import AuthToken
 from unittest.mock import patch, MagicMock
 
+from .core import purge_old_data
 from .models import CVEAlert, RansomwareGroup, RansomwareVictim, WatchRule, WatchRuleHit
 
 
@@ -390,6 +391,9 @@ class WatchRuleHitTest(TestCase):
         data = response.data['results']
         self.assertTrue(len(data) >= 1)
         self.assertIn('rule_name', data[0])
+        # The field of 3.8 is still there, with the first keyword
+        self.assertEqual(data[0]['matched_keyword'], 'acme')
+        self.assertEqual(data[0]['matched_keywords'], ['acme'])
 
 
 class WatchRuleLastEventFieldTest(APITestCase):
@@ -578,26 +582,26 @@ class CvssTest(SimpleTestCase):
     """The score is found wherever the source keeps it, and computed from a vector when only that is given."""
 
     def test_a_cve_record_keeps_it_in_the_metrics_of_its_containers(self):
-        from cyber_watch.cvss import best_cvss
+        from cyber_watch.core import best_cvss
         record = {'containers': {'cna': {'metrics': [{'cvssV3_1': {'version': '3.1', 'baseScore': 8.8, 'baseSeverity': 'HIGH'}}]}}}
         self.assertEqual(best_cvss(record), (8.8, 'HIGH'))
         adp = {'containers': {'cna': {}, 'adp': [{'metrics': [{'cvssV3_1': {'baseScore': 9.8, 'baseSeverity': 'CRITICAL'}}]}]}}
         self.assertEqual(best_cvss(adp), (9.8, 'CRITICAL'))
 
     def test_the_unified_format_keeps_it_in_its_vulnerabilities(self):
-        from cyber_watch.cvss import best_cvss
+        from cyber_watch.core import best_cvss
         item = {'vulnerabilities': [{'id': 'GHSA-x', 'scores': [{'cvss_v3': {'baseScore': 7.5, 'baseSeverity': 'HIGH'}}]}]}
         self.assertEqual(best_cvss(item), (7.5, 'HIGH'))
 
     def test_the_severity_is_deduced_from_the_score_when_the_label_is_missing(self):
-        from cyber_watch.cvss import best_cvss, severity_of
+        from cyber_watch.core import best_cvss, severity_of
         self.assertEqual(best_cvss({'metrics': {'cvssV3_1': {'baseScore': 9.1}}}), (9.1, 'CRITICAL'))
         self.assertEqual([severity_of(s) for s in (0, 0.1, 3.9, 4.0, 6.9, 7.0, 8.9, 9.0, 10)], ['', 'LOW', 'LOW', 'MEDIUM', 'MEDIUM', 'HIGH', 'HIGH', 'CRITICAL', 'CRITICAL'])
         # A CVSS 2.0 score is never critical
         self.assertEqual(severity_of(10, version=2), 'HIGH')
 
     def test_version_3_comes_before_4_and_2_and_the_highest_of_a_version_is_kept(self):
-        from cyber_watch.cvss import best_cvss
+        from cyber_watch.core import best_cvss
         item = {'containers': {'cna': {'metrics': [
             {'cvssV4_0': {'baseScore': 9.3, 'baseSeverity': 'CRITICAL'}},
             {'cvssV3_1': {'baseScore': 6.5, 'baseSeverity': 'MEDIUM'}},
@@ -609,12 +613,12 @@ class CvssTest(SimpleTestCase):
         self.assertEqual(best_cvss({'metrics': [{'cvssV2_0': {'baseScore': 9.0}}]}), (9.0, 'HIGH'))
 
     def test_the_older_formats_still_work(self):
-        from cyber_watch.cvss import best_cvss
+        from cyber_watch.core import best_cvss
         self.assertEqual(best_cvss({'cvss': 8.1}), (8.1, 'HIGH'))
         self.assertEqual(best_cvss({'cvss': '8.1'}), (None, ''))
 
     def test_a_vector_alone_gives_its_score(self):
-        from cyber_watch.cvss import best_cvss, v3_score
+        from cyber_watch.core import best_cvss, v3_score
         self.assertEqual(v3_score('CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'), 9.8)
         self.assertEqual(v3_score('CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H'), 8.8)
         self.assertEqual(v3_score('CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H'), 10.0)
@@ -624,19 +628,19 @@ class CvssTest(SimpleTestCase):
         self.assertEqual(best_cvss({'severity': [{'type': 'CVSS_V3', 'score': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'}]}), (9.8, 'CRITICAL'))
 
     def test_what_is_not_a_vector_gives_nothing(self):
-        from cyber_watch.cvss import best_cvss, v3_score
+        from cyber_watch.core import best_cvss, v3_score
         for bad in (None, '', 'high', 'CVSS:4.0/AV:N/AC:L', 'CVSS:3.1/AV:N', 'CVSS:3.1/AV:X/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', 42):
             self.assertIsNone(v3_score(bad), bad)
         self.assertEqual(best_cvss({'severity': [{'type': 'CVSS_V4', 'score': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N'}]}), (None, ''))
 
     def test_not_scored_yet_is_not_an_error(self):
-        from cyber_watch.cvss import best_cvss
+        from cyber_watch.core import best_cvss
         for item in ({}, {'id': 'CVE-2026-1'}, {'containers': {'cna': {'metrics': []}}}, {'metrics': {'cvssV3_1': {'baseScore': 'n/a'}}},
                      {'metrics': {'cvssV3_1': {'baseScore': 11}}}, {'metrics': {'cvssV3_1': {'baseScore': True}}}):
             self.assertEqual(best_cvss(item), (None, ''), item)
 
     def test_a_record_gives_its_date_and_description(self):
-        from cyber_watch.cvss import record_values
+        from cyber_watch.core import record_values
         values = record_values({'cveMetadata': {'datePublished': '2026-03-03T19:15:34.000Z'},
                                 'containers': {'cna': {'descriptions': [{'lang': 'en', 'value': 'A flaw in the parser'}]}}})
         self.assertEqual(values['description'], 'A flaw in the parser')
@@ -729,18 +733,6 @@ class EnrichUnscoredTest(TestCase):
         WatchRule.objects.create(name='Critical ones', keywords=['critical'], scope='cve')
         self.run_enrich(self.answer(body=self.scored_record()))
         self.assertTrue(WatchRuleHit.objects.filter(object_id='CVE-2026-5001').exists())
-
-    def test_the_command_catches_up_the_whole_list(self):
-        from io import StringIO
-        from django.core.management import call_command
-        for n in range(3):
-            CVEAlert.objects.create(cve_id=f'CVE-2026-51{n}')
-        out = StringIO()
-        with patch('cyber_watch.core.get_cyberwatch_cve_config', return_value=self.CONFIG), \
-                patch('cyber_watch.core.requests.get', return_value=self.answer(body=self.scored_record())):
-            call_command('enrich_cves', batch=2, pause=0, stdout=out)
-        self.assertFalse(CVEAlert.objects.filter(cvss_score__isnull=True).exists())
-        self.assertIn('4 CVEs scored, 0 still without a score', out.getvalue())
 
 
 class FetchKeepsWhatItKnowsTest(TransactionTestCase):
@@ -982,32 +974,6 @@ class EnrichThrottleTest(TestCase):
         with patch('cyber_watch.core.get_cyberwatch_cve_config', return_value=self.CONFIG), \
                 patch('cyber_watch.core.requests.get', return_value=self.answer(429)):
             self.assertEqual(enrich_unscored(), 0)
-
-    def test_the_command_waits_as_long_as_asked_then_goes_on(self):
-        from io import StringIO
-        from django.core.management import call_command
-        record = {'metrics': {'cvssV3_1': {'baseScore': 5.0, 'baseSeverity': 'MEDIUM'}}}
-        answers = [self.answer(429, headers={'Retry-After': '7'}), self.answer(200, body=record), self.answer(200, body=record), self.answer(200, body=record)]
-        out = StringIO()
-        with patch('cyber_watch.core.get_cyberwatch_cve_config', return_value=self.CONFIG), \
-                patch('cyber_watch.core.requests.get', side_effect=answers), \
-                patch('cyber_watch.management.commands.enrich_cves.time.sleep') as sleep:
-            call_command('enrich_cves', batch=3, pause=0, stdout=out)
-        sleep.assert_called_once_with(7)
-        self.assertFalse(CVEAlert.objects.filter(cvss_score__isnull=True).exists())
-        self.assertIn('the source asks to wait 7 s', out.getvalue())
-        self.assertIn('3 CVEs scored, 0 still without a score', out.getvalue())
-
-    def test_the_command_does_not_ask_twice_for_a_cve_the_source_cannot_score(self):
-        from io import StringIO
-        from django.core.management import call_command
-        nothing = self.answer(200, body={'cveMetadata': {}, 'containers': {'cna': {}}})
-        out = StringIO()
-        with patch('cyber_watch.core.get_cyberwatch_cve_config', return_value=self.CONFIG), \
-                patch('cyber_watch.core.requests.get', return_value=nothing) as get:
-            call_command('enrich_cves', batch=2, pause=0, stdout=out)
-        self.assertEqual(get.call_count, 3)
-        self.assertIn('0 CVEs scored, 3 still without a score', out.getvalue())
 
 
 class KevTest(TransactionTestCase):
@@ -1359,7 +1325,7 @@ class ExploitedMessageTest(TestCase):
     TYPE = 'cyber_watch_cve_exploited'
 
     def sample(self):
-        from connectors.notifications.registry import get_type
+        from connectors.notifications.catalogue import get_type
         from common.core import _cve_title_parts
         ctx = dict(get_type(self.TYPE).sample())
         ctx.update(_cve_title_parts(ctx['severity'], ctx['cvss_score']))
@@ -1367,7 +1333,7 @@ class ExploitedMessageTest(TestCase):
         return ctx
 
     def test_it_is_a_notification_of_the_four_channels_and_off_until_it_is_set_up(self):
-        from connectors.notifications.registry import find_type
+        from connectors.notifications.catalogue import find_type
         from connectors.notifications.store import is_enabled
         ntype = find_type(self.TYPE)
         self.assertEqual((ntype.module, ntype.label), ('cyber_watch', 'CVE exploited in the wild'))
@@ -1629,3 +1595,85 @@ class MergeAdvisoriesMigrationTest(TransactionTestCase):
         self.assertFalse(merged.is_archived)  # still to review while one of them was
         self.assertEqual(Hit.objects.count(), 2)
         self.assertFalse(Hit.objects.filter(object_id__startswith='DEBIAN').exists())
+
+
+class RetentionTest(TestCase):
+    """What is older than the retention goes every night; what still matters stays."""
+
+    def setUp(self):
+        self.old = timezone.now() - timedelta(days=500)
+        self.recent = timezone.now() - timedelta(days=10)
+        self.group = RansomwareGroup.objects.create(name='akira')
+
+    def _cve(self, cve_id, published, **extra):
+        return CVEAlert.objects.create(cve_id=cve_id, published=published, **extra)
+
+    def _victim(self, name, attacked_at, **extra):
+        return RansomwareVictim.objects.create(group=self.group, victim_name=name, attacked_at=attacked_at, **extra)
+
+    def test_old_cves_go_and_recent_ones_stay(self):
+        self._cve('CVE-2020-0001', self.old)
+        self._cve('CVE-2026-0001', self.recent)
+        counts = purge_old_data()
+        self.assertEqual(counts['cves'], 1)
+        self.assertEqual(list(CVEAlert.objects.values_list('cve_id', flat=True)), ['CVE-2026-0001'])
+
+    def test_an_old_cve_exploited_in_the_wild_stays(self):
+        self._cve('CVE-2020-0002', self.old, exploited=True)
+        purge_old_data()
+        self.assertTrue(CVEAlert.objects.filter(cve_id='CVE-2020-0002').exists())
+
+    def test_what_a_watch_rule_matched_stays(self):
+        rule = WatchRule.objects.create(name='mine', keywords=['x'])
+        self._cve('CVE-2020-0003', self.old)
+        self._cve('CVE-2020-0004', self.old)
+        WatchRuleHit.objects.create(rule=rule, hit_type='cve', object_id='CVE-2020-0003', hit_display='x')
+        self._victim('Acme', self.old)
+        self._victim('Other', self.old)
+        WatchRuleHit.objects.create(rule=rule, hit_type='ransomware_victim', object_id='akira::Acme', hit_display='x')
+        purge_old_data()
+        self.assertEqual(list(CVEAlert.objects.values_list('cve_id', flat=True)), ['CVE-2020-0003'])
+        self.assertEqual(list(RansomwareVictim.objects.values_list('victim_name', flat=True)), ['Acme'])
+
+    def test_without_a_date_the_day_it_was_fetched_counts(self):
+        self._cve('CVE-2020-0005', None, fetched_at=self.old)
+        self._cve('CVE-2026-0005', None, fetched_at=self.recent)
+        self._victim('Old fetch', None, fetched_at=self.old)
+        self._victim('New fetch', None, fetched_at=self.recent)
+        counts = purge_old_data()
+        self.assertEqual(counts, {'cves': 1, 'victims': 1})
+
+    def test_zero_keeps_everything(self):
+        self._cve('CVE-2020-0006', self.old)
+        self._victim('Old', self.old)
+        with override_settings(CYBER_WATCH_CVE_RETENTION_DAYS=0, CYBER_WATCH_VICTIM_RETENTION_DAYS=0):
+            self.assertEqual(purge_old_data(), {'cves': 0, 'victims': 0})
+        self.assertEqual((CVEAlert.objects.count(), RansomwareVictim.objects.count()), (1, 1))
+
+    def test_a_dry_run_only_counts(self):
+        self._cve('CVE-2020-0007', self.old)
+        self._victim('Old', self.old)
+        self.assertEqual(purge_old_data(dry_run=True), {'cves': 1, 'victims': 1})
+        self.assertEqual((CVEAlert.objects.count(), RansomwareVictim.objects.count()), (1, 1))
+
+    def test_a_long_list_goes_in_batches(self):
+        for i in range(7):
+            self._cve(f'CVE-2019-{i:04d}', self.old)
+        with patch('cyber_watch.core.PURGE_BATCH', 3):
+            self.assertEqual(purge_old_data()['cves'], 7)
+        self.assertEqual(CVEAlert.objects.count(), 0)
+
+    def test_the_job_counts_what_it_removed_and_the_command_says_it(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from cyber_watch.core import cleanup_old_data
+        self._cve('CVE-2020-0008', self.old)
+        # The job closes the connection of its thread, which the test transaction must keep
+        with patch('cyber_watch.core.close_old_connections'):
+            cleanup_old_data()
+        self.assertEqual(CVEAlert.objects.count(), 0)
+        self._cve('CVE-2020-0009', self.old)
+        out = StringIO()
+        call_command('purge_cyber_watch', '--dry-run', stdout=out)
+        self.assertIn('1 CVEs and 0 ransomware victims would be removed', out.getvalue())
+        self.assertEqual(CVEAlert.objects.count(), 1)

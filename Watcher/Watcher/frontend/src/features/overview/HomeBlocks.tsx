@@ -1,10 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
-import { alpha, Box, Button, Card, CardContent, Link, Skeleton, Typography, useTheme } from '@mui/material';
-import BoltOutlined from '@mui/icons-material/BoltOutlined';
+import { alpha, Box, Button, Card, CardContent, Link, Skeleton, ToggleButton, ToggleButtonGroup, Typography, useTheme } from '@mui/material';
 import BugReportOutlined from '@mui/icons-material/BugReportOutlined';
 import CloudQueueOutlined from '@mui/icons-material/CloudQueueOutlined';
-import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
 import DnsOutlined from '@mui/icons-material/DnsOutlined';
 import DoneAll from '@mui/icons-material/DoneAll';
 import HourglassEmptyOutlined from '@mui/icons-material/HourglassEmptyOutlined';
@@ -14,10 +12,8 @@ import MonitorHeartOutlined from '@mui/icons-material/MonitorHeartOutlined';
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
 import ReportOutlined from '@mui/icons-material/ReportOutlined';
-import ScheduleOutlined from '@mui/icons-material/ScheduleOutlined';
 import TravelExploreOutlined from '@mui/icons-material/TravelExploreOutlined';
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
-import { since } from '../../lib/dates';
 import { fonts } from '../../styles/theme';
 import { When } from '../../ui/When';
 import { countryLabel } from '../cyberWatch/catalog';
@@ -27,7 +23,8 @@ import type { Alert } from '../dataLeak/types';
 import { sourceMeta } from '../dnsFinder/catalog';
 import type { Threat } from '../dnsFinder/types';
 import type { SiteChange } from '../siteMonitoring/types';
-import { SummaryText } from '../threatsWatcher/components/Briefing';
+import { isBreakingFresh } from '../threatsWatcher/freshness';
+import { SummaryPreviewCard, type Kind } from '../threatsWatcher/components/SummaryPreviewCard';
 import type { Summary } from '../threatsWatcher/types';
 import type { OverviewData } from './api';
 
@@ -189,36 +186,36 @@ export function Headline({
     );
 }
 
-const WEEK = 7 * 86_400_000;
-/** Breaking news stay in the brief for a week. */
-const isThisWeek = (iso: string) => Date.now() - new Date(iso).getTime() <= WEEK;
-
-/** The latest AI summary: the breaking news of the week, or else the weekly report. */
+/** The AI summaries in brief, as on Threats Watcher: one at a time here (a switch when both exist), and "Read more" opens the whole text there. */
 export function BriefCard({ breaking, weekly, loading }: { breaking: Summary | null | undefined; weekly: Summary | null | undefined; loading: boolean }) {
-    const fresh = breaking?.summary_text && isThisWeek(breaking.created_at) ? breaking : null;
-    const summary = fresh ?? (weekly?.summary_text ? weekly : null);
-    const label = fresh ? 'Breaking news' : 'Weekly report';
+    // A breaking news stays for the 24 hours after it was written (the same rule as on Threats Watcher), then the weekly report is what is left
+    const fresh = breaking?.summary_text && isBreakingFresh(breaking.created_at) ? breaking : null;
+    const report = weekly?.summary_text ? weekly : null;
+    const [picked, setPicked] = useState<Kind>('breaking');
+    const summary = (picked === 'breaking' ? fresh ?? report : report ?? fresh) ?? null;
+    const kind: Kind = summary === fresh ? 'breaking' : 'weekly';
+    if (loading || !summary) {
+        return (
+            <SectionCard icon={<HourglassEmptyOutlined />} title="Intelligence brief" testId="home-brief">
+                {loading ? <Skeleton variant="rounded" height={120} /> : <Empty icon={<HourglassEmptyOutlined />} text="No summary yet. Breaking news and the weekly report appear here once generated." />}
+            </SectionCard>
+        );
+    }
     return (
-        <SectionCard icon={fresh ? <BoltOutlined /> : summary ? <DescriptionOutlined /> : <HourglassEmptyOutlined />} title={summary ? label : 'Intelligence brief'} testId="home-brief">
-            {loading ? (
-                <Skeleton variant="rounded" height={120} />
-            ) : summary ? (
-                <>
-                    <Box sx={{ display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        <SummaryText text={summary.summary_text} />
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.75, pt: 1.4, borderTop: 1, borderColor: 'divider', fontSize: 12.5, color: 'text.secondary', '& svg': { fontSize: 15 } }}>
-                        <ScheduleOutlined />
-                        Generated {since(summary.created_at)}
-                        <Link component={RouterLink} to="/threats_watcher" sx={{ ml: 'auto', fontSize: 12.5, fontWeight: 600 }}>
-                            Open Threats Watcher
-                        </Link>
-                    </Box>
-                </>
-            ) : (
-                <Empty icon={<HourglassEmptyOutlined />} text="No summary yet. Breaking news and the weekly report appear here once generated." />
-            )}
-        </SectionCard>
+        <SummaryPreviewCard
+            kind={kind}
+            summary={summary}
+            testId="home-brief"
+            readMoreTo={`/threats_watcher?read=${kind}`}
+            toggle={
+                fresh && report ? (
+                    <ToggleButtonGroup exclusive size="small" value={kind} onChange={(_, v: Kind | null) => v && setPicked(v)} aria-label="Summary shown" sx={{ alignSelf: 'flex-start' }}>
+                        <ToggleButton value="breaking">Breaking news</ToggleButton>
+                        <ToggleButton value="weekly">This week</ToggleButton>
+                    </ToggleButtonGroup>
+                ) : undefined
+            }
+        />
     );
 }
 

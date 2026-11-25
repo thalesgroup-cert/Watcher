@@ -1,12 +1,18 @@
 import { type ReactNode, useState } from 'react';
-import { Alert, AlertTitle, Box, Button, Card, CardContent, Chip, Link, Skeleton, Stack, Typography } from '@mui/material';
-import CampaignOutlined from '@mui/icons-material/CampaignOutlined';
+import { Box, Button, IconButton, Link, Skeleton, Stack, Typography } from '@mui/material';
+import Close from '@mui/icons-material/Close';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import { since } from '../../../lib/dates';
-import { formatDateTime } from '../../timeline/format';
-import { useLatestSummary } from '../hooks';
+import { useUrlParams } from '../../../lib/useUrlParams';
+import { SideDrawer } from '../../../ui/SideDrawer';
+import { SafeHtml, isHtmlSummary } from '../../../ui/SafeHtml';
 import { When } from '../../../ui/When';
+import { useAuthStore } from '../../auth/store';
+import { useProfile } from '../../auth/hooks';
+import { useGenerating, useLatestSummary, useRegenerateBreaking, useRegenerateWeekly } from '../hooks';
+import { RegenerateButton, SummaryFooter } from './RegenerateButton';
+import { CardTitle, SummaryPreviewCard, type Kind } from './SummaryPreviewCard';
+import { isBreakingFresh } from '../freshness';
 
 // The summaries are plain text written by summary_manager.py. Links come as "CVE-2026-1234 (https://nvd...)", as
 // markdown "[label](https://...)" or as bare URLs: they become real links, and nothing is ever read as HTML.
@@ -45,6 +51,9 @@ function linkify(raw: string): ReactNode[] {
 
 /** A summary paragraph with its links. */
 export function SummaryText({ text }: { text: string }) {
+    const typewriter = useProfile().data?.typewriter_enabled !== false;
+    // Since 3.8 the summaries are HTML (rebuilt from a whitelist, never injected); older ones are plain text
+    if (isHtmlSummary(text)) return <SafeHtml html={text} typewriter={typewriter} />;
     return (
         <Typography variant="body2" component="div" sx={{ whiteSpace: 'pre-line', lineHeight: 1.7 }}>
             {linkify(text)}
@@ -71,74 +80,123 @@ function digestItems(text: string): DigestItem[] {
 
 const DIGEST_PREVIEW = 2;
 
-const DAY = 86_400_000;
-/** Breaking news are shown for a day. */
-const isFresh = (iso: string) => Date.now() - new Date(iso).getTime() < DAY;
+/** The weekly digest as a list, for the summaries written before 3.8 (plain text, one line per topic). */
+function DigestList({ text }: { text: string }) {
+    const [more, setMore] = useState(false);
+    const items = digestItems(text);
+    const shown = more ? items : items.slice(0, DIGEST_PREVIEW);
+    return (
+        <>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1 }}>
+                {shown.map((item, i) => (
+                    <li key={i}>
+                        <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                            {linkify(item.text)}
+                        </Typography>
+                        {item.details && (
+                            <Typography variant="caption" color="text.secondary" component="div" sx={{ lineHeight: 1.6 }}>
+                                {linkify(item.details)}
+                            </Typography>
+                        )}
+                    </li>
+                ))}
+            </Box>
+            {items.length > DIGEST_PREVIEW && (
+                <Button size="small" onClick={() => setMore((v) => !v)} endIcon={more ? <ExpandLess /> : <ExpandMore />} sx={{ mt: 1, px: 0 }}>
+                    {more ? 'Show less' : `Read the whole digest - ${items.length} topics`}
+                </Button>
+            )}
+        </>
+    );
+}
 
-/** Weekly AI digest and, when there is one from the last 24 hours, the breaking news, above the trends. */
+const WeeklyBody = ({ text }: { text: string }) => (isHtmlSummary(text) ? <SummaryText text={text} /> : <DigestList text={text} />);
+
+/**
+ * The AI summaries above the trends: the breaking news of the last day and the weekly report, half and half on a wide
+ * screen. Each one shows how it starts; "Read more" opens all of it in a panel (kept in the address as ?read=...,
+ * which is also where the Overview sends to).
+ */
 export function Briefing() {
     const weekly = useLatestSummary('weekly_summary');
     const breaking = useLatestSummary('breaking_news');
-    const [open, setOpen] = useState(false);
-    const fresh = !!breaking.data && isFresh(breaking.data.created_at);
+    const signedIn = useAuthStore((s) => s.signedIn);
+    const regenerateWeekly = useRegenerateWeekly();
+    const regenerateBreaking = useRegenerateBreaking();
+    const running = useGenerating();
+    const { params, update } = useUrlParams();
+    const asked = params.get('read');
+    const reading: Kind | null = asked === 'breaking' || asked === 'weekly' ? asked : null;
 
+    const fresh = !!breaking.data && isBreakingFresh(breaking.data.created_at);
     if (weekly.isPending) return <Skeleton variant="rounded" height={96} sx={{ mb: 3 }} />;
-    if (!weekly.data && !fresh) return null;
-    const items = weekly.data ? digestItems(weekly.data.summary_text) : [];
-    const shown = open ? items : items.slice(0, DIGEST_PREVIEW);
+    // Nobody to ask for a report: nothing to show without one
+    if (!weekly.data && !fresh && !signedIn) return null;
+
+    const breakingSummary = fresh ? breaking.data : undefined;
+    const keyword = (breakingSummary?.keywords ?? '').split(',')[0]?.trim() ?? '';
+    const readSummary = reading === 'breaking' ? breakingSummary : reading === 'weekly' ? weekly.data : undefined;
+    const regenerateOf = (kind: Kind) => (kind === 'breaking' ? () => regenerateBreaking.mutate(keyword) : () => regenerateWeekly.mutate());
+    // Being written for this page, or for the server (the page was refreshed, or another one asked)
+    const pendingOf = (kind: Kind) =>
+        kind === 'breaking' ? regenerateBreaking.isPending || running.includes(`breaking:${keyword.toLowerCase()}`) : regenerateWeekly.isPending || running.includes('weekly');
+    const close = () => update({ read: null });
 
     return (
-        <Stack spacing={2} sx={{ mb: 3 }}>
-            {fresh && breaking.data && (
-                <Alert severity="warning" icon={<CampaignOutlined />} data-testid="breaking-news">
-                    <AlertTitle>Breaking news - <When iso={breaking.data.created_at} inline /></AlertTitle>
-                    {breaking.data.keywords && (
-                        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap' }}>
-                            {breaking.data.keywords
-                                .split(',')
-                                .map((k) => k.trim())
-                                .filter(Boolean)
-                                .map((k) => (
-                                    <Chip key={k} size="small" label={k} />
-                                ))}
-                        </Stack>
-                    )}
-                    <SummaryText text={breaking.data.summary_text} />
-                </Alert>
-            )}
-            {weekly.data && (
-                <Card data-testid="weekly-summary">
-                    <CardContent>
-                        <Stack direction="row" sx={{ alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-                            <Typography variant="h3" component="h2">
-                                This week in cyber threats
+        <>
+            <Box sx={{ display: 'grid', gap: 2, mb: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: breakingSummary ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)' } }}>
+                {breakingSummary && (
+                    <SummaryPreviewCard
+                        kind="breaking"
+                        summary={breakingSummary}
+                        testId="breaking-news"
+                        onReadMore={() => update({ read: 'breaking' })}
+                        onRegenerate={regenerateOf('breaking')}
+                        regenerating={pendingOf('breaking')}
+                    />
+                )}
+                {(weekly.data || signedIn) && (
+                <SummaryPreviewCard
+                    kind="weekly"
+                    summary={weekly.data ?? undefined}
+                    testId="weekly-summary"
+                    maxWords={breakingSummary ? 3 : 5}
+                    onReadMore={() => update({ read: 'weekly' })}
+                    onRegenerate={regenerateOf('weekly')}
+                    regenerating={pendingOf('weekly')}
+                    empty={
+                        <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+                            <Typography variant="body2" color="text.secondary">
+                                There is no weekly report yet. Watcher writes one every week; you can also have the AI write it now from the articles of the week.
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" title={formatDateTime(weekly.data.created_at)}>
-                                AI digest - {since(weekly.data.created_at)}
-                            </Typography>
+                            <RegenerateButton label="Generate the report" pending={regenerateWeekly.isPending} onClick={() => regenerateWeekly.mutate()} />
                         </Stack>
-                        <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 1 }}>
-                            {shown.map((item, i) => (
-                                <li key={i}>
-                                    <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-                                        {linkify(item.text)}
-                                    </Typography>
-                                    {item.details && (
-                                        <Typography variant="caption" color="text.secondary" component="div" sx={{ lineHeight: 1.6 }}>
-                                            {linkify(item.details)}
-                                        </Typography>
-                                    )}
-                                </li>
-                            ))}
+                    }
+                />
+                )}
+            </Box>
+
+            <SideDrawer open={!!readSummary} onClose={close} labelledBy="briefing-reader-title" width={720}>
+                {reading && readSummary && (
+                    <>
+                        <Stack direction="row" sx={{ alignItems: 'center', gap: 1, px: 2.5, py: 2 }}>
+                            <Stack direction="row" id="briefing-reader-title" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap', flexGrow: 1, minWidth: 0 }}>
+                                <CardTitle kind={reading} summary={readSummary} maxWords={5} />
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                                <When iso={readSummary.created_at} inline />
+                            </Typography>
+                            <IconButton aria-label="Close" onClick={close} edge="end">
+                                <Close />
+                            </IconButton>
+                        </Stack>
+                        <Box sx={{ px: 2.5, pb: 2.5, flexGrow: 1, minHeight: 0, overflowY: 'auto' }} data-testid="briefing-reader">
+                            {reading === 'weekly' ? <WeeklyBody text={readSummary.summary_text} /> : <SummaryText text={readSummary.summary_text} />}
+                            <SummaryFooter summary={readSummary} pending={pendingOf(reading)} onRegenerate={regenerateOf(reading)} />
                         </Box>
-                        {items.length > DIGEST_PREVIEW && (
-                            <Button size="small" onClick={() => setOpen((v) => !v)} endIcon={open ? <ExpandLess /> : <ExpandMore />} sx={{ mt: 1, px: 0 }}>
-                                {open ? 'Show less' : `Read the whole digest - ${items.length} topics`}
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-        </Stack>
+                    </>
+                )}
+            </SideDrawer>
+        </>
     );
 }

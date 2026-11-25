@@ -2,13 +2,33 @@ import importlib
 import logging
 import os
 import pkgutil
+import time
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.utils import timezone
 from common.utils.job_log import logged_job, job_count
+from functools import lru_cache
 
 logger = logging.getLogger('watcher.connectors')
+
+
+def record_event(connector_id, kind, ok, message='', subject='', duration=None):
+    """
+    Keep one thing a connector did. It never raises: a journal that cannot be written must not stop a notification, an
+    AI call or a test, which is what it is a journal of.
+    """
+    try:
+        from .models import ConnectorEvent
+        ConnectorEvent.objects.create(
+            connector_id=connector_id, kind=kind, ok=bool(ok), message=(message or '')[:300],
+            subject=(subject or '')[:150], duration=duration,
+        )
+        old = list(ConnectorEvent.objects.filter(connector_id=connector_id).values_list('pk', flat=True)[ConnectorEvent.KEEP:])
+        if old:
+            ConnectorEvent.objects.filter(pk__in=old).delete()
+    except Exception as exc:
+        logger.debug("Could not keep the event of connector '%s': %s", connector_id, exc)
 
 # Module-level cache. Populated lazily on first call to _get_registry().
 # Note: these are process-level globals. In multi-process deployments each
@@ -148,6 +168,19 @@ def _warn_if_environment_ignored(connector_id: str, field: dict, stored: str) ->
                        f"that is not the one saved in Connectors. The saved value is used; change it in Connectors > {connector_id}.")
 
 
+@lru_cache(maxsize=None)
+def litellm_default_api_base(provider: str) -> str:
+    """Return the API URL that LiteLLM uses for a provider when no api_base is given, or '' if unavailable."""
+    try:
+        from litellm.types.utils import LlmProviders
+        from litellm.utils import ProviderConfigManager
+        info = ProviderConfigManager.get_provider_model_info(model=None, provider=LlmProviders(provider))
+        url = (info.get_api_base() if info else None) or ''
+    except Exception:
+        return ''
+    return url
+
+
 def _resolve_raw(connector_id: str, field: dict) -> str:
     """Return the stored (possibly encrypted) raw value for a field."""
     from .models import ConnectorOverride
@@ -161,6 +194,8 @@ def _resolve_raw(connector_id: str, field: dict) -> str:
         pass
     # Fallback to settings.py / env
     value = _get_settings_value(field)
+    if not value and field.get('litellm_provider'):
+        value = litellm_default_api_base(field['litellm_provider'])
     if value and _is_sensitive(field['name']):
         return connector_encrypt(value)
     return value
@@ -186,20 +221,20 @@ def _compute_status(definition: dict, filled_map: dict) -> str:
 
 
 def _get_override_and_auto_seeded(connector_id: str) -> tuple:
-    """Return (overrides dict, set of field names that were auto-seeded rather than human-chosen)."""
+    """Return (overrides dict, set of field names that were auto-seeded rather than human-chosen, is_default_llm)."""
     from .models import ConnectorOverride
     try:
         obj = ConnectorOverride.objects.get(connector_id=connector_id)
-        return obj.overrides, set(obj.auto_seeded_fields)
+        return obj.overrides, set(obj.auto_seeded_fields), getattr(obj, 'is_default_llm', False)
     except ConnectorOverride.DoesNotExist:
-        return {}, set()
+        return {}, set(), False
 
 
 def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
     registry = _get_registry()
     entry = registry[connector_id]
     definition = entry['definition']
-    override_dict, auto_seeded = _get_override_and_auto_seeded(connector_id)
+    override_dict, auto_seeded, is_default_llm = _get_override_and_auto_seeded(connector_id)
 
     fields_out = []
     filled_map = {}
@@ -214,6 +249,10 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
         else:
             display_value = raw
 
+        provider = field.get('litellm_provider')
+        from_default = bool(provider) and bool(raw) and field['name'] not in override_dict \
+            and raw == litellm_default_api_base(provider)
+
         fields_out.append({
             'name': field['name'],
             'label': field.get('label', field['name']),
@@ -221,6 +260,11 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
             'value': display_value,
             'sensitive': sensitive,
             'required': field.get('required', False),
+            'placeholder': field.get('placeholder', ''),
+            'settings_key': field.get('settings_key', field['name']),
+            'litellm_provider': field.get('litellm_provider'),
+            'from_default': from_default,
+            'has_default': bool(provider),
             'overridden': field['name'] in override_dict and field['name'] not in auto_seeded,
         })
 
@@ -235,6 +279,7 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
         'author': definition.get('author', ''),
         'status': _compute_status(definition, filled_map),
         'health': get_connector_health(connector_id),
+        'is_default_llm': is_default_llm,
         'fields': fields_out,
     }
 
@@ -275,12 +320,16 @@ def save_connector_overrides(connector_id: str, fields: dict) -> None:
     if definition.get('readonly'):
         raise PermissionError(f"Connector '{connector_id}' is read-only and cannot be overridden")
     known_names = {f['name'] for f in definition.get('fields', [])}
+    field_defs = {f['name']: f for f in definition.get('fields', [])}
 
     obj, created = ConnectorOverride.objects.get_or_create(connector_id=connector_id)
 
     to_store = {}
     for name, value in fields.items():
         if name not in known_names:
+            continue
+        provider = field_defs[name].get('litellm_provider')
+        if provider and value and value == litellm_default_api_base(provider) and name not in obj.overrides:
             continue
         # Untouched masked placeholder - keep the existing stored value as-is.
         if value == '••••••••':
@@ -372,8 +421,11 @@ def record_health_check(connector_id: str, success: bool, message: str) -> None:
     )
 
 
-def test_connector(connector_id: str) -> dict:
-    """Call the plugin's health_check, persist the outcome, and return {'success': bool, 'message': str}."""
+def test_connector(connector_id: str, kind: str = 'test') -> dict:
+    """
+    Call the plugin's health_check, persist the outcome, and return {'success': bool, 'message': str}.
+    `kind` is what the Deliveries tab says it was: 'test' (the button) or 'health' (the weekly check).
+    """
     registry = _get_registry()
     if connector_id not in registry:
         raise KeyError(f"Connector '{connector_id}' not found")
@@ -386,6 +438,7 @@ def test_connector(connector_id: str) -> dict:
         except KeyError:
             return ''
 
+    started = time.monotonic()
     try:
         result = entry['health_check'](plain)
     except Exception as exc:
@@ -393,6 +446,7 @@ def test_connector(connector_id: str) -> dict:
         result = {'success': False, 'message': str(exc)}
 
     record_health_check(connector_id, bool(result.get('success')), result.get('message', ''))
+    record_event(connector_id, kind, bool(result.get('success')), result.get('message', ''), duration=time.monotonic() - started)
     return result
 
 
@@ -410,7 +464,7 @@ def run_weekly_health_checks() -> None:
     registry = _get_registry()
     for connector_id in sorted(registry.keys()):
         connector = get_connector_by_id(connector_id)
-        result = test_connector(connector_id)
+        result = test_connector(connector_id, kind='health')
         job_count('tested')
 
         if result.get('success') or connector['status'] != 'configured':

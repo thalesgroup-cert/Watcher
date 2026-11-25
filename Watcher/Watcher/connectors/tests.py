@@ -1,12 +1,15 @@
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase, SimpleTestCase, TransactionTestCase
+from django.test import TestCase, SimpleTestCase, TransactionTestCase, override_settings
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from rest_framework import status
 from knox.models import AuthToken
 
-from connectors.models import ConnectorOverride, ConnectorHealthCheck, NotificationSetting
+import connectors.core as core_mod
+
+from connectors.core import record_event
+from connectors.models import ConnectorEvent, ConnectorOverride, ConnectorHealthCheck, NotificationSetting
 from connectors.core import (get_all_connectors, get_connector_by_id, connector_exists, save_connector_overrides,
                              reset_connector_field, get_connector_count, test_connector, connector_encrypt,
                              connector_decrypt, _compute_status, get_connector_health, record_health_check,
@@ -14,7 +17,7 @@ from connectors.core import (get_all_connectors, get_connector_by_id, connector_
 from common.models import PendingAction
 from connectors.notifications import (all_types, get_type, render_per_alert, render_text, render_title, EmailSpec,
                                       Field, Layout, NotificationType, email_subject, get_setting, is_enabled,
-                                      registry, render_message, render_thehive_title, save_setting, thehive_meta,
+                                      catalogue, render_message, render_thehive_title, save_setting, thehive_meta,
                                       template)
 from common.core import (send_app_specific_notifications, send_app_specific_notifications_group,
                          send_only_thehive_notifications)
@@ -168,7 +171,7 @@ class CoreAPITest(TestCase):
     def test_underscore_prefixed_packages_are_excluded_from_discovery(self):
         """contrib/_template must never be auto-registered as a real connector."""
         self.assertFalse(connector_exists('my_service'))
-        self.assertEqual(get_connector_count(), 16)
+        self.assertEqual(get_connector_count(), 21)  # 16 before the LLM gateway + OpenAI, Anthropic, Gemini, Ollama and the generic provider
 
     def test_get_connector_by_id_returns_correct_connector(self):
         connector = get_connector_by_id('smtp')
@@ -909,7 +912,7 @@ class RenderTest(SimpleTestCase):
 
 class StoreTest(TestCase):
     def setUp(self):
-        self.enterContext(patch.dict(registry._TYPES, {'test_type': TYPE, 'only_slack': ONLY_SLACK}))
+        self.enterContext(patch.dict(catalogue._TYPES, {'test_type': TYPE, 'only_slack': ONLY_SLACK}))
 
     def test_no_row_means_off_with_every_field(self):
         self.assertEqual(get_setting('test_type', 'slack'), (False, ['name', 'count']))
@@ -1225,7 +1228,7 @@ class UdrpDeliveryTest(TestCase):
         self.assertEqual(recipients, ['udrp@test.com'])
 
 
-migration = importlib.import_module('connectors.migrations.0006_seed_notification_settings')
+migration = importlib.import_module('connectors.migrations.0008_seed_notification_settings')
 
 # The last migration of each app before it dropped the slack / citadel / thehive boxes of its subscribers. The seed
 # reads those boxes, so it is tested on the schema it was written for, not on the current models.
@@ -1235,7 +1238,7 @@ BEFORE_THE_DROP = [
     ('data_leak', '0013_alter_keyword_options'),
     ('dns_finder', '0016_alert_feed_indexes'),
     ('site_monitoring', '0035_site_network_history'),
-    ('connectors', '0007_notificationsetting_custom_message'),
+    ('connectors', '0009_notificationsetting_custom_message'),
 ]
 
 
@@ -1513,3 +1516,417 @@ class ConnectorLogoTest(TestCase):
         from connectors.core import get_all_connectors
         ids = {c['id'] for c in get_all_connectors()}
         self.assertEqual(sorted(p.stem for p in self.folder().glob('*.png') if p.stem not in ids), [])
+
+
+class DefaultLLMConfigurationTest(TestCase):
+    """Tests for default AI selection exclusivity and API endpoint."""
+
+    def setUp(self):
+        import connectors.core as core_mod
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+
+    def test_default_llm_exclusivity(self):
+        """Setting a connector as default AI must automatically unset others."""
+        c1 = ConnectorOverride.objects.create(connector_id='openai', is_default_llm=True)
+        c2 = ConnectorOverride.objects.create(connector_id='anthropic', is_default_llm=False)
+        
+        c2.is_default_llm = True
+        c2.save()
+        
+        c1.refresh_from_db()
+        self.assertFalse(c1.is_default_llm)
+        self.assertTrue(c2.is_default_llm)
+
+
+class DefaultLLMAPITest(APITestCase):
+    """Tests for the set-default-llm REST API endpoint."""
+
+    def setUp(self):
+        import connectors.core as core_mod
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+
+        self.superuser = User.objects.create_superuser('admin_llm', 'admin_llm@test.com', 'password')
+        self.regular_user = User.objects.create_user('user_llm', 'user_llm@test.com', 'password')
+        _, self.super_token = AuthToken.objects.create(self.superuser)
+        _, self.user_token = AuthToken.objects.create(self.regular_user)
+
+    def _auth(self, token):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_set_default_llm_requires_superuser(self):
+        """Regular users cannot change the default AI."""
+        self._auth(self.user_token)
+        resp = self.client.post('/api/connectors/openai/set-default-llm/', {'is_default_llm': True}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_set_default_llm_works_for_superuser(self):
+        """Superusers can set a connector as the default AI successfully."""
+        self._auth(self.super_token)
+        resp = self.client.post('/api/connectors/openai/set-default-llm/', {'is_default_llm': True}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        
+        obj = ConnectorOverride.objects.get(connector_id='openai')
+        self.assertTrue(obj.is_default_llm)
+
+
+class CommonLLMHealthCheckTest(TestCase):
+    """common_health_check is shared by every LiteLLM connector (openai, anthropic, gemini, ollama, generic)."""
+
+    DEFINITION = {
+        'id': 'openai',
+        'name': 'Test Provider',
+        'fields': [
+            {'name': 'OPENAI_API_KEY', 'label': 'API Key', 'required': True},
+            {'name': 'OPENAI_MODEL', 'label': 'Model Name', 'required': True},
+            {'name': 'OPENAI_BASE_URL', 'label': 'Base URL', 'required': False},
+        ],
+    }
+
+    @staticmethod
+    def _plain(values):
+        return lambda name: values.get(name, '')
+
+    def _run(self, values, **completion_kwargs):
+        from connectors.contrib.common_llm import common_health_check
+        with patch('connectors.contrib.common_llm.litellm.completion', **completion_kwargs) as mock_completion:
+            return common_health_check(self._plain(values), self.DEFINITION), mock_completion
+
+    def test_missing_required_field_does_not_call_the_api(self):
+        result, mock_completion = self._run({'OPENAI_API_KEY': 'key'})
+        self.assertFalse(result['success'])
+        self.assertIn('Model Name', result['message'])
+        mock_completion.assert_not_called()
+
+    def test_success_with_valid_response(self):
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'gpt-test'}, return_value=MagicMock())
+        self.assertTrue(result['success'])
+        self.assertIn('Test Provider', result['message'])
+        self.assertIn('gpt-test', result['message'])
+
+    def test_base_url_is_passed_only_when_set(self):
+        _, mock_completion = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, return_value=MagicMock())
+        self.assertNotIn('api_base', mock_completion.call_args.kwargs)
+        _, mock_completion = self._run(
+            {'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm', 'OPENAI_BASE_URL': 'http://llm.local'}, return_value=MagicMock()
+        )
+        self.assertEqual(mock_completion.call_args.kwargs['api_base'], 'http://llm.local')
+
+    def test_empty_response_is_a_failure(self):
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, return_value=None)
+        self.assertFalse(result['success'])
+        self.assertIn('Empty response', result['message'])
+
+    def test_authentication_error_message(self):
+        import litellm
+        error = litellm.AuthenticationError(message="bad key", llm_provider="openai", model="m")
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, side_effect=error)
+        self.assertFalse(result['success'])
+        self.assertIn('Invalid API Key', result['message'])
+
+    def test_connection_error_message(self):
+        import litellm
+        error = litellm.APIConnectionError(message="unreachable", llm_provider="openai", model="m")
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, side_effect=error)
+        self.assertFalse(result['success'])
+        self.assertIn('Connection error', result['message'])
+
+    def test_unexpected_error_is_reported(self):
+        result, _ = self._run({'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm'}, side_effect=Exception("boom"))
+        self.assertFalse(result['success'])
+        self.assertIn('boom', result['message'])
+
+    def test_every_llm_connector_delegates_to_common_health_check(self):
+        import importlib
+        for connector in ('openai', 'anthropic', 'gemini', 'ollama', 'generic_llm_provider'):
+            module = importlib.import_module(f'connectors.contrib.{connector}.connector')
+            with patch(f'connectors.contrib.{connector}.connector.common_health_check',
+                       return_value={'success': True, 'message': 'ok'}) as mock_common:
+                result = module.health_check(self._plain({}))
+            self.assertTrue(result['success'], connector)
+            mock_common.assert_called_once()
+
+    def test_litellm_default_url_is_not_sent(self):
+        with patch('connectors.contrib.common_llm.litellm_default_api_base', return_value='https://api.openai.com/v1'):
+            _, mock_completion = self._run(
+                {'OPENAI_API_KEY': 'key', 'OPENAI_MODEL': 'm', 'OPENAI_BASE_URL': 'https://api.openai.com/v1'},
+                return_value=MagicMock(),
+            )
+        self.assertNotIn('api_base', mock_completion.call_args.kwargs)
+
+
+class CitadelHealthCheckTest(TestCase):
+    """The Citadel health check validates the token with the Matrix whoami endpoint."""
+
+    VALUES = {'CITADEL_URL': 'https://citadel.example/', 'CITADEL_API_TOKEN': 'tok'}
+
+    @staticmethod
+    def _plain(values):
+        return lambda name: values.get(name, '')
+
+    def _run(self, **get_kwargs):
+        from connectors.contrib.citadel.connector import health_check
+        with patch('connectors.contrib.citadel.connector.requests.get', **get_kwargs) as mock_get:
+            return health_check(self._plain(self.VALUES)), mock_get
+
+    def test_calls_matrix_whoami_with_bearer_token(self):
+        _, mock_get = self._run(return_value=MagicMock(status_code=200))
+        args, kwargs = mock_get.call_args
+        self.assertEqual(args[0], 'https://citadel.example/_matrix/client/r0/account/whoami')
+        self.assertEqual(kwargs['headers']['Authorization'], 'Bearer tok')
+
+    def test_success_on_200(self):
+        result, _ = self._run(return_value=MagicMock(status_code=200))
+        self.assertTrue(result['success'])
+        self.assertIn('https://citadel.example', result['message'])
+
+    def test_invalid_token_gives_explicit_message(self):
+        result, _ = self._run(return_value=MagicMock(status_code=401))
+        self.assertFalse(result['success'])
+        self.assertIn('token', result['message'].lower())
+
+    def test_other_http_status_is_reported(self):
+        result, _ = self._run(return_value=MagicMock(status_code=404))
+        self.assertEqual(result, {'success': False, 'message': 'HTTP 404'})
+
+    def test_network_error_is_reported(self):
+        result, _ = self._run(side_effect=Exception('Read timed out'))
+        self.assertFalse(result['success'])
+        self.assertIn('timed out', result['message'])
+
+    def test_missing_configuration_does_not_call_the_network(self):
+        from connectors.contrib.citadel.connector import health_check
+        with patch('connectors.contrib.citadel.connector.requests.get') as mock_get:
+            result = health_check(self._plain({}))
+        self.assertFalse(result['success'])
+        mock_get.assert_not_called()
+
+
+LITELLM_OPENAI_URL = 'https://api.openai.com/v1'
+
+
+class LiteLLMDefaultBaseUrlTest(TestCase):
+    """BASE_URL of an LLM connector falls back to the official API URL known by LiteLLM."""
+
+    def setUp(self):
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+        ConnectorOverride.objects.filter(connector_id='openai').delete()
+        patcher = patch.object(core_mod, 'litellm_default_api_base', return_value=LITELLM_OPENAI_URL)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _base_url(self):
+        connector = core_mod.get_connector_by_id('openai')
+        return next(f for f in connector['fields'] if f['name'] == 'OPENAI_BASE_URL')
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_shows_litellm_default_when_nothing_is_configured(self):
+        field = self._base_url()
+        self.assertEqual(field['value'], LITELLM_OPENAI_URL)
+        self.assertTrue(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='https://env.example.com/v1')
+    def test_env_value_takes_precedence(self):
+        field = self._base_url()
+        self.assertEqual(field['value'], 'https://env.example.com/v1')
+        self.assertFalse(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_manual_value_takes_precedence(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': 'https://custom.example.com/v1'})
+        field = self._base_url()
+        self.assertEqual(field['value'], 'https://custom.example.com/v1')
+        self.assertFalse(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_cleared_value_stays_empty(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': ''})
+        field = self._base_url()
+        self.assertEqual(field['value'], '')
+        self.assertFalse(field['from_default'])
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_unchanged_default_is_not_stored(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': LITELLM_OPENAI_URL})
+        overrides = ConnectorOverride.objects.get(connector_id='openai').overrides
+        self.assertNotIn('OPENAI_BASE_URL', overrides)
+
+    @override_settings(OPENAI_BASE_URL='')
+    def test_reset_restores_litellm_default(self):
+        core_mod.save_connector_overrides('openai', {'OPENAI_BASE_URL': 'https://custom.example.com/v1'})
+        core_mod.reset_connector_field('openai', 'OPENAI_BASE_URL')
+        field = self._base_url()
+        self.assertEqual(field['value'], LITELLM_OPENAI_URL)
+        self.assertTrue(field['from_default'])
+
+
+class LiteLLMDefaultApiBaseFunctionTest(TestCase):
+    """litellm_default_api_base itself, against the installed LiteLLM version."""
+
+    def setUp(self):
+        core_mod.litellm_default_api_base.cache_clear()
+        self.addCleanup(core_mod.litellm_default_api_base.cache_clear)
+
+    def test_returns_empty_string_when_litellm_lookup_fails(self):
+        with patch('litellm.utils.ProviderConfigManager.get_provider_model_info', side_effect=RuntimeError):
+            self.assertEqual(core_mod.litellm_default_api_base('openai'), '')
+
+
+class LLMFieldsTableTest(TestCase):
+    """LLM_FIELDS must match the field names declared by each LLM connector."""
+
+    def setUp(self):
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+
+    def test_llm_fields_match_connector_definitions(self):
+        from connectors.contrib.common_llm import LLM_FIELDS
+        for connector_id, fields in LLM_FIELDS.items():
+            names = {f['name'] for f in get_connector_by_id(connector_id)['fields']}
+            for name in fields.values():
+                self.assertIn(name, names, f"{connector_id}: field {name} not found")
+
+
+class RenameLLMFieldsMigrationTest(TestCase):
+    """Migration 0006 renames the LLM connector fields stored before 3.8.0."""
+
+    def setUp(self):
+        import importlib
+        self.migration = importlib.import_module('connectors.migrations.0006_rename_llm_connector_fields')
+
+        class _FakeApps:
+            @staticmethod
+            def get_model(app_label, model_name):
+                return ConnectorOverride
+
+        self.apps = _FakeApps()
+
+    def test_old_names_are_renamed_and_values_kept(self):
+        secret = connector_encrypt('sk-old')
+        ConnectorOverride.objects.create(
+            connector_id='openai',
+            overrides={'API_KEY': secret, 'MODEL_NAME': 'openai/gpt-4o-mini', 'BASE_URL': 'https://custom.example.com/v1'},
+            auto_seeded_fields=['MODEL_NAME'],
+        )
+        self.migration.rename_llm_fields(self.apps, None)
+
+        obj = ConnectorOverride.objects.get(connector_id='openai')
+        self.assertEqual(obj.overrides, {
+            'OPENAI_API_KEY': secret,
+            'OPENAI_MODEL': 'openai/gpt-4o-mini',
+            'OPENAI_BASE_URL': 'https://custom.example.com/v1',
+        })
+        self.assertEqual(obj.auto_seeded_fields, ['OPENAI_MODEL'])
+
+    def test_value_already_saved_under_new_name_is_kept(self):
+        ConnectorOverride.objects.create(
+            connector_id='ollama',
+            overrides={'BASE_URL': 'http://old:11434', 'OLLAMA_API_URL': 'http://new:11434'},
+        )
+        self.migration.rename_llm_fields(self.apps, None)
+
+        obj = ConnectorOverride.objects.get(connector_id='ollama')
+        self.assertEqual(obj.overrides, {'OLLAMA_API_URL': 'http://new:11434'})
+
+    def test_reverse_restores_old_names(self):
+        ConnectorOverride.objects.create(connector_id='gemini', overrides={'GEMINI_MODEL': 'gemini/gemini-2.5-flash'})
+        self.migration.restore_llm_fields(self.apps, None)
+
+        obj = ConnectorOverride.objects.get(connector_id='gemini')
+        self.assertEqual(obj.overrides, {'MODEL_NAME': 'gemini/gemini-2.5-flash'})
+
+
+class ConnectorEventTest(APITestCase):
+    """The Deliveries tab: what a connector did, kept by connector, readable by a superuser only."""
+
+    def setUp(self):
+        core_mod._REGISTRY = {}
+        core_mod._connectors_seeded = False
+        self.superuser = User.objects.create_superuser('admin_events', 'admin_events@test.com', 'password')
+        self.regular_user = User.objects.create_user('user_events', 'user_events@test.com', 'password')
+        _, self.super_token = AuthToken.objects.create(self.superuser)
+        _, self.user_token = AuthToken.objects.create(self.regular_user)
+
+    def _auth(self, token):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_an_event_is_kept_with_what_it_was_about(self):
+        record_event('slack', 'notification', True, '', subject='data_leak', duration=0.4)
+        event = ConnectorEvent.objects.get()
+        self.assertEqual((event.connector_id, event.kind, event.ok, event.subject), ('slack', 'notification', True, 'data_leak'))
+
+    def test_only_the_last_events_of_a_connector_are_kept_and_the_others_are_left_alone(self):
+        record_event('citadel', 'test', True)
+        with patch.object(ConnectorEvent, 'KEEP', 3):
+            for i in range(5):
+                record_event('slack', 'test', True, f'pass {i}')
+        self.assertEqual(ConnectorEvent.objects.filter(connector_id='slack').count(), 3)
+        self.assertEqual(list(ConnectorEvent.objects.filter(connector_id='slack').values_list('message', flat=True)), ['pass 4', 'pass 3', 'pass 2'])
+        self.assertEqual(ConnectorEvent.objects.filter(connector_id='citadel').count(), 1)
+
+    def test_a_journal_that_cannot_be_written_never_stops_what_it_is_a_journal_of(self):
+        with patch.object(ConnectorEvent.objects, 'create', side_effect=RuntimeError('database is gone')):
+            record_event('slack', 'test', True)  # does not raise
+
+    def test_the_test_button_and_the_weekly_check_are_told_apart(self):
+        entry = core_mod._get_registry()['slack']
+        with patch.dict(entry, {'health_check': lambda plain: {'success': False, 'message': 'no token'}}):
+            test_connector('slack')
+            test_connector('slack', kind='health')
+        kinds = list(ConnectorEvent.objects.filter(connector_id='slack').order_by('id').values_list('kind', 'ok', 'message'))
+        self.assertEqual(kinds, [('test', False, 'no token'), ('health', False, 'no token')])
+
+    def test_the_api_lists_newest_first_and_can_keep_one_kind(self):
+        record_event('slack', 'test', True, 'first')
+        record_event('slack', 'notification', False, 'failed (timeout)', subject='cyber_watch_new_cve')
+        record_event('citadel', 'test', True, 'other connector')
+        self._auth(self.super_token)
+        events = self.client.get('/api/connectors/slack/deliveries/').json()
+        self.assertEqual([e['message'] for e in events], ['failed (timeout)', 'first'])
+        self.assertEqual(events[0]['subject'], 'cyber_watch_new_cve')
+        only = self.client.get('/api/connectors/slack/deliveries/?kind=test').json()
+        self.assertEqual([e['message'] for e in only], ['first'])
+
+    def test_the_api_is_for_a_superuser_and_knows_its_connectors(self):
+        self._auth(self.user_token)
+        self.assertEqual(self.client.get('/api/connectors/slack/deliveries/').status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+        self.assertIn(self.client.get('/api/connectors/slack/deliveries/').status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self._auth(self.super_token)
+        self.assertEqual(self.client.get('/api/connectors/nope/deliveries/').status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_a_notification_is_kept_on_the_connector_its_channel_goes_through(self):
+        from common.core import _keep_delivery
+        _keep_delivery('data_leak', 'email', 'ok', 0.2)
+        _keep_delivery('data_leak', 'slack', 'failed (HTTP 500)', None)
+        _keep_delivery('data_leak', 'citadel', 'no recipients', None)
+        by = {e.connector_id: e for e in ConnectorEvent.objects.all()}
+        self.assertTrue(by['smtp'].ok and by['smtp'].message == '' and by['smtp'].subject == 'data_leak')
+        self.assertFalse(by['slack'].ok)
+        self.assertEqual(by['slack'].message, 'failed (HTTP 500)')
+        self.assertTrue(by['citadel'].ok)  # nobody to send to is not a failure of the connector
+
+    def test_the_fields_say_the_setting_they_come_from(self):
+        fields = {f['name']: f for f in get_connector_by_id('anthropic')['fields']}
+        self.assertEqual(fields['ANTHROPIC_API_KEY']['settings_key'], 'ANTHROPIC_API_KEY')
+        self.assertEqual(fields['ANTHROPIC_BASE_URL']['litellm_provider'], 'anthropic')
+
+    def test_an_ai_call_is_kept_with_its_model_whether_it_worked_or_not(self):
+        import litellm
+        from llm_gateway.router import LLMAuthenticationError
+        from llm_gateway.router import LLMRouter
+        config = {'api_key': 'k', 'model': 'anthropic/claude-test', 'base_url': ''}
+        answer = MagicMock()
+        answer.choices = [MagicMock(message=MagicMock(content='a summary'))]
+        with patch.object(LLMRouter, '_get_llm_config', return_value=config):
+            with patch('litellm.completion', return_value=answer):
+                self.assertEqual(LLMRouter()._call_litellm('write', 'anthropic'), 'a summary')
+            with patch('litellm.completion', side_effect=litellm.AuthenticationError('bad key', 'anthropic', 'claude')):
+                with self.assertRaises(LLMAuthenticationError):
+                    LLMRouter()._call_litellm('write', 'anthropic')
+        worked, failed = ConnectorEvent.objects.filter(connector_id='anthropic').order_by('id')
+        self.assertEqual((worked.kind, worked.ok, worked.subject), ('ai', True, 'anthropic/claude-test'))
+        self.assertEqual((failed.kind, failed.ok), ('ai', False))
+        self.assertIn('AuthenticationError', failed.message)

@@ -101,8 +101,15 @@ export interface Summary {
     type: 'weekly_summary' | 'breaking_news' | 'trendy_word_summary';
     keywords: string;
     summary_text: string;
+    /** The model that wrote it, as the gateway reports it. */
+    ai_model?: string | null;
     created_at: string;
     updated_at: string;
+}
+
+/** The waiting time between two regenerations of a summary, the same for everyone. */
+export interface SummaryConfig {
+    regenerate_cooldown_minutes: number;
 }
 
 export type Period = '' | 'today' | '7d' | '30d';

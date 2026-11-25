@@ -28,6 +28,7 @@ const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 /** "just now", "12 min ago", "3 h ago", then the time of day for older events (the day is in the section header). */
 export function relativeTime(iso: string, now = Date.now()): string {
     const seconds = Math.round((now - new Date(iso).getTime()) / 1000);
+    if (!Number.isFinite(seconds)) return '-';
     if (seconds < 45) return 'just now';
     if (seconds < 3600) return relative.format(-Math.round(seconds / 60), 'minute');
     if (seconds < 6 * 3600) return relative.format(-Math.round(seconds / 3600), 'hour');

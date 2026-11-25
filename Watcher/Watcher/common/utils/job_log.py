@@ -8,6 +8,7 @@ Two lines of log that say what happened, instead of one line per item:
   recipient…), in one line that carries the alert it is about.
 """
 import functools
+import re
 import logging
 import threading
 import time
@@ -126,7 +127,8 @@ def describe_schedule(trigger):
     if isinstance(trigger, CronTrigger):
         fields = {field.name: str(field) for field in trigger.fields}
         minute, hour, days = fields.get('minute', '*'), fields.get('hour', '*'), fields.get('day_of_week', '*')
-        step = lambda value: int(value[2:]) if value.startswith('*/') and value[2:].isdigit() else None
+        # '*/15', or '3-59/15': every 15 minutes, starting at minute 3
+        step = lambda value: int(value.rsplit('/', 1)[1]) if re.fullmatch(r'(\*|\d+-\d+)/\d+', value) else None
         if hour == '*' and step(minute):
             return plural(step(minute), 'minute')
         if step(hour):
@@ -172,7 +174,7 @@ def note_channel(text):
         capture.note = text
 
 
-# --- Circuit breaker of the channels -------------------------------------------------------------------------------------
+# Circuit breaker of the channels
 # A channel that fails several times in a row (Slack unreachable, no mail server…) is skipped for a while instead of being
 # tried, and waited for (5 s per attempt), by every notification of every job. After the cool-down one attempt is let
 # through: if it works the channel is back, if not it is skipped again. The state lives in the memory of the process, which

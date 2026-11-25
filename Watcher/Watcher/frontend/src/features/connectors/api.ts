@@ -1,5 +1,5 @@
 import { api } from '../../api/client';
-import type { Connector, FieldValues, NotificationChannel, NotificationPreview, NotificationType, TestResult } from './types';
+import type { Connector, Delivery, FieldValues, NotificationChannel, NotificationPreview, NotificationType, TestResult } from './types';
 
 /** What can be sent for a message: a left-out key stays as it is, null goes back to the catalogue. */
 export interface NotificationDraft {
@@ -29,6 +29,12 @@ export const testConnector = (id: string) =>
     api
         .post<TestResult & { connector?: Connector }>(`/api/connectors/${id}/test/`, {})
         .then((res) => res.data);
+
+export const fetchDeliveries = (id: string, kind: string) =>
+    api.get<Delivery[]>(`/api/connectors/${id}/deliveries/`, { params: kind ? { kind } : {} }).then((res) => res.data);
+
+export const setDefaultLlm = (id: string, isDefault: boolean) =>
+    api.post<Connector>(`/api/connectors/${id}/set-default-llm/`, { is_default_llm: isDefault }).then((res) => res.data);
 
 export const fetchNotifications = () =>
     api.get<NotificationType[]>('/api/connectors/notifications/').then((res) => res.data);

@@ -2,13 +2,16 @@ import importlib
 from unittest.mock import patch
 
 from django.apps import apps
-from django.test import TestCase, override_settings, SimpleTestCase
+from django.test import RequestFactory, TestCase, override_settings, SimpleTestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient, APITestCase
+from rest_framework import status
+from knox.models import AuthToken
 from accounts.models import UserProfile, _AVATAR_COLORS
 from accounts.serializers import UserProfileSerializer
 from accounts.oidc import WatcherOIDCBackend
-from accounts.core import THEME_IDS, AVATAR_STYLES, avatar_of, validate_avatar
+from accounts.oidc_views import SSOCallbackView
+from accounts.core import THEME_IDS, AVATAR_STYLES, KNOX_COOKIE, SESSION_COOKIE, avatar_of, validate_avatar
 from django.contrib.contenttypes.models import ContentType
 from timeline.models import TimelineEvent
 from timeline.serializers import TimelineEventSerializer
@@ -46,6 +49,56 @@ class UserProfileTest(TestCase):
             serializer.data,
             "UserProfileSerializer must include avatar_color in its fields"
         )
+
+    def test_ui_preferences_defaults(self):
+        """New users get the default typewriter and zoom preferences."""
+        user = User.objects.create_user(
+            username='uidefaults', password='testpass123'
+        )
+        profile = UserProfile.objects.get(user=user)
+        self.assertTrue(profile.typewriter_enabled)
+        self.assertEqual(profile.ui_zoom_level, 1.0)
+
+    def test_ui_preferences_in_serializer(self):
+        """UserProfileSerializer must expose typewriter_enabled and ui_zoom_level."""
+        user = User.objects.create_user(
+            username='uiserializer', password='testpass123'
+        )
+        profile = UserProfile.objects.get(user=user)
+        data = UserProfileSerializer(profile).data
+        self.assertIn('typewriter_enabled', data)
+        self.assertIn('ui_zoom_level', data)
+
+
+class ProfileAPITest(APITestCase):
+    """Test that UI preferences can be read and updated through the profile API."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='profileuser', password='testpass123')
+        _, token = AuthToken.objects.create(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+
+    def test_get_profile_returns_ui_preferences(self):
+        response = self.client.get('/api/auth/profile')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['typewriter_enabled'])
+        self.assertEqual(response.data['ui_zoom_level'], 1.0)
+
+    def test_patch_updates_ui_preferences(self):
+        response = self.client.patch(
+            '/api/auth/profile',
+            {'typewriter_enabled': False, 'ui_zoom_level': 0.8},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertFalse(profile.typewriter_enabled)
+        self.assertEqual(profile.ui_zoom_level, 0.8)
+
+    def test_profile_requires_auth(self):
+        self.client.credentials()
+        response = self.client.get('/api/auth/profile')
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
 
 class UserThemeTest(TestCase):
@@ -107,7 +160,7 @@ class UserThemeTest(TestCase):
         UserProfile.objects.filter(user=other).update(theme='paper')
         classic = User.objects.create_user(username='classic', password='testpass123')
         UserProfile.objects.filter(user=classic).update(theme='darkly')
-        migration = importlib.import_module('accounts.migrations.0004_userprofile_theme_not_chosen')
+        migration = importlib.import_module('accounts.migrations.0009_userprofile_theme_not_chosen')
         migration.clear_legacy_themes(apps, None)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.theme, '')
@@ -230,3 +283,92 @@ class AvatarAPITest(APITestCase):
         event = TimelineEvent.objects.create(user=self.user, action='create', content_type=ContentType.objects.get_for_model(User), object_id=self.user.pk)
         event = TimelineEvent.objects.get(pk=event.pk)
         self.assertEqual(TimelineEventSerializer(event).data['avatar'], config)
+
+
+class KnoxCookieAuthTest(APITestCase):
+    """The browser keeps its Knox token in an httpOnly cookie; scripts keep using the Authorization header."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='cookie-user', password='pass12345')
+
+    def login(self, client=None, **extra):
+        client = client or self.client
+        return client.post('/api/auth/login', {'username': 'cookie-user', 'password': 'pass12345'}, format='json', **extra)
+
+    def test_login_sets_the_cookie_the_page_cannot_read_and_still_answers_the_token(self):
+        response = self.login()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['token'])
+        token_cookie, indicator = response.cookies[KNOX_COOKIE], response.cookies[SESSION_COOKIE]
+        self.assertTrue(token_cookie['httponly'])
+        self.assertEqual(token_cookie['samesite'], 'Strict')
+        self.assertFalse(indicator['httponly'])
+        self.assertEqual(token_cookie.value, response.json()['token'])
+
+    def test_the_cookie_is_secure_only_when_the_request_is(self):
+        self.assertFalse(self.login().cookies[KNOX_COOKIE]['secure'])
+        self.assertTrue(self.login(secure=True).cookies[KNOX_COOKIE]['secure'])
+
+    def test_the_cookie_alone_authenticates(self):
+        self.login()
+        response = self.client.get('/api/auth/user')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['username'], 'cookie-user')
+
+    def test_the_header_still_authenticates(self):
+        token = AuthToken.objects.create(self.user)[1]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.assertEqual(client.get('/api/auth/user').status_code, 200)
+
+    def test_a_cookie_the_server_does_not_know_is_a_visitor_and_does_not_lock_the_sign_in(self):
+        self.client.cookies[KNOX_COOKIE] = 'a' * 64
+        self.assertEqual(self.client.get('/api/auth/user').status_code, 401)
+        self.assertEqual(self.client.get('/api/overview/').status_code, 200)
+        self.assertEqual(self.login().status_code, 200)
+
+    def test_a_request_that_changes_something_needs_the_csrf_token_with_the_cookie(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.login(client)
+        client.cookies['csrftoken'] = 'x' * 32
+        refused = client.post('/api/auth/logout/')
+        self.assertEqual(refused.status_code, 403)
+        self.assertIn('CSRF', str(refused.json()))
+        accepted = client.post('/api/auth/logout/', HTTP_X_CSRFTOKEN='x' * 32)
+        self.assertEqual(accepted.status_code, 204)
+
+    def test_logout_clears_the_cookies_and_deletes_the_token(self):
+        response = self.login()
+        token = response.json()['token']
+        out = self.client.post('/api/auth/logout/')
+        self.assertEqual(out.status_code, 204)
+        self.assertEqual(out.cookies[KNOX_COOKIE].value, '')
+        self.assertEqual(out.cookies[SESSION_COOKIE].value, '')
+        replay = APIClient()
+        replay.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.assertEqual(replay.get('/api/auth/user').status_code, 401)
+
+    def test_logout_with_the_header_answers_what_it_answered_before(self):
+        token = AuthToken.objects.create(self.user)[1]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.assertEqual(client.post('/api/auth/logout/').status_code, 204)
+        self.assertEqual(client.get('/api/auth/user').status_code, 401)
+
+    def test_logoutall_ends_every_session_of_the_user(self):
+        AuthToken.objects.create(self.user)
+        self.login()
+        self.assertEqual(self.client.post('/api/auth/logoutall/').status_code, 204)
+        self.assertFalse(AuthToken.objects.filter(user=self.user).exists())
+
+    def test_the_page_comes_with_the_csrf_cookie(self):
+        self.assertIn('csrftoken', self.client.get('/').cookies)
+
+    def test_the_sso_callback_hands_the_token_in_the_cookie_and_not_in_the_address(self):
+        view = SSOCallbackView()
+        view.request = RequestFactory().get('/api/auth/oidc/callback/')
+        view.user = self.user
+        response = view.login_success()
+        self.assertEqual(response.url, '/?sso=1')
+        self.assertTrue(response.cookies[KNOX_COOKIE]['httponly'])
+        self.assertEqual(AuthToken.objects.filter(user=self.user).count(), 1)

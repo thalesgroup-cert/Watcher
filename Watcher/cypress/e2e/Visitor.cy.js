@@ -132,7 +132,7 @@ describe('Visitor', () => {
       cy.intercept('GET', '/api/cyber_watch/**', { statusCode: 200, body: page([]) });
       cy.intercept('GET', '/api/common/**', { statusCode: 200, body: page([]) });
       cy.intercept('GET', /\/api\/(data_leak|dns_finder|site_monitoring|timeline|connectors)\//, { statusCode: 200, body: page([]) });
-      cy.visit('/#/', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-visitor') });
+      cy.visit('/#/', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
       cy.contains('h1', 'Overview', { timeout: 20000 });
       cy.get('[data-testid="locked-nav"]').should('not.exist');
       cy.get('[data-testid="locked-modules-row"]').should('not.exist');

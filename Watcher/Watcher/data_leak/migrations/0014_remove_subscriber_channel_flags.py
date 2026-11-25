@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('data_leak', '0013_alter_keyword_options'),
-        ('connectors', '0006_seed_notification_settings'),
+        ('connectors', '0008_seed_notification_settings'),
     ]
 
     operations = [

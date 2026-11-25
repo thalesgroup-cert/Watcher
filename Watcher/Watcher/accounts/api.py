@@ -1,6 +1,10 @@
+from django.middleware.csrf import get_token
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from knox.models import AuthToken
+from django.contrib.auth.signals import user_logged_out
+from .core import clear_auth_cookies, set_auth_cookies
 from .serializers import UserSerializer, LoginSerializer, UserPasswordChangeSerializer, UserProfileSerializer
 from .models import UserProfile
 from django.utils import timezone
@@ -14,10 +18,43 @@ class LoginAPI(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data
-        return Response({
+        token = AuthToken.objects.create(user)[1]
+        response = Response({
             "user": UserSerializer(user, context=self.get_serializer_context()).data,
-            "token": AuthToken.objects.create(user)[1]
+            "token": token,  # kept for the scripts: the browser uses the cookie
         })
+        set_auth_cookies(request, response, token)
+        get_token(request)  # the CSRF cookie the next requests of the page send back
+        return response
+
+
+# Logout API: what knox's own view does, and the cookies go too
+class LogoutAPI(APIView):
+    permission_classes = [
+        permissions.IsAuthenticated,
+    ]
+
+    def post(self, request, *args, **kwargs):
+        if request.auth is not None:
+            request.auth.delete()
+        user_logged_out.send(sender=request.user.__class__, request=request, user=request.user)
+        response = Response(None, status=204)
+        clear_auth_cookies(response)
+        return response
+
+
+# Logout of every session of the user
+class LogoutAllAPI(APIView):
+    permission_classes = [
+        permissions.IsAuthenticated,
+    ]
+
+    def post(self, request, *args, **kwargs):
+        request.user.auth_token_set.all().delete()
+        user_logged_out.send(sender=request.user.__class__, request=request, user=request.user)
+        response = Response(None, status=204)
+        clear_auth_cookies(response)
+        return response
 
 
 # Get User API

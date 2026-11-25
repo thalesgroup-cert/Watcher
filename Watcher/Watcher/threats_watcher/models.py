@@ -124,6 +124,7 @@ class Summary(models.Model):
     summary_text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    ai_model = models.CharField(max_length=100, null=True, blank=True, default="Unknown")
     
     class Meta:
         verbose_name_plural = 'Summaries'
@@ -133,16 +134,21 @@ class Summary(models.Model):
         return f"{self.get_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
     @classmethod
-    def cleanup_older_than(cls, days: int = 90) -> int:
+    def older_than(cls, days):
         """
-        Delete Summaries older than `days` days.
-        Returns number of deleted rows.
+        The summaries written more than `days` days ago, except the latest one of each kind (the type and the words it is
+        about): what is read on the Overview and in Threats Watcher never disappears, however long the module has been quiet.
         """
+        newest = {}
+        for pk, kind, keywords in cls.objects.order_by('created_at', 'pk').values_list('pk', 'type', 'keywords'):
+            newest[(kind, keywords)] = pk
         cutoff = timezone.now() - timedelta(days=days)
-        qs = cls.objects.filter(created_at__lt=cutoff)
-        count = qs.count()
-        qs.delete()
-        return count
+        return cls.objects.filter(created_at__lt=cutoff).exclude(pk__in=newest.values())
+
+    @classmethod
+    def cleanup_older_than(cls, days: int = 90) -> int:
+        """Delete the summaries `older_than` days. Returns the number of deleted rows."""
+        return cls.older_than(days).delete()[0]
 
 
 @receiver(post_save, sender=TrendyWord)
@@ -289,3 +295,27 @@ class KeywordHit(models.Model):
 
     def __str__(self):
         return f'{self.keyword_id}: {self.title or self.url}'
+
+
+class WatcherConfiguration(models.Model):
+    regenerate_cooldown_minutes = models.PositiveIntegerField(
+        default=15,
+        verbose_name="Regeneration cooldown (minutes)",
+        help_text="Time to wait before being able to use the Regenerate button."
+    )
+
+    class Meta:
+        verbose_name = "Watcher Global Configuration"
+        verbose_name_plural = "Watcher Global Configuration"
+
+    def __str__(self):
+        return "Global Settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_cooldown(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj.regenerate_cooldown_minutes

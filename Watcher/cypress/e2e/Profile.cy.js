@@ -19,7 +19,7 @@ describe('Profile Page - E2E Test Suite', () => {
   const PROFILE = { theme: '', preferences: {}, avatar_color: '#2196f3' };
 
   const visitProfile = (path = '/#/profile') =>
-    cy.visit(path, { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-profile-test') });
+    cy.visit(path, { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
 
   beforeEach(() => {
     cy.on('uncaught:exception', () => false);
@@ -78,10 +78,12 @@ describe('Profile Page - E2E Test Suite', () => {
     it('redirects to login without a valid session', () => {
       cy.intercept('GET', '/api/auth/user', { statusCode: 401, body: { detail: 'Invalid token.' } });
       // The beforeEach already opened /#/profile: a second visit changes nothing but the hash and would not reload the app.
-      cy.window().then((win) => win.localStorage.setItem('token', 'expired'));
+      cy.document().then((doc) => {
+        doc.cookie = 'session_active=1';
+      });
       cy.reload();
       cy.url({ timeout: 10000 }).should('include', '#/login');
-      cy.window().its('localStorage.token').should('not.exist');
+      cy.document().its('cookie').should('not.contain', 'session_active');
     });
   });
 
@@ -245,6 +247,32 @@ describe('Profile Page - E2E Test Suite', () => {
       cy.get('[role="radiogroup"][aria-label="Row density"] [role="radio"][aria-checked="true"]').should('contain', 'Comfortable');
     });
 
+    it('turns the typewriter effect of the AI summaries off, kept in the profile', () => {
+      cy.intercept('GET', '/api/threats_watcher/summary/config/', { statusCode: 200, body: { regenerate_cooldown_minutes: 60 } });
+      cy.contains('label', 'Typewriter effect').find('input').should('be.checked').click();
+      cy.wait('@patchProfile').its('request.body').should('deep.equal', { typewriter_enabled: false });
+    });
+
+    it('has the very small text size, in Display, as the only way to shrink the interface', () => {
+      cy.get('[role="radiogroup"][aria-label="Text size"] [role="radio"]').contains('Very small').click();
+      cy.wait('@patchProfile');
+      cy.get('[aria-label="Interface size"]').should('not.exist');
+    });
+
+    it('lets a superuser set the waiting time between two regenerations of an AI summary', () => {
+      cy.intercept('GET', '/api/threats_watcher/summary/config/', { statusCode: 200, body: { regenerate_cooldown_minutes: 60 } });
+      cy.intercept('POST', '/api/threats_watcher/summary/config/', { statusCode: 200, body: { success: true, regenerate_cooldown_minutes: 15 } }).as('cooldown');
+      cy.reload();
+      // 60 minutes is the sixth step of the slider; a range input cannot be typed into, so it is set as the browser would
+      cy.get('input[aria-label="Regeneration cooldown"]', { timeout: 20000 }).should('have.attr', 'aria-valuenow', '5').then(($input) => {
+        const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        set.call($input[0], '3');
+        $input[0].dispatchEvent(new Event('input', { bubbles: true }));
+        $input[0].dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      cy.wait('@cooldown').its('request.body').should('deep.equal', { regenerate_cooldown_minutes: 15 });
+    });
+
     it('has no backdrop and no effects to set with a theme that has none', () => {
       cy.get('[data-testid="ambient-backdrop"]').should('not.exist');
       cy.get('[aria-label="Background effects"]').should('not.exist');
@@ -352,7 +380,7 @@ describe('Profile Page - E2E Test Suite', () => {
       cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { ...PROFILE, ...profile } });
       cy.visit('/#/profile', {
         onBeforeLoad: (win) => {
-          win.localStorage.setItem('token', 'mock-token-profile-test');
+          win.document.cookie = 'session_active=1';
           if (stored) win.localStorage.setItem('watcher.theme', stored);
         },
       });
@@ -383,7 +411,7 @@ describe('Profile Page - E2E Test Suite', () => {
       cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: PROFILE });
       cy.visit('/#/profile', {
         onBeforeLoad: (win) => {
-          win.localStorage.setItem('token', 'mock-token-profile-test');
+          win.document.cookie = 'session_active=1';
           win.localStorage.setItem('watcher.theme.mode', 'dark');
         },
       });
@@ -478,9 +506,21 @@ describe('Profile Page - E2E Test Suite', () => {
       cy.get('aside[aria-label="Sidebar"] a[aria-label="My profile"]', { timeout: 20000 }).trigger('mouseover');
       cy.get('aside[aria-label="Sidebar"] button[aria-label="Sign out"]').click();
       cy.wait('@logout');
-      cy.window().its('localStorage.token').should('not.exist');
+      cy.document().its('cookie').should('not.contain', 'session_active');
       cy.url().should('include', '#/login');
       cy.contains('h1', 'Sign in').should('be.visible');
+    });
+
+    it('keeps no token in the page: the session is a cookie and a request that changes something carries the CSRF token', () => {
+      cy.intercept('POST', '/api/auth/logout/', { statusCode: 204 }).as('logout');
+      visitProfile();
+      cy.window().its('localStorage').invoke('getItem', 'token').should('be.null');
+      cy.get('aside[aria-label="Sidebar"] a[aria-label="My profile"]', { timeout: 20000 }).trigger('mouseover');
+      // The server sets the CSRF cookie with the page
+      cy.getCookie('csrftoken').should('exist').then((cookie) => {
+        cy.get('aside[aria-label="Sidebar"] button[aria-label="Sign out"]').click();
+        cy.wait('@logout').its('request.headers').should('include', { 'x-csrftoken': cookie.value }).and('not.have.property', 'authorization');
+      });
     });
 
     it('leaves the browser on the default theme, and the account keeps its own', () => {

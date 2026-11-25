@@ -68,7 +68,7 @@ def lookup(domain):
     return result
 
 
-# --- What the job does with an answer ------------------------------------------------------------------------------------
+# What the job does with an answer
 # A renewal only moves an expiry date forward. An answer that goes back (an earlier date than the one stored) is what makes a
 # domain that is still ours show as Expired, and a registry can answer from a stale copy. So an earlier date is not written at
 # once: it is written only when the registry gives the same earlier date on two passes of the job, less than a day apart; in
@@ -100,7 +100,7 @@ def decide(stored, new, pending, pending_source, pending_at, now):
     return HOLD, new, 'RDAP', now
 
 
-# --- The same rule for any model that keeps an expiry date -----------------------------------------------------------------
+# The same rule for any model that keeps an expiry date
 # A legitimate domain keeps its date in `expiry`, a monitored site in `domain_expiry`; the bookkeeping fields are named after it
 # (`<prefix>_pending`, `<prefix>_pending_source`, `<prefix>_pending_at`, `<prefix>_source`, `<prefix>_checked_at`,
 # `<prefix>_check`), so one function serves both.

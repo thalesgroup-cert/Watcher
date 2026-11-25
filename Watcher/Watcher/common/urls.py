@@ -1,7 +1,6 @@
 from django.urls import path
 from rest_framework import routers
-from .api import GlobalSearchView, LegitimateDomainViewSet, PendingActionViewSet
-from .jobs_api import ScheduledJobsView
+from .api import GlobalSearchView, LegitimateDomainViewSet, PendingActionViewSet, ScheduledJobsView
 from .overview_api import OverviewView
 from .core import start_scheduler
 

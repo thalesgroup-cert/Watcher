@@ -75,7 +75,7 @@ describe('Cyber Watch', () => {
     cy.intercept('GET', `${API}watch-rules/?*`, { statusCode: 200, body: page(RULES) });
     cy.intercept('GET', `${API}watch-rules/1/`, { statusCode: 200, body: RULES[0] });
     cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
-    cy.visit('/#/cyber_watch', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-cyber') });
+    cy.visit('/#/cyber_watch', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     cy.get('[data-testid="match-row"]', { timeout: 20000 }).should('have.length', 2);
   });
 
@@ -159,7 +159,9 @@ describe('Cyber Watch', () => {
       cy.location('hash').should('include', 'ckind=advisory');
       cy.contains('button', 'Clear').click();
       cy.location('hash').should('not.include', 'ckind');
-      cy.get('@cves.all').should((calls) => expect(calls.at(-1).request.url).to.include('kind=cve'));
+      // The list of CVEs is already known: it comes back from the cache, with no new request
+      cy.contains('.MuiTextField-root', 'Type').should('contain', 'CVEs').and('not.contain', 'advisories');
+      cy.get('[data-testid="cve-row"]').should('have.length', 3);
     });
 
     it('asks for everything when both are wanted', () => {

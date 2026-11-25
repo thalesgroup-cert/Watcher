@@ -23,6 +23,8 @@ from .summary_manager import (
     generate_trendy_word_summary
 )
 from types import SimpleNamespace
+from collections import OrderedDict
+import threading
 import functools
 import hashlib
 import unicodedata
@@ -122,6 +124,7 @@ def extract_entities_and_threats(title: str) -> dict:
 def start_scheduler():
     """
     Launch planning tasks in background:
+
         - Fire main_watch every 30 minutes
         - Fire cleanup every day at 8 am
         - Fire weekly summary based on settings configuration
@@ -131,7 +134,7 @@ def start_scheduler():
     from common.utils.job_log import register_scheduler
     register_scheduler(scheduler)
 
-    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='*/30', id='main_watch_job',
+    scheduler.add_job(main_watch, 'cron', day_of_week='mon-sun', minute='11-59/30', id='main_watch_job',
                       max_instances=10, replace_existing=True)
 
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour=8, minute=0, id='day_clean', replace_existing=True)
@@ -172,6 +175,7 @@ def cleanup():
 def main_watch():
     """
     Main function:
+
         - close_old_connections()
         - load_feeds()
         - fetch_last_posts(settings.POSTS_DEPTH)
@@ -345,47 +349,99 @@ def fetch_last_posts(nb_max_post):
         posts[title] = url
 
 
+# What the model found in a title: a title always gives the same entities, so a title seen in a previous run is not given to the
+# model again (a feed shows the same articles for days). Kept in memory, the oldest forgotten first.
+ENTITIES_CACHE_MAX = 20000
+_entities_cache = OrderedDict()
+_entities_lock = threading.Lock()
+
+
+def _entities_of(title):
+    """The entities of a title (extract_entities_and_threats), asked to the model only the first time this title is met."""
+    with _entities_lock:
+        found = _entities_cache.get(title)
+        if found is not None:
+            _entities_cache.move_to_end(title)
+    if found is not None:
+        job_log.job_count("titles_cached")
+        return found
+    found = extract_entities_and_threats(title)
+    job_log.job_count("titles_analyzed")
+    with _entities_lock:
+        _entities_cache[title] = found
+        while len(_entities_cache) > ENTITIES_CACHE_MAX:
+            _entities_cache.popitem(last=False)
+    return found
+
+
+def _limit_model_threads():
+    """
+    Cap the computing threads of torch while the titles are analysed (NER_TORCH_THREADS, 0 leaves the library alone) and tell
+    how to put them back: the model would otherwise take every core of the machine that also serves the web interface.
+    """
+    try:
+        wanted = int(getattr(settings, 'NER_TORCH_THREADS', 0))
+    except (TypeError, ValueError):
+        wanted = 0
+    if wanted <= 0:
+        return None
+    try:
+        import torch
+    except ImportError:
+        return None
+    previous = torch.get_num_threads()
+    torch.set_num_threads(wanted)
+    return lambda: torch.set_num_threads(previous)
+
+
 def tokenize_count_urls():
     """
     For each title (≤ 30 days):
-        - Runs NER and threat extraction,
-        - Casts scores to float,
+
+        - Runs NER and threat extraction (once per title: the entities of a title already met are kept),
         - Counts occurrences and aggregates associated URLs.
+
+    The end line of the job tells how many titles were looked at, how many went through the model and how many were
+    already known (titles, titles_analyzed, titles_cached).
     """
     global posts_words, wordurl
     posts_words = {}
     wordurl     = {}
 
     threshold = timezone.now() - timedelta(days=30)
-    ner_pipe = get_ner_pipeline()
-    
-    if not ner_pipe:
+
+    if not get_ner_pipeline():
         logger.error("NER pipeline not available for tokenization")
+        job_log.job_count("ner_unavailable")
         return
 
-    for title, url in posts.items():
-        post_date = posts_published.get(url, "no-date")
-        if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
-            continue
-        raw_ner = ner_pipe(title)
-        for ent in raw_ner:
-            ent['score'] = float(ent['score'])
-        ents = extract_entities_and_threats(title)
-        retained = (
-              ents["persons"]
-            + ents["organizations"]
-            + ents["locations"]
-            + ents["product"]
-            + ents["cves"]
-            + ents["attackers"]
-        )
-        for item in retained:
-            key = f"{item}_url"
-            posts_words[item] = posts_words.get(item, 0) + 1
-            if key in wordurl:
-                wordurl[key] += ", " + url
-            else:
-                wordurl[key] = url
+    restore_threads = _limit_model_threads()
+    try:
+        for title, url in posts.items():
+            post_date = posts_published.get(url, "no-date")
+            if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
+                continue
+            job_log.job_count("titles")
+            ents = _entities_of(title)
+            retained = (
+                  ents["persons"]
+                + ents["organizations"]
+                + ents["locations"]
+                + ents["product"]
+                + ents["cves"]
+                + ents["attackers"]
+            )
+            for item in retained:
+                key = f"{item}_url"
+                posts_words[item] = posts_words.get(item, 0) + 1
+                if key in wordurl:
+                    wordurl[key] += ", " + url
+                else:
+                    wordurl[key] = url
+    finally:
+        if restore_threads:
+            restore_threads()
+
 
 def remove_banned_words():
     """
@@ -756,14 +812,11 @@ def record_keyword_hit(keyword, title, link, words):
 RULE_NOTIFICATION = 'article_rule_hit'
 
 
-def _slack_escape(text):
-    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-
-
 def _rule_context(hit, channel):
     from connectors.notifications import get_type
+    from connectors.notifications.template import slack_escape
 
-    escape = {'slack': _slack_escape, 'citadel': html.escape}.get(channel, lambda text: text)
+    escape = {'slack': slack_escape, 'citadel': html.escape}.get(channel, lambda text: text)
     one_line = lambda text: ' '.join(str(text).split())
     return {
         'rule_name': escape(one_line(hit.keyword.name)),

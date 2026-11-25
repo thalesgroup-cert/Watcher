@@ -14,7 +14,7 @@ from django.db.models.functions import Length
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
-import common.utils.job_log as job_log  # not a "from common" line: the documentation build keeps it
+from common.utils import job_log
 
 # Configure logger
 logger = logging.getLogger('watcher.data_leak')
@@ -31,6 +31,7 @@ class SearxError(Exception):
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
+
         - Fire main every 5 minutes from Monday to Sunday
         - Fire cleanup every 2 hours
     """
@@ -41,7 +42,7 @@ def start_scheduler():
 
     # One run at a time: with ~400 keywords a run can last longer than 5 minutes, and a second run started on top of it
     # would query the same keywords and create the same alerts twice. The slot missed meanwhile is skipped.
-    scheduler.add_job(main_data_leak, 'cron', day_of_week='mon-sun', minute='*/5', id='week_job', max_instances=1,
+    scheduler.add_job(main_data_leak, 'cron', day_of_week='mon-sun', minute='2-59/5', id='week_job', max_instances=1,
                       coalesce=True, replace_existing=True)
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour='*/2', id='clean', replace_existing=True)
     scheduler.start()
@@ -69,6 +70,7 @@ def cleanup():
 def main_data_leak():
     """
         Main function:
+
             - close_old_connections()
             - read in our list of keywords
             - check_keywords(keywords)

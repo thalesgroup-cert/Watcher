@@ -21,7 +21,7 @@ describe('Global search', () => {
   const visit = (pinned = false) =>
     cy.visit('/#/legitimate_domains', {
       onBeforeLoad: (win) => {
-        win.localStorage.setItem('token', 'mock-token-search');
+        win.document.cookie = 'session_active=1';
         if (pinned) win.localStorage.setItem('watcher.sidebar.pinned', '1');
       },
     });
@@ -145,7 +145,7 @@ describe('Global search', () => {
         cy.get(BOX).type('sign out');
         cy.contains(COMMAND, 'Sign out').click();
         cy.wait('@logout');
-        cy.window().its('localStorage').invoke('getItem', 'token').should('be.null');
+        cy.document().its('cookie').should('not.contain', 'session_active');
       });
     });
 

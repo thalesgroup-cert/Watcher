@@ -1,7 +1,5 @@
 import os
-import re
 import requests as requests_module
-import types
 from unittest.mock import patch, MagicMock
 from django.test import SimpleTestCase, TestCase, TransactionTestCase, RequestFactory, override_settings
 from django.contrib.auth.models import User, AnonymousUser, Permission
@@ -578,30 +576,321 @@ class PendingActionResolutionTest(APITestCase):
             "Expected a ACTION_CANCELLED TimelineEvent with object_id=site.pk after rejection"
         )
 
+CLUSTER_SUMMARY_HTML = (
+    "<div style='border-left: 3px solid #64748b; padding-left: 0.8em;'>"
+    "<div class='d-flex'><strong class='text-info'>Executive Summary</strong>"
+    "<span id='watcher-toggle-all'>Collapse All</span></div>"
+    "<p class='mt-1'>Surge of threats this week.</p></div>"
+    "<details open class='watcher-cluster' style='border-left: 3px solid #ef4444; padding-left: 0.8em;'>"
+    "<summary><div><span class='material-icons'>arrow_drop_down</span>"
+    "<strong class='m-0'>Atlassian Vulnerabilities</strong></div>"
+    "<div><span class='text-muted fst-italic'>Oct 06, 2026</span>"
+    "<span class='badge' style='color: #ef4444'>Critical</span></div></summary>"
+    "<p class='mb-3'>Atlassian disclosed multiple flaws.</p>"
+    "<div class='d-flex'>"
+    "<div class='m-0'><strong class='text-muted'>Threats:</strong> <span class='badge'>APT1</span></div>"
+    "<div class='m-0'><strong class='text-muted'>CVEs:</strong> "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2023-1111'>CVE-2023-1111</a> | "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2023-2222'>CVE-2023-2222</a></div>"
+    "</div></details>"
+)
 
-class DocumentedModulesImportTest(SimpleTestCase):
-    """docs/build_the_docs.sh comments out the `from .models` / `from common` / `from connectors`
-    lines of the apps so that Sphinx can import their modules without Django's app registry:
-    module-level code must not use the names those lines bind (a signal registered at import time
-    on a model broke the documentation build with a NameError)."""
+BREAKING_NEWS_HTML = (
+    "<p class='mb-3'>A DDoS attack disrupted Ubuntu.</p>"
+    "<div class='mt-3 p-3'><h6 class='text-uppercase'>Threat Context</h6><div class='d-flex'>"
+    "<div><strong class='text-muted'>Impact Level:</strong> <span class='badge bg-danger'>High</span></div>"
+    "<div><strong class='text-muted'>CVEs:</strong> "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2026-1' class='fw-bold'>CVE-2026-1</a> | "
+    "<a href='https://nvd.nist.gov/vuln/detail/CVE-2026-2'>CVE-2026-2</a></div>"
+    "</div></div>"
+)
 
-    MODULES = (
-        "common/core.py", "common/misp.py", "cyber_watch/core.py", "data_leak/core.py",
-        "dns_finder/core.py", "site_monitoring/core.py", "threats_watcher/core.py",
-    )
-    COMMENTED_OUT = re.compile(r'^[ \t]*from (\.models|common|site_monitoring\.models|connectors)')
+class HtmlToCitadelHtmlTest(TestCase):
+    """Test the conversion of the web summary HTML to the Matrix/Citadel HTML subset."""
 
-    def test_documented_modules_import_without_their_models(self):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        for relative_path in self.MODULES:
-            with self.subTest(module=relative_path):
-                path = os.path.join(base_dir, relative_path)
-                with open(path) as source_file:
-                    lines = source_file.read().splitlines(keepends=True)
-                source = "".join("#" + line if self.COMMENTED_OUT.match(line) else line for line in lines)
-                module = types.ModuleType(relative_path)
-                module.__package__ = relative_path.split("/")[0]
-                exec(compile(source, path, "exec"), module.__dict__)
+    def setUp(self):
+        from common.core import html_to_citadel_html
+        self.convert = html_to_citadel_html
+
+    def test_executive_summary_is_converted(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('<font data-mx-color="#64748b"><strong>EXECUTIVE SUMMARY</strong></font>', out)
+        self.assertIn('Surge of threats this week.', out)
+
+    def test_cluster_uses_severity_color_from_border(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('<font data-mx-color="#ef4444"><strong>▌ Atlassian Vulnerabilities</strong></font>', out)
+        self.assertIn('(Oct 06, 2026 · Critical)', out)
+
+    def test_web_artifacts_are_removed(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        for artifact in ('Collapse All', 'arrow_drop_down', 'class=', 'style=', '<details', '<summary', '<span'):
+            self.assertNotIn(artifact, out)
+
+    def test_cluster_cves_are_plain_text_without_links(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertNotIn('<a ', out)
+        self.assertNotIn('nvd.nist.gov', out)
+        self.assertIn('<strong>CVEs:</strong> CVE-2023-1111, CVE-2023-2222', out)
+
+    def test_cluster_threats_are_kept(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('<strong>Threats:</strong> APT1', out)
+
+    def test_blank_line_between_description_and_related_items(self):
+        out = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertIn('Atlassian disclosed multiple flaws.<br><br><strong>Threats:</strong> APT1', out)
+
+    def test_duplicate_cves_are_listed_once(self):
+        html = CLUSTER_SUMMARY_HTML.replace('CVE-2023-2222', 'CVE-2023-1111')
+        out = self.convert(html)
+        self.assertEqual(out.count('CVE-2023-1111'), 1)
+
+    def test_cluster_without_title_is_skipped(self):
+        html = (
+            "<details style='border-left: 3px solid #ef4444;'><summary></summary>"
+            "<p>No title here</p></details>"
+        )
+        out = self.convert(html)
+        self.assertNotIn('data-mx-color="#ef4444"', out)
+
+    def test_breaking_news_impact_is_colored(self):
+        out = self.convert(BREAKING_NEWS_HTML)
+        self.assertIn('<font data-mx-color="#eab308"><strong>High</strong></font>', out)
+
+    def test_breaking_news_impact_colors_follow_the_severity(self):
+        for level, color in (('Critical', '#ef4444'), ('Actively exploited', '#ef4444'),
+                             ('High', '#eab308'), ('Medium', '#38bdf8')):
+            out = self.convert(f"<div><span class='badge'>{level}</span></div>")
+            self.assertIn(f'<font data-mx-color="{color}"><strong>{level}</strong></font>', out)
+
+    def test_unknown_impact_level_stays_plain_text(self):
+        out = self.convert("<div><span class='badge'>Weird</span></div>")
+        self.assertNotIn('data-mx-color', out)
+        self.assertIn('Weird', out)
+
+    def test_breaking_news_cves_have_no_links(self):
+        out = self.convert(BREAKING_NEWS_HTML)
+        self.assertNotIn('<a ', out)
+        self.assertNotIn('nvd.nist.gov', out)
+        self.assertIn('CVE-2026-1, CVE-2026-2', out)
+        self.assertNotIn('|', out)
+
+    def test_breaking_news_keeps_basic_structure(self):
+        out = self.convert(BREAKING_NEWS_HTML)
+        self.assertIn('A DDoS attack disrupted Ubuntu.', out)
+        self.assertIn('<strong>Threat Context</strong>', out)
+        self.assertIn('<strong>Impact Level:</strong>', out)
+        self.assertNotIn('class=', out)
+
+    def test_output_has_no_newline(self):
+        # The caller replaces '\n' by '<br>', so the converter must not emit any
+        self.assertNotIn('\n', self.convert(CLUSTER_SUMMARY_HTML.replace('><', '>\n<')))
+        self.assertNotIn('\n', self.convert(BREAKING_NEWS_HTML.replace('><', '>\n<')))
+
+
+class HtmlToSlackAttachmentsTest(TestCase):
+    """Test the Slack Block Kit attachments built from the web summary HTML."""
+
+    def setUp(self):
+        from common.core import html_to_slack_attachments
+        self.convert = html_to_slack_attachments
+
+    def test_executive_summary_and_cluster_colors(self):
+        attachments = self.convert(CLUSTER_SUMMARY_HTML)
+        self.assertEqual([a['color'] for a in attachments], ['#64748b', '#ef4444'])
+
+    def test_executive_summary_block(self):
+        executive = self.convert(CLUSTER_SUMMARY_HTML)[0]
+        self.assertEqual(executive['blocks'][0]['text']['text'], 'Executive Summary')
+        self.assertEqual(executive['blocks'][1]['text']['text'], 'Surge of threats this week.')
+
+    def test_cluster_block_has_title_description_and_cves(self):
+        cluster = self.convert(CLUSTER_SUMMARY_HTML)[1]
+        self.assertEqual(cluster['blocks'][0]['text']['text'], 'Atlassian Vulnerabilities')
+        text = cluster['blocks'][1]['text']['text']
+        self.assertIn('Atlassian disclosed multiple flaws.', text)
+        self.assertIn('*CVEs :*', text)
+        self.assertIn('CVE-2023-1111', text)
+
+    def test_plain_html_falls_back_to_single_attachment(self):
+        attachments = self.convert(BREAKING_NEWS_HTML)
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]['color'], '#ef4444')
+        text = attachments[0]['blocks'][0]['text']['text']
+        self.assertNotIn('<', text)
+        self.assertIn('*Threat Context*', text)
+
+    def test_fallback_text_is_truncated_for_slack(self):
+        attachments = self.convert("<p>" + "x" * 5000 + "</p>")
+        self.assertLessEqual(len(attachments[0]['blocks'][0]['text']['text']), 2900)
+
+
+class CleanHtmlForEmailTest(TestCase):
+    """Test the removal of the interactive web elements before sending a summary by email."""
+
+    def setUp(self):
+        from common.core import clean_html_for_email
+        self.clean = clean_html_for_email
+
+    def test_collapse_button_is_removed(self):
+        self.assertNotIn('Collapse All', self.clean(CLUSTER_SUMMARY_HTML))
+
+    def test_details_and_summary_are_replaced(self):
+        out = self.clean(CLUSTER_SUMMARY_HTML)
+        for tag in ('<details', '</details>', '<summary', '</summary>'):
+            self.assertNotIn(tag, out)
+
+    def test_cluster_title_date_and_badge_are_rebuilt(self):
+        out = self.clean(CLUSTER_SUMMARY_HTML)
+        self.assertIn('Atlassian Vulnerabilities', out)
+        self.assertIn('Oct 06, 2026', out)
+        self.assertIn('Critical', out)
+        self.assertIn('border: 1px solid #ef4444', out)
+
+    def test_material_icon_is_removed(self):
+        self.assertNotIn('arrow_drop_down', self.clean(CLUSTER_SUMMARY_HTML))
+
+    def test_summary_without_title_is_dropped(self):
+        out = self.clean("<details><summary><span>no title</span></summary><p>Body</p></details>")
+        self.assertNotIn('no title', out)
+        self.assertIn('Body', out)
+
+    def test_empty_paragraphs_and_divs_are_removed(self):
+        out = self.clean("<p>   </p><div></div><p>Kept</p>")
+        self.assertEqual(out, "<p>Kept</p>")
+
+    def test_consecutive_line_breaks_are_collapsed(self):
+        self.assertEqual(self.clean("a<br><br><br>b"), "a<br>b")
+
+
+class SendCitadelMessageTest(TestCase):
+    """Test the Citadel notification sender (timeout and error handling)."""
+
+    CONFIG = {'url': 'https://citadel.example', 'token': 'tok', 'room_id': '!room:citadel.example'}
+    CONTENT = {
+        'msgtype': 'm.text',
+        'format': 'org.matrix.custom.html',
+        'body': 'Alert',
+        'formatted_body': '<b>Alert</b>',
+    }
+
+    def _send(self, content=None):
+        from common.utils.send_citadel_messages import send_citadel_message
+        return send_citadel_message(content or self.CONTENT, '!room:citadel.example', 'threats_watcher')
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_posts_to_the_matrix_send_endpoint(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        args, kwargs = mock_post.call_args
+        self.assertEqual(
+            args[0],
+            'https://citadel.example/_matrix/client/r0/rooms/!room:citadel.example/send/m.room.message'
+        )
+        self.assertEqual(kwargs['headers']['Authorization'], 'Bearer tok')
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_post_has_a_timeout(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        self.assertIsNotNone(mock_post.call_args.kwargs.get('timeout'))
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_payload_is_sent_as_it_is_without_a_timestamp(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(payload['msgtype'], 'm.text')
+        self.assertEqual(payload['format'], 'org.matrix.custom.html')
+        # The room shows the time of every message: the text is not prefixed with one
+        self.assertEqual(payload['body'], 'Alert')
+        self.assertEqual(payload['formatted_body'], '<b>Alert</b>')
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_formatted_body_is_none_when_absent(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send({'body': 'Plain'})
+        self.assertIsNone(mock_post.call_args.kwargs['json']['formatted_body'])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_network_error_is_logged_not_raised(self, _config, mock_post):
+        import requests
+        mock_post.side_effect = requests.exceptions.ReadTimeout('timed out')
+        with self.assertLogs('watcher.common', level='ERROR') as logs:
+            self._send()
+        self.assertIn('ReadTimeout', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_http_error_status_is_logged(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=401, text='M_UNKNOWN_TOKEN')
+        with self.assertLogs('watcher.common', level='ERROR') as logs:
+            self._send()
+        self.assertIn('401', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_success_is_logged(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        with self.assertLogs('watcher.common', level='INFO') as logs:
+            self._send()
+        self.assertIn('Message sent to Citadel successfully', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config',
+           return_value={'url': 'https://citadel.example', 'token': '', 'room_id': ''})
+    def test_missing_configuration_sends_nothing(self, _config, mock_post):
+        with self.assertLogs('watcher.common', level='WARNING'):
+            self._send()
+        mock_post.assert_not_called()
+
+
+class SendSlackMessageTest(TestCase):
+    """Test the Slack notification sender, including the optional attachments."""
+
+    CONFIG = {'token': 'xoxb-test', 'channel': '#alerts'}
+
+    def _send(self, **kwargs):
+        from common.utils.send_slack_messages import send_slack_message
+        return send_slack_message('Hello', '#alerts', 'threats_watcher', **kwargs)
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value=CONFIG)
+    def test_payload_without_attachments(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send()
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(payload['channel'], '#alerts')
+        self.assertTrue(payload['text'].endswith('Hello'))
+        self.assertNotIn('attachments', payload)
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value=CONFIG)
+    def test_attachments_are_added_to_the_payload(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        attachments = [{'color': '#ef4444', 'blocks': []}]
+        self._send(attachments=attachments)
+        self.assertEqual(mock_post.call_args.kwargs['json']['attachments'], attachments)
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value=CONFIG)
+    def test_empty_attachments_are_not_sent(self, _config, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self._send(attachments=[])
+        self.assertNotIn('attachments', mock_post.call_args.kwargs['json'])
+
+    @patch('common.utils.send_slack_messages.requests.post')
+    @patch('common.utils.send_slack_messages.get_slack_config', return_value={'token': '', 'channel': ''})
+    def test_missing_configuration_sends_nothing(self, _config, mock_post):
+        with self.assertLogs('watcher.common', level='WARNING'):
+            self._send()
+        mock_post.assert_not_called()
 
 
 class NormalizeDomainTest(SimpleTestCase):
@@ -1353,27 +1642,27 @@ class HealthCheckFilterTest(SimpleTestCase):
         return record
 
     def test_the_health_check_of_the_container_is_dropped(self):
-        from common.utils.log_filters import HealthCheckFilter
+        from common.access_log import HealthCheckFilter
         for peer in ('127.0.0.1', '::1', '::ffff:127.0.0.1'):
             with self.subTest(peer=peer):
                 self.assertFalse(HealthCheckFilter().filter(self._record(self.HEALTH_LINE, peer)))
 
     def test_the_same_request_from_elsewhere_is_kept(self):
-        from common.utils.log_filters import HealthCheckFilter
+        from common.access_log import HealthCheckFilter
         self.assertTrue(HealthCheckFilter().filter(self._record(self.HEALTH_LINE, '172.21.0.1')))
 
     def test_another_request_from_the_container_is_kept(self):
-        from common.utils.log_filters import HealthCheckFilter
+        from common.access_log import HealthCheckFilter
         self.assertTrue(HealthCheckFilter().filter(self._record('"GET /api/auth/user HTTP/1.1" 200 214')))
         self.assertTrue(HealthCheckFilter().filter(self._record('"POST / HTTP/1.1" 405 0')))
 
     def test_a_line_whose_origin_is_unknown_is_kept(self):
-        from common.utils.log_filters import HealthCheckFilter
+        from common.access_log import HealthCheckFilter
         record = logging.LogRecord('django.server', logging.INFO, __file__, 1, self.HEALTH_LINE, (), None)
         self.assertTrue(HealthCheckFilter().filter(record))
 
     def test_the_web_server_logger_uses_the_filter(self):
-        from common.utils.log_filters import HealthCheckFilter
+        from common.access_log import HealthCheckFilter
         logger = logging.getLogger('django.server')
         self.assertTrue(any(isinstance(f, HealthCheckFilter) for f in logger.filters))
         self.assertTrue(logger.handlers)
@@ -2242,7 +2531,7 @@ class CheckExpiryDatesCommandTest(TestCase):
         self.assertNotIn('To correct', output)
 
     def test_expired_checks_only_the_domains_shown_as_expired(self):
-        from datetime import date, timedelta
+        from datetime import timedelta
         past, future = timezone.now().date() - timedelta(days=30), timezone.now().date() + timedelta(days=300)
         LegitimateDomain.objects.create(domain_name='old.example', expiry=past)
         LegitimateDomain.objects.create(domain_name='fine.example', expiry=future)
@@ -3498,7 +3787,8 @@ _logged_demo = job_log.logged_job('Demo job', _logging.getLogger('watcher.tests'
 class JobRunTest(TestCase):
     def test_a_logged_job_keeps_its_pass(self):
         _logged_demo()
-        run = JobRun.objects.get()
+        # Only this job: a real scheduled job may run in this process while the tests do
+        run = JobRun.objects.get(job='common._demo_job')
         self.assertEqual(run.job, 'common._demo_job')
         self.assertEqual(run.label, 'Demo job')
         self.assertEqual(run.counts, {'items': 3})  # what is zero is not kept
@@ -3513,7 +3803,7 @@ class JobRunTest(TestCase):
         with self.assertLogs('watcher.tests', level='ERROR'):
             with self.assertRaises(ValueError):
                 broken()
-        run = JobRun.objects.get()
+        run = JobRun.objects.get(job='common.broken')
         self.assertTrue(run.failed)
         self.assertEqual(run.error, 'ValueError: boom')
 
@@ -3527,7 +3817,7 @@ class JobRunTest(TestCase):
         _logged_demo()
         JobRun.objects.create(job='cyber_watch.other', label='Other', started_at=timezone.now(), duration=1)
         self.assertEqual(JobRun.objects.filter(job='common._demo_job').count(), 1)
-        self.assertEqual(JobRun.objects.count(), 2)
+        self.assertEqual(JobRun.objects.filter(job__in=['common._demo_job', 'cyber_watch.other']).count(), 2)
 
     def test_a_job_is_running_from_its_start_to_its_end(self):
         seen = {}
@@ -3542,13 +3832,15 @@ class JobRunTest(TestCase):
     def test_a_pass_that_cannot_be_kept_never_breaks_the_job(self):
         with _mock.patch.object(JobRun.objects, 'create', side_effect=RuntimeError('database gone')):
             _logged_demo()  # no exception
-        self.assertEqual(JobRun.objects.count(), 0)
+        self.assertEqual(JobRun.objects.filter(job='common._demo_job').count(), 0)
 
     def test_schedules_are_told_in_words(self):
         said = job_log.describe_schedule
         self.assertEqual(said(IntervalTrigger(minutes=30)), 'every 30 minutes')
         self.assertEqual(said(IntervalTrigger(hours=1)), 'every hour')
         self.assertEqual(said(CronTrigger(day_of_week='mon-sun', minute='*/15')), 'every 15 minutes')
+        self.assertEqual(said(CronTrigger(day_of_week='mon-sun', minute='3-59/15')), 'every 15 minutes')
+        self.assertEqual(said(CronTrigger(day_of_week='mon-sun', minute='11-59/30')), 'every 30 minutes')
         self.assertEqual(said(CronTrigger(day_of_week='mon-sun', hour='*/6')), 'every 6 hours')
         self.assertEqual(said(CronTrigger(day_of_week='mon-sun', hour='*/1')), 'every hour')
         self.assertEqual(said(CronTrigger(day_of_week='mon-sun', hour=8, minute=0)), 'every day at 08:00')
@@ -3641,3 +3933,64 @@ class OverviewApiTest(APITestCase):
 
     def test_it_changes_nothing(self):
         self.assertEqual(self.client.post(self.URL, {}).status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class HistoryRetentionTest(TestCase):
+    """The AI summaries and the activity journal are kept for a while, not for ever; the latest summary of each kind stays."""
+
+    def _summary(self, kind, days_ago, keywords=''):
+        from threats_watcher.models import Summary
+        summary = Summary.objects.create(type=kind, keywords=keywords, summary_text='x')
+        Summary.objects.filter(pk=summary.pk).update(created_at=timezone.now() - timedelta(days=days_ago))
+        return summary
+
+    def _event(self, days_ago):
+        from django.contrib.contenttypes.models import ContentType
+        from timeline.models import TimelineEvent
+        event = TimelineEvent.objects.create(content_type=ContentType.objects.get_for_model(User), object_id=1, action='created')
+        TimelineEvent.objects.filter(pk=event.pk).update(timestamp=timezone.now() - timedelta(days=days_ago))
+
+    @override_settings(SUMMARY_RETENTION_DAYS=90, TIMELINE_RETENTION_DAYS=365)
+    def test_old_summaries_go_but_the_latest_of_each_kind_stays(self):
+        from threats_watcher.models import Summary
+        self._summary('weekly_summary', 200)
+        self._summary('weekly_summary', 150)
+        kept_weekly = self._summary('weekly_summary', 100)
+        self._summary('breaking_news', 120)
+        recent = self._summary('breaking_news', 5)
+        self._summary('trendy_word_summary', 300, keywords='lockbit')
+        self._summary('trendy_word_summary', 250, keywords='lockbit')
+        from common.core import purge_history
+        counts = purge_history()
+        self.assertEqual(counts['summaries'], 4)
+        self.assertEqual(set(Summary.objects.values_list('pk', flat=True)), {kept_weekly.pk, recent.pk, Summary.objects.get(keywords='lockbit').pk})
+
+    @override_settings(SUMMARY_RETENTION_DAYS=90, TIMELINE_RETENTION_DAYS=365)
+    def test_old_activity_goes_and_recent_stays(self):
+        from timeline.models import TimelineEvent
+        self._event(400)
+        self._event(10)
+        from common.core import purge_history
+        self.assertEqual(purge_history()['timeline'], 1)
+        self.assertEqual(TimelineEvent.objects.count(), 1)
+
+    @override_settings(SUMMARY_RETENTION_DAYS=0, TIMELINE_RETENTION_DAYS=0)
+    def test_zero_keeps_everything(self):
+        from threats_watcher.models import Summary
+        from timeline.models import TimelineEvent
+        self._summary('weekly_summary', 900)
+        self._summary('weekly_summary', 800)
+        self._event(2000)
+        from common.core import purge_history
+        self.assertEqual(purge_history(), {'summaries': 0, 'timeline': 0})
+        self.assertEqual((Summary.objects.count(), TimelineEvent.objects.count()), (2, 1))
+
+    @override_settings(SUMMARY_RETENTION_DAYS=90, TIMELINE_RETENTION_DAYS=365)
+    def test_dry_run_counts_and_removes_nothing(self):
+        from threats_watcher.models import Summary
+        self._summary('weekly_summary', 200)
+        self._summary('weekly_summary', 150)
+        self._event(400)
+        from common.core import purge_history
+        self.assertEqual(purge_history(dry_run=True), {'summaries': 1, 'timeline': 1})
+        self.assertEqual(Summary.objects.count(), 2)

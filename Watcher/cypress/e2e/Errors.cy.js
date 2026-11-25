@@ -30,7 +30,7 @@ describe('Errors and empty lists', () => {
     cy.intercept('GET', '/api/auth/profile', { statusCode: 200, body: { theme: 'darkly', preferences: {}, avatar_color: null } });
     cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
     cy.intercept('GET', page.list, answer).as('list');
-    cy.visit(page.path, { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-errors') });
+    cy.visit(page.path, { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     cy.wait('@list');
   };
 
@@ -69,7 +69,7 @@ describe('Errors and empty lists', () => {
       cy.intercept('GET', '/api/timeline/events/?*', { statusCode: 200, body: [] });
       cy.intercept('GET', '/api/data_leak/alert/?*', { statusCode: 200, body: { ...EMPTY, count: 1, results: [ALERT] } }).as('alerts');
       cy.intercept('GET', '/api/data_leak/alert/11/', { statusCode: 200, body: { ...ALERT, content: '' } });
-      cy.visit('/#/data_leak', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-errors') });
+      cy.visit('/#/data_leak', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
       cy.get('[data-testid="alert-row"]', { timeout: 20000 }).should('have.length', 1);
     });
 
@@ -158,7 +158,7 @@ describe('Errors and empty lists', () => {
   describe('an address the app does not know', () => {
     beforeEach(() => {
       quiet();
-      cy.visit('/#/no/such/page', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-errors') });
+      cy.visit('/#/no/such/page', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
     });
 
     it('says so, shows the address that was asked and offers a way out', () => {
@@ -170,7 +170,7 @@ describe('Errors and empty lists', () => {
     });
 
     it('goes back to the page that was open before', () => {
-      cy.visit('/#/connectors', { onBeforeLoad: (win) => win.localStorage.setItem('token', 'mock-token-errors') });
+      cy.visit('/#/connectors', { onBeforeLoad: (win) => win.document.cookie = 'session_active=1' });
       cy.location('hash').should('include', '/connectors');
       cy.window().then((win) => { win.location.hash = '#/no/such/page'; });
       cy.get('[data-testid="not-found"]', { timeout: 10000 }).contains('button', 'Go back').click();

@@ -7,7 +7,7 @@ Cypress.on('uncaught:exception', (err, runnable) => {
 
 // Authentication helper command
 Cypress.Commands.add('authenticateWithTestUser', () => {
-  const credentials = Cypress.env('testCredentials');
+  const credentials = Cypress.expose('testCredentials');
   
   cy.log('Performing authentication with test user...');
   cy.visit('/#/login');
@@ -28,22 +28,6 @@ Cypress.Commands.add('authenticateWithTestUser', () => {
   
   cy.url({ timeout: 15000 }).should('include', '#/').and('not.include', '/login');
   cy.get('header.MuiAppBar-root', { timeout: 15000 }).should('exist');
-  
-  cy.window().then((win) => {
-    const token = win.localStorage.getItem('token') || win.sessionStorage.getItem('token');
-    if (token) {
-      cy.log('Token captured and saved');
-      Cypress.env('authToken', token);
-    }
-    
-    const authData = {
-      token: token || 'mock-token-123456789',
-      user: win.localStorage.getItem('user') || win.sessionStorage.getItem('user'),
-      isAuthenticated: true
-    };
-    
-    Cypress.env('authData', authData);
-  });
   
   cy.log('Authentication completed');
 });
