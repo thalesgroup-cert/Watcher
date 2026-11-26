@@ -12,7 +12,8 @@ class CurrentUserMiddleware:
 
     Django's AuthenticationMiddleware handles session auth, but Knox tokens are resolved
     by DRF at view level — AFTER middleware runs. We explicitly call Knox's authenticator
-    here so the signals fired during that request can read the correct user.
+    here so the signals fired during that request can read the correct user: the token of
+    the cookie of the browser, or the one of the Authorization header of a script.
     """
 
     def __init__(self, get_response):
@@ -26,7 +27,12 @@ class CurrentUserMiddleware:
             # Knox token auth happens at DRF view level; resolve it manually here.
             try:
                 from knox.auth import TokenAuthentication
-                result = TokenAuthentication().authenticate(request)
+                from accounts.core import KNOX_COOKIE
+                cookie = request.COOKIES.get(KNOX_COOKIE)
+                if cookie:
+                    result = TokenAuthentication().authenticate_credentials(cookie.encode('utf-8'))
+                else:
+                    result = TokenAuthentication().authenticate(request)
                 _thread_locals.user = result[0] if result else None
             except Exception:
                 _thread_locals.user = None

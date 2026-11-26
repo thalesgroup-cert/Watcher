@@ -1,0 +1,67 @@
+name: Feature request
+description: Suggest an idea for Watcher
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees:
+  - ygalnezri
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please search the [existing issues](https://github.com/thalesgroup-cert/Watcher/issues?q=is%3Aissue) first, and open the issue **before** writing the code so that we can talk about it.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Which part of Watcher?
+      options:
+        - Overview
+        - Threats Watcher
+        - AI summaries
+        - Cyber Watch
+        - Data Leak
+        - DNS Threats
+        - Website Monitoring
+        - Legitimate Domains
+        - Connectors and notifications
+        - Authentication
+        - API
+        - Django admin
+        - Deployment
+        - Documentation
+        - A new module
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve?
+      description: "Ex. I am always frustrated when [...]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Links, screenshots, examples from other tools.
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for it (see CONTRIBUTING.md).

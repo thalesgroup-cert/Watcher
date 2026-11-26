@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/thalesgroup-cert/Watcher/security/advisories/new
+    about: Report it privately with GitHub Security Advisories. Do not open a public issue.
+  - name: Documentation
+    url: https://thalesgroup-cert.github.io/Watcher/
+    about: Installation, update, configuration and developer guides.

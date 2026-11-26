@@ -237,6 +237,26 @@ class TimelineMiddlewareTest(TestCase):
         )
 
 
+    def test_the_user_of_the_cookie_of_the_browser_is_the_author(self):
+        """The session of the browser is a cookie, not a header: the history still says who did it."""
+        from accounts.core import KNOX_COOKIE
+        user = User.objects.create_user(username='cookie-author', password='mwpass')
+        _, token = AuthToken.objects.create(user)
+        seen = []
+
+        def view(request):
+            from django.http import HttpResponse
+            seen.append(get_current_user())
+            return HttpResponse('ok')
+
+        request = RequestFactory().get('/')
+        request.COOKIES[KNOX_COOKIE] = token
+        from django.contrib.auth.models import AnonymousUser
+        request.user = AnonymousUser()
+        CurrentUserMiddleware(view)(request)
+        self.assertEqual(seen, [user])
+
+
 # ---------------------------------------------------------------------------
 # Class 4 – API tests
 # ---------------------------------------------------------------------------
