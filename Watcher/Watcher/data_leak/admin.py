@@ -38,7 +38,7 @@ class AlertResource(resources.ModelResource):
 @admin.register(Alert)
 class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'keyword', 'url', 'status', 'created_at']
-    list_filter = ('keyword', ('status', custom_titled_filter('Active Status')))
+    list_filter = ('keyword', ('status', custom_titled_filter('Active Status')), 'created_at')
     search_fields = ['id', 'url', 'keyword__name']
     resource_class = AlertResource
 

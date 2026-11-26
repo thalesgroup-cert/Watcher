@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ConnectorOverride, ConnectorHealthCheck
+from .models import ConnectorEvent, ConnectorHealthCheck, ConnectorOverride, NotificationSetting
 from django import forms
 
 
@@ -43,4 +43,24 @@ class ConnectorOverrideAdmin(NoAddModelAdmin):
 
 @admin.register(ConnectorHealthCheck)
 class ConnectorHealthCheckAdmin(NoAddModelAdmin):
-    pass
+    list_display = ('connector_id', 'healthy', 'checked_at')
+    list_filter = ('healthy',)
+    search_fields = ('connector_id', 'message')
+
+
+@admin.register(NotificationSetting)
+class NotificationSettingAdmin(NoAddModelAdmin):
+    list_display = ('notification_type', 'channel', 'enabled')
+    list_filter = ('channel', 'enabled')
+    search_fields = ('notification_type',)
+
+
+@admin.register(ConnectorEvent)
+class ConnectorEventAdmin(NoAddModelAdmin):
+    """What the connectors did (the Deliveries tab): read only."""
+    list_display = ('created_at', 'connector_id', 'kind', 'ok', 'subject', 'message')
+    list_filter = ('kind', 'ok', 'connector_id')
+    search_fields = ('connector_id', 'subject', 'message')
+
+    def has_change_permission(self, request, obj=None):
+        return False

@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, Summary, MonitoredKeyword, KeywordHit, WatcherConfiguration
+from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword, KeywordHit, WatcherConfiguration
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
 
@@ -16,7 +16,7 @@ class SourceResource(resources.ModelResource):
 @admin.register(Source)
 class SourceAdmin(ImportExportModelAdmin):
     list_display = ['url', 'country_code', 'country', 'confident', 'last_status_code', 'last_checked', 'created_at']
-    list_filter  = ['country_code', 'created_at']
+    list_filter  = ['country_code', 'last_status_code', 'created_at']
     search_fields = ['url', 'country', 'country_code']
     resource_class = SourceResource
 
@@ -121,6 +121,7 @@ class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
         return actions
 
 
+@admin.register(Subscriber)
 class SubscriberAdmin(admin.ModelAdmin):
     list_display = (
         'user_rec', 'created_at', 'email',
@@ -154,7 +155,7 @@ class SubscriberAdmin(admin.ModelAdmin):
 @admin.register(KeywordHit)
 class KeywordHitAdmin(admin.ModelAdmin):
     list_display = ['id', 'keyword', 'title', 'hit_at', 'is_archived']
-    list_filter = ('is_archived',)
+    list_filter = ('is_archived', 'keyword', 'hit_at')
     search_fields = ['title', 'url']
 
 

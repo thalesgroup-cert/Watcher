@@ -26,8 +26,8 @@ class Alert(ExportMixin, admin.ModelAdmin):
                     'old_ip_second', 'old_MX_records', 'old_mail_A_record_ip', 'difference_score',
                     'new_server_banner', 'old_server_banner', 'new_x_powered_by', 'old_x_powered_by',
                     'status', 'created_at']
-    list_filter = ('site', ('status', custom_titled_filter('Active Status')))
-    search_fields = ['id', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records',
+    list_filter = ('type', 'site', ('status', custom_titled_filter('Active Status')), 'created_at')
+    search_fields = ['id', 'type', 'site__domain_name', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records',
                      'new_mail_A_record_ip', 'old_MX_records', 'old_mail_A_record_ip',
                      'new_server_banner', 'old_server_banner', 'new_x_powered_by', 'old_x_powered_by']
     resource_class = AlertResource
@@ -115,12 +115,13 @@ class Subscriber(admin.ModelAdmin):
 class MonitoredPageAdmin(admin.ModelAdmin):
     list_display = ['id', 'name', 'url', 'threshold', 'check_interval', 'is_active', 'last_status', 'last_checked',
                     'last_changed']
-    list_filter = ('is_active',)
+    list_filter = ('is_active', 'last_status')
     search_fields = ['name', 'url']
 
 
 @admin.register(PageVersion)
 class PageVersionAdmin(admin.ModelAdmin):
     list_display = ['id', 'page', 'created_at', 'size', 'change_ratio', 'notified']
-    list_filter = ('notified',)
+    list_filter = ('notified', 'page', 'created_at')
+    search_fields = ['page__name', 'page__url']
     exclude = ('text',)

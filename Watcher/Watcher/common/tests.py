@@ -3994,3 +3994,29 @@ class HistoryRetentionTest(TestCase):
         from common.core import purge_history
         self.assertEqual(purge_history(dry_run=True), {'summaries': 1, 'timeline': 1})
         self.assertEqual(Summary.objects.count(), 2)
+
+
+class AdminPagesTest(TestCase):
+    """Every page of the admin lists its rows, with its search and its filters: a wrong field fails here, not in front of an admin."""
+
+    APPS = ('accounts', 'common', 'connectors', 'cyber_watch', 'data_leak', 'dns_finder', 'site_monitoring', 'threats_watcher', 'timeline')
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.client.force_login(User.objects.create_superuser(username='admin-pages', password='pass12345', email='a@a.com'))
+
+    def test_every_changelist_opens_and_searches(self):
+        from django.contrib import admin
+        from django.urls import reverse
+        pages = [model for model in admin.site._registry if model._meta.app_label in self.APPS]
+        self.assertGreater(len(pages), 30)
+        for model in pages:
+            url = reverse(f'admin:{model._meta.app_label}_{model._meta.model_name}_changelist')
+            with self.subTest(model=model._meta.label):
+                self.assertEqual(self.client.get(url).status_code, 200)
+                self.assertEqual(self.client.get(url, {'q': 'x'}).status_code, 200)
+
+    def test_the_alerts_of_a_site_are_filtered_by_type(self):
+        response = self.client.get('/admin/site_monitoring/alert/')
+        self.assertContains(response, 'By type')
+        self.assertEqual(self.client.get('/admin/site_monitoring/alert/', {'type': 'IP'}).status_code, 200)
