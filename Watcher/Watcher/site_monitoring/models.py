@@ -13,6 +13,8 @@ class Site(models.Model):
     """
     domain_name = models.CharField(max_length=100, unique=True)
     ticket_id = models.CharField(max_length=20, blank=True, null=True)
+    # Free text, as for a legitimate domain: why it is watched, what was done, where it comes from
+    comments = models.TextField(blank=True, null=True, max_length=300)
     rtir = models.IntegerField(unique=True, blank=True, null=True)
     ip = models.GenericIPAddressField(blank=True, null=True)
     ip_second = models.GenericIPAddressField(blank=True, null=True)
@@ -50,10 +52,23 @@ class Site(models.Model):
     # ({"54.157.0.0/16": "2026-10-02T13:16:02"}): an address pool that rotates between networks
     # already seen is not a change of hosting (see core.known_networks).
     network_history = models.JSONField(default=dict, blank=True, editable=False)
+    # Passes in a row that found no MX record while some are stored (see core.check_mail)
+    mx_missed = models.PositiveSmallIntegerField(default=0, editable=False)
 
     created_at = models.DateTimeField(default=timezone.now)
     expiry = models.DateTimeField(blank=True, null=True)  # End of monitoring
     domain_expiry = models.DateField(blank=True, null=True)  # Domain expiration date
+    # Where the date comes from and what the last lookup said, as for the legitimate domains (see common.utils.expiry_check):
+    # an earlier date that a registry gave once waits for a second answer, and the interface tells a date a registry
+    # confirmed from one nobody checked. Written by the jobs (queryset update, no timeline event); internal.
+    domain_expiry_pending = models.DateField(blank=True, null=True, editable=False)
+    domain_expiry_pending_source = models.CharField(max_length=10, blank=True, null=True, editable=False)
+    domain_expiry_pending_at = models.DateTimeField(blank=True, null=True, editable=False)
+    domain_expiry_source = models.CharField(max_length=10, blank=True, null=True, editable=False)  # RDAP or manual
+    domain_expiry_checked_at = models.DateTimeField(blank=True, null=True, editable=False)  # last time a registry answered
+    domain_expiry_check = models.CharField(max_length=16, blank=True, null=True, editable=False)
+    # The expiry date for which the "domain close to expiry" notification was already sent: one per date.
+    domain_expiry_alerted = models.DateField(blank=True, null=True, editable=False)
     domain_created_at = models.DateField(blank=True, null=True)  # Domain registration date
     ssl_expiry = models.DateField(blank=True, null=True)  # SSL certificate expiration date
 
@@ -77,12 +92,17 @@ class Site(models.Model):
     )
     timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='site')
 
+    @property
+    def domain_expiry_confirmed(self):
+        """The stored date is the one the registry gave, recently. A date typed by hand is not."""
+        from common.utils.expiry_check import is_confirmed
+        return is_confirmed(self.domain_expiry_check, self.domain_expiry_source, self.domain_expiry_checked_at, timezone.now())
+
     def auto_update_legitimacy_on_registration(self):
         """
         Auto-update legitimacy when domain becomes registered (registrar found)
         """
         if self.registrar:
-            old_legitimacy = self.legitimacy
             if self.legitimacy == 6:
                 self.legitimacy = 5
                 return True
@@ -182,15 +202,77 @@ class Subscriber(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
     email = models.BooleanField(default=False, verbose_name="E-mail")
-    thehive = models.BooleanField(default=False, verbose_name="TheHive")
-    slack = models.BooleanField(default=False, verbose_name="Slack")
-    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     class Meta:
         verbose_name_plural = 'subscribers'
 
     def __str__(self):
         return f'{self.user_rec.username} - {self.created_at}'
+
+
+class MonitoredPage(models.Model):
+    """
+    A precise web page (a researcher's blog without RSS feed, a vendor advisory page…) whose text is watched.
+    Each time the text changes a :model:`site_monitoring.PageVersion` is kept; a change at least as big as
+    `threshold` is notified. Independent from :model:`site_monitoring.Site`, which watches a whole domain.
+    """
+    url = models.URLField(max_length=700, unique=True)
+    name = models.CharField(max_length=150, blank=True, default='')
+    css_selector = models.CharField(
+        max_length=200, blank=True, default='',
+        help_text="Only the text of this part of the page is compared (e.g. 'article', '#content'); empty: the whole page")
+    ignore_patterns = models.TextField(
+        blank=True, default='', help_text="One regular expression per line: matching text is ignored (counters, dates…)")
+    threshold = models.PositiveSmallIntegerField(
+        default=5, help_text="Share of the text (in %) that has to change for a notification")
+    check_interval = models.PositiveIntegerField(default=60, help_text="Minutes between two checks")
+    retention = models.PositiveIntegerField(default=50, help_text="Number of versions kept")
+    capture_screenshots = models.BooleanField(
+        default=True, help_text="Take a screenshot of the page at each new version (needs the screenshot service)")
+    is_active = models.BooleanField(default=True)
+
+    last_checked = models.DateTimeField(blank=True, null=True)
+    last_status = models.IntegerField(blank=True, null=True, help_text="HTTP status of the last check, None: unreachable")
+    last_changed = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['name', 'url']
+
+    def __str__(self):
+        return self.name or self.url
+
+
+class PageVersion(models.Model):
+    """The extracted text of a monitored page, kept each time it differs from the previous version."""
+    page = models.ForeignKey(MonitoredPage, on_delete=models.CASCADE, related_name='versions')
+    created_at = models.DateTimeField(default=timezone.now)
+    text = models.TextField()
+    content_hash = models.CharField(max_length=64)
+    size = models.PositiveIntegerField(default=0)
+    # Share (%) of the text that differs from the version before; None for the first version
+    change_ratio = models.FloatField(blank=True, null=True)
+    notified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f'{self.page_id} @ {self.created_at:%Y-%m-%d %H:%M}'
+
+
+class PageScreenshot(models.Model):
+    """
+    The screenshot of a monitored page when a version was kept (a JPEG, taken by the screenshot service). Kept apart
+    from the version so that listing versions never reads the images; deleted with its version.
+    """
+    version = models.OneToOneField(PageVersion, on_delete=models.CASCADE, related_name='screenshot')
+    image = models.BinaryField(editable=False)
+    size = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f'screenshot of version {self.version_id} ({self.size // 1024} KB)'
 
 
 @receiver(post_delete, sender=Site)

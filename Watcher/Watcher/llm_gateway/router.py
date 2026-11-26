@@ -1,8 +1,28 @@
 import logging
+import time
+
 import litellm
+from connectors.core import record_event
 from django.conf import settings
-from .exceptions import LLMConnectionError, LLMAuthenticationError, LLMQuotaExceededError, LLMGatewayError
 logger = logging.getLogger(__name__)
+
+
+class LLMGatewayError(Exception):
+    """Base class for all LLM Gateway exceptions."""
+    pass
+
+class LLMConnectionError(LLMGatewayError):
+    """Raised when an LLM provider is unreachable (timeout, network issues, etc.)."""
+    pass
+
+class LLMAuthenticationError(LLMGatewayError):
+    """Raised when there is an authentication issue (invalid API key, missing permissions)."""
+    pass
+
+class LLMQuotaExceededError(LLMGatewayError):
+    """Raised when the provider's API rate limit or billing quota has been exceeded."""
+    pass
+
 
 class LLMRouter:
     """Central router that dispatches requests via LiteLLM based on active Watcher connectors."""
@@ -76,17 +96,21 @@ class LLMRouter:
             litellm.client_session = None
         litellm.ssl_verify = verify
 
+        started = time.monotonic()
         try:
             response = litellm.completion(**call_kwargs)
-            return response.choices[0].message.content
-            
-        except litellm.APIConnectionError as e:
-            raise LLMConnectionError(f"Unable to reach API ({connector_id}): {str(e)}")
-        except litellm.AuthenticationError as e:
-            raise LLMAuthenticationError(f"Authentication error ({connector_id}): {str(e)}")
-        except litellm.RateLimitError as e:
-            raise LLMQuotaExceededError(f"Quota or rate limit exceeded ({connector_id}): {str(e)}")
+            text = response.choices[0].message.content
+            record_event(connector_id, 'ai', True, subject=model, duration=time.monotonic() - started)
+            return text
+
         except Exception as e:
+            record_event(connector_id, 'ai', False, f"{type(e).__name__}: {e}", subject=model, duration=time.monotonic() - started)
+            if isinstance(e, litellm.APIConnectionError):
+                raise LLMConnectionError(f"Unable to reach API ({connector_id}): {str(e)}")
+            if isinstance(e, litellm.AuthenticationError):
+                raise LLMAuthenticationError(f"Authentication error ({connector_id}): {str(e)}")
+            if isinstance(e, litellm.RateLimitError):
+                raise LLMQuotaExceededError(f"Quota or rate limit exceeded ({connector_id}): {str(e)}")
             raise LLMGatewayError(f"Unexpected error with {connector_id}: {str(e)}")
 
     def generate_text(self, prompt: str, provider_name: str = None, **kwargs) -> str:
@@ -102,7 +126,7 @@ class LLMRouter:
                 else:
                     connector_id = getattr(settings, 'DEFAULT_LLM_PROVIDER', 'None')
             except Exception as e:
-                logger.warning(f"Failed to fetch default LLM from DB: {str(e)}")
+                logger.warning(f"Failed to fetch default AI from DB: {str(e)}")
                 connector_id = getattr(settings, 'DEFAULT_LLM_PROVIDER', 'None')
         else:
             connector_id = provider_name

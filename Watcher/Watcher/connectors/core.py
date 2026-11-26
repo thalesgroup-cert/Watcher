@@ -2,13 +2,33 @@ import importlib
 import logging
 import os
 import pkgutil
+import time
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.utils import timezone
+from common.utils.job_log import logged_job, job_count
 from functools import lru_cache
 
 logger = logging.getLogger('watcher.connectors')
+
+
+def record_event(connector_id, kind, ok, message='', subject='', duration=None):
+    """
+    Keep one thing a connector did. It never raises: a journal that cannot be written must not stop a notification, an
+    AI call or a test, which is what it is a journal of.
+    """
+    try:
+        from .models import ConnectorEvent
+        ConnectorEvent.objects.create(
+            connector_id=connector_id, kind=kind, ok=bool(ok), message=(message or '')[:300],
+            subject=(subject or '')[:150], duration=duration,
+        )
+        old = list(ConnectorEvent.objects.filter(connector_id=connector_id).values_list('pk', flat=True)[ConnectorEvent.KEEP:])
+        if old:
+            ConnectorEvent.objects.filter(pk__in=old).delete()
+    except Exception as exc:
+        logger.debug("Could not keep the event of connector '%s': %s", connector_id, exc)
 
 # Module-level cache. Populated lazily on first call to _get_registry().
 # Note: these are process-level globals. In multi-process deployments each
@@ -58,7 +78,6 @@ def connector_decrypt(value: str) -> str:
 
 
 def _get_registry() -> dict:
-    global _REGISTRY
     if _REGISTRY:
         return _REGISTRY
 
@@ -126,6 +145,29 @@ def _ensure_connectors_seeded() -> None:
     _connectors_seeded = True
 
 
+_environment_warned = set()
+
+
+def _warn_if_environment_ignored(connector_id: str, field: dict, stored: str) -> None:
+    """
+    The environment only seeds a connector's fields, the first time Watcher starts: afterwards the value saved in
+    Connectors wins. Someone who changes an environment variable and restarts gets no effect and no hint, so say it, once
+    per process and field. The names are logged, never the values (a URL can carry credentials), and the fields that
+    hold a secret are not compared.
+    """
+    key = (connector_id, field['name'])
+    if key in _environment_warned:
+        return
+    _environment_warned.add(key)
+    env_name = field.get('settings_key', '')
+    if not env_name or env_name.startswith('DATABASES_') or _is_sensitive(field['name']):
+        return
+    from_env = os.environ.get(env_name, '')
+    if from_env and from_env != stored:
+        logger.warning(f"Connector '{connector_id}', field '{field['name']}': the environment variable {env_name} is set to a value "
+                       f"that is not the one saved in Connectors. The saved value is used; change it in Connectors > {connector_id}.")
+
+
 @lru_cache(maxsize=None)
 def litellm_default_api_base(provider: str) -> str:
     """Return the API URL that LiteLLM uses for a provider when no api_base is given, or '' if unavailable."""
@@ -146,6 +188,7 @@ def _resolve_raw(connector_id: str, field: dict) -> str:
         override = ConnectorOverride.objects.get(connector_id=connector_id)
         stored = override.overrides.get(field['name'])
         if stored is not None:
+            _warn_if_environment_ignored(connector_id, field, stored)
             return stored
     except ConnectorOverride.DoesNotExist:
         pass
@@ -218,6 +261,8 @@ def _build_connector_dict(connector_id: str, reveal: bool = False) -> dict:
             'sensitive': sensitive,
             'required': field.get('required', False),
             'placeholder': field.get('placeholder', ''),
+            'settings_key': field.get('settings_key', field['name']),
+            'litellm_provider': field.get('litellm_provider'),
             'from_default': from_default,
             'has_default': bool(provider),
             'overridden': field['name'] in override_dict and field['name'] not in auto_seeded,
@@ -376,8 +421,11 @@ def record_health_check(connector_id: str, success: bool, message: str) -> None:
     )
 
 
-def test_connector(connector_id: str) -> dict:
-    """Call the plugin's health_check, persist the outcome, and return {'success': bool, 'message': str}."""
+def test_connector(connector_id: str, kind: str = 'test') -> dict:
+    """
+    Call the plugin's health_check, persist the outcome, and return {'success': bool, 'message': str}.
+    `kind` is what the Deliveries tab says it was: 'test' (the button) or 'health' (the weekly check).
+    """
     registry = _get_registry()
     if connector_id not in registry:
         raise KeyError(f"Connector '{connector_id}' not found")
@@ -390,6 +438,7 @@ def test_connector(connector_id: str) -> dict:
         except KeyError:
             return ''
 
+    started = time.monotonic()
     try:
         result = entry['health_check'](plain)
     except Exception as exc:
@@ -397,9 +446,11 @@ def test_connector(connector_id: str) -> dict:
         result = {'success': False, 'message': str(exc)}
 
     record_health_check(connector_id, bool(result.get('success')), result.get('message', ''))
+    record_event(connector_id, kind, bool(result.get('success')), result.get('message', ''), duration=time.monotonic() - started)
     return result
 
 
+@logged_job("Weekly connector health checks", logger)
 def run_weekly_health_checks() -> None:
     """
     Scheduled job (auto-run only, never triggered by the manual Test button):
@@ -413,10 +464,12 @@ def run_weekly_health_checks() -> None:
     registry = _get_registry()
     for connector_id in sorted(registry.keys()):
         connector = get_connector_by_id(connector_id)
-        result = test_connector(connector_id)
+        result = test_connector(connector_id, kind='health')
+        job_count('tested')
 
         if result.get('success') or connector['status'] != 'configured':
             continue
+        job_count('failed')
 
         already_queued = any(
             pa.metadata.get('connector_id') == connector_id
@@ -497,6 +550,11 @@ def get_citadel_config() -> dict:
     }
 
 
+def _split_tags(value: str) -> list:
+    """Tags of a comma separated setting, also when it was saved as the text of a list: ['a', 'b']."""
+    return [tag for tag in (t.strip("[]'\" ") for t in (value or '').split(',')) if tag]
+
+
 def get_thehive_config() -> dict:
     tags = get_config_value('thehive', 'THE_HIVE_TAGS')
     return {
@@ -505,18 +563,12 @@ def get_thehive_config() -> dict:
         'verify_ssl': _as_bool(get_config_value('thehive', 'THE_HIVE_VERIFY_SSL')),
         'custom_field': get_config_value('thehive', 'THE_HIVE_CUSTOM_FIELD'),
         'email_sender': get_config_value('thehive', 'THE_HIVE_EMAIL_SENDER'),
-        'tags': tags.split(',') if tags else [],
+        'tags': _split_tags(tags),
     }
 
 
 def get_misp_config() -> dict:
-    tags = get_config_value('misp', 'MISP_TAGS')
-
-    if tags:
-        clean_tags = [t.strip("[]'\" ") for t in tags.split(',')]
-        tags_list = [t for t in clean_tags if t]
-    else:
-        tags_list = []
+    tags_list = _split_tags(get_config_value('misp', 'MISP_TAGS'))
     return {
         'url': get_config_value('misp', 'MISP_URL'),
         'key': get_config_value('misp', 'MISP_KEY'),
@@ -535,7 +587,12 @@ def get_searxng_config() -> dict:
 
 
 def get_cyberwatch_cve_config() -> dict:
-    return {'cve_api_url': get_config_value('cyberwatch_cve', 'CYBER_WATCH_CVE_API_URL')}
+    # The CISA catalogue and the EPSS scores are connectors of their own: an address left empty switches them off
+    return {
+        'cve_api_url': get_config_value('cyberwatch_cve', 'CYBER_WATCH_CVE_API_URL'),
+        'kev_url': get_config_value('cisa_kev', 'CYBER_WATCH_KEV_URL'),
+        'epss_url': get_config_value('first_epss', 'CYBER_WATCH_EPSS_API_URL'),
+    }
 
 
 def get_ransomware_live_config() -> dict:

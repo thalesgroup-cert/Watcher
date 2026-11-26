@@ -1,7 +1,5 @@
 import logging
 from django.core.mail import EmailMessage, get_connection
-from datetime import datetime
-from django.utils import timezone
 from connectors.core import get_smtp_config
 
 # Configure logger

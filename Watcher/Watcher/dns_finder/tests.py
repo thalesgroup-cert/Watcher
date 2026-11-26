@@ -17,7 +17,6 @@ from knox.models import AuthToken
 from dns_finder.models import DnsMonitored, DnsTwisted, Alert, KeywordMonitored, Subscriber
 from dns_finder.core import in_dns_monitored, send_dns_finder_notifications
 import uuid
-from unittest.mock import patch
 import dns.resolver
 
 
@@ -70,12 +69,9 @@ class ModelTest(TransactionTestCase):
         unique_id = str(uuid.uuid4())[:8]
 
         user = User.objects.create_user(f"dnsuser{unique_id}", "dns@test.com", "pass")
-        subscriber = Subscriber.objects.create(user_rec=user, email=True, slack=True)
+        subscriber = Subscriber.objects.create(user_rec=user, email=True)
 
         self.assertTrue(subscriber.email)
-        self.assertTrue(subscriber.slack)
-        self.assertFalse(subscriber.thehive)
-        self.assertFalse(subscriber.citadel)
         self.assertIn(f"dnsuser{unique_id}", str(subscriber))
 
     def test_dns_twisted_dangling_and_takeover_alert(self):
@@ -1987,3 +1983,63 @@ class DnsBulkActionTest(APITestCase):
         response = self.client.post('/api/dns_finder/dns_monitored/bulk_delete/', {'ids': [a.pk]}, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(DnsMonitored.objects.filter(pk=a.pk).exists())
+
+
+class ThreatsFeedPageTest(ThreatsMonitoredAPITest):
+    """Feed filters, ordering, detail and asset counters used by the DNS threats page (same fixtures)."""
+
+    URL = '/api/dns_finder/threats_monitored/'
+
+    def ids(self, query=''):
+        response = self.client.get(self.URL + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return [row['id'] for row in response.data['results']]
+
+    def test_open_status_search_and_period(self):
+        self.alert_certstream.status = Alert.STATUS_RESOLVED
+        self.alert_certstream.save()
+        self.assertEqual(sorted(self.ids('?status=open')), sorted([self.alert_dnstwist.id, self.dangling_alert.id]))
+        self.assertEqual(self.ids('?search=certstream'), [self.alert_certstream.id])
+        Alert.objects.filter(pk=self.alert_dnstwist.pk).update(created_at=timezone.now() - timezone.timedelta(days=10))
+        self.assertNotIn(self.alert_dnstwist.id, self.ids('?period=7d'))
+        self.assertIn(self.alert_dnstwist.id, self.ids('?period=30d'))
+
+    def test_pagination_happens_in_the_database(self):
+        response = self.client.get(self.URL + '?page_size=2')
+        self.assertEqual((response.data['count'], len(response.data['results'])), (3, 2))
+        self.assertIsNotNone(response.data['next'])
+
+    def test_ordering_by_status(self):
+        rows = self.client.get(self.URL + '?ordering=status').data['results']
+        self.assertEqual([r['status'] for r in rows], sorted(r['status'] for r in rows))
+
+    def test_items_say_where_the_domain_already_is(self):
+        from common.models import LegitimateDomain
+        LegitimateDomain.objects.create(domain_name='threats-certstream.com')
+        rows = {r['id']: r for r in self.client.get(self.URL).data['results']}
+        self.assertTrue(rows[self.alert_certstream.id]['legitimate'])
+        self.assertFalse(rows[self.alert_dnstwist.id]['legitimate'])
+        self.assertFalse(rows[self.alert_dnstwist.id]['monitored'])
+
+    def test_detail(self):
+        response = self.client.get(self.URL + f'{self.dangling_alert.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual((response.data['domain_name'], response.data['status']), ('old.threats-api-test.com', 'confirmed'))
+        self.assertEqual(self.client.get(self.URL + '999999/').status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_assets_carry_their_threat_counts(self):
+        domain = self.client.get('/api/dns_finder/dns_monitored/').data['results'][0]
+        self.assertEqual((domain['threats_count'], domain['open_threats_count'], domain['takeover_count']), (2, 2, 1))
+        keyword = self.client.get('/api/dns_finder/keyword_monitored/?ordering=-threats_count').data['results'][0]
+        self.assertEqual((keyword['name'], keyword['threats_count']), ('threats-keyword', 1))
+
+    def test_statistics(self):
+        stats = self.client.get('/api/dns_finder/dns_monitored/statistics/').data
+        self.assertEqual((stats['openAlerts'], stats['confirmedAlerts'], stats['openTakeover'], stats['totalAlerts']), (3, 1, 1, 3))
+        self.assertEqual(stats['bySource'], {'dnstwist': 1, 'certstream_keyword': 1, 'subdomain_takeover': 1})
+        self.assertEqual(len(stats['perDay']), 30)
+        self.assertEqual(stats['perDay'][-1]['dnstwist'], 1)
+        self.assertEqual(stats['topFuzzers'], [{'name': 'homoglyph', 'count': 1}])
+
+    def test_alerts_are_named_after_their_domain(self):
+        self.assertEqual(str(self.alert_dnstwist), 'threats-dnstwist.com')

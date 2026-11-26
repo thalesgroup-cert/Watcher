@@ -20,3 +20,6 @@ urlpatterns = [
     path('admin/doc/', include('django.contrib.admindocs.urls')),
     path('admin/', admin.site.urls),
 ]
+
+# An unknown address typed in the browser lands on the interface's own "not found" page.
+handler404 = 'frontend.views.not_found'

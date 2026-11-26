@@ -2,13 +2,8 @@ import logging
 from rest_framework import serializers
 
 logger = logging.getLogger('watcher.dns_finder')
-from django.utils import timezone
 from connectors.core import get_misp_config
 from .models import Alert, DnsMonitored, DnsTwisted, KeywordMonitored
-from site_monitoring.models import Site
-from site_monitoring.core import monitoring_init
-import requests
-from rest_framework.exceptions import NotFound, AuthenticationFailed
 from pymisp import PyMISP, MISPEvent
 from common.bulk import normalize_domain_data
 from common.misp import create_misp_tags, create_or_update_objects, get_misp_uuid, update_misp_uuid, _get_domain_identifier
@@ -29,9 +24,11 @@ def _get_last_event(obj):
         return None
     u = event.user
     avatar_color = None
+    avatar = None
     if u:
         try:
             avatar_color = u.profile.avatar_color or None
+            avatar = u.profile.avatar or None
         except Exception:
             pass
     return {
@@ -39,6 +36,7 @@ def _get_last_event(obj):
         'first_name':  u.first_name if u else '',
         'last_name':   u.last_name if u else '',
         'avatar_color': avatar_color,
+        'avatar': avatar,
         'action':      event.action,
         'timestamp':   event.timestamp,
     }
@@ -62,9 +60,16 @@ class DnsMonitoredSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         return super().to_internal_value(normalize_domain_data(data))
 
+    # Annotated by DnsMonitoredViewSet.get_queryset (left out when the domain comes from elsewhere)
+    threats_count = serializers.IntegerField(read_only=True)
+    open_threats_count = serializers.IntegerField(read_only=True)
+    takeover_count = serializers.IntegerField(read_only=True)
+    last_threat_at = serializers.DateTimeField(read_only=True)
+
     class Meta:
         model = DnsMonitored
-        fields = ['id', 'domain_name', 'created_at', 'last_event']
+        fields = ['id', 'domain_name', 'created_at', 'last_event',
+                  'threats_count', 'open_threats_count', 'takeover_count', 'last_threat_at']
 
 # KeywordMonitored Serializer
 class KeywordMonitoredSerializer(serializers.ModelSerializer):
@@ -73,9 +78,14 @@ class KeywordMonitoredSerializer(serializers.ModelSerializer):
     def get_last_event(self, obj):
         return _get_last_event(obj)
 
+    # Annotated by KeywordMonitoredViewSet.get_queryset
+    threats_count = serializers.IntegerField(read_only=True)
+    open_threats_count = serializers.IntegerField(read_only=True)
+    last_threat_at = serializers.DateTimeField(read_only=True)
+
     class Meta:
         model = KeywordMonitored
-        fields = ['id', 'name', 'created_at', 'last_event']
+        fields = ['id', 'name', 'created_at', 'last_event', 'threats_count', 'open_threats_count', 'last_threat_at']
 
 # DnsTwisted Serializer
 class DnsTwistedSerializer(serializers.ModelSerializer):

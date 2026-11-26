@@ -114,6 +114,16 @@ class Alert(models.Model):
         ordering = ["-created_at"]
         verbose_name = 'Alert'
         verbose_name_plural = 'Alerts'
+        # The threats feed is sorted by date, usually filtered on status or source (read backwards for DESC).
+        indexes = [
+            models.Index(fields=['created_at'], name='dns_alert_created_idx'),
+            models.Index(fields=['status', 'created_at'], name='dns_alert_status_created_idx'),
+            models.Index(fields=['source', 'created_at'], name='dns_alert_source_created_idx'),
+        ]
+
+    def __str__(self):
+        # Name shown in the activity feed and the history (was "Alert object (N)").
+        return self.dns_twisted.domain_name
 
 
 class Subscriber(models.Model):
@@ -124,9 +134,6 @@ class Subscriber(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
     email = models.BooleanField(default=False, verbose_name="E-mail")
-    thehive = models.BooleanField(default=False, verbose_name="TheHive")
-    slack = models.BooleanField(default=False, verbose_name="Slack")
-    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     class Meta:
         verbose_name = 'Subscriber'

@@ -16,16 +16,16 @@ def custom_titled_filter(title):
 
 @admin.register(Subscriber)
 class Subscriber(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
-    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    list_display = ('user_rec', 'created_at', 'email')
+    list_filter = ('email',) 
     search_fields = ('user_rec__username',)
     fieldsets = (
         (None, { 
             'fields': ('user_rec', 'created_at')
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber."
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive are set once for the whole instance under Connectors > Notifications."
         }),
     )
 
@@ -38,7 +38,7 @@ class AlertResource(resources.ModelResource):
 @admin.register(Alert)
 class Alert(ExportMixin, admin.ModelAdmin):
     list_display = ['id', 'keyword', 'url', 'status', 'created_at']
-    list_filter = ('keyword', ('status', custom_titled_filter('Active Status')))
+    list_filter = ('keyword', ('status', custom_titled_filter('Active Status')), 'created_at')
     search_fields = ['id', 'url', 'keyword__name']
     resource_class = AlertResource
 

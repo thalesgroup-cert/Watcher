@@ -1,17 +1,21 @@
 import logging
 import re
 import difflib
+from html import escape
+from html.parser import HTMLParser
 import json
 import time
 from typing import List, Set
+from urllib.parse import urljoin, urlparse
 from datetime import timedelta
-from llm_gateway.router import LLMRouter
 from concurrent.futures import ThreadPoolExecutor
 
 from django.utils import timezone
 from django.conf import settings
 
-from .models import TrendyWord, PostUrl, Summary
+from site_monitoring.core import PageError, is_public, page_session
+
+from .models import TrendyWord, Summary
 from .model_manager import (
     get_ner_pipeline,
     get_summarizer_tokenizer,
@@ -19,6 +23,106 @@ from .model_manager import (
 )
 
 logger = logging.getLogger('watcher.threats_watcher')
+
+# The AI reads articles written by strangers: what it answers goes through sanitize_summary_html before it is stored, notified or shown
+ALLOWED_TAGS = {'div', 'p', 'span', 'strong', 'b', 'em', 'i', 'small', 'details', 'summary', 'a', 'h6', 'br', 'ul', 'ol', 'li'}
+VOID_TAGS = {'br'}
+# Dropped with what they hold: their content is code, not text
+SKIPPED_CONTENT = {'script', 'style', 'iframe', 'object', 'embed', 'template', 'noscript', 'svg', 'math', 'textarea', 'select'}
+ALLOWED_ATTRS = {'class', 'style', 'id', 'open', 'href', 'target'}
+# The only id Watcher writes: the "Collapse All" button of the weekly report
+ALLOWED_IDS = {'watcher-toggle-all'}
+
+_CLASS = re.compile(r'^[\w\- ]*$')
+_STYLE = re.compile(r'^[\w\s#%.,():;\-+/!]*$')
+_STYLE_FORBIDDEN = re.compile(r'url\s*\(|expression|javascript|@import|var\s*\(', re.I)
+_HREF = re.compile(r'^https?://[^\s<>"\']+$', re.I)
+
+
+def _attribute(name, value):
+    """The attribute as it is written back, or None when it is not kept."""
+    if name == 'open':
+        return 'open'
+    if value is None or name not in ALLOWED_ATTRS:
+        return None
+    if name == 'class':
+        return f"class='{value}'" if _CLASS.match(value) else None
+    if name == 'style':
+        return f"style='{value}'" if _STYLE.match(value) and not _STYLE_FORBIDDEN.search(value) else None
+    if name == 'id':
+        return f"id='{value}'" if value in ALLOWED_IDS else None
+    if name == 'target':
+        return "target='_blank'" if value == '_blank' else None
+    if name == 'href':
+        return f"href='{escape(value, quote=True)}'" if _HREF.match(value) else None
+    return None
+
+
+class _Sanitizer(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out = []
+        self.stack = []
+        self.skipping = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in SKIPPED_CONTENT:
+            self.skipping += 1
+            return
+        if self.skipping or tag not in ALLOWED_TAGS:
+            return
+        kept = [a for a in (_attribute(name, value) for name, value in attrs) if a]
+        # A link with no safe address is only its text
+        if tag == 'a' and not any(a.startswith('href=') for a in kept):
+            return
+        self.out.append('<' + ' '.join([tag] + kept) + '>')
+        if tag not in VOID_TAGS:
+            self.stack.append(tag)
+
+    def handle_startendtag(self, tag, attrs):
+        if tag in SKIPPED_CONTENT:
+            return
+        self.handle_starttag(tag, attrs)
+        if tag in ALLOWED_TAGS and tag not in VOID_TAGS and self.stack and self.stack[-1] == tag and not self.skipping:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        if tag in SKIPPED_CONTENT:
+            self.skipping = max(0, self.skipping - 1)
+            return
+        if self.skipping or tag not in ALLOWED_TAGS or tag in VOID_TAGS:
+            return
+        # An end tag that closes nothing that is open is dropped; the ones left open are closed with it
+        if tag in self.stack:
+            while self.stack:
+                self.out.append(f'</{self.stack.pop()}>')
+                if self.out[-1] == f'</{tag}>':
+                    break
+        elif tag == 'a':
+            return
+
+    def handle_data(self, data):
+        if not self.skipping:
+            self.out.append(escape(data, quote=False))
+
+    def close_all(self):
+        while self.stack:
+            self.out.append(f'</{self.stack.pop()}>')
+
+
+def sanitize_summary_html(text):
+    """The summary with nothing but the markup Watcher writes; what it holds as text stays text."""
+    if not text:
+        return text
+    try:
+        parser = _Sanitizer()
+        parser.feed(str(text))
+        parser.close()
+        parser.close_all()
+        return ''.join(parser.out)
+    except Exception:
+        # Whatever it was, it goes out as plain text
+        return escape(str(text), quote=False)
 
 
 def normalize_text(text: str) -> str:
@@ -205,10 +309,33 @@ def deduplicate_titles(titles: List[str]) -> List[str]:
     return unique_titles
 
 
+ARTICLE_MAX_REDIRECTS = 5
+
+
+def _get_public_page(url, headers, timeout):
+    """
+    GET an address taken from a feed. The feeds are written by strangers: Watcher must not be made to read its own
+    network, so only public addresses are reached, each redirect is checked, and the connection goes to the address that
+    was checked (the same download as the web pages of Site Monitoring).
+    """
+    session = page_session()
+    current = url
+    for _ in range(ARTICLE_MAX_REDIRECTS + 1):
+        parsed = urlparse(current)
+        if parsed.scheme not in ('http', 'https') or not parsed.hostname or not is_public(parsed.hostname):
+            raise PageError("the address is not public")
+        response = session.get(current, headers=headers, timeout=timeout, allow_redirects=False)
+        if response.is_redirect and response.headers.get('Location'):
+            current = urljoin(current, response.headers['Location'])
+            response.close()
+            continue
+        return response
+    raise PageError("too many redirects")
+
+
 def get_article_title_or_summary(posturl_obj):
     """Extract article content from PostUrl using multiple fallback strategies."""
     import feedparser
-    import requests
     import re
     import json
     import html as _html
@@ -229,8 +356,7 @@ def get_article_title_or_summary(posturl_obj):
     timeout = getattr(settings, "THREATS_WATCHER_REQUEST_TIMEOUT", 10)
 
     try:
-        session = requests.Session()
-        resp = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        resp = _get_public_page(url, headers, timeout)
     except Exception as e:
         logger.warning(f"Failed fetching URL {url}: {e}")
         return ""
@@ -388,17 +514,21 @@ def _fetch_article_text(posturl_obj) -> str:
     return txt if len(txt) >= 30 else ""
 
 
-def fetch_article_texts(posturls, max_texts: int, max_workers: int = 5) -> List[str]:
+def fetch_article_texts(posturls, max_texts: int, max_workers: int = 5, urls: dict = None) -> List[str]:
     """
     Fetch article texts in parallel, most recent first, and return up to max_texts unique texts.
     Articles are fetched in batches of max_workers, so fetching stops as soon as enough unique texts are found.
+    If `urls` is given, it receives the address of each text (text -> url).
     """
     posturls = list(posturls)
     texts = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for start in range(0, len(posturls), max_workers):
             batch = posturls[start:start + max_workers]
-            texts.extend(txt for txt in executor.map(_fetch_article_text, batch) if txt)
+            fetched = list(executor.map(_fetch_article_text, batch))
+            texts.extend(txt for txt in fetched if txt)
+            if urls is not None:
+                urls.update({txt: post.url for post, txt in zip(batch, fetched) if txt})
             texts = deduplicate_titles(texts)
             if len(texts) >= max_texts:
                 break
@@ -406,6 +536,22 @@ def fetch_article_texts(posturls, max_texts: int, max_workers: int = 5) -> List[
 
 
 _PLACEHOLDER_VALUES = {'', 'none', 'n/a', 'na', 'null', 'unknown'}
+
+
+def _source_links(ids, articles: dict, corpus: str, limit: int = 4) -> str:
+    """One link per site for the articles a cluster says it is based on; only the ones that were sent to the model."""
+    links, seen = [], set()
+    for raw in ids if isinstance(ids, list) else []:
+        key = str(raw).strip().strip('[]').upper()
+        url = articles.get(key)
+        host = (urlparse(url).hostname or '').removeprefix('www.') if url else ''
+        if not host or host in seen or f"[{key}]" not in corpus:
+            continue
+        seen.add(host)
+        links.append(f"<a href='{escape(url, quote=True)}' target='_blank' class='watcher-source'>{escape(host)}</a>")
+        if len(links) >= limit:
+            break
+    return ' '.join(links)
 
 
 def _grounded_cves(values, corpus: str) -> List[str]:
@@ -541,21 +687,27 @@ def generate_weekly_summary(notify=True):
                 topics.append((tw, posturls))
 
         topic_texts = []
+        topic_urls = [{} for _ in topics]
         if topics:
             with ThreadPoolExecutor(max_workers=len(topics)) as executor:
                 topic_texts = list(executor.map(
-                    lambda topic: fetch_article_texts(topic[1], max_texts=5, max_workers=10), topics
+                    lambda topic, urls: fetch_article_texts(topic[1], max_texts=5, max_workers=10, urls=urls), topics, topic_urls
                 ))
 
-        valid_topics = [(tw, posturls, unique) for (tw, posturls), unique in zip(topics, topic_texts) if unique]
+        valid_topics = [(tw, posturls, unique, urls) for (tw, posturls), unique, urls in zip(topics, topic_texts, topic_urls) if unique]
         topic_budget = 6000 // len(valid_topics) if valid_topics else 0
 
-        for tw, posturls, unique in valid_topics:
+        articles = {}  # id of a news line ("A1") -> address of its article, for the sources of the clusters
+        for tw, posturls, unique, urls in valid_topics:
             oldest_date = min(pu.created_at for pu in posturls)
             formatted_date = oldest_date.strftime("%b %d, %Y")
 
             header = f"Topic '{tw.name}' (First seen: {formatted_date}):\n"
-            body = "\n".join(f"- {t}" for t in unique)
+            news = []
+            for t in unique:
+                articles[f"A{len(articles) + 1}"] = urls.get(t)
+                news.append(f"- [A{len(articles)}] {t}")
+            body = "\n".join(news)
             weekly_context.append((header + body)[:topic_budget])
             keywords_used.append(tw.name)
 
@@ -577,7 +729,7 @@ def generate_weekly_summary(notify=True):
             "Review the following trending cybersecurity topics and news from the past week.\n"
             "Group them into at most 5 threat clusters (e.g. 'Ransomware Operations', 'Critical Vulnerabilities'), most severe first.\n"
             "Only use facts written in the news below. Never invent CVE IDs, threat actors or malware names: "
-            "use an empty list when the news names none.\n\n"
+            "use an empty list when the news names none. Each news line starts with its id, like [A1].\n\n"
             "Respond ONLY with a valid JSON object with this structure:\n"
             "{\n"
             '  "executive_summary": "2 sentences on the week\'s major threats.",\n'
@@ -588,7 +740,8 @@ def generate_weekly_summary(notify=True):
             '      "severity": "Critical, High, Medium or Low",\n'
             '      "summary": "2 to 3 sentences: what happened, the impact, the recommended action.",\n'
             '      "cves": ["CVE IDs written in the news; [] if none"],\n'
-            '      "actors_or_malware": ["Threat actor or malware names written in the news; [] if none"]\n'
+            '      "actors_or_malware": ["Threat actor or malware names written in the news; [] if none"],\n'
+            '      "source_ids": ["Ids of the news lines the cluster is based on, like A1; [] if none"]\n'
             "    }\n"
             "  ]\n"
             "}\n\n"
@@ -628,9 +781,10 @@ def generate_weekly_summary(notify=True):
                         summary_info = cluster.get('summary', '')
                         raw_date = cluster.get('date', '')
                         event_date = str(raw_date).strip().strip('"').strip("'") if raw_date else ""
-                        
+
                         if event_date.lower() in ['none', 'n/a', 'null', 'this week', 'unknown', '']:
                             event_date = ""
+
                         
                         sev_upper = severity.upper()
                         if 'CRITICAL' in sev_upper:
@@ -648,7 +802,7 @@ def generate_weekly_summary(notify=True):
                         
                         lines.append(f"<div class='d-flex align-items-center'><span class='material-icons cluster-arrow' style='font-size: 1.2em; color: {color}; margin-right: 0.25em; margin-left: -0.25em; transition: transform 0.2s;'>arrow_drop_down</span><strong class='m-0 text-body' style='font-size: 0.95em;'>{theme}</strong></div>")
                         
-                        lines.append(f"<div class='d-flex align-items-center gap-2'>")
+                        lines.append("<div class='d-flex align-items-center gap-2'>")
                         if event_date:
                             lines.append(f"<span class='text-muted fst-italic' style='font-size: 0.75em;'>{event_date}</span>")
                         lines.append(f"<span class='badge' style='font-size: 0.75em; padding: 0.15em 0.6em; color: {color}; border: 1px solid {color}60; background: transparent;'>{severity}</span>")
@@ -671,6 +825,10 @@ def generate_weekly_summary(notify=True):
                             cve_links = [f"<a href='https://nvd.nist.gov/vuln/detail/{c}' target='_blank' class='text-info text-decoration-underline'>{c}</a>" for c in cves]
                             meta_lines.append(f"<div class='m-0'><strong class='text-muted'>CVEs:</strong> {' | '.join(cve_links)}</div>")
                             
+                        sources = _source_links(cluster.get('source_ids'), articles, full_corpus)
+                        if sources:
+                            meta_lines.append(f"<div class='m-0'><strong class='text-muted'>Sources:</strong> {sources}</div>")
+
                         if meta_lines:
                             lines.append(f"<div class='d-flex flex-column mt-2 mb-0' style='gap: 0.3em; font-size: 0.85em;'>{''.join(meta_lines)}</div>")
                         
@@ -768,11 +926,12 @@ def generate_weekly_summary(notify=True):
                         
                 except Exception as e:
                     logger.error(f"Local CausalLM weekly summary generation failed safely: {e}")
-                    summary_text = f"<div class='text-danger fw-bold mb-2'>Weekly Threat Fallback Report:</div><div>• Generation skipped due to local resource limits.</div>"
+                    summary_text = "<div class='text-danger fw-bold mb-2'>Weekly Threat Fallback Report:</div><div>• Generation skipped due to local resource limits.</div>"
                     used_model = "Local Fallback (Error)"
 
+        summary_text = sanitize_summary_html(summary_text)
         if summary_text:
-            summary_obj = Summary.objects.create(
+            Summary.objects.create(
                 type='weekly_summary',
                 keywords=', '.join(keywords_used),
                 summary_text=summary_text,
@@ -926,7 +1085,7 @@ def generate_breaking_news(trendy_word, notify=True):
             if meta_lines:
                 html_lines.append(f"<div class='mt-3 p-3 rounded' style='background: rgba(128,128,128,0.15); border: 1px solid rgba(128,128,128,0.2);'><h6 class='text-uppercase text-muted mb-2' style='font-size: 0.75em; letter-spacing: 0.05em;'>Threat Context :</h6><div class='d-flex flex-column' style='gap: 0.4em; font-size: 0.85em;'>{''.join(meta_lines)}</div></div>")
 
-            summary_text = "".join(html_lines)
+            summary_text = sanitize_summary_html("".join(html_lines))
 
             used_model = llm_result.get("model_used", "Primary LLM Router")
             
@@ -1156,6 +1315,7 @@ def generate_breaking_news(trendy_word, notify=True):
         else:
             used_model = getattr(settings, "HF_LOCAL_MODEL", "Local AI Model")
 
+        summary_text = sanitize_summary_html(summary_text)
         summary_obj = Summary.objects.create(
             type='breaking_news',
             keywords=trendy_word.name,
@@ -1270,7 +1430,7 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
             if meta_lines:
                 summary_lines.append(f"<div class='mt-2 d-flex flex-column gap-1' style='font-size: 0.9em;'>{''.join(meta_lines)}</div>")
 
-            final_summary = "\n".join([line for line in summary_lines if line]).strip()
+            final_summary = sanitize_summary_html("\n".join([line for line in summary_lines if line]).strip())
 
             summary_obj, created = Summary.objects.update_or_create(
                 type='trendy_word_summary',
@@ -1401,6 +1561,7 @@ def _generate_summary_for_keyword_posts(keyword: str, posturls: list):
         else:
             used_model = getattr(settings, "HF_LOCAL_MODEL", "Local AI Model")
 
+        final_summary = sanitize_summary_html(final_summary)
         summary_obj, created = Summary.objects.update_or_create(
             type='trendy_word_summary',
             keywords=keyword,

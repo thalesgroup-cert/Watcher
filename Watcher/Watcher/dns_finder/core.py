@@ -1,6 +1,5 @@
 # coding=utf-8
 import os
-import six
 import subprocess
 import json
 import logging
@@ -20,7 +19,7 @@ from . import certstream_client
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
-from django.db.models import Q
+from common.utils import job_log
 
 # Configure logger
 logger = logging.getLogger('watcher.dns_finder')
@@ -55,11 +54,15 @@ def get_monitored():
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
+
         - Fire main_dns_twist from Monday to Sunday: every 2 hours.
         - Fire main_certificate_transparency from Monday to Sunday: every hour.
         - Fire recheck_dangling_subdomains from Monday to Sunday: every 6 hours.
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
     scheduler.add_job(main_dns_twist, 'cron', day_of_week='mon-sun', hour='*/2', id='main_dns_twist',
                       max_instances=10,
                       replace_existing=True)
@@ -348,6 +351,7 @@ def track_dangling_subdomain(domain):
             break
 
 
+@job_log.logged_job("Dangling DNS re-check", logger)
 def recheck_dangling_subdomains():
     """
     Re-check every subdomain_takeover Alert that hasn't been triaged as
@@ -364,8 +368,10 @@ def recheck_dangling_subdomains():
     for alert in alerts:
         try:
             evaluate_dangling_subdomain(alert.dns_twisted, 'periodic_recheck')
+            job_log.job_count('rechecked')
             time.sleep(1)  # Rate limiting
         except Exception as e:
+            job_log.job_count('errors')
             logger.error(f"Error rechecking dangling subdomain {alert.dns_twisted.domain_name}: {str(e)}")
 
     logger.info("Dangling DNS re-check completed")
@@ -454,11 +460,13 @@ def main_certificate_transparency():
         raise
 
 
+@job_log.logged_job("DNS twist scan", logger)
 def main_dns_twist():
     """
     Launch dnstwist algorithm.
     """
     for dns_monitored in DnsMonitored.objects.all():
+        job_log.job_count('domains')
         check_dnstwist(dns_monitored)
 
 
@@ -478,7 +486,7 @@ def check_dnstwist(dns_monitored):
     if os.path.exists(filepath_out):
         os.remove(filepath_out)
 
-    subprocess.check_output(map(six.text_type, [
+    subprocess.check_output(map(str, [
         'dnstwist',
         '--registered',
         '--format={}'.format("json"),
@@ -542,16 +550,12 @@ def send_dns_finder_notifications(alert):
     alert, across all three sources. subdomain_takeover routes through the
     dedicated 'dns_finder_dangling' templates; dnstwist/certstream_keyword
     share 'dns_finder' and pick their template internally from `source`.
+    Slack, Citadel and TheHive follow the instance settings (Connectors > Notifications); the email goes to the
+    subscribers who ticked E-mail.
 
     :param alert: Alert Object.
     """
-    subscribers = Subscriber.objects.filter(
-        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for DNS Threats Monitored, no message sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     if not alert or not alert.dns_twisted or not alert.dns_twisted.domain_name:
         logger.error(f"Invalid alert object or missing domain_name in dns_twisted for alert: {alert}")
@@ -574,17 +578,11 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     Sends grouped notifications to Slack, Citadel, TheHive or Email based on dns_finder_group.
     If the application is TheHive, individual notifications are sent for each alert.
 
-    :param keyword: The keyword or term associated with the DNS Threats Monitored.
+    :param dns_monitored: The DNS Threats Monitored (the domain or keyword the alerts are about).
     :param alerts_number: The total number of alerts in the group.
     :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
-    subscribers = Subscriber.objects.filter(
-        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for DNS Threats Monitored group, no message sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     context_data_group = {
         'dns_monitored': dns_monitored,
@@ -596,7 +594,7 @@ def send_dns_finder_notifications_group(dns_monitored, alerts_number, alerts):
     for alert in alerts:
 
         context_data_thehive = {
-            'alert': alert,  
+            'alert': alert,
         }
 
         send_only_thehive_notifications('dns_finder', context_data_thehive, subscribers)

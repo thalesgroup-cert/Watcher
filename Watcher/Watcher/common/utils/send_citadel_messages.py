@@ -1,11 +1,10 @@
 import requests
 import logging
-from django.utils import timezone
-from datetime import datetime
 from connectors.core import get_citadel_config
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
+
 
 def send_citadel_message(content, room_id, app_name):
     """
@@ -28,19 +27,16 @@ def send_citadel_message(content, room_id, app_name):
         'Authorization': f'Bearer {citadel["token"]}',
     }
 
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    body = content.get('body', '')
-    formatted_body = content.get('formatted_body', None)
-
+    # The room shows the time of every message: the text is sent as it is
     payload = {
         'msgtype': content.get('msgtype', 'm.text'),
-        'body': f"[{timestamp}] {body}",
+        'body': content.get('body', ''),
         'format': content.get('format', None),
-        'formatted_body': f"<b>[{timestamp}]</b> {formatted_body}" if formatted_body else None,
+        'formatted_body': content.get('formatted_body', None),
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
     except requests.exceptions.RequestException as exc:
         logger.error(f"Failed to send message to Citadel for {app_name}: {type(exc).__name__}: {exc}")
         return

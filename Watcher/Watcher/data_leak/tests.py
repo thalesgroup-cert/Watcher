@@ -1,7 +1,6 @@
 import json
-import os
-from unittest.mock import patch, MagicMock
-from django.test import TestCase, TransactionTestCase
+from unittest.mock import patch
+from django.test import TestCase, TransactionTestCase, SimpleTestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
@@ -10,6 +9,7 @@ from rest_framework import status
 from knox.models import AuthToken
 from data_leak.models import Keyword, Alert, PasteId, Subscriber
 from data_leak.core import send_data_leak_notifications
+from data_leak import core
 
 
 class KeywordModelTest(TestCase):
@@ -32,7 +32,7 @@ class AlertModelTest(TestCase):
         keyword = Keyword.objects.create(name="alert-test")
         alert = Alert.objects.create(keyword=keyword, url="https://test.com")
         
-        self.assertEqual(str(alert), "alert-test")
+        self.assertEqual(str(alert), "https://test.com")
         self.assertTrue(alert.status)
         
         # Test cascade delete
@@ -61,7 +61,6 @@ class SubscriberModelTest(TestCase):
         subscriber = Subscriber.objects.create(user_rec=user, email=True)
         
         self.assertTrue(subscriber.email)
-        self.assertFalse(subscriber.thehive)  # Default
         self.assertIn("testuser", str(subscriber))
 
 
@@ -443,3 +442,171 @@ class DataLeakBulkTest(APITestCase):
         response = self._post('/api/data_leak/keyword/bulk_delete/', {'ids': [a.pk, b.pk, 999999]})
         self.assertEqual((response.data['succeeded'], response.data['skipped']), (2, 1), response.data)
         self.assertFalse(Keyword.objects.filter(pk__in=[a.pk, b.pk]).exists())
+
+
+class DataLeakListAPITest(APITestCase):
+    """Alert / keyword list filters, counts and statistics used by the Data Leak page."""
+
+    ALERTS = '/api/data_leak/alert/'
+    KEYWORDS = '/api/data_leak/keyword/'
+
+    def setUp(self):
+        _, token = AuthToken.objects.create(User.objects.create_superuser(username='leak_list', password='testpass123'))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        self.leak = Keyword.objects.create(name='leak')
+        self.dump = Keyword.objects.create(name='dump')
+        old = timezone.now() - timedelta(days=10)
+        self.a1 = Alert.objects.create(keyword=self.leak, url='https://github.com/acme/leak', content='secret leak')
+        self.a2 = Alert.objects.create(keyword=self.leak, url='https://pastebin.com/abc', status=False, created_at=old)
+        self.a3 = Alert.objects.create(keyword=self.dump, url='https://github.com/acme/dump')
+
+    def ids(self, query=''):
+        response = self.client.get(self.ALERTS + query)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return sorted(row['id'] for row in response.data['results'])
+
+    def test_alert_filters(self):
+        self.assertEqual(self.ids('?status=active'), sorted([self.a1.id, self.a3.id]))
+        self.assertEqual(self.ids('?status=archived'), [self.a2.id])
+        self.assertEqual(self.ids(f'?keyword={self.leak.id}'), sorted([self.a1.id, self.a2.id]))
+        self.assertEqual(self.ids('?source=github.com'), sorted([self.a1.id, self.a3.id]))
+        self.assertEqual(self.ids('?source=pastebin.com&status=active'), [])
+        self.assertEqual(self.ids('?period=7d'), sorted([self.a1.id, self.a3.id]))
+        self.assertEqual(self.ids('?search=secret'), [self.a1.id])
+
+    def test_list_rows_leave_the_content_out(self):
+        row = self.client.get(self.ALERTS + f'?keyword={self.leak.id}&ordering=created_at').data['results'][1]
+        self.assertNotIn('content', row)
+        self.assertTrue(row['has_content'])
+        self.assertEqual((row['source'], row['keyword']['name']), ('github.com', 'leak'))
+        detail = self.client.get(self.ALERTS + f'{self.a1.id}/').data
+        self.assertEqual(detail['content'], 'secret leak')
+
+    def test_keywords_carry_their_alert_counts(self):
+        rows = self.client.get(self.KEYWORDS + '?ordering=-alerts_count').data['results']
+        self.assertEqual([(r['name'], r['alerts_count'], r['active_alerts_count']) for r in rows],
+                         [('leak', 2, 1), ('dump', 1, 1)])
+        self.assertIsNotNone(rows[0]['last_alert_at'])
+
+    def test_switching_a_keyword_to_regex_validates_its_current_name(self):
+        keyword = Keyword.objects.create(name='bad[')
+        response = self.client.patch(self.KEYWORDS + f'{keyword.id}/', {'is_regex': True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_archiving_an_alert_is_recorded_in_its_history(self):
+        from timeline.models import TimelineEvent
+        self.client.patch(self.ALERTS + f'{self.a1.id}/', {'status': False}, format='json')
+        event = TimelineEvent.objects.filter(object_id=self.a1.id, content_type__model='alert',
+                                             content_type__app_label='data_leak', action='updated').get()
+        self.assertEqual(event.diff, {'status': {'old': True, 'new': False}})
+        self.assertEqual(event.object_repr, 'https://github.com/acme/leak')
+
+    def test_statistics(self):
+        stats = self.client.get(self.KEYWORDS + 'statistics/').data
+        self.assertEqual((stats['activeAlerts'], stats['archivedAlerts'], stats['totalKeywords']), (2, 1, 2))
+        self.assertEqual(len(stats['perDay']), 30)
+        self.assertEqual(stats['perDay'][-1]['count'], 2)
+        self.assertEqual(stats['topKeywords'][0], {'id': self.leak.id, 'name': 'leak', 'count': 2})
+        self.assertEqual(stats['topSources'][0], {'source': 'github.com', 'count': 2})
+
+
+# Scheduling of the leak search
+class SchedulingTest(SimpleTestCase):
+    def test_the_leak_search_never_runs_on_top_of_itself(self):
+        with patch.object(core, 'BackgroundScheduler') as scheduler_class:
+            core.start_scheduler()
+        jobs = {call.kwargs['id']: call.kwargs for call in scheduler_class.return_value.add_job.call_args_list}
+        self.assertEqual(jobs['week_job']['max_instances'], 1)
+        self.assertTrue(jobs['week_job']['coalesce'])
+
+
+class CheckUrlsTest(TestCase):
+    def test_only_the_urls_without_an_alert_are_new_and_their_order_is_kept(self):
+        keyword = Keyword.objects.create(name='arkena-test')
+        Alert.objects.create(keyword=keyword, url='https://known.example/a')
+        urls = ['https://new.example/1', 'https://known.example/a', 'https://new.example/2']
+        self.assertEqual(core.check_urls(keyword, urls), ['https://new.example/1', 'https://new.example/2'])
+
+    def test_no_alert_at_all_means_every_url_is_new(self):
+        keyword = Keyword.objects.create(name='arkena-test')
+        self.assertEqual(core.check_urls(keyword, ['https://x.example/']), ['https://x.example/'])
+
+    def test_the_stored_alerts_are_not_all_read_for_each_keyword(self):
+        keyword = Keyword.objects.create(name='arkena-test')
+        for number in range(5):
+            Alert.objects.create(keyword=keyword, url=f'https://stored.example/{number}')
+        with self.assertNumQueries(1):
+            core.check_urls(keyword, ['https://stored.example/1', 'https://new.example/'])
+
+
+class RunLongerThanItsCycleTest(SimpleTestCase):
+    """A run that lasts longer than the 5-minute cycle makes the next slots be skipped: the log says so."""
+
+    @patch('data_leak.core.check_keywords')
+    @patch('data_leak.core.Keyword')
+    @patch('data_leak.core.close_old_connections')
+    def _run(self, seconds, _close, _keyword, _check):
+        with patch('data_leak.core.time.monotonic', side_effect=[0.0, 100.0, 100.0 + seconds, 100.0 + seconds]):
+            with self.assertLogs('watcher.data_leak', level='INFO') as logs:
+                core.main_data_leak()
+        return logs.output
+
+    def test_a_run_inside_its_cycle_says_nothing_more(self):
+        lines = self._run(240)
+        self.assertFalse([line for line in lines if 'longer than its' in line], lines)
+
+    def test_a_run_past_its_cycle_warns_and_is_counted(self):
+        lines = self._run(400)
+        warnings = [line for line in lines if 'longer than its 300s cycle' in line]
+        self.assertEqual(len(warnings), 1, lines)
+        self.assertIn('WARNING', warnings[0])
+        self.assertIn('The run took 400s', warnings[0])
+        self.assertIn('overran=1', ' '.join(lines))
+
+
+class PastebinUnavailableWarningTest(SimpleTestCase):
+    """Pastebin refuses the API the same way at every run: the warning is written once every six hours, and counted."""
+
+    def setUp(self):
+        core._pastebin_warned_at = None
+        self.addCleanup(setattr, core, '_pastebin_warned_at', None)
+        self.clock = [5000.0]
+        patcher = patch('data_leak.core.time.monotonic', new=lambda: self.clock[0])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _warnings(self, logs):
+        return [line for line in logs.output if line.startswith('WARNING') and 'Pastebin' in line]
+
+    def test_the_warning_is_said_once_then_again_after_six_hours(self):
+        with self.assertLogs('watcher.data_leak', level='DEBUG') as logs:
+            core._pastebin_unavailable('You need a Pastebin Pro Account.')
+            for _ in range(20):  # a run every five minutes
+                self.clock[0] += 300
+                core._pastebin_unavailable('You need a Pastebin Pro Account.')
+            self.assertEqual(len(self._warnings(logs)), 1, logs.output)
+            self.clock[0] += 6 * 3600
+            core._pastebin_unavailable('You need a Pastebin Pro Account.')
+        self.assertEqual(len(self._warnings(logs)), 2, logs.output)
+        self.assertIn('said once every 6 hours', self._warnings(logs)[0])
+
+    def test_every_run_counts_it_in_the_end_line_of_the_job(self):
+        import logging
+        from common.utils import job_log
+
+        @job_log.logged_job('Probe', logging.getLogger('watcher.test_pastebin'))
+        def job():
+            for _ in range(3):
+                core._pastebin_unavailable('API is in maintenance')
+
+        with self.assertLogs('watcher.test_pastebin', level='INFO') as logs:
+            job()
+        self.assertIn('pastebin_unavailable=3', logs.output[0])
+
+    @patch('data_leak.core.requests.get')
+    def test_a_refused_api_goes_through_it_and_reads_nothing(self, mock_get):
+        mock_get.return_value.text = '<html>You need a Pro account</html>'  # not a JSON list
+        with self.assertLogs('watcher.data_leak', level='DEBUG') as logs:
+            for _ in range(3):
+                self.assertEqual(core.check_pastebin([]), {})
+        self.assertEqual(len(self._warnings(logs)), 1, logs.output)

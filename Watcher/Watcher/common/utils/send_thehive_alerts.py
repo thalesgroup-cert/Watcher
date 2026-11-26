@@ -1,6 +1,5 @@
 import requests
 import logging
-from django.utils import timezone
 from common.utils.update_thehive import handle_alert_or_case, create_new_alert
 from site_monitoring.models import Site
 from connectors.core import get_thehive_config
@@ -43,11 +42,11 @@ def post_to_thehive(url, data, headers, proxies):
         response = requests.post(url, headers=headers, json=data, verify=False, proxies=proxies)
         response.raise_for_status()  
         return response.json()
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         return None
 
 
-def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, domain_name, observables=None, customFields=None, thehive_url=None, api_key=None):
+def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, domain_name, observables=None, customFields=None, thehive_url=None, api_key=None, comment=None, external_link=None):
     from common.core import generate_ref
     """
     Send or update an alert in TheHive based on the application and ticket_id.
@@ -92,9 +91,6 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
     if app_name == 'website_monitoring' and not ticket_id:
         return
     
-    current_time = timezone.now().strftime("%H:%M:%S")
-    current_date = timezone.now().strftime("%d/%m/%y")
-
     # Handle the alert for 'website_monitoring' if ticket_id is found
     if app_name == 'website_monitoring':
         handle_alert_or_case(
@@ -108,13 +104,11 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
             app_name=app_name,
             observables=observables,
             customFields=customFields,
-            comment=(
-                f"A change was processed by {app_name} application for domain '{domain_name}' "
-                f"at {current_time} on {current_date}.\n"
-                "The associated observables have been handled in the dedicated section."
-            ),
+            # Posted on the alert when it already exists: what changed (TheHive shows the time of a comment)
+            comment=comment or f"**{title}**",
             thehive_url=thehive_url,
-            api_key=api_key
+            api_key=api_key,
+            external_link=external_link
         )
 
     elif app_name != 'dns_finder':
@@ -129,11 +123,10 @@ def send_thehive_alert(title, description, severity, tlp, pap, tags, app_name, d
             app_name=app_name,
             observables=observables,
             customFields=customFields,
-            comment=(
-                f"An alert was processed by {app_name} application at {current_time} on {current_date}.\n"
-                "The associated observables have been handled in the dedicated section."
-            ),
+            # A new alert is described by its description and its observables: no comment repeats it
+            comment=None,
             thehive_url=thehive_url,
-            api_key=api_key
+            api_key=api_key,
+            external_link=external_link
         )
         

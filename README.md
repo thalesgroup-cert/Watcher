@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-    <a href="https://thalesgroup-cert.github.io/Watcher/README.html">
+    <a href="https://thalesgroup-cert.github.io/Watcher/guide/install-watcher/launch-watcher/">
         <img src="https://img.shields.io/badge/Install-Guide-informational?style=for-the-badge&logo=docker" alt="Install">
     </a>
     <a href="https://thalesgroup-cert.github.io/Watcher/">
@@ -52,7 +52,7 @@ Watcher empowers your security operations with comprehensive threat detection an
 
 - **Information Leak Monitoring** - Detect sensitive data exposure across the webs including Pastebin, StackOverflow, GitHub, GitLab, Bitbucket, APKMirror, npm registries, and other platforms. Catch leaked credentials, API keys, and confidential information early.
 
-- **Malicious Domain Surveillance** - Monitor malicious domains for changes in IP addresses, mail/MX records, and web content. Use [TLSH](https://github.com/trendmicro/tlsh) fuzzy hashing to detect modifications. Automatic RDAP/WHOIS checks with registrar and expiry alerts.
+- **Malicious Domain Surveillance** - Monitor malicious domains for changes in IP addresses, mail/MX records, and web content. Use [TLSH](https://github.com/trendmicro/tlsh) fuzzy hashing to detect modifications. Automatic RDAP checks with registrar and expiry alerts.
 
 - **Suspicious Domain Detection** - Identify potentially malicious domains targeting your organisation via:
   - **Domain Generation Algorithm Detection** using [dnstwist](https://github.com/elceef/dnstwist) to find typosquatting, homograph attacks, and similar domain variants
@@ -62,12 +62,12 @@ Watcher empowers your security operations with comprehensive threat detection an
 
 Extend Watcher's capabilities with powerful integrations and management tools:
 
-- **TheHive Full Synchronization** - Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/README.html#thehive-export)
+- **TheHive Full Synchronization** - Integration with [TheHive](https://thehive-project.org/) featuring automated alert creation, smart case management, IOC enrichment, and ready-to-use Cortex Analyzers & Responders. Detailed configuration are provided in the documentation [here.](https://thalesgroup-cert.github.io/Watcher/guide/install-watcher/launch-watcher/#thehive-export)
 - **MISP Integration** - Seamlessly export Indicators of Compromise (IOCs) to [MISP](https://www.misp-project.org/) with smart UUID tracking, automatic object creation, and manual attribute updates for collaborative threat intelligence sharing
 - **SSO / OpenID Connect** - Federated login via any OIDC provider (Keycloak, Azure AD, etc.) with PKCE and Knox token issuance. Configurable per-instance via `.env`
 - **Bulk Add & Bulk Actions** - Add many items at once with the *One item per line* toggle (with a no-write Preview and a per-item created / skipped / error summary), or tick rows in any table to edit, delete or export them (to Legitimate Domains or MISP) in one go
 - **Flexible Authentication** - Support for LDAP, local, and SSO/OIDC authentication systems
-- **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, LLM providers, and more) from one place, with encrypted credential storage, per-connector health checks, and a one-click **Default LLM** selection.
+- **Connectors Dashboard** - A superuser-only `/connectors` page to view, edit, and test every external integration (SMTP, Slack, Citadel, TheHive, MISP, CyberWatch feeds, LLM providers, and more) from one place, with encrypted credential storage, per-connector health checks, and a one-click **Default AI** selection.
 - **Smart Notifications** - Receive email, Slack, or Citadel alerts for critical findings and threshold violations across all modules including CyberWatch and UDRP decisions, with dedicated layouts for the weekly report and breaking news
 - **Interactive API Documentation** - Auto-generated Swagger UI at `/api/docs/` and OpenAPI 3 schema at `/api/schema/` powered by drf-spectacular
 - **Ticketing System Integration** - Automatically feed your ticketing system with security findings
@@ -209,7 +209,7 @@ make populate-db
 #    http://localhost:9002  (or your configured domain/port)
 ```
 
-Get Watcher up and running in just **10 minutes** using Docker. **Detailed instructions available in our [Installation Guide](https://thalesgroup-cert.github.io/Watcher/README.html)**
+Get Watcher up and running in just **10 minutes** using Docker. **Detailed instructions available in our [Installation Guide](https://thalesgroup-cert.github.io/Watcher/guide/install-watcher/launch-watcher/)**
 
 ## Platform Architecture
 

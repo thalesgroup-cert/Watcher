@@ -1,105 +1,170 @@
 import requests
-import json
 import time
+import tldextract
 import logging
-from django.conf import settings
-from django.utils import timezone
-from .whois import WhoisDiscovery, perform_single_whois_lookup
+import threading
 
 # Configure logger
 logger = logging.getLogger('watcher.common')
 
+# The IANA bootstrap file (RFC 9224) says which RDAP server answers for each extension. Watcher reads it instead of keeping its
+# own list: an extension that is missing from a hand-written list never gets a date, and a list rots.
+BOOTSTRAP_URL = 'https://data.iana.org/rdap/dns.json'
+BOOTSTRAP_TTL = 24 * 3600      # the file changes rarely: read it once a day
+BOOTSTRAP_RETRY = 600          # after a failed read, try again in ten minutes (the last good copy is used meanwhile)
+RDAP_TIMEOUT = (5, 15)         # connect, read: a registry that does not answer must not hold a job for half a minute
+MAX_RETRY_AFTER = 5            # seconds a registry that says "slow down" is waited for, once
+
+_bootstrap = {'servers': {}, 'next_read': 0.0}
+_bootstrap_lock = threading.Lock()
+
+
+def _read_bootstrap():
+    """The bootstrap file as {extension: [base URL ending in '/', https first]}."""
+    response = requests.get(BOOTSTRAP_URL, timeout=RDAP_TIMEOUT)
+    response.raise_for_status()
+    servers = {}
+    for extensions, urls in response.json()['services']:
+        ordered = sorted((u if u.endswith('/') else u + '/' for u in urls), key=lambda u: not u.startswith('https'))
+        for extension in extensions:
+            servers[extension.lower()] = ordered
+    return servers
+
+
+def _bootstrap_servers():
+    with _bootstrap_lock:
+        now = time.monotonic()
+        if now >= _bootstrap['next_read']:
+            try:
+                _bootstrap['servers'] = _read_bootstrap()
+                _bootstrap['next_read'] = now + BOOTSTRAP_TTL
+            except Exception as exc:  # unreachable, not JSON, changed shape: keep the last good copy
+                _bootstrap['next_read'] = now + BOOTSTRAP_RETRY
+                logger.warning(f"Could not read the IANA RDAP bootstrap ({type(exc).__name__}: {str(exc)[:80]}); "
+                               + ("the last copy is used" if _bootstrap['servers'] else "no RDAP lookup is possible until it is read"))
+        return _bootstrap['servers']
+
+
+def reset_bootstrap():
+    """Forget the bootstrap that was read (the tests, and nothing else)."""
+    with _bootstrap_lock:
+        _bootstrap.update(servers={}, next_read=0.0)
+
+
+def ascii_domain(domain):
+    """The domain as a registry wants it: lowercase, no trailing dot, internationalised names in punycode."""
+    domain = (domain or '').strip().strip('.').lower()
+    try:
+        return domain.encode('idna').decode('ascii')
+    except UnicodeError:
+        return domain
+
+
+# The public suffix list that ships with tldextract (no download: a lookup must not depend on a site being reachable)
+_suffixes = tldextract.TLDExtract(suffix_list_urls=())
+
+
+def has_subdomain(domain):
+    """
+    The name has a part in front of its registrable domain ("en.wordpress.com", "zimbra.free.fr"). A registry only knows
+    registrable domains, so its "does not exist" says nothing about such a name.
+    """
+    parts = _suffixes(ascii_domain(domain))
+    return bool(parts.subdomain and parts.domain and parts.suffix)
+
+
+def rdap_servers_for(domain):
+    """The RDAP servers (base URLs ending in '/') that answer for the extension of `domain`; empty when none does."""
+    name = ascii_domain(domain)
+    if '.' not in name:
+        return []
+    return list(_bootstrap_servers().get(name.rsplit('.', 1)[-1], []))
+
+
 class RDAPDiscovery:
     """
-    A comprehensive RDAP (Registration Data Access Protocol) discovery client for domain analysis.
-    
-    This class handles RDAP data extraction from various registries,
-    with automatic fallback to WHOIS when RDAP data is unavailable.
+    RDAP (Registration Data Access Protocol) lookup of one domain, on the server the IANA bootstrap names for its extension.
+
+    After `fetch_rdap_data()`, `status` says what happened, so that the caller can tell a domain that does not exist from a
+    server that did not answer:
+      - 'ok'           the registry answered with the record of the domain;
+      - 'not_found'    the registry answered that the domain does not exist (an answer, not a failure);
+      - 'unsupported'  the extension has no RDAP server;
+      - 'rate_limited' the registry said to slow down, twice;
+      - 'error'        no usable answer (timeout, refused, not JSON).
     """
-    
+
     def __init__(self, domain):
         """
-        Initialize the RDAP discovery client.
-        
         :param domain: The domain name to analyze
         :type domain: str
         """
         self.domain = domain
         self.response = None
         self.rdap_data = None
-        
-        # Common RDAP endpoints - can be extended
-        self.rdap_endpoints = [
-            "https://rdap.verisign.com/com/v1/domain/",
-            "https://rdap.verisign.com/net/v1/domain/",
-            "https://rdap.org.ua/domain/",
-            "https://rdap.centralnic.com/domain/",
-            "https://rdap.nic.fr/domain/",
-        ]
-    
-    def get_rdap_endpoint_for_tld(self, domain):
-        """
-        Get the appropriate RDAP endpoint for a given domain's TLD.
-        
-        :param domain: The domain name
-        :type domain: str
-        :return: RDAP endpoint URL or None
-        :rtype: str or None
-        """
-        tld = domain.split('.')[-1].lower()
-        
-        # TLD to RDAP endpoint mapping
-        tld_mappings = {
-            'com': 'https://rdap.verisign.com/com/v1/domain/',
-            'net': 'https://rdap.verisign.com/net/v1/domain/',
-            'org': 'https://rdap.publicinterestregistry.org/rdap/domain/',
-            'fr': 'https://rdap.nic.fr/domain/',
-            'uk': 'https://rdap.nominet.uk/uk/domain/',
-            'de': 'https://rdap.denic.de/domain/',
-            'nl': 'https://rdap.sidn.nl/domain/',
-        }
-        
-        return tld_mappings.get(tld)
-    
+        self.status = None
+        self.detail = None  # when status is not ok: the HTTP code or the kind of error, to say what went wrong
+
     def fetch_rdap_data(self):
         """
-        Fetch RDAP data from appropriate registry endpoints.
-        
-        Tries the specific TLD endpoint first, then falls back to generic endpoints.
-        
-        :return: True if RDAP data was successfully fetched, False otherwise
+        Fetch the RDAP record of the domain from the registry of its extension.
+
+        :return: True if RDAP data was successfully fetched, False otherwise (see `status` for why)
         :rtype: bool
         """
-        endpoints_to_try = []
-        
-        tld_endpoint = self.get_rdap_endpoint_for_tld(self.domain)
-        if tld_endpoint:
-            endpoints_to_try.append(tld_endpoint)
-        
-        endpoints_to_try.extend(self.rdap_endpoints)
-        
-        for endpoint in endpoints_to_try:
-            try:
-                url = f"{endpoint}{self.domain}"
-                
-                self.response = requests.get(
-                    url,
-                    headers={
-                        'Accept': 'application/rdap+json',
-                        'User-Agent': 'Watcher-RDAP-Client/1.0'
-                    },
-                    timeout=30
-                )
-                
-                if self.response.status_code == 200:
-                    self.rdap_data = self.response.json()
+        servers = rdap_servers_for(self.domain)
+        if not servers:
+            self.status = 'unsupported'
+            return False
+
+        name = ascii_domain(self.domain)
+        outcome = 'error'
+        for base in servers:
+            for attempt in (1, 2):
+                try:
+                    self.response = requests.get(
+                        f"{base}domain/{name}",
+                        headers={'Accept': 'application/rdap+json', 'User-Agent': 'Watcher-RDAP-Client/1.0'},
+                        timeout=RDAP_TIMEOUT,
+                    )
+                except requests.exceptions.RequestException as exc:
+                    # A timeout or a reset connection is often passing: one more try, a second later
+                    outcome, self.detail = 'error', type(exc).__name__
+                    if attempt == 1:
+                        time.sleep(1)
+                        continue
+                    break
+                code = self.response.status_code
+                if code == 200:
+                    try:
+                        self.rdap_data = self.response.json()
+                    except ValueError:
+                        outcome, self.detail = 'error', 'not JSON'
+                        break
+                    self.status, self.detail = 'ok', None
                     return True
-                    
-            except (requests.exceptions.RequestException, json.JSONDecodeError):
-                continue
-        
+                if code == 404:
+                    # The server of the extension is the one that knows: it says the domain does not exist
+                    self.status, self.detail = 'not_found', None
+                    return False
+                if code == 429:
+                    outcome, self.detail = 'rate_limited', 'HTTP 429'
+                    try:
+                        wait = float(self.response.headers.get('Retry-After', '1'))
+                    except ValueError:
+                        wait = 1.0
+                    if attempt == 1 and wait <= MAX_RETRY_AFTER:
+                        time.sleep(wait)
+                        continue
+                    break
+                outcome, self.detail = 'error', f'HTTP {code}'
+                if code >= 500 and attempt == 1:  # the registry is struggling: one more try
+                    time.sleep(1)
+                    continue
+                break
+        self.status = outcome
         return False
-    
+
     def get_registrar(self):
         """
         Extract registrar information from RDAP response.
@@ -182,160 +247,6 @@ class RDAPDiscovery:
         except Exception as e:
             logger.error(f"Error parsing RDAP registration date: {str(e)}")
             return None
-
-
-def perform_single_rdap_lookup(domain):
-    """
-    Perform RDAP lookup for a single domain with WHOIS fallback.
-    
-    Executes RDAP discovery first, and if no data is found, falls back to WHOIS.
-    Automatically updates legitimacy status when domains transition from 
-    available/disabled to registered.
-    
-    :param domain: The domain object to update
-    :type domain: Site
-    :return: True if domain was successfully updated, False otherwise
-    :rtype: bool
-    """
-    try:
-        rdap = RDAPDiscovery(domain.domain_name)
-
-        if not rdap.fetch_rdap_data():
-            return perform_single_whois_lookup(domain)
-
-        registrar = rdap.get_registrar()
-        expiration_date = rdap.get_expiration_date()
-        registration_date = rdap.get_registration_date()
-
-        updated = False
-        update_info = []
-        old_legitimacy = domain.legitimacy
-
-        if registrar:
-            domain.registrar = registrar
-            updated = True
-            update_info.append(f"registrar='{registrar}' (RDAP)")
-
-            if domain.auto_update_legitimacy_on_registration():
-                update_info.append(
-                    f"legitimacy: {old_legitimacy} → {domain.legitimacy}"
-                    f" (now registered)"
-                )
-                logger.info(
-                    f"Auto-updated legitimacy for {domain.domain_name}: "
-                    f"available/disabled → registered"
-                )
-
-        if expiration_date:
-            domain.domain_expiry = expiration_date
-            updated = True
-            update_info.append(f"domain_expiry='{expiration_date}' (RDAP)")
-
-        if registration_date:
-            domain.domain_created_at = registration_date
-            updated = True
-            update_info.append(
-                f"domain_created_at='{registration_date}' (RDAP)"
-            )
-
-        if updated:
-            domain.save()
-            logger.info(
-                f"Successfully updated RDAP data for {domain.domain_name}: "
-                f"{', '.join(update_info)}"
-            )
-            return True
-
-        logger.debug(
-            f"No usable RDAP fields for {domain.domain_name}, "
-            f"falling back to WHOIS"
-        )
-        return perform_single_whois_lookup(domain)
-
-    except Exception as exc:
-        logger.error(
-            f"Error processing RDAP lookup for {domain.domain_name}: {exc}, "
-            f"falling back to WHOIS"
-        )
-        return perform_single_whois_lookup(domain)
-
-
-def get_domains_needing_lookup():
-    """
-    Retrieve domains that require RDAP/WHOIS lookup.
-    
-    Identifies domains in the database that lack registrar information
-    and are therefore candidates for domain discovery.
-    
-    :return: QuerySet of domains requiring lookup
-    :rtype: django.db.models.QuerySet
-    """
-    try:
-        from site_monitoring.models import Site
-        
-        domains_to_update = Site.objects.filter(
-            registrar__isnull=True
-        ) | Site.objects.filter(
-            registrar__exact=""
-        )
-        
-        return domains_to_update
-        
-    except Exception as e:
-        logger.error(f"Error retrieving domains for lookup: {str(e)}")
-        from site_monitoring.models import Site
-        return Site.objects.none()
-
-
-def update_domain_registrar_info():
-    """
-    Update registrar information for all domains requiring RDAP/WHOIS lookup.
-    
-    Main function that orchestrates the domain discovery process for all
-    domains lacking registrar information. Tries RDAP first, then falls back
-    to WHOIS. Includes rate limiting and comprehensive logging.
-    
-    :return: None
-    :rtype: None
-    """
-    logger.info("Starting RDAP/WHOIS discovery process...")
-    
-    domains_to_update = get_domains_needing_lookup()
-    
-    if not domains_to_update.exists():
-        logger.info("No domains require RDAP/WHOIS lookup at this time")
-        return
-    
-    for domain in domains_to_update:
-        logger.info(f"Processing lookup for domain: {domain.domain_name}")
-        
-        success = perform_single_rdap_lookup(domain)
-        
-        if success:
-            pass
-        
-        time.sleep(1)
-    
-    logger.info("RDAP/WHOIS discovery process completed successfully")
-
-
-def manual_rdap_discovery():
-    """
-    Manually trigger RDAP/WHOIS discovery process.
-    
-    Provides a manual entry point for triggering domain discovery,
-    useful for administrative operations or testing purposes.
-    
-    :return: True if process was initiated successfully, False otherwise
-    :rtype: bool
-    """
-    try:
-        logger.info("Manual RDAP/WHOIS discovery initiated")
-        update_domain_registrar_info()
-        return True
-    except Exception as e:
-        logger.error(f"Error in manual RDAP/WHOIS discovery: {str(e)}")
-        return False
 
 
 # Configuration constants

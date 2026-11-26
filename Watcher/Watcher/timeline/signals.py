@@ -15,7 +15,10 @@ TRACKED_FIELDS = {
     'threats_watcher.monitoredkeyword': ['name', 'level', 'threshold'],
     'threats_watcher.bannedword': ['name'],
     'cyber_watch.watchrule': ['name', 'keywords', 'exceptions', 'scope', 'is_active'],
+    'cyber_watch.watchrulehit': ['is_archived'],
     'data_leak.keyword': ['name', 'is_regex'],
+    'data_leak.alert': ['status'],
+    'site_monitoring.alert': ['status'],
     'site_monitoring.site': [
         'domain_name', 'ticket_id', 'legitimacy', 'takedown_request', 'legal_team',
         'blocking_request', 'expiry', 'ip_monitoring', 'mail_monitoring',

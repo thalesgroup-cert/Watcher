@@ -2,10 +2,9 @@
 from __future__ import unicode_literals
 
 from django.contrib import admin
-from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword, WatcherConfiguration
+from .models import Source, TrendyWord, BannedWord, Summary, Subscriber, MonitoredKeyword, KeywordHit, WatcherConfiguration
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin, ExportMixin
-from django.utils.html import format_html
 
 
 class SourceResource(resources.ModelResource):
@@ -17,7 +16,7 @@ class SourceResource(resources.ModelResource):
 @admin.register(Source)
 class SourceAdmin(ImportExportModelAdmin):
     list_display = ['url', 'country_code', 'country', 'confident', 'last_status_code', 'last_checked', 'created_at']
-    list_filter  = ['country_code', 'created_at']
+    list_filter  = ['country_code', 'last_status_code', 'created_at']
     search_fields = ['url', 'country', 'country_code']
     resource_class = SourceResource
 
@@ -122,14 +121,15 @@ class TrendyWordAdmin(ExportMixin, admin.ModelAdmin):
         return actions
 
 
+@admin.register(Subscriber)
 class SubscriberAdmin(admin.ModelAdmin):
     list_display = (
-        'user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel',
+        'user_rec', 'created_at', 'email',
         'notify_trendy_words', 'notify_monitored_keywords',
         'notify_weekly_summary', 'notify_breaking_news'
     )
     list_filter = (
-        'email', 'thehive', 'slack', 'citadel',
+        'email',
         'notify_trendy_words', 'notify_monitored_keywords',
         'notify_weekly_summary', 'notify_breaking_news'
     )
@@ -138,25 +138,31 @@ class SubscriberAdmin(admin.ModelAdmin):
         (None, { 
             'fields': ('user_rec', 'created_at')
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber."
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive are set once for the whole instance under Connectors > Notifications."
         }),
         ('Subscription Types', {
             'fields': (
                 'notify_trendy_words', 'notify_monitored_keywords',
                 'notify_weekly_summary', 'notify_breaking_news'
             ),
-            'description': "Choose which Threats Watcher event types trigger a notification."
+            'description': "Choose which kinds of e-mail this subscriber receives. Slack, Citadel and TheHive ignore these boxes (see Connectors > Notifications)."
         }),
     )
+
+
+@admin.register(KeywordHit)
+class KeywordHitAdmin(admin.ModelAdmin):
+    list_display = ['id', 'keyword', 'title', 'hit_at', 'is_archived']
+    list_filter = ('is_archived', 'keyword', 'hit_at')
+    search_fields = ['title', 'url']
+
 
 @admin.register(WatcherConfiguration)
 class WatcherConfigurationAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return not WatcherConfiguration.objects.exists()
-    
+
     def has_delete_permission(self, request, obj=None):
         return False
-
-admin.site.register(Subscriber, SubscriberAdmin)

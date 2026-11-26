@@ -1,0 +1,76 @@
+# The menu of the guide is written by build_pages.py from the README (it replaces the marker below); run it before zensical.
+site_name: Watcher
+site_description: Threat detection and monitoring platform of the Thales Group CERT
+site_url: https://thalesgroup-cert.github.io/Watcher/
+repo_url: https://github.com/thalesgroup-cert/Watcher
+repo_name: thalesgroup-cert/Watcher
+copyright: 2026 - Thales CERT
+docs_dir: content
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+  variant: classic
+  logo: assets/Watcher-logo-documentation.png
+  favicon: assets/Watcher-favicon.ico
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
+  - tables
+  - attr_list
+  - md_in_html
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../Watcher]
+          options:
+            docstring_style: sphinx
+            show_root_heading: true
+            show_source: false
+            members_order: source
+
+nav:
+  - Home: index.md
+{{GUIDE_NAV}}
+  - Code reference:
+      - Overview: reference/index.md
+      - Threats Watcher: reference/threats_watcher_core.md
+      - Data Leak: reference/data_leak_core.md
+      - Site Monitoring: reference/site_monitoring_core.md
+      - DNS Finder: reference/dns_finder_core.md
+      - Cyber Watch: reference/cyber_watch_core.md
+      - Common: reference/common_core.md
+      - MISP: reference/common_misp.md

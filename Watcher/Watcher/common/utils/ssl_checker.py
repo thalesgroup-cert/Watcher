@@ -75,16 +75,16 @@ class SSLCertificateChecker:
             return True
             
         except ssl.SSLError as e:
-            logger.warning(f"SSL error fetching certificate for {self.domain}: {str(e)}")
+            logger.debug(f"SSL error fetching certificate for {self.domain}: {str(e)}")
             return False
         except socket.gaierror as e:
-            logger.warning(f"DNS resolution failed for {self.domain}: {str(e)}")
+            logger.debug(f"DNS resolution failed for {self.domain}: {str(e)}")
             return False
         except socket.timeout as e:
-            logger.warning(f"Connection timeout for {self.domain}: {str(e)}")
+            logger.debug(f"Connection timeout for {self.domain}: {str(e)}")
             return False
         except ConnectionRefusedError as e:
-            logger.warning(f"Connection refused for {self.domain}: {str(e)}")
+            logger.debug(f"Connection refused for {self.domain}: {str(e)}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error fetching certificate for {self.domain}: {str(e)}")
@@ -255,12 +255,58 @@ def perform_single_ssl_check(site):
                 logger.warning(f"Could not extract SSL expiry date for {site.domain_name}")
                 return False
         else:
-            logger.warning(f"Failed to fetch SSL certificate for {site.domain_name}")
+            logger.debug(f"Failed to fetch SSL certificate for {site.domain_name}")
             return False
             
     except Exception as e:
         logger.error(f"Error performing SSL check for {site.domain_name}: {str(e)}")
         return False
+
+
+# Connections opened at the same time to read the certificates of the legitimate domains (each waits for a server)
+SSL_WORKERS = 12
+
+
+def _certificate_expiry(domain_name):
+    """The expiry date of the certificate of a domain ('YYYY-MM-DD'), None when it cannot be read. No database here."""
+    try:
+        checker = SSLCertificateChecker(domain_name)
+        return checker.get_expiration_date() if checker.fetch_certificate() else None
+    except Exception as e:
+        logger.debug(f"No certificate for {domain_name}: {type(e).__name__}")
+        return None
+
+
+def update_legitimate_domains_ssl_certificates(workers=SSL_WORKERS):
+    """
+    Read the certificate of every legitimate domain the registry knows and keep its expiry date. The reads wait for the
+    servers, so they run side by side; the database is only written from here. A domain whose certificate cannot be read
+    keeps the date it had.
+
+    :return: (domains whose certificate was read, domains whose date changed)
+    :rtype: tuple
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from django.db import close_old_connections
+    from common.models import LegitimateDomain
+
+    close_old_connections()
+    domains = list(LegitimateDomain.objects.exclude(expiry_check='not_registered').values_list('pk', 'domain_name', 'ssl_expiry'))
+    if not domains:
+        return 0, 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        expiries = list(pool.map(_certificate_expiry, [name for _, name, _ in domains]))
+    checked = updated = 0
+    for (pk, name, old), expiry in zip(domains, expiries):
+        if not expiry:
+            continue
+        checked += 1
+        if str(old) != expiry:
+            # A queryset update: a save would write a timeline event for every domain at every pass
+            LegitimateDomain.objects.filter(pk=pk).update(ssl_expiry=expiry)
+            updated += 1
+            logger.info(f"Updated SSL expiry for {name}: {old} -> {expiry}")
+    return checked, updated
 
 
 def update_all_sites_ssl_certificates():

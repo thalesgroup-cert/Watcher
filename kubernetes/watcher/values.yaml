@@ -30,6 +30,39 @@ searxng:
   ## Extra env vars to pass to the SearxNG container
   extraEnv: {}
 
+## Screenshot service — a headless browser that takes the screenshots of monitored pages, data leaks and domains.
+## There is no published image yet: build it from the screenshotter/ folder of the repository
+## (docker build -t <registry>/watcher-screenshotter:4.0.0 screenshotter), push it, then set image.repository and enabled.
+## Off by default so that an install does not wait for an image that does not exist.
+screenshotter:
+  enabled: false
+  image:
+    repository: watcher-screenshotter
+    tag: ""            # defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  ## To leave from another address, e.g. a dedicated proxy: http://proxy.example:3128
+  proxy: ""
+  userAgent: ""
+  maxHeight: 6000
+  loadTimeout: 30
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  ## Only Watcher may reach it, and it may only reach the internet (not the cluster nor the company network)
+  networkPolicy:
+    enabled: true
+    privateRanges:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 169.254.0.0/16
+      - 127.0.0.0/8
+
 ## CertStream — Certificate Transparency WebSocket stream
 certstream:
   enabled: true

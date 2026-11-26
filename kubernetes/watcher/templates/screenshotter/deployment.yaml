@@ -1,0 +1,72 @@
+{{- if .Values.screenshotter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "watcher.screenshotterHost" . }}
+  labels:
+    {{- include "watcher.labels" . | nindent 4 }}
+    app.kubernetes.io/component: screenshotter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: screenshotter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: screenshotter
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # The browser runs the code of the pages it visits: no token of the cluster, nothing that is not needed
+      automountServiceAccountToken: false
+      containers:
+        - name: screenshotter
+          image: "{{ .Values.screenshotter.image.repository }}:{{ .Values.screenshotter.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.screenshotter.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.screenshotter.service.port }}
+              protocol: TCP
+          env:
+            - name: SCREENSHOT_PROXY
+              value: {{ .Values.screenshotter.proxy | quote }}
+            - name: SCREENSHOT_USER_AGENT
+              value: {{ .Values.screenshotter.userAgent | quote }}
+            - name: SCREENSHOT_MAX_HEIGHT
+              value: {{ .Values.screenshotter.maxHeight | quote }}
+            - name: SCREENSHOT_LOAD_TIMEOUT
+              value: {{ .Values.screenshotter.loadTimeout | quote }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 60
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.screenshotter.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+{{- end }}

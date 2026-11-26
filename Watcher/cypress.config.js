@@ -1,10 +1,14 @@
 const { defineConfig } = require('cypress');
+const createBundler = require('@bahmutov/cypress-esbuild-preprocessor');
 
 module.exports = defineConfig({
+  // The future behaviour: no Cypress.env() (deprecated); the public values are in expose
+  allowCypressEnv: false,
   e2e: {
     baseUrl: 'http://127.0.0.1:8000',
 
-    env: {
+    // Not secrets (the account of the mocked tests): public values, read with Cypress.expose()
+    expose: {
       testCredentials: {
         username: 'Watcher',
         password: 'Watcher',
@@ -14,6 +18,8 @@ module.exports = defineConfig({
     },
 
     setupNodeEvents(on, config) {
+      on('file:preprocessor', createBundler());
+
       on('before:browser:launch', (browser = {}, launchOptions) => {
         if (browser.family === 'chromium') {
           launchOptions.args.push('--enable-unsafe-swiftshader');

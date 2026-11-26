@@ -44,6 +44,13 @@ SearxNG internal service hostname.
 {{- end }}
 
 {{/*
+Screenshot service internal hostname.
+*/}}
+{{- define "watcher.screenshotterHost" -}}
+{{- printf "%s-screenshotter" (include "watcher.fullname" .) }}
+{{- end }}
+
+{{/*
 CertStream internal service hostname.
 */}}
 {{- define "watcher.certstreamHost" -}}

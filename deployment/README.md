@@ -66,7 +66,6 @@ docker compose --env-file .env up -d
 ```
 .
 ├── docker-compose.yml
-├── docker-compose.overide.yml
 ├── compose_apps.yaml
 ├── compose_databases.yaml
 ├── compose_reverse_proxy.yaml

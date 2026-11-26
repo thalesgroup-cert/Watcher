@@ -16,17 +16,18 @@ ARG NO_PROXY
 #################################################
 #                FRONTEND BUILD                #
 #################################################
-FROM node:18-bookworm-slim AS frontend-builder
+FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /frontend
 
 COPY package*.json .npmrc ./
-RUN npm ci
+# Cypress downloads its test browser (250 MB) when it installs: the image only builds the bundle
+RUN CYPRESS_INSTALL_BINARY=0 npm ci
 
 COPY . .
 
-# Install ReactJs dependencies
-RUN npm install
+# Build the React bundle (Vite)
+RUN npm run build
 
 #################################################
 #                BACKEND BUILD                 #
@@ -37,6 +38,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /build
+
+# A slow network must not fail the build of the dependencies (the default timeout is 30 s)
+ENV UV_HTTP_TIMEOUT=300
 
 # Build-time dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -69,6 +73,16 @@ nltk.download("punkt", download_dir="/usr/local/share/nltk_data")
 nltk.download("stopwords", download_dir="/usr/local/share/nltk_data")
 EOF
 
+# The local models (the entity model of Threats Watcher and the fallback language model) go in the image: Watcher then
+# starts without reaching Hugging Face, and can be told to stay offline (HF_HUB_OFFLINE=1). Only the weights and the
+# tokenizer files are taken. PRELOAD_HF_MODELS=false builds a smaller image that downloads them at the first use.
+ARG PRELOAD_HF_MODELS=true
+ARG HF_LOCAL_MODEL=Qwen/Qwen2.5-0.5B-Instruct
+ENV HF_HOME=/opt/huggingface
+RUN if [ "$PRELOAD_HF_MODELS" = "true" ]; then \
+        python -c "from huggingface_hub import snapshot_download; p=['*.json','*.safetensors','*.txt','*.model']; snapshot_download('dslim/bert-base-NER', allow_patterns=p); snapshot_download('$HF_LOCAL_MODEL', allow_patterns=p)"; \
+    else mkdir -p "$HF_HOME"; fi
+
 
 #################################################
 #                   RUNTIME                    #
@@ -96,21 +110,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust (build only)
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
 # Copy Python environment from builder
 COPY --from=backend-builder /usr/local /usr/local
 
 # Copy NLTK data
 COPY --from=backend-builder /usr/local/share/nltk_data /usr/local/share/nltk_data
 
+# Copy the local models (see the backend build)
+ENV HF_HOME=/opt/huggingface
+COPY --from=backend-builder /opt/huggingface /opt/huggingface
+
 # Copy application code
 COPY . .
 
-# Copy frontend build output
-COPY --from=frontend-builder /frontend/ /app/Watcher/static
+# The React bundle (main.js, main.css) is not committed: this build is the only place it comes from. It goes where the
+# frontend app keeps its static files, so that collectstatic below picks it up and Django serves it as
+# /static/frontend/main.js. Only that folder is copied, not the whole build folder (node_modules, sources...).
+COPY --from=frontend-builder /frontend/Watcher/frontend/static/frontend/ /app/Watcher/frontend/static/frontend/
 
 WORKDIR /app/Watcher
 
@@ -120,4 +136,4 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 9002
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:9002"]
+CMD ["gunicorn", "watcher.wsgi:application"]

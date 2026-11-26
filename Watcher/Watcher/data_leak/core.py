@@ -1,6 +1,7 @@
 # coding=utf-8
 import logging
 import re
+import time
 from .models import Keyword, Alert, PasteId, Subscriber
 import requests
 from django.db import close_old_connections
@@ -13,7 +14,7 @@ from django.db.models.functions import Length
 from common.core import send_app_specific_notifications
 from common.core import send_app_specific_notifications_group
 from common.core import send_only_thehive_notifications
-from django.db.models import Q
+from common.utils import job_log
 
 # Configure logger
 logger = logging.getLogger('watcher.data_leak')
@@ -21,6 +22,7 @@ logger = logging.getLogger('watcher.data_leak')
 
 SEARX_TIMEOUT = (5, 60)
 PASTEBIN_TIMEOUT = (5, 30)
+CYCLE_SECONDS = 300  # main_data_leak runs every 5 minutes (start_scheduler)
 
 
 class SearxError(Exception):
@@ -29,13 +31,19 @@ class SearxError(Exception):
 def start_scheduler():
     """
     Launch multiple planning tasks in background:
+
         - Fire main every 5 minutes from Monday to Sunday
         - Fire cleanup every 2 hours
     """
     scheduler = BackgroundScheduler(timezone=str(tzlocal.get_localzone()))
+    # Tells the Scheduled jobs page when each job runs next
+    from common.utils.job_log import register_scheduler
+    register_scheduler(scheduler)
 
-    scheduler.add_job(main_data_leak, 'cron', day_of_week='mon-sun', minute='*/5', id='week_job', max_instances=10,
-                      replace_existing=True)
+    # One run at a time: with ~400 keywords a run can last longer than 5 minutes, and a second run started on top of it
+    # would query the same keywords and create the same alerts twice. The slot missed meanwhile is skipped.
+    scheduler.add_job(main_data_leak, 'cron', day_of_week='mon-sun', minute='2-59/5', id='week_job', max_instances=1,
+                      coalesce=True, replace_existing=True)
     scheduler.add_job(cleanup, 'cron', day_of_week='mon-sun', hour='*/2', id='clean', replace_existing=True)
     scheduler.start()
 
@@ -58,19 +66,30 @@ def cleanup():
     logger.info(f"Deleted {count} useless pasties ID.")
 
 
+@job_log.logged_job("Fetch searx & pastebin", logger)
 def main_data_leak():
     """
         Main function:
+
             - close_old_connections()
             - read in our list of keywords
             - check_keywords(keywords)
     """
     close_old_connections()
     logger.info("CRON TASK : Fetch searx & pastebin")
+    started = time.monotonic()
     # read in our list of keywords
     keywords = Keyword.objects.all().order_by(Length('name').desc())
 
     check_keywords(keywords)
+
+    # The keywords are searched one after the other, so a slow SearxNG stretches the run. Past the cycle, the slots it
+    # covered are skipped (see start_scheduler): say it, since nothing else does.
+    elapsed = time.monotonic() - started
+    if elapsed > CYCLE_SECONDS:
+        job_log.job_count('overran')
+        logger.warning(f"The run took {elapsed:.0f}s, longer than its {CYCLE_SECONDS}s cycle: the slots it covered were skipped, "
+                       f"so each keyword is searched less often. SearxNG is probably slow to answer.")
 
 
 def check_urls(keyword, urls):
@@ -82,22 +101,12 @@ def check_urls(keyword, urls):
     :return: Urls not already in alert database column.
     :rtype: list
     """
-    new_urls = []
-    stored_urls = list()
-
-    if Alert.objects.all():
-
-        for alerts in Alert.objects.all():
-            stored_urls.append(alerts.url)
-
-        for url in urls:
-
-            if url not in stored_urls:
-                logger.info(f"New URL for {keyword} discovered: {url}")
-
-                new_urls.append(url)
-    else:
-        new_urls = urls
+    # Ask the database about these urls only: reading every stored alert for each of the ~400 keywords made the run slower
+    # as the alerts piled up
+    stored_urls = set(Alert.objects.filter(url__in=urls).values_list('url', flat=True))
+    new_urls = [url for url in urls if url not in stored_urls]
+    for url in new_urls:
+        logger.info(f"New URL for {keyword} discovered: {url}")
 
     return new_urls
 
@@ -129,7 +138,7 @@ def check_searx(keyword):
     params = {'q': search_term, 'engines': 'gitlab,github,bitbucket,apkmirror,gentoo,npm,stackoverflow',
               'format': 'json'}
 
-    logger.info(f"Querying Searx for: {search_term}")
+    logger.debug(f"Querying Searx for: {search_term}")
 
     # send the request off to searx
     try:
@@ -169,6 +178,26 @@ def check_searx(keyword):
         hits = check_urls(keyword, urls)
 
     return hits
+
+
+PASTEBIN_WARNING_EVERY = 6 * 3600  # seconds between two warnings that the Pastebin API cannot be read
+_pastebin_warned_at = None
+
+
+def _pastebin_unavailable(reason):
+    """
+    Pastebin refuses the API without a Pro account whose IP is whitelisted: it answers the same at every run, so the warning
+    is written once every six hours instead of every five minutes (288 times a day for something that does not change).
+    Each run still counts it (`pastebin_unavailable`, in the end line of the job), and says so at DEBUG.
+    """
+    global _pastebin_warned_at
+    job_log.job_count('pastebin_unavailable')
+    now = time.monotonic()
+    if _pastebin_warned_at is None or now - _pastebin_warned_at >= PASTEBIN_WARNING_EVERY:
+        _pastebin_warned_at = now
+        logger.warning(f"Cannot Pull https://scrape.pastebin.com API. {reason} (said once every {PASTEBIN_WARNING_EVERY // 3600} hours)")
+    else:
+        logger.debug(f"Cannot Pull https://scrape.pastebin.com API. {reason}")
 
 
 def check_pastebin(keywords):
@@ -251,10 +280,10 @@ def check_pastebin(keywords):
 
             logger.info(f"Successfully processed {len(new_ids)} Pastebin posts.")
         else:
-            logger.warning("Cannot Pull https://scrape.pastebin.com API. You need a Pastebin Pro Account. "
+            _pastebin_unavailable("You need a Pastebin Pro Account. "
                                   "Please verify that the software IP is whitelisted: https://pastebin.com/doc_scraping_api")
     else:
-        logger.warning("Cannot Pull https://scrape.pastebin.com API. API is in maintenance")
+        _pastebin_unavailable("API is in maintenance")
 
     return paste_hits
 
@@ -268,17 +297,21 @@ def check_keywords(keywords):
     # use the list of keywords and check each against searx
     failures = []
     for keyword in keywords:
+        job_log.job_count('keywords')
         # query searx for the keyword
         try:
             results = check_searx(keyword)
         except SearxError as e:
+            job_log.job_count('searx_failures')
             failures.append(str(e))
             continue
 
         if len(results):
+            job_log.job_count('new_urls', len(results))
             for result in results:
                 logger.info(f"Create alert for: {keyword} url: {result}")
                 alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=result)
+                job_log.job_count('alerts')
                 # limiting the number of specific email per alert
                 if len(results) < 6:
                     send_data_leak_notifications(alert)
@@ -295,6 +328,7 @@ def check_keywords(keywords):
     if len(result.keys()):
         for url, keyword in result.items():
             logger.info(f"Create alert for: {keyword} url: {url}")
+            job_log.job_count('pastebin_alerts')
             alert = Alert.objects.create(keyword=Keyword.objects.get(name=keyword), url=url,
                                          content=paste_content_hits[url])
             send_data_leak_notifications(alert)
@@ -303,22 +337,16 @@ def check_keywords(keywords):
 def send_data_leak_notifications(alert):
     """
     Sends notifications to Slack, Citadel, TheHive or Email based on Data Leak.
-    
+    Slack, Citadel and TheHive follow the instance settings (Connectors > Notifications); the email goes to the
+    subscribers who ticked E-mail.
+
     :param alert: Alert Object.
     """
-    subscribers = Subscriber.objects.filter(
-        (Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True))
-    )
-
-    if not subscribers.exists():
-        logger.info("No subscribers for Data Leak, no message sent.")
-        return    
-
     context_data = {
         'alert': alert
     }
 
-    send_app_specific_notifications('data_leak', context_data, subscribers)
+    send_app_specific_notifications('data_leak', context_data, Subscriber.objects.all())
 
 
 def send_data_leak_notifications_group(keyword, alerts_number, alerts):
@@ -330,18 +358,11 @@ def send_data_leak_notifications_group(keyword, alerts_number, alerts):
     :param alerts_number: The total number of alerts in the group.
     :param alerts: The list of individual alerts to be processed and sent to TheHive.
     """
-    subscribers = Subscriber.objects.filter(
-        Q(slack=True) | Q(citadel=True) | Q(thehive=True) | Q(email=True)
-    )
-
-
-    if not subscribers.exists():
-        logger.info("No subscribers for Data Leak group, no message sent.")
-        return
+    subscribers = Subscriber.objects.all()
 
     context_data_group = {
         'keyword': keyword,
-        'alerts_number': alerts_number, 
+        'alerts_number': alerts_number,
     }
 
     send_app_specific_notifications_group('data_leak_group', context_data_group, subscribers)
@@ -349,7 +370,7 @@ def send_data_leak_notifications_group(keyword, alerts_number, alerts):
     for index, alert in enumerate(alerts):
 
         context_data_thehive = {
-            'alert': alert,  
+            'alert': alert,
         }
 
         send_only_thehive_notifications('data_leak', context_data_thehive, subscribers)

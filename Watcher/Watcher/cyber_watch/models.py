@@ -16,6 +16,15 @@ class CVEAlert(models.Model):
     severity    = models.CharField(max_length=20, blank=True)
     published   = models.DateTimeField(null=True, blank=True)
     references  = models.JSONField(default=list)
+    # CISA "Known Exploited Vulnerabilities": exploited in the wild, when it was added, the date it must be fixed by (for the
+    # US agencies, a good deadline for anyone), and whether ransomware groups are known to use it
+    exploited      = models.BooleanField(default=False)
+    kev_added      = models.DateField(null=True, blank=True)
+    kev_due        = models.DateField(null=True, blank=True)
+    kev_ransomware = models.BooleanField(default=False)
+    # EPSS (FIRST.org): the probability, 0 to 1, that it is exploited in the next 30 days, and the share of the CVEs it beats
+    epss            = models.FloatField(null=True, blank=True)
+    epss_percentile = models.FloatField(null=True, blank=True)
     fetched_at   = models.DateTimeField(default=timezone.now)
     is_archived  = models.BooleanField(default=False)
 
@@ -131,7 +140,8 @@ class WatchRule(models.Model):
 
 class WatchRuleHit(models.Model):
     """
-    Records a match between a WatchRule and a CVEAlert or RansomwareVictim.
+    Records a match between a WatchRule and a CVEAlert or RansomwareVictim: one per rule and object, with the keywords
+    of the rule that matched it.
     """
     HIT_TYPE_CHOICES = [
         ('cve',               'CVE'),
@@ -142,18 +152,18 @@ class WatchRuleHit(models.Model):
     hit_type        = models.CharField(max_length=20, choices=HIT_TYPE_CHOICES)
     object_id       = models.CharField(max_length=500)
     hit_display     = models.TextField()
-    matched_keyword = models.CharField(max_length=200)
+    matched_keywords = models.JSONField(default=list)
     hit_at          = models.DateTimeField(default=timezone.now)
     is_archived     = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-hit_at']
-        unique_together = [['rule', 'hit_type', 'object_id', 'matched_keyword']]
+        unique_together = [['rule', 'hit_type', 'object_id']]
         verbose_name = 'Watch Rule Hit'
         verbose_name_plural = 'Watch Rule Hits'
 
     def __str__(self):
-        return f"{self.rule.name} → {self.object_id} [{self.matched_keyword}]"
+        return f"{self.rule.name} → {self.object_id} [{', '.join(self.matched_keywords)}]"
 
 
 class Subscriber(models.Model):
@@ -165,15 +175,13 @@ class Subscriber(models.Model):
 
     # Notification channels
     email   = models.BooleanField(default=False, verbose_name="E-mail")
-    thehive = models.BooleanField(default=False, verbose_name="TheHive")
-    slack   = models.BooleanField(default=False, verbose_name="Slack")
-    citadel = models.BooleanField(default=False, verbose_name="Citadel")
 
     # Subscription types
     notify_all_cves      = models.BooleanField(default=True,  verbose_name="All CVEs")
     notify_cve_hits      = models.BooleanField(default=True,  verbose_name="CVE Hits")
     notify_all_victims   = models.BooleanField(default=True,  verbose_name="All Victims")
     notify_victim_hits   = models.BooleanField(default=True,  verbose_name="Victim Hits")
+    notify_exploited_cves = models.BooleanField(default=True, verbose_name="Exploited CVEs")
 
     class Meta:
         verbose_name_plural = 'subscribers'

@@ -1,26 +1,42 @@
 name: Deploy to GitHub Pages
 
+# The documentation is built from the README, and the docstrings (Zensical): nothing built is committed.
 on:
   push:
     paths:
     - 'Watcher/docs/**'
+    - 'Watcher/README.md'
+    - 'Watcher/Watcher/**/*.py'
     branches: [ master ]
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: Deploy to GitHub Pages
+    name: Build and deploy to GitHub Pages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the documentation tools
+        run: pip install $(grep -iE '^(zensical|mkdocstrings-python|pymdown-extensions)==' Watcher/requirements.txt)
+
+      - name: Build the site
+        working-directory: Watcher/docs
+        run: |
+          python build_pages.py
+          zensical build
 
       - name: Disable Jekyll processing
-        run: touch ./Watcher/docs/_build/html/.nojekyll
+        run: touch ./Watcher/docs/site/.nojekyll
 
       - name: Deploy
         uses: s0/git-publish-subdir-action@develop
         env:
           REPO: self
           BRANCH: gh-pages
-          FOLDER: ./Watcher/docs/_build/html
+          FOLDER: ./Watcher/docs/site
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

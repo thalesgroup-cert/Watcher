@@ -1,9 +1,11 @@
 import logging
-from urllib.parse import urlencode
 
+from django.middleware.csrf import get_token
 from django.shortcuts import redirect
 from mozilla_django_oidc.views import OIDCAuthenticationCallbackView
 from knox.models import AuthToken
+
+from .core import set_auth_cookies
 
 logger = logging.getLogger('watcher')
 
@@ -11,9 +13,9 @@ logger = logging.getLogger('watcher')
 class SSOCallbackView(OIDCAuthenticationCallbackView):
     """
     Override the OIDC callback to issue a Knox token instead of a
-    Django session, then hand it to the React SPA via a query parameter.
-    The SPA reads ?sso_token=... on mount, loads it into Redux/localStorage,
-    then removes it from the URL.
+    Django session, then hand it to the React SPA as an httpOnly cookie:
+    the token is never in the address, in the history or in a log.
+    The SPA sees ?sso=1 and asks who is signed in.
     """
 
     def login_success(self):
@@ -26,7 +28,10 @@ class SSOCallbackView(OIDCAuthenticationCallbackView):
         _, raw_token = AuthToken.objects.create(user)
         logger.info('OIDC SSO: Knox token issued for user %s', user.username)
 
-        return redirect('/?' + urlencode({'sso_token': raw_token}))
+        response = redirect('/?sso=1')
+        set_auth_cookies(self.request, response, raw_token)
+        get_token(self.request)
+        return response
 
     def login_failure(self):
         logger.warning('OIDC SSO: authentication failure')

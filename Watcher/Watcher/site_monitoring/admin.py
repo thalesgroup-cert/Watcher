@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Alert, Site, Subscriber
+from .models import Alert, MonitoredPage, PageVersion, Site, Subscriber
 from import_export import resources
 from import_export.admin import ExportMixin
 from common.misp import get_misp_uuid
@@ -26,8 +26,8 @@ class Alert(ExportMixin, admin.ModelAdmin):
                     'old_ip_second', 'old_MX_records', 'old_mail_A_record_ip', 'difference_score',
                     'new_server_banner', 'old_server_banner', 'new_x_powered_by', 'old_x_powered_by',
                     'status', 'created_at']
-    list_filter = ('site', ('status', custom_titled_filter('Active Status')))
-    search_fields = ['id', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records',
+    list_filter = ('type', 'site', ('status', custom_titled_filter('Active Status')), 'created_at')
+    search_fields = ['id', 'type', 'site__domain_name', 'new_ip', 'new_ip_second', 'old_ip', 'old_ip_second', 'difference_score', 'new_MX_records',
                      'new_mail_A_record_ip', 'old_MX_records', 'old_mail_A_record_ip',
                      'new_server_banner', 'old_server_banner', 'new_x_powered_by', 'old_x_powered_by']
     resource_class = AlertResource
@@ -98,15 +98,30 @@ class Site(ExportMixin, admin.ModelAdmin):
 
 @admin.register(Subscriber)
 class Subscriber(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel')
-    list_filter = ('email', 'thehive', 'slack', 'citadel') 
+    list_display = ('user_rec', 'created_at', 'email')
+    list_filter = ('email',) 
     search_fields = ('user_rec__username',)
     fieldsets = (
         (None, { 
             'fields': ('user_rec', 'created_at')
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber."
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive are set once for the whole instance under Connectors > Notifications."
         }),
     )
+
+@admin.register(MonitoredPage)
+class MonitoredPageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'url', 'threshold', 'check_interval', 'is_active', 'last_status', 'last_checked',
+                    'last_changed']
+    list_filter = ('is_active', 'last_status')
+    search_fields = ['name', 'url']
+
+
+@admin.register(PageVersion)
+class PageVersionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'page', 'created_at', 'size', 'change_ratio', 'notified']
+    list_filter = ('notified', 'page', 'created_at')
+    search_fields = ['page__name', 'page__url']
+    exclude = ('text',)

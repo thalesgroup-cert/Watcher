@@ -4,8 +4,8 @@ from .models import CVEAlert, RansomwareGroup, RansomwareVictim, WatchRule, Watc
 
 @admin.register(CVEAlert)
 class CVEAlertAdmin(admin.ModelAdmin):
-    list_display = ['cve_id', 'severity', 'cvss_score', 'published', 'is_archived', 'fetched_at']
-    list_filter = ['severity', 'is_archived', 'published']
+    list_display = ['cve_id', 'severity', 'cvss_score', 'exploited', 'epss', 'published', 'is_archived', 'fetched_at']
+    list_filter = ['severity', 'exploited', 'is_archived', 'published']
     search_fields = ['cve_id', 'description']
     readonly_fields = ['fetched_at']
 
@@ -21,7 +21,7 @@ class RansomwareGroupAdmin(admin.ModelAdmin):
 @admin.register(RansomwareVictim)
 class RansomwareVictimAdmin(admin.ModelAdmin):
     list_display = ['victim_name', 'group', 'country', 'sector', 'attacked_at', 'is_archived']
-    list_filter = ['is_archived', 'country', 'attacked_at']
+    list_filter = ['is_archived', 'group', 'country', 'sector', 'attacked_at']
     search_fields = ['victim_name', 'group__name', 'country', 'sector']
     readonly_fields = ['fetched_at']
 
@@ -36,30 +36,31 @@ class WatchRuleAdmin(admin.ModelAdmin):
 
 @admin.register(WatchRuleHit)
 class WatchRuleHitAdmin(admin.ModelAdmin):
-    list_display = ['rule', 'hit_type', 'object_id', 'matched_keyword', 'is_archived', 'hit_at']
-    list_filter = ['hit_type', 'is_archived', 'rule']
-    search_fields = ['object_id', 'matched_keyword', 'rule__name']
+    list_display = ['rule', 'hit_type', 'object_id', 'matched_keywords', 'is_archived', 'hit_at']
+    list_filter = ['hit_type', 'is_archived', 'rule', 'hit_at']
+    search_fields = ['object_id', 'rule__name']
     readonly_fields = ['hit_at']
 
 
 @admin.register(Subscriber)
 class SubscriberAdmin(admin.ModelAdmin):
-    list_display = ('user_rec', 'created_at', 'email', 'thehive', 'slack', 'citadel',
-                    'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits')
-    list_filter  = ('email', 'thehive', 'slack', 'citadel',
-                    'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits')
+    list_display = ('user_rec', 'created_at', 'email',
+                    'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits', 'notify_exploited_cves')
+    list_filter  = ('email',
+                    'notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits', 'notify_exploited_cves')
     search_fields = ('user_rec__username',)
     readonly_fields = ['created_at']
     fieldsets = (
         (None, {
             'fields': ('user_rec', 'created_at'),
         }),
-        ('Notification Channels', {
-            'fields': ('email', 'thehive', 'slack', 'citadel'),
-            'description': "Select the notification channels for this subscriber.",
+        ('E-mail', {
+            'fields': ('email',),
+            'description': "Tick to send this subscriber the notifications by e-mail. Slack, Citadel and TheHive "
+                           "are set once for the whole instance under Connectors > Notifications.",
         }),
         ('Subscription Types', {
-            'fields': ('notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits'),
-            'description': "Choose which event types trigger a notification.",
+            'fields': ('notify_all_cves', 'notify_cve_hits', 'notify_all_victims', 'notify_victim_hits', 'notify_exploited_cves'),
+            'description': "Choose which kinds of e-mail this subscriber receives. Slack, Citadel and TheHive ignore these boxes (see Connectors > Notifications).",
         }),
     )

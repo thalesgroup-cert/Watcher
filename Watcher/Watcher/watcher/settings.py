@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
 import os
+import sys
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
@@ -108,6 +109,22 @@ SUBJECT_TAG_SITE_MONITORING = os.environ.get('SUBJECT_TAG_SITE_MONITORING', 'INC
 EMAIL_CLASSIFICATION = os.environ.get('EMAIL_CLASSIFICATION', 'Internal')
 # Website url, link in e-mails body
 WATCHER_URL = os.environ.get('WATCHER_URL', '')
+
+# Screenshot service (the `screenshotter` container): empty switches the screenshots of the monitored pages off
+SCREENSHOT_SERVICE_URL = os.environ.get('SCREENSHOT_SERVICE_URL', '')
+SCREENSHOT_TIMEOUT = int(os.environ.get('SCREENSHOT_TIMEOUT', '60'))
+# Screenshots kept for each object (the oldest are deleted)
+SCREENSHOT_KEEP = int(os.environ.get('SCREENSHOT_KEEP', '10'))
+
+# Cyber Watch keeps the CVEs and the ransomware victims this many days, then a nightly job takes them out (0 keeps everything).
+# The CVEs exploited in the wild (CISA catalogue) and what a watch rule matched always stay.
+CYBER_WATCH_CVE_RETENTION_DAYS = int(os.environ.get('CYBER_WATCH_CVE_RETENTION_DAYS', '365'))
+CYBER_WATCH_VICTIM_RETENTION_DAYS = int(os.environ.get('CYBER_WATCH_VICTIM_RETENTION_DAYS', '365'))
+# The AI summaries (one more at each Regenerate) and the activity journal (every change made in the modules); 0 keeps everything
+SUMMARY_RETENTION_DAYS = int(os.environ.get('SUMMARY_RETENTION_DAYS', '90'))
+TIMELINE_RETENTION_DAYS = int(os.environ.get('TIMELINE_RETENTION_DAYS', '365'))
+# Computing threads the entity model (Threats Watcher) may use while it reads the titles; 0 leaves torch free to take every core
+NER_TORCH_THREADS = int(os.environ.get('NER_TORCH_THREADS', '2'))
 # Watcher Logo
 WATCHER_LOGO = os.environ.get('WATCHER_LOGO', '')
 GITHUB_LOGO = os.environ.get('GITHUB_LOGO', '')
@@ -125,7 +142,9 @@ BULK_ACTION_MAX_ITEMS = int(os.environ.get('BULK_ACTION_MAX_ITEMS', 200))
 HTTP_PROXY = os.environ.get('HTTP_PROXY', '')
 HTTPS_PROXY = os.environ.get('HTTPS_PROXY', '')
 
-LITELLM_VERIFY_SSL = os.environ.get('LITELLM_VERIFY_SSL', 'False')
+# The certificates of the AI endpoints are checked, the API keys go to them. Only an endpoint with a self-signed certificate
+# needs LITELLM_VERIFY_SSL=False (or CA_PATH, to trust its authority).
+LITELLM_VERIFY_SSL = os.environ.get('LITELLM_VERIFY_SSL', 'True')
 
 CA_PATH = os.environ.get('CA_PATH', '')
 if CA_PATH and os.path.exists(CA_PATH):
@@ -140,6 +159,9 @@ DATA_LEAK_SEARX_URL = os.environ.get('DATA_LEAK_SEARX_URL', 'http://searxng:8080
 
 # Cyber Watch - External Threat Intelligence APIs
 CYBER_WATCH_CVE_API_URL = os.environ.get('CYBER_WATCH_CVE_API_URL', 'https://cve.circl.lu/api/last')
+# CISA's catalogue of the vulnerabilities exploited in the wild (once a day) and FIRST.org's EPSS scores (once a day). Empty: off.
+CYBER_WATCH_KEV_URL = os.environ.get('CYBER_WATCH_KEV_URL', 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json')
+CYBER_WATCH_EPSS_API_URL = os.environ.get('CYBER_WATCH_EPSS_API_URL', 'https://api.first.org/data/v1/epss')
 CYBER_WATCH_RANSOMWARE_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_GROUPS_URL', 'https://api.ransomware.live/v2/groups')
 CYBER_WATCH_RANSOMWARE_VICTIMS_URL = os.environ.get('CYBER_WATCH_RANSOMWARE_VICTIMS_URL', 'https://api.ransomware.live/v2/recentvictims')
 CYBER_WATCH_RANSOMLOOK_GROUPS_URL = os.environ.get('CYBER_WATCH_RANSOMLOOK_GROUPS_URL', 'https://www.ransomlook.io/api/groups')
@@ -247,11 +269,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'accounts.core.KnoxCookieAuthentication',
         'knox.auth.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+# Limits of the requests that cost the most (see common/api.py): a capture drives a browser, the search reads every module.
+# A test run is not limited.
+WATCHER_THROTTLES = {'screenshot': '10/min', 'search': '120/min', 'favicon': '600/min'}
+if 'test' in sys.argv:
+    WATCHER_THROTTLES = {}
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Watcher API',
@@ -275,6 +304,8 @@ REST_KNOX = {
 }
 
 MIDDLEWARE = [
+    # First, so that it sees every request and times all the others (the access log, logs/access.log)
+    'common.access_log.AccessLogMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -345,7 +376,7 @@ WSGI_APPLICATION = 'watcher.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'CONN_MAX_AGE': 3600,
+        'CONN_MAX_AGE': 0,  # runserver opens a thread per request: persistent connections are never reused (Django docs)
         'NAME': os.environ.get('DB_NAME', 'db_watcher'),
         'USER': os.environ.get('DB_USER', 'watcher'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'Ee5kZm4fWWAmE9hs'),
@@ -395,6 +426,9 @@ USE_TZ = False
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
+# Local development only: let WhiteNoise pick up a rebuilt frontend bundle without restarting Django.
+WHITENOISE_AUTOREFRESH = os.environ.get('WHITENOISE_AUTOREFRESH', '') == '1'
+
 
 # Create logs directory if it doesn't exist
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
@@ -406,7 +440,22 @@ TRACE_LEVEL = os.environ.get('TRACE_LEVEL', 'INFO')
 # Logging configuration
 LOGGING = {
     "version": 1,
+    'filters': {
+        # The health check of Docker asks the web server for `/` every 30 seconds: its line says nothing
+        'skip_health_check': {'()': 'common.access_log.HealthCheckFilter'},
+    },
     'formatters': {
+        # The format Django gives to the lines of its development server (see django.utils.log.DEFAULT_LOGGING)
+        'django.server': {
+            '()': 'django.utils.log.ServerFormatter',
+            'format': '[{server_time}] {message}',
+            'style': '{',
+        },
+        'access': {
+            'format': '{asctime} {levelname} {message}',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+            'style': '{',
+        },
         'verbose': {
             'format': '{levelname} {asctime} | {message}',
             'style': '{',
@@ -422,6 +471,19 @@ LOGGING = {
         },
     },
     'handlers': {
+        'file_access': {
+            'level': TRACE_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'access.log'),
+            'formatter': 'access',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+        },
+        'django.server': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'django.server',
+        },
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
@@ -485,6 +547,21 @@ LOGGING = {
         },
     },
     "loggers": {
+        'django.server': {
+            'handlers': ['django.server'],
+            'level': 'INFO',
+            'propagate': False,
+            'filters': ['skip_health_check'],
+        },
+        # Django warns about every 4xx ("Bad Request: /api/..."), without saying who: the access log does it with the user.
+        # What stays here is the 5xx, with its traceback.
+        'django.request': {'level': 'ERROR'},
+        # Who did what (common/access_log.py). ACCESS_LOG_CONSOLE=1 also prints it on the console.
+        'watcher.access': {
+            'handlers': ['file_access'] + (['console'] if os.environ.get('ACCESS_LOG_CONSOLE') == '1' else []),
+            'level': TRACE_LEVEL,
+            'propagate': False,
+        },
         'watcher.common': {
             'handlers': ['file_common', 'console'], 
             'level': TRACE_LEVEL,

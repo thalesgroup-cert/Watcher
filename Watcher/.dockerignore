@@ -2,3 +2,8 @@ docs/
 static/
 Dockerfile
 README.md
+# Local leftovers that must not end up in the image
+**/logs/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
