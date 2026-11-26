@@ -17,6 +17,7 @@ import { countOf, SearchField } from '../../../ui/SearchField';
 import { ActiveFilters } from '../../../ui/ActiveFilters';
 import { hasAnyPermission, selectUser, useAuthStore } from '../../auth/store';
 import { useCyberStatistics } from '../../cyberWatch/hooks';
+import type { CountryCount } from '../../cyberWatch/types';
 import { useBanWord, useDeleteWord, useSaveKeyword, useThreatsStatistics, useWords } from '../hooks';
 import type { Confidence, Period, Word, WordFilters } from '../types';
 import { Briefing } from './Briefing';
@@ -52,10 +53,10 @@ export function readWordFilters(params: URLSearchParams): WordFilters {
 
 const NO_FILTERS: WordFilters = { search: '', period: '', confidence: '' };
 export const wordFilterParams = (f: WordFilters) => ({ q: f.search, period: f.period, confidence: f.confidence, page: null });
-// The cloud takes the words talked about this week, or the most mentioned of all time
+// The cloud takes the words talked about in the last 7 days, or the most mentioned of the last 30 (older words are deleted)
 const CLOUD = { now: { page: 1, pageSize: 40, ordering: '-mentions_week' }, all: { page: 1, pageSize: 40, ordering: '-occurrences' } };
 
-type MapLayer = 'victims' | 'sources';
+type MapLayer = 'victims' | 'matched' | 'sources';
 
 export function TrendsTab() {
     const { params, update } = useUrlParams();
@@ -80,7 +81,7 @@ export function TrendsTab() {
     const list = useWords(filters, { page, pageSize, ordering });
     const [cloudSize, setCloudSize] = useState<CloudSize>('now');
     const cloud = useWords(filters, CLOUD[cloudSize]);
-    // Words with no article this week have no place in the cloud of what is talked about now
+    // Words with no article in the last 7 days have no place in the cloud of what is talked about now
     const cloudWords = (cloud.data?.results ?? []).filter((w) => cloudSize === 'all' || w.mentions_week > 0);
     const rows = list.data?.results ?? [];
     const monitor = useSaveKeyword();
@@ -91,14 +92,23 @@ export function TrendsTab() {
     if (wordId && opened?.id !== wordId) setOpened({ id: wordId, row: rows.find((r) => r.id === wordId) });
     const open = (w: Word) => {
         setOpened({ id: w.id, row: w });
-        update({ word: w.id });
+        update({ word: w.id, read: null });
     };
     const [confirm, setConfirm] = useState<{ word: Word; action: 'ban' | 'delete' } | null>(null);
 
+    const victimValues = (rows: CountryCount[] = []): MapValue[] =>
+        rows.filter((c) => /^[A-Za-z]{2}$/.test(c.name)).map((c) => ({ code: c.name, count: c.count, d30: c.d30, d7: c.d7 }));
     const mapValues: MapValue[] =
         layer === 'victims'
-            ? (cyber.data?.victims.byCountry ?? []).filter((c) => /^[A-Za-z]{2}$/.test(c.name)).map((c) => ({ code: c.name, count: c.count }))
-            : (stats?.sourcesByCountry ?? []).filter((c) => c.code).map((c) => ({ code: c.code, count: c.count }));
+            ? victimValues(cyber.data?.victims.byCountry)
+            : layer === 'matched'
+              ? victimValues(cyber.data?.victims.byCountryMatched)
+              : (stats?.sourcesByCountry ?? []).filter((c) => c.code).map((c) => ({ code: c.code, count: c.count }));
+    const mapText = {
+        victims: ['Ransomware victims by country. Click a country to list them.', 'ransomware victims'],
+        matched: ['Victims that one of your watch rules matched, by country. Click a country to list them.', 'victims matching a rule'],
+        sources: ['Where the RSS sources come from. Click a country to list them.', 'RSS sources'],
+    }[layer];
 
     const isFiltered = !!(filters.search || filters.period || filters.confidence);
     const kpi = (period: Period) => ({
@@ -163,18 +173,18 @@ export function TrendsTab() {
             {/* The words that come up, and where the news and the victims are from, side by side */}
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: cloudWords.length > 0 || cloud.isPending ? 'minmax(0, 7fr) minmax(0, 5fr)' : '1fr' }, mb: 2 }}>
                 {(cloudWords.length > 0 || cloud.isPending) && (
-                    <Card sx={{ minWidth: 0 }}>
-                        <CardContent>
+                    <Card sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 0.5 }}>
                                 <Typography variant="overline" color="text.secondary" component="h2">
-                                    {cloudSize === 'now' ? 'Talked about now' : 'Most mentioned, all time'}
+                                    Word cloud
                                 </Typography>
                                 <ToggleButtonGroup size="small" exclusive value={cloudSize} onChange={(_, v: CloudSize | null) => v && setCloudSize(v)} aria-label="What sizes the words">
                                     <ToggleButton value="now" sx={{ px: 1.25, py: 0.25 }}>
-                                        This week
+                                        7 days
                                     </ToggleButton>
                                     <ToggleButton value="all" sx={{ px: 1.25, py: 0.25 }}>
-                                        All time
+                                        30 days
                                     </ToggleButton>
                                 </ToggleButtonGroup>
                             </Stack>
@@ -187,7 +197,7 @@ export function TrendsTab() {
                                 onOpen={(id) => {
                                     const row = cloud.data?.results.find((w) => w.id === id);
                                     setOpened({ id, row });
-                                    update({ word: id });
+                                    update({ word: id, read: null });
                                 }}
                             />
                         </CardContent>
@@ -201,26 +211,29 @@ export function TrendsTab() {
                                     World map
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                    {layer === 'victims' ? 'Ransomware victims by country. Click a country to list them.' : 'Where the RSS sources come from. Click a country to list them.'}
+                                    {mapText[0]}
                                 </Typography>
                             </Box>
                             <ToggleButtonGroup size="small" exclusive value={layer} onChange={(_, v: MapLayer | null) => v && setLayer(v)} aria-label="Map layer">
                                 <ToggleButton value="victims" sx={{ px: 1.25 }}>
                                     Victims
                                 </ToggleButton>
+                                <ToggleButton value="matched" sx={{ px: 1.25 }}>
+                                    Matches
+                                </ToggleButton>
                                 <ToggleButton value="sources" sx={{ px: 1.25 }}>
                                     Sources
                                 </ToggleButton>
                             </ToggleButtonGroup>
                         </Stack>
-                        {(layer === 'victims' ? cyber.isPending : !stats) ? (
+                        {(layer === 'sources' ? !stats : cyber.isPending) ? (
                             <Skeleton variant="rounded" height={300} />
                         ) : (
                             <WorldMap
                                 values={mapValues}
-                                unit={layer === 'victims' ? 'ransomware victims' : 'RSS sources'}
+                                unit={mapText[1]}
                                 height={300}
-                                onCountry={(code) => void navigate(layer === 'victims' ? `/cyber_watch?tab=ransomware&vstatus=all&vcountry=${code}` : `/threats_watcher?tab=sources&scountry=${code}`)}
+                                onCountry={(code) => void navigate(layer === 'sources' ? `/threats_watcher?tab=sources&scountry=${code}` : `/cyber_watch?tab=ransomware&vstatus=all&vcountry=${code}${layer === 'matched' ? '&vmatched=yes' : ''}`)}
                             />
                         )}
                     </CardContent>

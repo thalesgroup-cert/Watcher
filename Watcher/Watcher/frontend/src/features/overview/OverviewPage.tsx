@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import BugReportOutlined from '@mui/icons-material/BugReportOutlined';
 import DnsOutlined from '@mui/icons-material/DnsOutlined';
 import LockOutlined from '@mui/icons-material/LockOutlined';
 import MonitorHeartOutlined from '@mui/icons-material/MonitorHeartOutlined';
+import PublicOutlined from '@mui/icons-material/PublicOutlined';
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
 import SpaceDashboardOutlined from '@mui/icons-material/SpaceDashboardOutlined';
 import TravelExploreOutlined from '@mui/icons-material/TravelExploreOutlined';
@@ -23,6 +24,8 @@ import { PendingActionsDialog } from '../pendingActions/PendingActionsDialog';
 import { AttentionCard } from './AttentionCard';
 import { BriefCard, Headline, LatestFeed, TopVulnerabilities, TrendingList } from './HomeBlocks';
 import { ModuleCards } from './ModuleCards';
+import { WorldMap } from '../../ui/WorldMap';
+import { SectionCard } from './HomeBlocks';
 import { LockedModulesRow } from '../visitor/LockedModulesRow';
 
 /** Columns of a row of cards: the number of cards on it, as wide as the screen allows. */
@@ -42,6 +45,7 @@ export default function OverviewPage() {
     const [approvalsOpen, setApprovalsOpen] = useState(false);
     const onboarding = useOnboarding();
     const home = useHomeBlocks();
+    const navigate = useNavigate();
 
     // One request for the whole page: each module answers with the person's own rights, so a visitor gets the public parts only
     const overview = useOverview(signedIn);
@@ -154,6 +158,20 @@ export default function OverviewPage() {
                             data={{ threats: threats.data, cyber: cyber.data, domains: domains.data, leaks: leaks.data, dns: dns.data, sites: sites.data }}
                             loading={{ threats: threats.isPending, cyber: cyber.isPending, domains: domains.isPending, leaks: leaks.isPending, dns: dns.isPending, sites: sites.isPending }}
                         />
+                    </Box>
+                )}
+
+                {show('map') && (cyber.data?.victims.byCountry.length ?? 0) > 0 && (
+                    <Box data-testid="home-block-map">
+                        <SectionCard icon={<PublicOutlined />} title="Ransomware victims by country" link={{ to: '/threats_watcher', label: 'Open the map' }}>
+                            <WorldMap
+
+                                height={300}
+                                unit="ransomware victims"
+                                values={(cyber.data?.victims.byCountry ?? []).filter((c) => /^[A-Za-z]{2}$/.test(c.name)).map((c) => ({ code: c.name, count: c.count, d30: c.d30, d7: c.d7 }))}
+                                onCountry={(code) => void navigate(`/cyber_watch?tab=ransomware&vstatus=all&vcountry=${code}`)}
+                            />
+                        </SectionCard>
                     </Box>
                 )}
 

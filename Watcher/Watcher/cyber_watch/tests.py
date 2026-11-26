@@ -572,6 +572,9 @@ class CyberWatchPageAPITest(APITestCase):
         self.assertEqual(len(data['cves']['perDay']), 30)
         self.assertEqual(data['victims']['topGroups'], [{'id': self.group.id, 'name': 'akira', 'count': 2}])
         self.assertEqual({c['name'] for c in data['victims']['byCountry']}, {'FR', 'DE'})
+        # Each country says how many victims came in the last 30 and 7 days, and none matched a rule here
+        self.assertTrue(all({'count', 'd30', 'd7'} <= set(c) for c in data['victims']['byCountry']))
+        self.assertEqual(data['victims']['byCountryMatched'], [])
         self.assertEqual(data['hits']['openCve'], 1)
         self.assertEqual(data['rules']['byRule'][0]['name'], 'Edge')
         self.client.credentials()

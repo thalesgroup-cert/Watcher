@@ -150,7 +150,7 @@ export function Briefing() {
                         kind="breaking"
                         summary={breakingSummary}
                         testId="breaking-news"
-                        onReadMore={() => update({ read: 'breaking' })}
+                        onReadMore={() => update({ read: 'breaking', word: null })}
                         onRegenerate={regenerateOf('breaking')}
                         regenerating={pendingOf('breaking')}
                     />
@@ -161,7 +161,7 @@ export function Briefing() {
                     summary={weekly.data ?? undefined}
                     testId="weekly-summary"
                     maxWords={breakingSummary ? 3 : 5}
-                    onReadMore={() => update({ read: 'weekly' })}
+                    onReadMore={() => update({ read: 'weekly', word: null })}
                     onRegenerate={regenerateOf('weekly')}
                     regenerating={pendingOf('weekly')}
                     empty={

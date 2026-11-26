@@ -1389,6 +1389,10 @@ class PageApiTest(TestCase):
         row = self.client.get('/api/site_monitoring/page/').json()['results'][0]
         self.assertEqual((row['versions_count'], row['last_ratio']), (2, 40.0))
 
+    def test_the_list_says_who_added_and_last_changed_a_page(self):
+        row = self.client.get('/api/site_monitoring/page/').json()['results'][0]
+        self.assertEqual(row['last_event']['action'], 'created')
+
     def test_creating_a_page_needs_the_permission(self):
         self.assertEqual(self.client.post('/api/site_monitoring/page/', {'url': 'https://x.example.org/'}).status_code, 403)
         self._allow('add_monitoredpage')

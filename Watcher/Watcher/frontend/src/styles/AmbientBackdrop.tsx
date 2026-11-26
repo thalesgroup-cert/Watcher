@@ -153,7 +153,7 @@ export function AmbientBackdrop({ level }: { level: Exclude<Effects, 'off'> }) {
                     right: '-6vmax',
                     bottom: '-4vmax',
                     width: '46vmax',
-                    color: alpha(primary.main, 0.09 * strength),
+                    color: alpha(primary.main, theme.palette.mode === 'dark' ? 0.09 : 0.17),
                     ...(moving && { animation: `${breathe} 9s ease-in-out infinite` }),
                 },
                 '& .watermark svg': { display: 'block', width: '100%', height: 'auto', overflow: 'visible' },

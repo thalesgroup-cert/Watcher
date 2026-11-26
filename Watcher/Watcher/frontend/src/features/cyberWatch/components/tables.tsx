@@ -6,7 +6,7 @@ import PauseCircleOutline from '@mui/icons-material/PauseCircleOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import PlayCircleOutline from '@mui/icons-material/PlayCircleOutlined';
 import { fonts } from '../../../styles/theme';
-import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
+import { type Column, DataTable, RowSelection } from '../../../ui/DataTable';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
 import { countryLabel, isKnownSector, matchLabel, scopeMeta, severityMeta } from '../catalog';
 import type { Cve, Match, Rule, Severity, Victim } from '../types';

@@ -11,11 +11,31 @@ export function findingTitle(url: string): string {
     }
 }
 
+/** Escapes that mean something in a Python regular expression: any other letter after a backslash is an error there. */
+const PYTHON_ESCAPES = 'abfnrtvxuUNdDsSwWABZ';
+
+/**
+ * What the server (Python `re`) refuses and JavaScript accepts: an unknown escape such as `\i`, or a named group written
+ * `(?<name>...)` (Python wants `(?P<name>...)`). The message, or null.
+ */
+export function pythonOnlyError(source: string): string | null {
+    for (let i = 0; i < source.length; i += 1) {
+        if (source[i] !== '\\') continue;
+        const next = source[i + 1];
+        if (next && /[A-Za-z]/.test(next) && !PYTHON_ESCAPES.includes(next)) return `unknown escape "\\${next}"`;
+        i += 1;
+    }
+    if (/\(\?<[A-Za-z_]/.test(source)) return 'a named group is written (?P<name>...)';
+    return null;
+}
+
 /**
  * The JavaScript RegExp for a pattern, or the error message. The server checks patterns with Python `re`; the two
  * agree on everything the templates use, so this is a preview, the server stays the judge.
  */
 export function compilePattern(source: string, flags = 'gi'): RegExp | string {
+    const refused = pythonOnlyError(source);
+    if (refused) return refused;
     try {
         return new RegExp(source, flags);
     } catch (e) {

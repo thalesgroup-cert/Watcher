@@ -92,7 +92,7 @@ Watcher leverages open source tools and libraries:
 - [**TLSH**](https://github.com/trendmicro/tlsh) - Fuzzy hashing for content similarity detection
 - [**mozilla-django-oidc**](https://github.com/mozilla/mozilla-django-oidc) - OpenID Connect authentication backend
 - [**drf-spectacular**](https://github.com/tfranzel/drf-spectacular) - OpenAPI 3 schema generation and Swagger UI
-- [**react-simple-maps**](https://www.react-simple-maps.io/) - World map of the ransomware victims and of the sources
+- [**d3-geo**](https://d3js.org/d3-geo) and [**TopoJSON**](https://github.com/topojson/topojson-client) - World map and globe of the ransomware victims and of the sources
 - [**MUI (Material UI)**](https://mui.com/) - React component library for KPI cards and charts
 - [**Playwright**](https://playwright.dev/) - Headless browser of the screenshotter, in its own isolated container
 - [**NLTK**](https://www.nltk.org/) - Natural Language Toolkit for text processing

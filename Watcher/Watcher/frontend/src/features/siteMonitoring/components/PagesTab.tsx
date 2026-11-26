@@ -16,10 +16,12 @@ import {
     Switch,
     TablePagination,
     TextField,
+    Tooltip,
     Typography,
 } from '@mui/material';
 import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined';
+import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import FilterAltOffOutlined from '@mui/icons-material/FilterAltOffOutlined';
 import PauseCircleOutline from '@mui/icons-material/PauseCircleOutlined';
 import PlayCircleOutline from '@mui/icons-material/PlayCircleOutlined';
@@ -35,6 +37,7 @@ import { EmptyState } from '../../../ui/EmptyState';
 import { countOf, SearchField } from '../../../ui/SearchField';
 import { BULK_MAX_ITEMS, SelectionBar } from '../../../ui/SelectionBar';
 import { When } from '../../../ui/When';
+import { LastActorAvatar } from '../../timeline/components/LastActor';
 import { hasAnyPermission, selectUser, useAuthStore } from '../../auth/store';
 import { useBulk } from '../../bulk/useBulk';
 import { PAGE_BULK, useDeletePage, usePages, useSavePage } from '../hooks';
@@ -115,6 +118,17 @@ const COLUMNS: Column<MonitoredPage>[] = [
         ),
     },
     { key: 'checked', label: 'Last check', sort: 'last_checked', width: 130, render: (p) => <When iso={p.last_checked} empty="Never" /> },
+    {
+        key: 'actor',
+        label: (
+            <Tooltip title="Last change by">
+                <PersonOutlined sx={{ fontSize: 18, verticalAlign: 'middle' }} aria-label="Last change by" />
+            </Tooltip>
+        ),
+        width: 56,
+        align: 'center',
+        render: (p) => (p.last_event ? <LastActorAvatar event={p.last_event} /> : null),
+    },
 ];
 
 function PageForm({ page, onClose, onSaved }: { page: MonitoredPage | null; onClose: () => void; onSaved?: (page: MonitoredPage) => void }) {

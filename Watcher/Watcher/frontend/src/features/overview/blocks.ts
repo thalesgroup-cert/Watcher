@@ -7,7 +7,7 @@ import { selectIsAuthenticated, useAuthStore } from '../auth/store';
  * of blocks hidden, kept on the account (profile.preferences.home.hidden) and in the browser, so that a block added by a
  * later release shows up for everyone.
  */
-export type HomeBlockId = 'setup' | 'week' | 'brief' | 'attention' | 'modules' | 'feed' | 'vulnerabilities' | 'trending';
+export type HomeBlockId = 'setup' | 'week' | 'brief' | 'attention' | 'modules' | 'feed' | 'vulnerabilities' | 'trending' | 'map';
 
 export interface HomeBlock {
     id: HomeBlockId;
@@ -26,6 +26,7 @@ export const HOME_BLOCKS: HomeBlock[] = [
     { id: 'feed', label: 'Latest detections', description: 'The newest findings of every module, in one list', signedIn: true },
     { id: 'vulnerabilities', label: 'Top vulnerabilities', description: 'The CVEs with the highest score of the last 30 days' },
     { id: 'trending', label: 'Trending now', description: 'The most mentioned words, ranked, with their reliability' },
+    { id: 'map', label: 'World map', description: 'Where the ransomware victims are, as a map or a globe' },
 ];
 
 /** Everything is shown until the person hides something. */

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { askExternal } from '../../../ui/ExternalLink';
 import { Alert as MuiAlert, Box, Button, Chip, Divider, IconButton, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
 import ArchiveOutlined from '@mui/icons-material/ArchiveOutlined';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
@@ -106,9 +107,11 @@ export function AlertDrawer({ open, id, initial, onClose, previous, next, onNavi
                 <Stack direction="row" spacing={1} sx={{ px: 2.5, pb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Chip size="small" color={alert.status ? 'warning' : 'default'} label={alert.status ? 'To review' : 'Archived'} />
                     <Box sx={{ flexGrow: 1 }} />
-                    <Button size="small" variant="outlined" startIcon={<OpenInNew />} href={alert.url} target="_blank" rel="noopener noreferrer">
-                        Open source
-                    </Button>
+                    <Tooltip title={alert.url}>
+                        <Button size="small" variant="outlined" startIcon={<OpenInNew />} onClick={() => askExternal(alert.url)}>
+                            Open source
+                        </Button>
+                    </Tooltip>
                     {onSetStatus &&
                         (alert.status ? (
                             <Button

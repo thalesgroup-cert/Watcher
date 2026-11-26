@@ -235,6 +235,7 @@ class MonitoredPage(models.Model):
     last_status = models.IntegerField(blank=True, null=True, help_text="HTTP status of the last check, None: unreachable")
     last_changed = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='monitored_page')
 
     class Meta:
         ordering = ['name', 'url']

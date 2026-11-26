@@ -10,7 +10,7 @@ class TimelineConfig(AppConfig):
         from threats_watcher.models import Source, MonitoredKeyword, BannedWord
         from cyber_watch.models import WatchRule, WatchRuleHit
         from data_leak.models import Keyword as DataLeakKeyword, Alert as DataLeakAlert
-        from site_monitoring.models import Site, Alert as SiteAlert
+        from site_monitoring.models import Site, Alert as SiteAlert, MonitoredPage
         from dns_finder.models import DnsMonitored, KeywordMonitored as DnsKeywordMonitored, DnsTwisted, Alert
         from .signals import connect_tracking
         connect_tracking(LegitimateDomain)
@@ -23,6 +23,7 @@ class TimelineConfig(AppConfig):
         connect_tracking(DataLeakAlert)
         connect_tracking(Site)
         connect_tracking(SiteAlert)
+        connect_tracking(MonitoredPage)
         connect_tracking(DnsMonitored)
         connect_tracking(DnsKeywordMonitored)
         connect_tracking(DnsTwisted)

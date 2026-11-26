@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import CloudDoneOutlined from '@mui/icons-material/CloudDoneOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
-import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
+import { type Column, DataTable, RowSelection } from '../../../ui/DataTable';
 import { parseEventUuids } from '../../misp/MispExportDialog';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
 import { sourceMeta, statusMeta, threatAsset, threatDetail } from '../catalog';

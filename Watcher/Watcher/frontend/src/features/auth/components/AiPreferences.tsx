@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FormControlLabel, Slider, Stack, Switch, Typography } from '@mui/material';
+import { Box, FormControlLabel, Slider, Stack, Switch, Typography } from '@mui/material';
 import { useSaveSummaryCooldown, useSummaryConfig } from '../../threatsWatcher/hooks';
 import { useProfile, useUpdateProfile } from '../hooks';
 import { selectUser, useAuthStore } from '../store';
@@ -34,6 +34,7 @@ export function AiPreferences() {
                     <Typography variant="overline" color="text.secondary">
                         Waiting time between two regenerations (everyone)
                     </Typography>
+                    <Box sx={{ pt: 5.5 }}>
                     <Slider
                         aria-label="Regeneration cooldown"
                         value={index}
@@ -48,8 +49,8 @@ export function AiPreferences() {
                         onChangeCommitted={(_, i) => {
                             save.mutate(COOLDOWNS[i as number], { onSettled: () => setDraft(null) });
                         }}
-                        sx={{ mt: 5.5 }}
                     />
+                    </Box>
                     <Typography variant="caption" color="text.secondary">
                         How long anyone must wait before using Regenerate again on a summary. It applies to all users.
                     </Typography>

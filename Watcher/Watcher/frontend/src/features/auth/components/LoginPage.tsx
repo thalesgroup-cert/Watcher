@@ -9,6 +9,7 @@ import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import VpnKeyOutlined from '@mui/icons-material/VpnKeyOutlined';
 import { api, getErrorMessage } from '../../../api/client';
 import { toast } from '../../../lib/toast';
+import { WatcherMark } from '../../../styles/WatcherMark';
 import { useInstanceConfig } from '../../config/useInstanceConfig';
 import { useLogin } from '../hooks';
 import { selectIsAuthenticated, useAuthStore } from '../store';
@@ -21,6 +22,33 @@ const sweep = keyframes`
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 `;
+// The eyes the beam finds: each one wakes when the sweep (14 s a turn) reaches it, then fades, with a ring going out
+const ping = keyframes`
+    0% { opacity: 0; transform: scale(0.4); }
+    1.5% { opacity: 1; transform: scale(1.2); }
+    4% { opacity: 1; transform: scale(1); }
+    42%, 100% { opacity: 0; transform: scale(1); }
+`;
+const pingRing = keyframes`
+    0% { opacity: 0; transform: scale(0.3); }
+    0.6% { opacity: 0.7; transform: scale(0.4); }
+    12%, 100% { opacity: 0; transform: scale(2.6); }
+`;
+const SWEEP_SECONDS = 14;
+/** The beam leads its trail by this angle (the sharp line is at 16.3 % of the turn). */
+const BEAM_LEAD = 58.7;
+/** Eyes on the radar: angle from the top (degrees, clockwise), distance from the centre (px), size (px). */
+const EYES: [number, number, number][] = [
+    [18, 250, 30],
+    [70, 140, 24],
+    [112, 310, 34],
+    [158, 190, 26],
+    [205, 330, 30],
+    [248, 120, 22],
+    [292, 270, 34],
+    [335, 175, 26],
+];
+
 const pulse = keyframes`
     0% { box-shadow: 0 0 0 0 currentColor; }
     70%, 100% { box-shadow: 0 0 0 7px transparent; }
@@ -71,6 +99,31 @@ function Backdrop() {
                     [still]: { animation: 'none' },
                 }}
             />
+            <Box aria-hidden sx={{ position: 'absolute', left: '28%', top: '50%', width: 0, height: 0 }}>
+                {EYES.map(([angle, distance, size]) => {
+                    const rad = (angle * Math.PI) / 180;
+                    const delay = ((((angle - BEAM_LEAD) % 360) + 360) % 360) / 360 * SWEEP_SECONDS;
+                    return (
+                        <Box
+                            key={angle}
+                            sx={{
+                                position: 'absolute',
+                                width: size,
+                                height: size * (2 / 3),
+                                left: Math.sin(rad) * distance - size / 2,
+                                top: -Math.cos(rad) * distance - size / 3,
+                                color: primary,
+                                '& .ring': { position: 'absolute', inset: '-40%', borderRadius: '50%', border: `1.5px solid ${primary}`, opacity: 0, animation: `${pingRing} ${SWEEP_SECONDS}s linear ${delay}s infinite` },
+                                '& svg': { position: 'relative', display: 'block', width: '100%', height: '100%', opacity: 0, animation: `${ping} ${SWEEP_SECONDS}s linear ${delay}s infinite`, filter: `drop-shadow(0 0 6px ${alpha(primary, 0.8)})` },
+                                [still]: { '& .ring': { display: 'none' }, '& svg': { animation: 'none', opacity: 0.14 } },
+                            }}
+                        >
+                            <span className="ring" />
+                            <WatcherMark />
+                        </Box>
+                    );
+                })}
+            </Box>
         </Box>
     );
 }

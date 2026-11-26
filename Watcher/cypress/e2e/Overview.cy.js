@@ -292,11 +292,11 @@ describe('Overview', () => {
     });
 
     describe('the page', () => {
-      it('is made of the blocks of the overview only: no cloud, map or lists of CVEs and victims', () => {
-        cy.get('[data-testid^="home-block-"]').should('have.length', 8);
-        ['setup', 'week', 'brief', 'attention', 'modules', 'feed', 'vulnerabilities', 'trending'].forEach((id) => cy.get(`[data-testid="home-block-${id}"]`).should('exist'));
+      it('is made of the blocks of the overview only: no cloud or lists of CVEs and victims', () => {
+        cy.get('[data-testid^="home-block-"]').should('have.length', 9);
+        ['setup', 'week', 'brief', 'attention', 'modules', 'feed', 'vulnerabilities', 'trending', 'map'].forEach((id) => cy.get(`[data-testid="home-block-${id}"]`).should('exist'));
         cy.get('[aria-label="Needs attention"]').filter('section').should('not.exist');
-        cy.get('[data-testid="word-cloud"], [data-testid="world-map"], [data-testid="dashboard-cves"], [data-testid="dashboard-victims"]').should('not.exist');
+        cy.get('[data-testid="word-cloud"], [data-testid="dashboard-cves"], [data-testid="dashboard-victims"]').should('not.exist');
       });
 
       it('puts the week next to the brief, then the modules, then the three lists', () => {

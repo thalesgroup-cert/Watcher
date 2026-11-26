@@ -4,8 +4,9 @@ import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import OpenInNew from '@mui/icons-material/OpenInNew';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
 import { fonts } from '../../../styles/theme';
-import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
+import { type Column, DataTable, RowSelection } from '../../../ui/DataTable';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
+import { askExternal } from '../../../ui/ExternalLink';
 import { findingTitle } from '../format';
 import type { Alert, Pattern, PatternRef } from '../types';
 import { When } from '../../../ui/When';
@@ -65,14 +66,13 @@ const ALERT_COLUMNS: Column<Alert>[] = [
         width: 48,
         align: 'center',
         render: (a) => (
-            <Tooltip title="Open the source in a new tab">
+            <Tooltip title={`Open ${a.url}`}>
                 <IconButton
                     size="small"
-                    component="a"
-                    href={a.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        askExternal(a.url);
+                    }}
                     aria-label={`Open ${a.url}`}
                 >
                     <OpenInNew fontSize="small" />

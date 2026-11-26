@@ -3,7 +3,7 @@ import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import ChatBubbleOutlined from '@mui/icons-material/ChatBubbleOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
-import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
+import { type Column, DataTable, RowSelection } from '../../../ui/DataTable';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
 import { formatDay, noDateReason } from '../expiry';
 import type { LegitimateDomain } from '../types';

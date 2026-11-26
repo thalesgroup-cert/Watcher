@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import ChatBubbleOutlined from '@mui/icons-material/ChatBubbleOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
-import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
+import { type Column, DataTable, RowSelection } from '../../../ui/DataTable';
 import { Expiry } from '../../legitimateDomains/components/Expiry';
 import { formatDay, noDateReason } from '../../legitimateDomains/expiry';
 import { LastActorAvatar } from '../../timeline/components/LastActor';

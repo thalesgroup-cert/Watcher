@@ -161,6 +161,19 @@ describe('Threats Watcher', () => {
         cy.get('[data-testid="briefing-reader"]', { timeout: 20000 }).should('be.visible');
       };
 
+      it('shows one panel at a time: the report replaces the word, the word replaces the report', () => {
+        showHtmlWeekly(true);
+        cy.get('[data-testid="word-row"]', { timeout: 20000 }).first().click();
+        cy.location('hash').should('include', 'word=');
+        // The docked word panel may sit over the card on a narrow window: the click goes through to it
+        cy.get('[data-testid="weekly-summary"] [data-testid="read-more"]').click({ force: true });
+        cy.get('[data-testid="briefing-reader"]', { timeout: 20000 }).should('be.visible');
+        cy.location('hash').should('include', 'read=weekly').and('not.include', 'word=');
+        cy.get('[data-testid="word-row"]').first().click({ force: true });
+        cy.location('hash').should('include', 'word=').and('not.include', 'read=');
+        cy.get('[data-testid="briefing-reader"]').should('not.exist');
+      });
+
       it('keeps turning after a refresh while the server is still writing, then shows the new text', () => {
         showHtmlWeekly();
         // Set when the commands run, not when the test is written
@@ -313,7 +326,7 @@ describe('Threats Watcher', () => {
         cy.get('td').first().invoke('text').should('eq', 'lockbit');
         cy.get('td').last().should('not.be.empty');
         cy.get('[data-testid="mini-bars"]').should('exist');
-        cy.contains('6 articles this week');
+        cy.contains('6 articles in 7 days');
       });
     });
 
@@ -353,11 +366,11 @@ describe('Threats Watcher', () => {
         });
       });
 
-      it('shows what is talked about this week, or the most mentioned of all time', () => {
+      it('shows what is talked about in 7 days, or in 30 days, under one title', () => {
         cy.get('@words.all').should((calls) => expect(calls.some((c) => c.request.url.includes('ordering=-mentions_week') && c.request.url.includes('page_size=40'))).to.eq(true));
-        cy.contains('h2', 'Talked about now').should('exist');
-        cy.contains('button', 'All time').click();
-        cy.contains('h2', 'Most mentioned, all time').should('exist');
+        cy.contains('h2', 'Word cloud').should('exist');
+        cy.contains('button', '30 days').click();
+        cy.contains('h2', 'Word cloud').should('exist');
         cy.get('@words.all').should((calls) => expect(calls.some((c) => c.request.url.includes('ordering=-occurrences') && c.request.url.includes('page_size=40'))).to.eq(true));
       });
     });
@@ -389,6 +402,35 @@ describe('Threats Watcher', () => {
       cy.get('[data-testid="world-map"]').should('have.attr', 'aria-label').and('include', '20 ransomware victims');
       cy.contains('[data-testid="world-map-card"] button', /^Sources$/).click();
       cy.get('[data-testid="world-map"]').should('have.attr', 'aria-label').and('include', 'RSS sources');
+    });
+
+    it('turns the map into a globe (the default), picks a period and lists the top three countries', () => {
+      const by = [['US', 120, 60, 20], ['FR', 60, 30, 9], ['SG', 9, 6, 3]].map(([name, count, d30, d7]) => ({ name, count, d30, d7 }));
+      cy.intercept('GET', '/api/cyber_watch/statistics/', { statusCode: 200, body: { cves: { total: 0, critical7d: 0, new7d: 0, bySeverity: {}, perDay: [] }, victims: { total: 189, new7d: 32, byCountry: by, byCountryMatched: by.slice(0, 1) } } });
+      cy.reload();
+      cy.get('[data-testid="world-map-card"]', { timeout: 20000 }).within(() => {
+        cy.get('[data-testid="world-map"]').should('have.attr', 'aria-label').and('include', '189 ransomware victims in 3 countries');
+        // The top countries, with what is new this week
+        cy.get('ol li').should('have.length', 3).first().should('contain', 'United States').and('contain', '+20').and('contain', '120');
+        cy.contains('button', '7 days').click();
+        cy.get('[data-testid="world-map"]').should('have.attr', 'aria-label').and('include', '32 ransomware victims in the last 7 days');
+        cy.contains('button', /^All$/).click();
+        // A globe by default (its sphere is a path of its own); the flat map has none
+        cy.get('[data-testid="world-map"] svg > path').should('have.length.at.least', 1);
+        cy.get('[aria-label="Flat map"]').click();
+        cy.get('[data-testid="world-map"] svg > path').should('not.exist');
+        // A rule matched only the United States
+        cy.contains('button', /^Matches$/).click();
+        cy.get('[data-testid="world-map"]').should('have.attr', 'aria-label').and('include', 'victims matching a rule');
+      });
+    });
+
+    it('lifts the scroll-to-top button above the pagination at the end of the page', () => {
+      cy.viewport(1440, 700);
+      cy.scrollTo(0, 600);
+      cy.get('[aria-label="Scroll to top"]').should('have.css', 'bottom', '24px');
+      cy.scrollTo('bottom');
+      cy.get('[aria-label="Scroll to top"]').should('have.css', 'bottom', '88px');
     });
 
     it('opens a word from the cloud, writes its summary, then monitors and bans it', () => {

@@ -353,11 +353,20 @@ class MonitoredPageViewSet(BulkActionMixin, viewsets.ModelViewSet):
                        'versions_count']
 
     def get_queryset(self):
+        from timeline.models import TimelineEvent
         newest = PageVersion.objects.filter(page=OuterRef('pk')).order_by('-created_at', '-id')
         qs = MonitoredPage.objects.annotate(
             versions_count=Count('versions'),
             last_ratio=Subquery(newest.values('change_ratio')[:1]),
         )
+        if self.action == 'list':
+            qs = qs.prefetch_related(
+                Prefetch(
+                    'timeline_events',
+                    queryset=TimelineEvent.objects.select_related('user__profile').order_by('-timestamp'),
+                    to_attr='_timeline_events',
+                )
+            )
         active = self.request.query_params.get('active')
         if self.action == 'list' and active in ('yes', 'no'):
             qs = qs.filter(is_active=active == 'yes')

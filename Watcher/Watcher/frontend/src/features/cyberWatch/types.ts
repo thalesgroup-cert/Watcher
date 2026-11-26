@@ -216,7 +216,9 @@ export interface CyberStatistics {
         /** The groups with at least one victim, among all those the sources know (`groups`). */
         groupsWithVictims: number;
         /** Every country (ISO code), for the world map. */
-        byCountry: { name: string; count: number }[];
+        byCountry: CountryCount[];
+        /** Only the victims that a watch rule matched. */
+        byCountryMatched?: CountryCount[];
     };
     hits: {
         open: number;
@@ -232,4 +234,12 @@ export interface CyberStatistics {
         active: number;
         byRule: { id: number; name: string; open: number; total: number; active: boolean }[];
     };
+}
+
+/** Victims of one country (ISO code), all of them and those of the last 30 and 7 days. */
+export interface CountryCount {
+    name: string;
+    count: number;
+    d30?: number;
+    d7?: number;
 }

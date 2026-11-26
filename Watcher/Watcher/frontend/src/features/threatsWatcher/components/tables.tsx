@@ -4,7 +4,7 @@ import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import TrendingDownOutlined from '@mui/icons-material/TrendingDownOutlined';
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
 import PersonOutlined from '@mui/icons-material/PersonOutlined';
-import { type Column, DataTable, type RowSelection } from '../../../ui/DataTable';
+import { type Column, DataTable, RowSelection } from '../../../ui/DataTable';
 import { LastActorAvatar } from '../../timeline/components/LastActor';
 import { confidenceMeta, countryLabel, hostOf, levelMeta, scoreBand, sourceState } from '../catalog';
 import { useHeatColors } from '../heatColors';
@@ -99,7 +99,7 @@ function ActivityCell({ word }: { word: Word }) {
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
             <MiniBars values={word.daily ?? []} color={colors[heatOf(word)]} />
             <Typography variant="body2" color="text.secondary" noWrap sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                {word.mentions_week.toLocaleString('en-GB')} article{word.mentions_week === 1 ? '' : 's'} this week
+                {word.mentions_week.toLocaleString('en-GB')} article{word.mentions_week === 1 ? '' : 's'} in 7 days
             </Typography>
         </Stack>
     );

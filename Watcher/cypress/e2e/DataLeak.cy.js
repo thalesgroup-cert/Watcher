@@ -107,7 +107,14 @@ describe('Data Leak', () => {
         cy.contains('#alert-drawer-title', 'AbCd1234');
         cy.contains('2 matches highlighted');
         cy.get('pre[aria-label="Raw content"] mark').should('have.length', 2).first().should('have.text', 'jane@acme.com');
-        cy.get('a').contains('Open source').should('have.attr', 'href', 'https://pastebin.com/AbCd1234').and('have.attr', 'target', '_blank');
+        // The way out says where it leads, and asks before opening anything
+        cy.window().then((win) => cy.stub(win, 'open').as('open'));
+        cy.contains('button', 'Open source').click();
+        cy.get('@open').should('not.have.been.called');
+        cy.get('[role="dialog"]', { withinSubject: null }).should('contain', 'not managed or verified by Watcher');
+        cy.get('[data-testid="external-destination"]', { withinSubject: null }).should('have.text', 'https://pastebin.com/AbCd1234');
+        cy.get('[role="dialog"]', { withinSubject: null }).contains('button', 'Open the site').click();
+        cy.get('@open').should('have.been.calledWith', 'https://pastebin.com/AbCd1234', '_blank', 'noopener,noreferrer');
         cy.get('[data-testid="event-diff"]').should('contain', 'To review');
         cy.contains('button', 'Archive').click();
       });
@@ -193,6 +200,11 @@ describe('Data Leak', () => {
         cy.get('input[name="name"]').type('leak(');
         cy.contains('Invalid regular expression');
         cy.contains('button', 'Add pattern').should('be.disabled');
+        // JavaScript would accept this one, the server (Python) refuses it: the form says so before it is sent
+        cy.get('input[name="name"]').clear().type('(?:RIAG|Rhode Island)\\i');
+        cy.contains('Invalid regular expression: unknown escape');
+        cy.contains('button', 'Add pattern').should('be.disabled');
+        cy.get('input[name="name"]').clear().type('leak(');
         cy.contains('button', 'Templates').click();
         cy.get('button[aria-label="Use Email Pattern"]').click();
         cy.get('input[name="name"]').should('have.value', '[a-zA-Z0-9._%+-]+@company\\.com');

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import {
     alpha,
@@ -53,6 +53,7 @@ import { usePendingCount } from '../features/pendingActions/hooks';
 import { SearchDialog } from '../features/search/SearchDialog';
 import { THEMES } from '../styles/themes';
 import { useThemeMode } from '../styles/ThemeModeProvider';
+import { ExternalLinkDialog } from '../ui/ExternalLink';
 import { INSPECTOR_GAP, useInspectorWidth } from '../ui/SideDrawer';
 
 export const RAIL_WIDTH = 72;
@@ -446,18 +447,26 @@ function SidebarContent({ slim, pinned, onPin, onNavigate, onSearch }: { slim: b
 
 function ScrollToTop({ right }: { right: number }) {
     const [visible, setVisible] = useState(false);
+    // At the end of the page the pagination of a table is there, bottom right: the button goes above it
+    const [atEnd, setAtEnd] = useState(false);
     useEffect(() => {
-        const onScroll = () => setVisible(window.scrollY > 300);
+        const onScroll = () => {
+            setVisible(window.scrollY > 300);
+            setAtEnd(window.innerHeight + window.scrollY > document.documentElement.scrollHeight - 120);
+        };
         window.addEventListener('scroll', onScroll);
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
     if (!visible) return null;
     return (
-        <Fab color="primary" size="small" aria-label="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} sx={{ position: 'fixed', bottom: 24, right: right + 24, zIndex: 1100 }}>
+        <Fab color="primary" size="small" aria-label="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} sx={{ position: 'fixed', bottom: atEnd ? 88 : 24, right: right + 24, zIndex: 1100, transition: 'bottom 160ms ease' }}>
             <KeyboardArrowUp />
         </Fab>
     );
 }
+
+/** Milliseconds the pointer stays on the rail before it opens. */
+const RAIL_OPEN_DELAY = 250;
 
 /**
  * Application frame: the sidebar (a rail of icons that opens on hover, or stays open when pinned; a drawer on small
@@ -470,6 +479,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const inspector = useInspectorWidth();
     const [pinned, setPinned] = useState(readPinned);
     const [hovered, setHovered] = useState(false);
+    // The rail opens after a short delay: a pointer passing by to reach a button near the edge must not open it over the button.
+    const openTimer = useRef<number | undefined>(undefined);
+    const openRail = () => {
+        window.clearTimeout(openTimer.current);
+        openTimer.current = window.setTimeout(() => setHovered(true), RAIL_OPEN_DELAY);
+    };
+    const closeRail = () => {
+        window.clearTimeout(openTimer.current);
+        setHovered(false);
+    };
+    useEffect(() => () => window.clearTimeout(openTimer.current), []);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const dark = theme.palette.mode === 'dark';
@@ -513,11 +533,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <ExternalLinkDialog />
             {desktop ? (
                 <Box component="aside" aria-label="Sidebar" sx={{ width: reserved, flexShrink: 0, transition: theme.transitions.create('width') }}>
                     <Box
-                        onMouseEnter={pinned ? undefined : () => setHovered(true)}
-                        onMouseLeave={pinned ? undefined : () => setHovered(false)}
+                        onMouseEnter={pinned ? undefined : openRail}
+                        onMouseLeave={pinned ? undefined : closeRail}
                         sx={{
                             position: 'fixed',
                             top: 0,

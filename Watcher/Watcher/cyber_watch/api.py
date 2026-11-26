@@ -339,6 +339,16 @@ def top(queryset, field, limit=10, exclude=('',)):
     return [{'name': r[field], 'count': r['n']} for r in rows]
 
 
+def by_country(queryset, since7, since30):
+    """Every country that has victims, for the world map: all of them, the last 30 days and the last 7 days."""
+    rows = (queryset.exclude(country='').values('country')
+            .annotate(n=Count('id'),
+                      d30=Count('id', filter=Q(attacked_at__gte=since30)),
+                      d7=Count('id', filter=Q(attacked_at__gte=since7)))
+            .order_by('-n', 'country')[:300])
+    return [{'name': r['country'], 'count': r['n'], 'd30': r['d30'], 'd7': r['d7']} for r in rows]
+
+
 class CyberWatchStatisticsView(APIView):
     """Counters and series of the Cyber Watch page. The watch rule figures are only given to users who can see rules."""
     permission_classes = [permissions.AllowAny]
@@ -396,7 +406,14 @@ class CyberWatchStatisticsView(APIView):
                     'country': victims.filter(country='').count(),
                 },
                 # Every country, for the world map.
-                'byCountry': top(victims, 'country', limit=300),
+                'byCountry': by_country(victims, week, timezone.now() - timedelta(days=30)),
+                # The same for the victims that a watch rule matched: where what concerns you comes from.
+                'byCountryMatched': by_country(
+                    with_victim_key(victims).filter(
+                        Exists(WatchRuleHit.objects.filter(hit_type='ransomware_victim', object_id=OuterRef('hit_key')))
+                    ),
+                    week, timezone.now() - timedelta(days=30),
+                ),
             },
             'hits': {
                 'open': hits.filter(is_archived=False).count(),

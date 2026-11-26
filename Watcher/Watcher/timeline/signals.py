@@ -24,6 +24,7 @@ TRACKED_FIELDS = {
         'blocking_request', 'expiry', 'ip_monitoring', 'mail_monitoring',
         'content_monitoring', 'monitored', 'udrp_status',
     ],
+    'site_monitoring.monitoredpage': ['url', 'name', 'css_selector', 'threshold', 'check_interval', 'is_active'],
     'dns_finder.dnsmonitored': ['domain_name'],
     'dns_finder.keywordmonitored': ['name'],
     'dns_finder.dnstwisted': ['fuzzer', 'issuer', 'san_list', 'provider', 'cname_target'],

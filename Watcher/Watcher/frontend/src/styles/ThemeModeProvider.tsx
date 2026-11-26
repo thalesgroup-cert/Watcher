@@ -168,6 +168,20 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
         savePreferences({ effects: level, display: DEFAULT_DISPLAY }, { theme: DEFAULT_THEME });
     }, [apply, applyDisplay, savePreferences]);
 
+    // The loading screen (page and component) takes the colours of the theme; they are kept for the next visit, before the application runs.
+    useEffect(() => {
+        const bg = theme.palette.background.default;
+        const fg = theme.palette.primary.main;
+        const root = document.documentElement;
+        root.style.setProperty('--boot-bg', bg);
+        root.style.setProperty('--boot-fg', fg);
+        try {
+            localStorage.setItem('watcher.boot', JSON.stringify({ bg, fg }));
+        } catch {
+            // Storage blocked: the next visit starts with the colours of the system.
+        }
+    }, [theme]);
+
     // Native parts of the page (scrollbars, form controls) follow the theme; tests read it from the attributes.
     useEffect(() => {
         const root = document.documentElement;

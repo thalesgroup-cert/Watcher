@@ -11,9 +11,40 @@
     <link rel="icon" href="{% static 'img/favicon-96.png' %}" sizes="96x96" type="image/png">
     <link rel="icon" href="{% static 'img/favicon-196.png' %}" sizes="196x196" type="image/png">
     <link rel="stylesheet" href="{% static "frontend/main.css" %}?v={{ asset_version }}">
+    <script>
+        // The colours of the theme of the last visit (written by the application): the loading screen follows the theme
+        try {
+            var boot = JSON.parse(localStorage.getItem('watcher.boot') || 'null');
+            if (boot && boot.bg && boot.fg) {
+                document.documentElement.style.setProperty('--boot-bg', boot.bg);
+                document.documentElement.style.setProperty('--boot-fg', boot.fg);
+            }
+        } catch (e) { /* storage blocked: the colours of the system */ }
+    </script>
+    <style>
+        /* Shown by the page itself until the application is ready: the eye of the logo draws itself, then looks around */
+        :root { --boot-bg: #1C1B19; --boot-fg: #D97757; }
+        @media (prefers-color-scheme: light) { :root { --boot-bg: #F6F4EE; --boot-fg: #C96442; } }
+        body { margin: 0; background: var(--boot-bg); }
+        .boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; color: var(--boot-fg); background: var(--boot-bg); overflow: hidden; }
+        .boot::before { content: ""; position: absolute; width: 520px; height: 520px; max-width: 90vmin; max-height: 90vmin; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--boot-fg) 20%, transparent) 0%, transparent 65%); animation: boot-breathe 3.2s ease-in-out infinite; }
+        .boot svg { position: relative; width: 120px; height: auto; overflow: visible; }
+        .boot .lid { stroke-dasharray: 1; stroke-dashoffset: 1; animation: boot-draw 1.1s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+        .boot .iris { opacity: 0; transform-origin: 60px 37px; animation: boot-open 0.5s 0.8s ease-out forwards, boot-look 4.8s 1.4s ease-in-out infinite; }
+        .boot b { position: relative; font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.5em; text-indent: 0.5em; text-transform: uppercase; opacity: 0; animation: boot-fade 0.6s 1s ease-out forwards; }
+        .boot i { position: relative; display: block; width: 148px; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--boot-fg) 18%, transparent); overflow: hidden; opacity: 0; animation: boot-fade 0.6s 1.1s ease-out forwards; }
+        .boot i::after { content: ""; display: block; width: 40%; height: 100%; border-radius: 2px; background: linear-gradient(90deg, transparent, currentColor, transparent); animation: boot-line 1.3s ease-in-out infinite; }
+        @keyframes boot-draw { to { stroke-dashoffset: 0; } }
+        @keyframes boot-open { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+        @keyframes boot-look { 0%, 12% { transform: translate(0, 0); } 30%, 42% { transform: translate(-9px, -2px); } 60%, 72% { transform: translate(9px, 2px); } 90%, 100% { transform: translate(0, 0); } }
+        @keyframes boot-breathe { 0%, 100% { opacity: 0.55; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.04); } }
+        @keyframes boot-fade { to { opacity: 1; } }
+        @keyframes boot-line { from { transform: translateX(-110%); } to { transform: translateX(280%); } }
+        @media (prefers-reduced-motion: reduce) { .boot *, .boot::before { animation: none !important; } .boot .lid { stroke-dashoffset: 0; } .boot .iris, .boot b, .boot i { opacity: 1; } }
+    </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><div class="boot" role="status" aria-label="Loading Watcher"><svg viewBox="0 0 120 80" aria-hidden="true"><defs><mask id="boot-eye"><rect x="-20" y="-20" width="160" height="120" fill="#fff"/><circle cx="54" cy="27" r="5.5" fill="#000"/></mask></defs><path class="lid" pathLength="1" d="M6 40 C 30 10, 90 10, 114 40 C 90 70, 30 70, 6 40 Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><g class="iris"><circle cx="60" cy="37" r="23" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="60" cy="34" r="14" fill="currentColor" mask="url(#boot-eye)"/><path d="M48 49 Q 60 57 72 49" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></g></svg><b>Watcher</b><i></i></div></div>
 
 <script src="{% static "frontend/main.js" %}?v={{ asset_version }}"></script>
 </body>

@@ -263,12 +263,16 @@ class MonitoredPageSerializer(serializers.ModelSerializer):
     """A monitored page, with the figures of its history (annotated by the viewset)."""
     versions_count = serializers.IntegerField(read_only=True, default=0)
     last_ratio = serializers.FloatField(read_only=True, default=None)
+    last_event = serializers.SerializerMethodField()
+
+    def get_last_event(self, obj):
+        return _get_last_event(obj)
 
     class Meta:
         model = MonitoredPage
         fields = ['id', 'url', 'name', 'css_selector', 'ignore_patterns', 'threshold', 'check_interval', 'retention',
                   'capture_screenshots', 'is_active', 'last_checked', 'last_status', 'last_changed', 'created_at',
-                  'versions_count', 'last_ratio']
+                  'versions_count', 'last_ratio', 'last_event']
         read_only_fields = ['last_checked', 'last_status', 'last_changed', 'created_at']
 
     def validate_url(self, value):

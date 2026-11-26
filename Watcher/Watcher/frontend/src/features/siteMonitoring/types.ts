@@ -181,6 +181,7 @@ export interface MonitoredPage {
     created_at: string;
     versions_count: number;
     /** Change (%) of the newest version, `null` for the first one. */
+    last_event: LastEvent | null;
     last_ratio: number | null;
 }
 

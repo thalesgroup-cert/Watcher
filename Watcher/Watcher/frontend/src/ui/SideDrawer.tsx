@@ -40,6 +40,9 @@ interface SideDrawerProps {
  * for it: no backdrop, the rows stay clickable, so going from one object to the next is one click. On a narrow screen
  * it is a full-height panel over the page.
  */
+/** Close function of every open inspector, by drawer id: one inspector at a time, the last opened wins. */
+const openInspectors = new Map<string, () => void>();
+
 export function SideDrawer({ open, onClose, labelledBy, children, width = 480 }: SideDrawerProps) {
     const theme = useTheme();
     const docked = useMediaQuery(theme.breakpoints.up('lg'));
@@ -53,6 +56,20 @@ export function SideDrawer({ open, onClose, labelledBy, children, width = 480 }:
         setDocked(id, width);
         return () => setDocked(id, null);
     }, [open, docked, width, id, setDocked]);
+
+    const closeRef = useRef(onClose);
+    useEffect(() => {
+        closeRef.current = onClose;
+    });
+    useEffect(() => {
+        if (!open) return;
+        // Opening a second inspector (a word, then the weekly report) closes the first instead of stacking over it.
+        openInspectors.forEach((close, other) => other !== id && close());
+        openInspectors.set(id, () => closeRef.current());
+        return () => {
+            openInspectors.delete(id);
+        };
+    }, [open, id]);
 
     // A docked inspector is not a modal: Escape closes it, unless a dialog or a menu is open over it (they close first).
     useEffect(() => {

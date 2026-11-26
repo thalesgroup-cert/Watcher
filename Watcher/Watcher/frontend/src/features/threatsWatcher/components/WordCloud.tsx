@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { forceCollide, forceX, forceY } from 'd3-force';
-import { alpha, Box, Skeleton, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material';
+import { alpha, Box, IconButton, Skeleton, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useTheme } from '@mui/material';
 import BubbleChartOutlined from '@mui/icons-material/BubbleChartOutlined';
 import CloudOutlined from '@mui/icons-material/CloudOutlined';
+import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import { Wordcloud } from '@visx/wordcloud';
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from 'react-force-graph-2d';
-import { useWidth } from '../../../lib/useWidth';
+import { useSize } from '../../../lib/useWidth';
 import { HEAT_LABEL, type Heat, heatOf, heatSentence } from '../heat';
 import { useHeatColors } from '../heatColors';
 import { useWordGraph } from '../hooks';
@@ -13,7 +14,7 @@ import type { Word } from '../types';
 
 export type CloudWord = Pick<Word, 'id' | 'name' | 'occurrences' | 'mentions_24h' | 'mentions_week'>;
 
-/** What sizes the words: the articles of the week ("now") or of the whole life of the word ("all"). */
+/** What sizes the words: the articles of the last 7 days ("now") or of the last 30 days ("all": a word is forgotten after 30 days). */
 export type CloudSize = 'now' | 'all';
 
 // Same seed every time: a given set of words always gets the same layout, so the cloud does not reshuffle on refresh.
@@ -31,6 +32,7 @@ interface CloudProps {
     words: CloudWord[];
     onOpen: (id: number) => void;
     activeId?: number | null;
+    width: number;
     height: number;
     size: CloudSize;
 }
@@ -52,11 +54,10 @@ function Legend() {
     );
 }
 
-/** The words, sized by what they are talked about (the week, or all time), coloured by their heat. Each word is a button. */
-function Cloud({ words, onOpen, activeId, height, size }: CloudProps) {
+/** The words, sized by what they are talked about (the last 7 or 30 days), coloured by their heat. Each word is a button. */
+function Cloud({ words, onOpen, activeId, width, height, size }: CloudProps) {
     const theme = useTheme();
     const colors = useHeatColors();
-    const [ref, width] = useWidth<HTMLDivElement>();
     const weight = (w: CloudWord) => (size === 'now' ? w.mentions_week : w.occurrences);
     const counts = words.map(weight);
     const min = Math.min(...counts);
@@ -73,8 +74,7 @@ function Cloud({ words, onOpen, activeId, height, size }: CloudProps) {
     };
 
     return (
-        <Box ref={ref} sx={{ width: '100%' }} data-testid="word-cloud">
-          <Box sx={{ height, width: '100%' }}>
+        <Box sx={{ width: '100%', height }} data-testid="word-cloud">
             {width > 0 && (
                 <svg width={width} height={height} role="group" aria-label="Most mentioned words">
                     <Wordcloud
@@ -83,7 +83,7 @@ function Cloud({ words, onOpen, activeId, height, size }: CloudProps) {
                         height={height}
                         font={FONT}
                         fontWeight={(d) => (t(d.value) > 0.5 ? 700 : 500)}
-                        fontSize={(d) => 13 + Math.sqrt(t(d.value)) * Math.min(42, height / 6)}
+                        fontSize={(d) => 13 + Math.sqrt(t(d.value)) * Math.min(64, height / 5, width / 9)}
                         padding={3}
                         spiral="archimedean"
                         rotate={0}
@@ -128,8 +128,6 @@ function Cloud({ words, onOpen, activeId, height, size }: CloudProps) {
                     <style>{`.cloud-word:hover, .cloud-word:focus-visible { fill: ${theme.palette.primary.dark}; text-decoration: underline; }`}</style>
                 </svg>
             )}
-          </Box>
-          <Legend />
         </Box>
     );
 }
@@ -137,9 +135,8 @@ function Cloud({ words, onOpen, activeId, height, size }: CloudProps) {
 type GraphNode = NodeObject<{ id: number; name: string; occurrences: number }>;
 
 /** Words linked when the same articles mention them (issue #334): a big word with many links is a story. */
-function Graph({ period, onOpen, activeId, height }: { period: string; onOpen: (id: number) => void; activeId?: number | null; height: number }) {
+function Graph({ period, onOpen, activeId, width, height }: { period: string; onOpen: (id: number) => void; activeId?: number | null; width: number; height: number }) {
     const theme = useTheme();
-    const [ref, width] = useWidth<HTMLDivElement>();
     const graphRef = useRef<ForceGraphMethods<GraphNode, LinkObject<GraphNode, { weight: number }>> | undefined>(undefined);
     const { data, isPending } = useWordGraph(period);
     // Only the words that share articles with another one (the others are in the cloud), copied: the simulation mutates them.
@@ -179,7 +176,7 @@ function Graph({ period, onOpen, activeId, height }: { period: string; onOpen: (
         );
     }
     return (
-        <Box ref={ref} sx={{ height, width: '100%' }} data-testid="word-graph" role="img" aria-label={`Graph of ${graphData.nodes.length} words and ${graphData.links.length} links between them`}
+        <Box sx={{ height, width: '100%' }} data-testid="word-graph" role="img" aria-label={`Graph of ${graphData.nodes.length} words and ${graphData.links.length} links between them`}
             title={hidden ? `${hidden} words that share no article with another are only in the cloud` : undefined}
         >
             {width > 0 && (
@@ -254,23 +251,42 @@ export function WordViz({ words, period = '', onOpen, activeId, height = 300, lo
             // Storage blocked: the choice lasts for this visit.
         }
     };
+    const [area, { width, height: room }] = useSize<HTMLDivElement>();
     return (
-        <Box sx={{ position: 'relative' }}>
-            <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => choose(v)} aria-label="Word view" sx={{ position: 'absolute', top: -44, right: 0 }}>
-                <ToggleButton value="cloud" aria-label="Word cloud" title="Word cloud" sx={{ px: 1.25 }}>
-                    <CloudOutlined fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="graph" aria-label="Words linked by their articles" title="Words linked by their articles" sx={{ px: 1.25 }}>
-                    <BubbleChartOutlined fontSize="small" />
-                </ToggleButton>
-            </ToggleButtonGroup>
-            {loading ? (
-                <Skeleton variant="rounded" height={height} />
-            ) : mode === 'cloud' ? (
-                <Cloud words={words} onOpen={onOpen} activeId={activeId} height={height} size={size} />
-            ) : (
-                <Graph period={period} onOpen={onOpen} activeId={activeId} height={height} />
-            )}
+        <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: height }}>
+            <Stack direction="row" spacing={0.5} sx={{ position: 'absolute', top: -44, right: 0, alignItems: 'center' }}>
+                <Tooltip
+                    arrow
+                    title={
+                        mode === 'cloud'
+                            ? 'Each word comes from the articles read. Its size is how many articles mention it in the period, its colour how hot it is (see below). Click a word for its summary and its articles.'
+                            : 'Each dot is a word, each line links two words that appear in the same articles: a big dot with many lines is a story. Bigger dot: more mentions. Thicker line: more shared articles. Click a dot to open the word.'
+                    }
+                >
+                    <IconButton size="small" aria-label="How to read this">
+                        <InfoOutlined fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+                <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => choose(v)} aria-label="Word view">
+                    <ToggleButton value="cloud" aria-label="Word cloud" title="Word cloud" sx={{ px: 1.25 }}>
+                        <CloudOutlined fontSize="small" />
+                    </ToggleButton>
+                    <ToggleButton value="graph" aria-label="Words linked by their articles" title="Words linked by their articles" sx={{ px: 1.25 }}>
+                        <BubbleChartOutlined fontSize="small" />
+                    </ToggleButton>
+                </ToggleButtonGroup>
+            </Stack>
+            {/* The picture takes all the room the card has; the legend stays at the bottom */}
+            <Box ref={area} sx={{ flex: 1, minHeight: height - (mode === 'cloud' ? 30 : 0), minWidth: 0 }}>
+                {loading ? (
+                    <Skeleton variant="rounded" height={Math.max(height - 30, room)} />
+                ) : mode === 'cloud' ? (
+                    <Cloud words={words} onOpen={onOpen} activeId={activeId} width={width} height={Math.max(room, 200)} size={size} />
+                ) : (
+                    <Graph period={period} onOpen={onOpen} activeId={activeId} width={width} height={Math.max(room, height)} />
+                )}
+            </Box>
+            {mode === 'cloud' && <Legend />}
         </Box>
     );
 }
