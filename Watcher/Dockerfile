@@ -110,10 +110,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust (build only)
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
 # Copy Python environment from builder
 COPY --from=backend-builder /usr/local /usr/local
 
