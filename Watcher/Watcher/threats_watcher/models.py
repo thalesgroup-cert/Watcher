@@ -33,6 +33,10 @@ class Source(models.Model):
         null=True, blank=True,
         help_text="Timestamp of the last fetch attempt"
     )
+    failing_since = models.DateTimeField(
+        null=True, blank=True,
+        help_text="First error of the current series of errors (empty when the last answer was good)"
+    )
     created_at = models.DateTimeField(default=timezone.now)
     timeline_events = GenericRelation('timeline.TimelineEvent', related_query_name='source')
 

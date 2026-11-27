@@ -28,7 +28,7 @@ import { formatDateTime } from '../timeline/format';
 import { type PendingAction, usePendingActions, useResolvePendingAction, useResolvePendingActions } from './hooks';
 
 // Metadata the dialog shows elsewhere (the comment) or that only means something to the backend.
-const HIDDEN_META = new Set(['site_id', 'domain_id', 'comment', 'legitimacy', 'new_legitimacy']);
+const HIDDEN_META = new Set(['site_id', 'domain_id', 'source_id', 'comment', 'legitimacy', 'new_legitimacy']);
 
 /** What approving does, in two words on the button: a UDRP transfer or a lost domain moves it, a failed health check is only acknowledged. */
 const APPROVE_LABELS: Record<string, string> = {
@@ -36,6 +36,7 @@ const APPROVE_LABELS: Record<string, string> = {
     connector_health_check: 'Acknowledge',
     site_domain_available: 'Mark as available',
     legitimate_domain_lost: 'Move to monitoring',
+    source_failing: 'Delete the source',
 };
 const approveLabel = (action: PendingAction) => APPROVE_LABELS[action.action_type] ?? 'Approve';
 const metaLabel = (key: string) => key.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());

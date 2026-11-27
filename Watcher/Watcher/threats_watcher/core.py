@@ -1,5 +1,6 @@
 # coding=utf-8
 import logging
+from . import source_health
 from .models import BannedWord, Source, TrendyWord, PostUrl, Summary, Subscriber, MonitoredKeyword, KeywordHit
 from django.utils import timezone
 from django.conf import settings
@@ -230,7 +231,8 @@ def load_feeds():
 
 def _update_source_status(url, status_code):
     """
-    Write last_status_code and last_checked for a Source row (fire-and-forget).
+    Write last_status_code, last_checked and failing_since for a Source row (fire-and-forget); a source that has failed for
+    `source_health.FAILING_DAYS` days in a row is put to a person's decision (Pending actions).
 
     :return: the logging function to use for a problem on this feed: a warning when the answer is new, debug when the
         feed was already answering the same way at the previous check (a feed that blocks Watcher would otherwise be
@@ -240,11 +242,16 @@ def _update_source_status(url, status_code):
     if source_id is None:
         return logger.warning
     try:
-        previous = Source.objects.filter(pk=source_id).values_list('last_status_code', flat=True).first()
+        now = timezone.now()
+        previous, failing_since = Source.objects.filter(pk=source_id).values_list('last_status_code', 'failing_since').first() or (None, None)
+        failing_since = source_health.failing_since_after(status_code, failing_since, now)
         Source.objects.filter(pk=source_id).update(
             last_status_code=status_code,
-            last_checked=timezone.now(),
+            last_checked=now,
+            failing_since=failing_since,
         )
+        if failing_since and now - failing_since >= timedelta(days=source_health.FAILING_DAYS):
+            source_health.queue_if_dead(Source.objects.get(pk=source_id), now)
         return logger.debug if previous == status_code else logger.warning
     except Exception as exc:
         logger.debug(f"Could not update status for source {url}: {exc}")

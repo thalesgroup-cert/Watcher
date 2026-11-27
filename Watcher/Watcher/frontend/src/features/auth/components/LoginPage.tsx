@@ -9,7 +9,6 @@ import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import VpnKeyOutlined from '@mui/icons-material/VpnKeyOutlined';
 import { api, getErrorMessage } from '../../../api/client';
 import { toast } from '../../../lib/toast';
-import { WatcherMark } from '../../../styles/WatcherMark';
 import { useInstanceConfig } from '../../config/useInstanceConfig';
 import { useLogin } from '../hooks';
 import { selectIsAuthenticated, useAuthStore } from '../store';
@@ -22,32 +21,36 @@ const sweep = keyframes`
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 `;
-// The eyes the beam finds: each one wakes when the sweep (14 s a turn) reaches it, then fades, with a ring going out
-const ping = keyframes`
-    0% { opacity: 0; transform: scale(0.4); }
-    1.5% { opacity: 1; transform: scale(1.2); }
-    4% { opacity: 1; transform: scale(1); }
-    42%, 100% { opacity: 0; transform: scale(1); }
+// The blips the beam finds: each one lights up at once when the sweep (14 s a turn) reaches it, then fades slowly like the
+// glow of a radar screen, with a soft halo that spreads and vanishes
+const blip = keyframes`
+    0% { opacity: 0; }
+    0.5% { opacity: 1; }
+    5% { opacity: 0.75; }
+    16% { opacity: 0.35; }
+    34% { opacity: 0.1; }
+    55%, 100% { opacity: 0; }
 `;
-const pingRing = keyframes`
-    0% { opacity: 0; transform: scale(0.3); }
-    0.6% { opacity: 0.7; transform: scale(0.4); }
-    12%, 100% { opacity: 0; transform: scale(2.6); }
+const blipHalo = keyframes`
+    0% { opacity: 0; transform: scale(0.6); }
+    0.5% { opacity: 0.5; transform: scale(0.8); }
+    9%, 100% { opacity: 0; transform: scale(3.2); }
 `;
 const SWEEP_SECONDS = 14;
 /** The beam leads its trail by this angle (the sharp line is at 16.3 % of the turn). */
 const BEAM_LEAD = 58.7;
-/** Eyes on the radar: angle from the top (degrees, clockwise), distance from the centre (px), size (px). */
-const EYES: [number, number, number][] = [
-    [18, 250, 30],
-    [70, 140, 24],
-    [112, 310, 34],
-    [158, 190, 26],
-    [205, 330, 30],
-    [248, 120, 22],
-    [292, 270, 34],
-    [335, 175, 26],
-];
+/** A blip of the radar: angle from the top (degrees, clockwise), distance from the centre (px), size (px). */
+type Blip = [number, number, number];
+/**
+ * A few blips, scattered at random: another number (from 4 to 8) and other places at each visit. The square root spreads
+ * them evenly over the disc instead of crowding the centre.
+ */
+const randomBlips = (): Blip[] =>
+    Array.from({ length: 4 + Math.floor(Math.random() * 5) }, () => [
+        Math.round(Math.random() * 3600) / 10,
+        Math.round(70 + Math.sqrt(Math.random()) * 290),
+        Math.round((3.5 + Math.random() * 3.5) * 10) / 10,
+    ]);
 
 const pulse = keyframes`
     0% { box-shadow: 0 0 0 0 currentColor; }
@@ -57,6 +60,7 @@ const pulse = keyframes`
 /** A radar slowly sweeping behind the page, over a faint grid: Watcher keeps an eye out. */
 function Backdrop() {
     const theme = useTheme();
+    const [blips] = useState(randomBlips);
     const dark = theme.palette.mode === 'dark';
     const primary = theme.palette.primary.main;
     const still = '@media (prefers-reduced-motion: reduce)';
@@ -100,7 +104,7 @@ function Backdrop() {
                 }}
             />
             <Box aria-hidden sx={{ position: 'absolute', left: '28%', top: '50%', width: 0, height: 0 }}>
-                {EYES.map(([angle, distance, size]) => {
+                {blips.map(([angle, distance, size]) => {
                     const rad = (angle * Math.PI) / 180;
                     const delay = ((((angle - BEAM_LEAD) % 360) + 360) % 360) / 360 * SWEEP_SECONDS;
                     return (
@@ -109,17 +113,16 @@ function Backdrop() {
                             sx={{
                                 position: 'absolute',
                                 width: size,
-                                height: size * (2 / 3),
+                                height: size,
                                 left: Math.sin(rad) * distance - size / 2,
-                                top: -Math.cos(rad) * distance - size / 3,
-                                color: primary,
-                                '& .ring': { position: 'absolute', inset: '-40%', borderRadius: '50%', border: `1.5px solid ${primary}`, opacity: 0, animation: `${pingRing} ${SWEEP_SECONDS}s linear ${delay}s infinite` },
-                                '& svg': { position: 'relative', display: 'block', width: '100%', height: '100%', opacity: 0, animation: `${ping} ${SWEEP_SECONDS}s linear ${delay}s infinite`, filter: `drop-shadow(0 0 6px ${alpha(primary, 0.8)})` },
-                                [still]: { '& .ring': { display: 'none' }, '& svg': { animation: 'none', opacity: 0.14 } },
+                                top: -Math.cos(rad) * distance - size / 2,
+                                '& .halo': { position: 'absolute', inset: 0, borderRadius: '50%', border: `1px solid ${primary}`, opacity: 0, animation: `${blipHalo} ${SWEEP_SECONDS}s linear ${delay}s infinite` },
+                                '& .dot': { position: 'absolute', inset: 0, borderRadius: '50%', bgcolor: primary, boxShadow: `0 0 ${size * 2}px ${alpha(primary, 0.9)}`, opacity: 0, animation: `${blip} ${SWEEP_SECONDS}s linear ${delay}s infinite` },
+                                [still]: { '& .halo': { display: 'none' }, '& .dot': { animation: 'none', opacity: 0.2, boxShadow: 'none' } },
                             }}
                         >
-                            <span className="ring" />
-                            <WatcherMark />
+                            <span className="halo" />
+                            <span className="dot" />
                         </Box>
                     );
                 })}

@@ -1801,3 +1801,71 @@ class WeeklySourcesTest(SimpleTestCase):
             result = fetch_article_texts(posts, max_texts=5, urls=urls)
         self.assertEqual(result, list(texts.values()))
         self.assertEqual(urls, {text: url for url, text in texts.items()})
+
+
+class SourceHealthTest(TestCase):
+    """A source that fails for 45 days in a row is put to a person's decision (keep or delete)."""
+
+    def setUp(self):
+        from threats_watcher import source_health
+        self.health = source_health
+        self.now = timezone.now()
+        self.source = Source.objects.create(url='https://dead.example.org/feed', confident=2)
+
+    def failing(self, days):
+        Source.objects.filter(pk=self.source.pk).update(failing_since=self.now - timedelta(days=days), last_status_code=404)
+        self.source.refresh_from_db()
+
+    def test_the_series_of_errors_starts_at_the_first_error_and_a_good_answer_ends_it(self):
+        first = self.health.failing_since_after(404, None, self.now)
+        self.assertEqual(first, self.now)
+        self.assertEqual(self.health.failing_since_after(0, first, self.now + timedelta(days=3)), first)
+        self.assertIsNone(self.health.failing_since_after(200, first, self.now))
+
+    def test_the_status_written_after_each_fetch_keeps_the_series(self):
+        core.sources_by_url = {self.source.url: self.source.pk}
+        core._update_source_status(self.source.url, 404)
+        self.source.refresh_from_db()
+        started = self.source.failing_since
+        self.assertIsNotNone(started)
+        core._update_source_status(self.source.url, 403)
+        self.source.refresh_from_db()
+        self.assertEqual(self.source.failing_since, started)
+        core._update_source_status(self.source.url, 200)
+        self.source.refresh_from_db()
+        self.assertIsNone(self.source.failing_since)
+
+    def test_nobody_is_asked_before_45_days(self):
+        from common.models import PendingAction
+        self.failing(44)
+        self.assertIsNone(self.health.queue_if_dead(self.source, self.now))
+        self.assertFalse(PendingAction.objects.filter(action_type='source_failing').exists())
+
+    def test_the_question_is_asked_once_after_45_days(self):
+        from common.models import PendingAction
+        self.failing(46)
+        action = self.health.queue_if_dead(self.source, self.now)
+        self.assertEqual(action.action_type, 'source_failing')
+        self.assertEqual(action.metadata['source_id'], self.source.pk)
+        self.assertIsNone(self.health.queue_if_dead(self.source, self.now))
+        self.assertEqual(PendingAction.objects.filter(action_type='source_failing').count(), 1)
+
+    def test_a_source_kept_is_asked_again_only_45_days_later(self):
+        self.failing(46)
+        action = self.health.queue_if_dead(self.source, self.now)
+        action.status, action.resolved_at = 'rejected', self.now - timedelta(days=10)
+        action.save()
+        self.assertIsNone(self.health.queue_if_dead(self.source, self.now))
+        action.resolved_at = self.now - timedelta(days=50)
+        action.save()
+        self.assertIsNotNone(self.health.queue_if_dead(self.source, self.now))
+
+    def test_approving_deletes_the_source_unless_it_answers_again(self):
+        self.failing(46)
+        action = self.health.queue_if_dead(self.source, self.now)
+        Source.objects.filter(pk=self.source.pk).update(failing_since=None)
+        self.health.execute_source_failing(action)
+        self.assertTrue(Source.objects.filter(pk=self.source.pk).exists())
+        Source.objects.filter(pk=self.source.pk).update(failing_since=self.now - timedelta(days=46))
+        self.health.execute_source_failing(action)
+        self.assertFalse(Source.objects.filter(pk=self.source.pk).exists())

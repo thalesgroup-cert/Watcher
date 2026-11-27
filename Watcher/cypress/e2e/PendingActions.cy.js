@@ -47,15 +47,21 @@ describe('Pending actions', () => {
       body: [
         domain(3, 'site_domain_available', 'Website Monitoring - Domain now available', 'Domain available: phish.com', { site_id: 4, domain_name: 'phish.com', legitimacy: 5, new_legitimacy: 6, last_registrar: 'Gandi' }),
         domain(4, 'legitimate_domain_lost', 'Legitimate Domains - Domain no longer registered', 'Domain lost: thales.fr', { domain_id: 9, domain_name: 'thales.fr', last_expiry: '2026-11-02' }),
+        domain(5, 'source_failing', 'RSS source - Failing for weeks', 'RSS source failing for 46 days: https://dead.example.org/feed', { source_id: 12, url: 'https://dead.example.org/feed', status_code: 404, days: 46 }),
       ],
     });
     open();
     cy.contains('[data-testid="pending-action"]', 'Domain available: phish.com').contains('button', 'Mark as available').should('be.visible');
     cy.contains('[data-testid="pending-action"]', 'Domain lost: thales.fr').contains('button', 'Move to monitoring').should('be.visible');
+    cy.contains('[data-testid="pending-action"]', 'RSS source failing for 46 days').contains('button', 'Delete the source').should('be.visible');
     // The details show what is useful and hide what only the server needs
     cy.contains('[data-testid="pending-action"]', 'Domain lost: thales.fr').find('.MuiListItemButton-root').click();
     cy.contains('Last expiry').should('be.visible');
     cy.contains('Domain id').should('not.exist');
+    cy.get('[aria-label="Back to the list"]').click();
+    cy.contains('[data-testid="pending-action"]', 'RSS source failing for 46 days').find('.MuiListItemButton-root').click();
+    cy.contains('Status code').should('be.visible');
+    cy.contains('Source id').should('not.exist');
   });
 
   it('keeps the buttons at the right of the row, after the title', () => {

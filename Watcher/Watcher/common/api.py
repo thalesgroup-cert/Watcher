@@ -478,6 +478,10 @@ def _execute_pending_action(pa):
     elif pa.action_type == registration_actions.DOMAIN_LOST:
         registration_actions.execute_domain_lost(pa)
 
+    elif pa.action_type == 'source_failing':
+        from threats_watcher.source_health import execute_source_failing
+        execute_source_failing(pa)
+
 
 class GlobalSearchView(APIView):
     """GET /api/search/?q=… — results of every module the user may see, grouped by module (see common/search.py)."""

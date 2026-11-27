@@ -115,6 +115,7 @@ class PendingAction(models.Model):
         ('connector_health_check', 'Connector - Health check failed'),
         ('site_domain_available', 'Website Monitoring - Domain now available'),
         ('legitimate_domain_lost', 'Legitimate Domains - Domain no longer registered'),
+        ('source_failing', 'RSS source - Failing for weeks'),
     ]
 
     STATUS_CHOICES = [
