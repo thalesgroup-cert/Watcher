@@ -862,8 +862,8 @@ class OneHitPerObjectTest(APITestCase):
 class MergeHitsMigrationTest(TransactionTestCase):
     """The hits already recorded, one per keyword, become one per object."""
 
-    BEFORE = [('cyber_watch', '0002_remove_subscriber_channel_flags')]
-    AFTER = [('cyber_watch', '0003_one_hit_per_object')]
+    BEFORE = [('cyber_watch', '0001_initial')]
+    AFTER = [('cyber_watch', '0002_one_hit_per_object_and_exploitation')]
 
     def setUp(self):
         from django.db import connection
@@ -1528,76 +1528,64 @@ class RansomwareFiltersTest(APITestCase):
         self.assertGreaterEqual(len(stats['bySector']), 17)
 
 
-class MergeAdvisoriesMigrationTest(TransactionTestCase):
-    """The advisories already collected under a Debian id become their CVE."""
-
-    BEFORE = [('cyber_watch', '0005_subscriber_notify_exploited_cves')]
-    AFTER = [('cyber_watch', '0006_merge_advisories_with_their_cve')]
+class MergeAdvisoriesMigrationTest(TestCase):
+    """The advisories already collected under a Debian id become their CVE (the function of the migration of 4.0.0 is run on the current models)."""
 
     def setUp(self):
-        from django.db import connection
-        from django.db.migrations.executor import MigrationExecutor
-        self.connection = connection
-        self.executor_class = MigrationExecutor
-        MigrationExecutor(connection).migrate(self.BEFORE)
-        self.apps = MigrationExecutor(connection).loader.project_state(self.BEFORE).apps
-        self.addCleanup(lambda: MigrationExecutor(connection).migrate(MigrationExecutor(connection).loader.graph.leaf_nodes()))
+        import importlib
+        self.merge = importlib.import_module('cyber_watch.migrations.0002_one_hit_per_object_and_exploitation').merge
 
     def forward(self):
-        self.executor_class(self.connection).migrate(self.AFTER)
-        return self.executor_class(self.connection).loader.project_state(self.AFTER).apps
+        from django.apps import apps
+        self.merge(apps, None)
 
     def hit(self, rule, object_id, keywords, archived=False):
-        return self.apps.get_model('cyber_watch', 'WatchRuleHit').objects.create(
+        return WatchRuleHit.objects.create(
             rule=rule, hit_type='cve', object_id=object_id, hit_display=object_id, matched_keywords=keywords, is_archived=archived)
 
     def test_an_advisory_of_a_cve_already_there_is_merged_into_it(self):
-        CVE = self.apps.get_model('cyber_watch', 'CVEAlert')
-        CVE.objects.create(cve_id='CVE-2026-3000', description='')
-        CVE.objects.create(cve_id='DEBIAN-CVE-2026-3000', description='Seen by Debian', cvss_score=7.5, severity='HIGH')
-        apps = self.forward()
-        rows = apps.get_model('cyber_watch', 'CVEAlert').objects.all()
+        CVEAlert.objects.create(cve_id='CVE-2026-3000', description='')
+        CVEAlert.objects.create(cve_id='DEBIAN-CVE-2026-3000', description='Seen by Debian', cvss_score=7.5, severity='HIGH')
+        self.forward()
+        rows = CVEAlert.objects.all()
         self.assertEqual([r.cve_id for r in rows], ['CVE-2026-3000'])
         # It only gave what the CVE lacked
         self.assertEqual((rows[0].description, rows[0].cvss_score, rows[0].severity), ('Seen by Debian', 7.5, 'HIGH'))
 
     def test_what_the_cve_has_is_not_overwritten(self):
-        CVE = self.apps.get_model('cyber_watch', 'CVEAlert')
-        CVE.objects.create(cve_id='CVE-2026-3010', description='Mine', cvss_score=9.8, severity='CRITICAL')
-        CVE.objects.create(cve_id='DEBIAN-CVE-2026-3010', description='Theirs', cvss_score=3.0, severity='LOW')
-        row = self.forward().get_model('cyber_watch', 'CVEAlert').objects.get()
+        CVEAlert.objects.create(cve_id='CVE-2026-3010', description='Mine', cvss_score=9.8, severity='CRITICAL')
+        CVEAlert.objects.create(cve_id='DEBIAN-CVE-2026-3010', description='Theirs', cvss_score=3.0, severity='LOW')
+        self.forward()
+        row = CVEAlert.objects.get()
         self.assertEqual((row.description, row.cvss_score, row.severity), ('Mine', 9.8, 'CRITICAL'))
 
     def test_an_advisory_of_a_cve_not_there_becomes_that_cve(self):
-        CVE = self.apps.get_model('cyber_watch', 'CVEAlert')
-        CVE.objects.create(cve_id='DEBIAN-CVE-2026-3020', description='First seen by Debian')
-        row = self.forward().get_model('cyber_watch', 'CVEAlert').objects.get()
+        CVEAlert.objects.create(cve_id='DEBIAN-CVE-2026-3020', description='First seen by Debian')
+        self.forward()
+        row = CVEAlert.objects.get()
         self.assertEqual((row.cve_id, row.description), ('CVE-2026-3020', 'First seen by Debian'))
 
     def test_the_other_advisories_are_left_as_they_are(self):
-        CVE = self.apps.get_model('cyber_watch', 'CVEAlert')
         for advisory in ('OSV-2026-1', 'RLSA-2026:2', 'DEBIAN-TEMP-0000-AB'):
-            CVE.objects.create(cve_id=advisory)
-        ids = sorted(self.forward().get_model('cyber_watch', 'CVEAlert').objects.values_list('cve_id', flat=True))
-        self.assertEqual(ids, ['DEBIAN-TEMP-0000-AB', 'OSV-2026-1', 'RLSA-2026:2'])
+            CVEAlert.objects.create(cve_id=advisory)
+        self.forward()
+        self.assertEqual(sorted(CVEAlert.objects.values_list('cve_id', flat=True)), ['DEBIAN-TEMP-0000-AB', 'OSV-2026-1', 'RLSA-2026:2'])
 
     def test_the_matches_follow_the_advisory(self):
-        CVE = self.apps.get_model('cyber_watch', 'CVEAlert')
-        Rule = self.apps.get_model('cyber_watch', 'WatchRule')
-        rule = Rule.objects.create(name='Debian stack', keywords=['debian', 'kernel'], scope='cve')
-        CVE.objects.create(cve_id='DEBIAN-CVE-2026-3030')
-        CVE.objects.create(cve_id='CVE-2026-3040')
-        CVE.objects.create(cve_id='DEBIAN-CVE-2026-3040')
+        rule = WatchRule.objects.create(name='Debian stack', keywords=['debian', 'kernel'], scope='cve')
+        CVEAlert.objects.create(cve_id='DEBIAN-CVE-2026-3030')
+        CVEAlert.objects.create(cve_id='CVE-2026-3040')
+        CVEAlert.objects.create(cve_id='DEBIAN-CVE-2026-3040')
         self.hit(rule, 'DEBIAN-CVE-2026-3030', ['debian'])
         self.hit(rule, 'CVE-2026-3040', ['kernel'], archived=True)
         self.hit(rule, 'DEBIAN-CVE-2026-3040', ['debian'], archived=False)
-        Hit = self.forward().get_model('cyber_watch', 'WatchRuleHit')
-        self.assertEqual(Hit.objects.get(object_id='CVE-2026-3030').matched_keywords, ['debian'])
-        merged = Hit.objects.get(object_id='CVE-2026-3040')
+        self.forward()
+        self.assertEqual(WatchRuleHit.objects.get(object_id='CVE-2026-3030').matched_keywords, ['debian'])
+        merged = WatchRuleHit.objects.get(object_id='CVE-2026-3040')
         self.assertEqual(merged.matched_keywords, ['kernel', 'debian'])
         self.assertFalse(merged.is_archived)  # still to review while one of them was
-        self.assertEqual(Hit.objects.count(), 2)
-        self.assertFalse(Hit.objects.filter(object_id__startswith='DEBIAN').exists())
+        self.assertEqual(WatchRuleHit.objects.count(), 2)
+        self.assertFalse(WatchRuleHit.objects.filter(object_id__startswith='DEBIAN').exists())
 
 
 class RetentionTest(TestCase):

@@ -160,7 +160,7 @@ class UserThemeTest(TestCase):
         UserProfile.objects.filter(user=other).update(theme='paper')
         classic = User.objects.create_user(username='classic', password='testpass123')
         UserProfile.objects.filter(user=classic).update(theme='darkly')
-        migration = importlib.import_module('accounts.migrations.0009_userprofile_theme_not_chosen')
+        migration = importlib.import_module('accounts.migrations.0009_theme_and_avatar')
         migration.clear_legacy_themes(apps, None)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.theme, '')

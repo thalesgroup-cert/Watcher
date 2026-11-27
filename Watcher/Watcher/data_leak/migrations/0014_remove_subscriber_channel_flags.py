@@ -1,19 +1,26 @@
+"""All the migrations of 4.0.0 for this module, in one (they replace the 1 made while it was prepared)."""
 from django.db import migrations
 
 
 class Migration(migrations.Migration):
-    """
-    Slack, Citadel and TheHive are set once for the instance (Connectors > Notifications); only the e-mail box stays on
-    the subscriber. connectors.0006 still reads these boxes to build those instance settings, so it must run first.
-    """
+
 
     dependencies = [
+        ('connectors', '0007_notification_settings_and_events'),
         ('data_leak', '0013_alter_keyword_options'),
-        ('connectors', '0008_seed_notification_settings'),
     ]
 
     operations = [
-        migrations.RemoveField(model_name='subscriber', name='citadel'),
-        migrations.RemoveField(model_name='subscriber', name='slack'),
-        migrations.RemoveField(model_name='subscriber', name='thehive'),
+        migrations.RemoveField(
+            model_name='subscriber',
+            name='citadel',
+        ),
+        migrations.RemoveField(
+            model_name='subscriber',
+            name='slack',
+        ),
+        migrations.RemoveField(
+            model_name='subscriber',
+            name='thehive',
+        ),
     ]

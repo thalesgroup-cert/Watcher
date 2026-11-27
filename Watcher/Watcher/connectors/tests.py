@@ -1228,17 +1228,18 @@ class UdrpDeliveryTest(TestCase):
         self.assertEqual(recipients, ['udrp@test.com'])
 
 
-migration = importlib.import_module('connectors.migrations.0008_seed_notification_settings')
+migration = importlib.import_module('connectors.migrations.0007_notification_settings_and_events')
 
-# The last migration of each app before it dropped the slack / citadel / thehive boxes of its subscribers. The seed
-# reads those boxes, so it is tested on the schema it was written for, not on the current models.
+# The last migration (3.8.0) of each app before it dropped the slack / citadel / thehive boxes of its subscribers, and the
+# migration of 4.0.0 of Connectors that holds the seed. The seed reads those boxes, so it is tested on the schema it was
+# written for, not on the current models.
 BEFORE_THE_DROP = [
-    ('threats_watcher', '0020_source_last_checked_source_last_status_code'),
+    ('threats_watcher', '0022_watcherconfiguration'),
     ('cyber_watch', '0001_initial'),
     ('data_leak', '0013_alter_keyword_options'),
-    ('dns_finder', '0016_alert_feed_indexes'),
+    ('dns_finder', '0015_remove_dnstwisted_detection_status_alert_comments_and_more'),
     ('site_monitoring', '0035_site_network_history'),
-    ('connectors', '0009_notificationsetting_custom_message'),
+    ('connectors', '0007_notification_settings_and_events'),
 ]
 
 
