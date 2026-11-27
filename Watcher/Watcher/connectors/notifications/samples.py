@@ -79,7 +79,7 @@ def dns_finder():
         'subdomain': 'examp1e.com', 'subdomain_sanitized': 'examp1e[.]com', 'parent_domain': 'example.com',
         'parent_domain_sanitized': 'example[.]com', 'keyword': 'example',
         'corporate_dns': 'example.com', 'corporate_dns_sanitized': 'example[.]com', 'fuzzer': 'homoglyph',
-        'details_url': URL + '#/dns_finder/', 'app_name': 'dns_finder',
+        'source_label': 'Look-alike', 'details_url': URL + '#/dns_finder/', 'app_name': 'dns_finder',
     }
 
 

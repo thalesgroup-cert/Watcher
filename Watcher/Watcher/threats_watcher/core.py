@@ -363,6 +363,30 @@ _entities_cache = OrderedDict()
 _entities_lock = threading.Lock()
 
 
+def _words_in_lowercase(titles):
+    """The words that are written in lowercase somewhere in the titles: common words, not names."""
+    return {w.lower() for title in titles for w in re.findall(r"(?<![A-Za-z])[a-z][a-z0-9'-]*", title)}
+
+
+def _plain_entities(title, common):
+    """
+    The entities of a title without the model: the words written with a capital that no title writes in lowercase (names
+    of companies, products, groups), the CVE identifiers and the attackers (APT29...). The words that are not worth a
+    trendy word are then removed like the others (banned words, English and French lists).
+    """
+    names = set()
+    for token in re.findall(r"[A-Za-z][A-Za-z0-9+#]*", title):
+        if len(token) > 2 and not token.isdigit() and token[0].isupper() and token.lower() not in common:
+            names.add(token)
+    attackers = []
+    for pat in ATTACKER_PATTERNS:
+        attackers += re.findall(pat, title)
+    return {
+        "persons": [], "organizations": [], "locations": [], "product": sorted(names),
+        "cves": list(set(re.findall(r"\bCVE-\d{4}-\d{4,7}\b", title))), "attackers": list(set(attackers)),
+    }
+
+
 def _entities_of(title):
     """The entities of a title (extract_entities_and_threats), asked to the model only the first time this title is met."""
     with _entities_lock:
@@ -417,19 +441,23 @@ def tokenize_count_urls():
 
     threshold = timezone.now() - timedelta(days=30)
 
-    if not get_ner_pipeline():
-        logger.error("NER pipeline not available for tokenization")
+    model = get_ner_pipeline()
+    common = None
+    if not model:
+        # Watcher works without the model (it is downloaded from Hugging Face, which a network can block): the words are
+        # taken from the titles themselves, less precisely
+        logger.warning("NER model not available: the trendy words are taken from the titles without it")
         job_log.job_count("ner_unavailable")
-        return
+        common = _words_in_lowercase(posts)
 
-    restore_threads = _limit_model_threads()
+    restore_threads = _limit_model_threads() if model else None
     try:
         for title, url in posts.items():
             post_date = posts_published.get(url, "no-date")
             if post_date == "no-date" or not isinstance(post_date, datetime) or post_date < threshold:
                 continue
             job_log.job_count("titles")
-            ents = _entities_of(title)
+            ents = _entities_of(title) if model else _plain_entities(title, common)
             retained = (
                   ents["persons"]
                 + ents["organizations"]

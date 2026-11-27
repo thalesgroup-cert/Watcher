@@ -1,7 +1,7 @@
 import time
 import uuid
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 from django.test import TestCase, TransactionTestCase, SimpleTestCase, override_settings
 from django.contrib.auth.models import User, Permission
 from django.conf import settings
@@ -369,7 +369,25 @@ class TitlesGoThroughTheModelOnceTest(TestCase):
         with patch('threats_watcher.core.get_ner_pipeline', return_value=None), \
                 patch('threats_watcher.core.job_log.job_count') as count:
             self.core.tokenize_count_urls()
-        count.assert_called_once_with("ner_unavailable")
+        self.assertIn(call("ner_unavailable"), count.call_args_list)
+
+    def test_without_the_model_the_words_come_from_the_titles(self):
+        core = self.core
+        core.posts = {
+            "Lockbit hits Acme hospital": "https://x.test/1",
+            "Hospital attack: CVE-2026-1111 exploited by APT29": "https://x.test/2",
+            "A hospital pays a ransom": "https://x.test/3",
+        }
+        now = timezone.now()
+        core.posts_published = {u: now for u in core.posts.values()}
+        with patch('threats_watcher.core.get_ner_pipeline', return_value=None):
+            core.tokenize_count_urls()
+        words = core.posts_words
+        for expected in ("Lockbit", "Acme", "CVE-2026-1111", "APT29"):
+            self.assertIn(expected, words)
+        # Written in lowercase in another title: a common word, not a name
+        self.assertNotIn("Hospital", words)
+        self.assertNotIn("A", words)
 
     @override_settings(NER_TORCH_THREADS=1)
     def test_the_threads_of_the_model_are_limited_then_given_back(self):

@@ -1,4 +1,4 @@
-from .base import defang, link_to, render_email
+from .base import defang, dns_source, link_to, render_email
 
 
 def get_dns_finder_template(alert, link_url=None):
@@ -9,6 +9,7 @@ def get_dns_finder_template(alert, link_url=None):
         intro="A domain that looks like a corporate asset was detected.",
         rows=[
             ('Suspicious domain', defang(twisted.domain_name)),
+            ('Source', dns_source(alert)),
             ('Matches corporate domain', defang(twisted.dns_monitored)),
             ('Matches corporate keyword', twisted.keyword_monitored),
             ('Detection method', twisted.fuzzer),

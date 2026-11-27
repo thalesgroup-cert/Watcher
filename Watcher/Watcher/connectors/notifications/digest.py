@@ -9,7 +9,7 @@ from html import escape
 
 from django.conf import settings
 
-from .catalogue import get_type
+from .catalogue import get_type, stamp
 
 MAX_LINES = 10
 
@@ -59,6 +59,17 @@ DIGESTS = {
 }
 
 
+# What the link at the end of a grouped message opens
+LINK_LABELS = {
+    'dns_finder': 'Open the alerts in Watcher',
+    'website_monitoring': 'Open the websites in Watcher',
+    'cyber_watch_cve_hit': 'Open the CVEs in Watcher',
+    'cyber_watch_victim_hit': 'Open the victims in Watcher',
+    'cyber_watch_new_cve': 'Open the CVEs in Watcher',
+    'cyber_watch_new_victim': 'Open the victims in Watcher',
+}
+
+
 def threshold():
     return int(getattr(settings, 'NOTIFICATION_DIGEST_THRESHOLD', 4) or 0)
 
@@ -82,12 +93,13 @@ def render_digest(type_id, channel, contexts):
     """The text of the grouped message for `channel` ('slack': Slack text, 'citadel': (HTML, plain text))."""
     headline, tag, _ = DIGESTS[type_id]
     headline = headline.format(n=len(contexts))
+    tag = f'{tag} · {stamp()}'
     lines, more = _lines(type_id, contexts)
-    link = _link(type_id)
+    link, label = _link(type_id), LINK_LABELS[type_id]
     if channel == 'slack':
         body = ''.join(f'• {line}\n' for line in lines) + (more + '\n' if more else '')
-        return f'*{headline}*\n_{tag}_\n\n{body}\n<{link}|Open in Watcher>'
+        return f'*{headline}*\n_{tag}_\n\n{body}\n<{link}|{label}>'
     html = (f'<h4>{escape(headline)}</h4><p><em>{escape(tag)}</em></p>' + ''.join(f'{escape(line)}<br>' for line in lines)
-            + (f'{escape(more)}<br>' if more else '') + f"<br><p><a href='{link}'>Open in Watcher</a></p>")
-    text = '\n'.join([headline, tag, *lines, *([more] if more else []), '', 'Open in Watcher'])
+            + (f'{escape(more)}<br>' if more else '') + f"<br><p><a href='{link}'>{escape(label)}</a></p>")
+    text = '\n'.join([headline, tag, *lines, *([more] if more else []), '', label])
     return html, text

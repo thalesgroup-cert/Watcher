@@ -24,6 +24,7 @@ from .mail_template.dns_finder_dangling_template import get_dns_finder_dangling_
 from .mail_template.cyber_watch_template import get_cyber_watch_template
 from .utils.send_thehive_alerts import send_thehive_alert
 from .utils import job_log
+from .mail_template.base import dns_source
 from .utils.job_log import job_count, logged_job, note_channel, report_channel, reported_notification, run_channel
 from .utils import expiry_alerts, expiry_check, registration_actions
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
@@ -982,6 +983,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
                         'keyword': alert.dns_twisted.keyword_monitored.name if alert.dns_twisted.keyword_monitored else None,
                         'corporate_dns_sanitized': _defang(getattr(alert.dns_twisted.dns_monitored, 'domain_name', None)),
                         'fuzzer': alert.dns_twisted.fuzzer or None,
+                        'source_label': dns_source(alert),
                         'details_url': settings.WATCHER_URL + ntype.url_suffix,
                         'object_url': watcher_object_url('dns_finder', context_data) or settings.WATCHER_URL + ntype.url_suffix,
                     }
@@ -1023,6 +1025,7 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
             common_data = {
                 'alert': alert,
                 'dns_domain_name_sanitized': dns_domain_name_sanitized,
+                'source_label': dns_source(alert),
                 'corporate_dns_sanitized': _defang(getattr(alert.dns_twisted.dns_monitored, 'domain_name', None)),
                 'details_url': settings.WATCHER_URL + ntype.url_suffix,
                 'app_name': 'dns_finder'

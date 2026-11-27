@@ -758,7 +758,7 @@ class NotificationAPITest(APITestCase):
         self.assertNotIn('<ul>', content['formatted_body'])
         self.assertIn('<p><strong>ransomware<br>phishing kit</strong></p>', content['formatted_body'])
         # The link is on its own line in the text version
-        self.assertIn('phishing kit\n\nOpen in Watcher', content['body'])
+        self.assertIn('phishing kit\n\nSee the trendy words in Watcher', content['body'])
 
     def test_preview_of_a_text_channel_uses_the_fields_sent(self):
         self._auth(self.super_token)
@@ -831,6 +831,7 @@ class CatalogueShapeTest(SimpleTestCase):
             self.assertEqual(len(ids), len(set(ids)), ntype.id)
 
 
+@patch('connectors.notifications.catalogue.stamp', new=lambda: '27 Nov 16:42')
 class GoldenMessagesTest(SimpleTestCase):
     """With every field selected, the messages are the ones the hardcoded APP_CONFIG_* dicts produced."""
 

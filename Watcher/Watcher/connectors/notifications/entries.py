@@ -11,8 +11,13 @@ from .catalogue import EmailSpec, Field, Layout, NotificationType, register
 
 TAG = getattr(settings, 'SUBJECT_TAG_SITE_MONITORING', '')
 
-SLACK_TAIL = "\n<{object_url}|Open in Watcher>"
-CITADEL_LIST_TAIL = "<br><p><a href='{object_url}'>Open in Watcher</a></p>"
+def _slack_tail(label):
+    """The link back to the object, named for what it opens."""
+    return "\n<{object_url}|" + label + ">"
+
+
+def _citadel_tail(label):
+    return "<br><p><a href='{object_url}'>" + label + "</a></p>"
 
 
 def _bullet(label, key):
@@ -42,11 +47,11 @@ def _row(label, key):
 
 def _slack_head(title, tag, intro=''):
     """A headline, the module (and what it is) in small under it, then a sentence when there is something to explain."""
-    return "*" + title + "*\n_" + tag + "_\n\n" + (intro + "\n\n" if intro else "")
+    return "*" + title + "*\n_" + tag + " · {sent_at}_\n\n" + (intro + "\n\n" if intro else "")
 
 
 def _citadel_head(title, tag, intro=''):
-    return "<h4>" + title + "</h4><p><em>" + tag + "</em></p>" + ("<p>" + intro + "</p>" if intro else "")
+    return "<h4>" + title + "</h4><p><em>" + tag + " · {sent_at}</em></p>" + ("<p>" + intro + "</p>" if intro else "")
 
 
 def _field(id, label, key, *, thehive=None, required=False, optional=False):
@@ -74,14 +79,14 @@ THREATS_WATCHER = NotificationType(
     sample=samples.threats_watcher,
     layouts={
         'slack': Layout(
-            head="*🔥 Trendy threats detected*\n_Threats Watcher_\n\n"
+            head="*🔥 Trendy threats detected*\n_Threats Watcher · {sent_at}_\n\n"
                  "Please find the new trendy word(s) detected below:\n\n{words_list}\n\n"
-                 "<{object_url}|Open in Watcher>"),
+                 "<{object_url}|See the trendy words in Watcher>"),
         'citadel': Layout(
-            head="<h4>🔥 Trendy threats detected</h4><p><em>Threats Watcher</em></p>"
+            head="<h4>🔥 Trendy threats detected</h4><p><em>Threats Watcher · {sent_at}</em></p>"
                  "<p>Please find the new trendy word(s) detected below:</p>"
                  "<p><strong>{words_list}</strong></p>"
-                 "<br><p><a href='{object_url}'>Open in Watcher</a></p>"),
+                 "<br><p><a href='{object_url}'>See the trendy words in Watcher</a></p>"),
         'thehive': Layout(
             head="## Threats Watcher - Trendy words\n\nThese words are trending in the monitored sources:\n\n"
                  "```\n{words_list}\n```\n",
@@ -96,12 +101,12 @@ THREATS_WATCHER_WEEKLY = NotificationType(
     sample=samples.threats_watcher_weeklysummary,
     layouts={
         'slack': Layout(
-            head="*📊 Weekly report*\n_Threats Watcher_\n\nHere is the weekly report summary:\n\n"
-                 "{summary_text}\n\n<{object_url}|Open in Watcher>"),
+            head="*📊 Weekly report*\n_Threats Watcher · {sent_at}_\n\nHere is the weekly report summary:\n\n"
+                 "{summary_text}\n\n<{object_url}|Read the full report in Watcher>"),
         'citadel': Layout(
-            head="<h4>📊 Weekly report</h4><p><em>Threats Watcher</em></p>"
+            head="<h4>📊 Weekly report</h4><p><em>Threats Watcher · {sent_at}</em></p>"
                  "<p>Here is the weekly report summary:</p><p>{summary_text}</p>"
-                 "<br><p><a href='{object_url}'>Open in Watcher</a></p>"),
+                 "<br><p><a href='{object_url}'>Read the full report in Watcher</a></p>"),
     },
     email=EmailSpec('[REPORT] Weekly Cyber Threat Intelligence Summary', samples.email_threats_watcher_weeklysummary),
 )
@@ -111,12 +116,12 @@ THREATS_WATCHER_BREAKING = NotificationType(
     sample=samples.threats_watcher_breakingnews,
     layouts={
         'slack': Layout(
-            head="*🚨 Breaking news*\n_Threats Watcher_\n\nWatcher has detected a new breaking news:\n\n{summary_text}\n\n"
-                 "<{object_url}|Open in Watcher>"),
+            head="*🚨 Breaking news*\n_Threats Watcher · {sent_at}_\n\nWatcher has detected a new breaking news:\n\n{summary_text}\n\n"
+                 "<{object_url}|Read it in Watcher>"),
         'citadel': Layout(
-            head="<h4>🚨 Breaking news</h4><p><em>Threats Watcher</em></p>"
+            head="<h4>🚨 Breaking news</h4><p><em>Threats Watcher · {sent_at}</em></p>"
                  "<p>Watcher has detected a new breaking news:</p><p>{summary_text}</p>"
-                 "<br><p><a href='{object_url}'>Open in Watcher</a></p>"),
+                 "<br><p><a href='{object_url}'>Read it in Watcher</a></p>"),
     },
     email=EmailSpec('[ALERT] Breaking News - Critical Threat Detected', samples.email_threats_watcher_breakingnews),
 )
@@ -132,8 +137,8 @@ DATA_LEAK = NotificationType(
         _field('url', 'Source', 'url', thehive=_row('Source', 'url'), required=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_LEAK_TITLE, _LEAK_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_LEAK_TITLE, _LEAK_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_LEAK_TITLE, _LEAK_TAG), tail=_slack_tail('Open the leak alert in Watcher')),
+        'citadel': Layout(head=_citadel_head(_LEAK_TITLE, _LEAK_TAG), tail=_citadel_tail('Open the leak alert in Watcher')),
         'thehive': Layout(
             head=_th_head("Data leak detected", "A page matching a monitored keyword was found."),
             tail=_TH_TAIL, title="New Data Leakage - Alert #{alert_pk} for {keyword_name} keyword"),
@@ -147,14 +152,14 @@ DATA_LEAK_GROUP = NotificationType(
     sample=samples.data_leak_group,
     layouts={
         'slack': Layout(
-            head="*🚨 {alerts_number} data leak alerts*\n_Data Leak · grouped_\n\n"
+            head="*🚨 {alerts_number} data leak alerts*\n_Data Leak · grouped · {sent_at}_\n\n"
                  "*{alerts_number}* new data leakage alerts have been detected for the keyword *{keyword}*\n\n"
-                 "<{object_url}|Open in Watcher>"),
+                 "<{object_url}|Open the leak alerts in Watcher>"),
         'citadel': Layout(
-            head="<h4>🚨 {alerts_number} data leak alerts</h4><p><em>Data Leak · grouped</em></p>"
+            head="<h4>🚨 {alerts_number} data leak alerts</h4><p><em>Data Leak · grouped · {sent_at}</em></p>"
                  "<p><strong>{alerts_number}</strong> new data leakage alerts have been detected for the keyword "
                  "<strong>{keyword}</strong>.</p>"
-                 "<br><p><a href='{object_url}'>Open in Watcher</a></p>"),
+                 "<br><p><a href='{object_url}'>Open the leak alerts in Watcher</a></p>"),
     },
     email=EmailSpec('[{alerts_number} ALERTS] Data Leak', samples.email_data_leak_group),
 )
@@ -185,8 +190,8 @@ WEBSITE_MONITORING = NotificationType(
         _change('old_mail_server', 'Old Mail Server', 'old_mail_A_record_ip', 'Previous mail server address'),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_SITE_TITLE, _SITE_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_SITE_TITLE, _SITE_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_SITE_TITLE, _SITE_TAG), tail=_slack_tail('Open the website in Watcher')),
+        'citadel': Layout(head=_citadel_head(_SITE_TITLE, _SITE_TAG), tail=_citadel_tail('Open the website in Watcher')),
         'thehive': Layout(
             head=_th_head("Website monitoring - {alert_type}", "**{domain_name_sanitized}** is under surveillance."),
             tail=_TH_TAIL, title="Website Monitoring Detected - {alert_type} on {domain_name_sanitized}"),
@@ -205,6 +210,8 @@ DNS_FINDER = NotificationType(
         Field('twisted_dns', 'Twisted DNS', slack=_bullet('Suspicious domain', 'dns_domain_name_sanitized'),
               citadel=_item('Suspicious domain', 'dns_domain_name_sanitized'), required=True),
         Field('subdomain', 'Subdomain', thehive=_row('Suspicious domain', 'subdomain_sanitized'), required=True),
+        Field('source', 'Source', slack=_bullet('Source', 'source_label'), citadel=_item('Source', 'source_label'),
+              thehive=_row('Source', 'source_label'), optional=True),
         Field('parent_domain', 'Parent domain', thehive=_row('Parent domain', 'parent_domain_sanitized')),
         Field('keyword', 'Corporate keyword', slack=_bullet('Matches corporate keyword', 'alert.dns_twisted.keyword_monitored'),
               citadel=_item('Matches corporate keyword', 'alert.dns_twisted.keyword_monitored'),
@@ -217,8 +224,8 @@ DNS_FINDER = NotificationType(
               optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_DNS_TITLE, _DNS_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_DNS_TITLE, _DNS_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_DNS_TITLE, _DNS_TAG), tail=_slack_tail('Open the alert in Watcher')),
+        'citadel': Layout(head=_citadel_head(_DNS_TITLE, _DNS_TAG), tail=_citadel_tail('Open the alert in Watcher')),
         # The text of the alert Watcher opens for a new suspicious domain (with the parent-domain search).
         'thehive': Layout(
             head=_th_head("New suspicious domain", "A domain that looks like a corporate asset was detected."),
@@ -229,6 +236,7 @@ DNS_FINDER = NotificationType(
     thehive_per_alert=Layout(
         head=_th_head("New suspicious domain", "A domain that looks like a corporate asset was detected.")
              + "| **Suspicious domain** | {dns_domain_name_sanitized} |\n"
+             "{{#if source_label}}| **Source** | {source_label} |\n{{/if}}"
              "{{#if alert.dns_twisted.keyword_monitored}}| **Matches corporate keyword** | "
              "{alert.dns_twisted.keyword_monitored} |\n{{/if}}"
              "{{#if corporate_dns_sanitized}}| **Matches corporate domain** | "
@@ -249,14 +257,14 @@ DNS_FINDER_GROUP = NotificationType(
     sample=samples.dns_finder_group,
     layouts={
         'slack': Layout(
-            head="*🚨 {alerts_number} suspicious domains*\n_DNS Threats · grouped_\n\n"
+            head="*🚨 {alerts_number} suspicious domains*\n_DNS Threats · grouped · {sent_at}_\n\n"
                  "*{alerts_number}* new DNS twisted alerts for *{dns_domain_name_sanitized_group}* asset.\n\n"
-                 "<{object_url}|Open in Watcher>"),
+                 "<{object_url}|Open the alerts in Watcher>"),
         'citadel': Layout(
-            head="<h4>🚨 {alerts_number} suspicious domains</h4><p><em>DNS Threats · grouped</em></p>"
+            head="<h4>🚨 {alerts_number} suspicious domains</h4><p><em>DNS Threats · grouped · {sent_at}</em></p>"
                  "<p><strong>{alerts_number}</strong> new DNS twisted alerts for "
                  "<strong>{dns_domain_name_sanitized_group}</strong> asset.</p>"
-                 "<br><p><a href='{object_url}'>Open in Watcher</a></p>"),
+                 "<br><p><a href='{object_url}'>Open the alerts in Watcher</a></p>"),
     },
     email=EmailSpec('[{alerts_number} ALERTS] DNS Threats Monitored', samples.email_dns_finder_group),
 )
@@ -278,8 +286,8 @@ DNS_FINDER_DANGLING = NotificationType(
         _field('provider', 'Provider', 'provider', thehive=_row('Provider', 'provider'), optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_DANGLING_TITLE, _DANGLING_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_DANGLING_TITLE, _DANGLING_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_DANGLING_TITLE, _DANGLING_TAG), tail=_slack_tail('Open the takeover alert in Watcher')),
+        'citadel': Layout(head=_citadel_head(_DANGLING_TITLE, _DANGLING_TAG), tail=_citadel_tail('Open the takeover alert in Watcher')),
         'thehive': Layout(
             head=_th_head("Possible subdomain takeover",
                           "A monitored subdomain points to a resource that someone else may be able to claim."),
@@ -304,8 +312,8 @@ CYBER_WATCH_NEW_CVE = NotificationType(
                optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_NEW_CVE_TITLE, _NEW_CVE_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_NEW_CVE_TITLE, _NEW_CVE_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_NEW_CVE_TITLE, _NEW_CVE_TAG), tail=_slack_tail('Open the CVE in Watcher')),
+        'citadel': Layout(head=_citadel_head(_NEW_CVE_TITLE, _NEW_CVE_TAG), tail=_citadel_tail('Open the CVE in Watcher')),
         'thehive': Layout(
             head=_table_head("New CVE Detected"), tail=_TH_TAIL,
             title="New CVE - {cve_id}{severity_part}{cvss_part}"),
@@ -329,8 +337,8 @@ CYBER_WATCH_CVE_HIT = NotificationType(
         _field('severity', 'Severity', 'severity', thehive=_row('Severity', 'severity'), optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_CVE_HIT_TITLE, _CVE_HIT_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_CVE_HIT_TITLE, _CVE_HIT_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_CVE_HIT_TITLE, _CVE_HIT_TAG), tail=_slack_tail('Open the CVE in Watcher')),
+        'citadel': Layout(head=_citadel_head(_CVE_HIT_TITLE, _CVE_HIT_TAG), tail=_citadel_tail('Open the CVE in Watcher')),
         'thehive': Layout(
             head=_table_head("CVE Watch Rule Triggered"), tail=_TH_TAIL,
             title="CVE Rule Hit - {rule_name} matched {cve_id}{severity_bracket}"),
@@ -356,8 +364,8 @@ CYBER_WATCH_CVE_EXPLOITED = NotificationType(
         _field('description', 'Description', 'description', thehive="\n### Description\n\n{description}\n\n", optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_EXPLOITED_TITLE, _EXPLOITED_TAG, _EXPLOITED_INTRO), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_EXPLOITED_TITLE, _EXPLOITED_TAG, _EXPLOITED_INTRO), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_EXPLOITED_TITLE, _EXPLOITED_TAG, _EXPLOITED_INTRO), tail=_slack_tail('Open the CVE in Watcher')),
+        'citadel': Layout(head=_citadel_head(_EXPLOITED_TITLE, _EXPLOITED_TAG, _EXPLOITED_INTRO), tail=_citadel_tail('Open the CVE in Watcher')),
         'thehive': Layout(
             head=_table_head("CVE Exploited in the Wild"), tail=_TH_TAIL,
             title="Exploited CVE - {cve_id}{severity_part}{cvss_part}"),
@@ -379,8 +387,8 @@ CYBER_WATCH_NEW_VICTIM = NotificationType(
         _field('sector', 'Sector', 'sector', thehive=_row('Sector', 'sector'), optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_NEW_VICTIM_TITLE, _NEW_VICTIM_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_NEW_VICTIM_TITLE, _NEW_VICTIM_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_NEW_VICTIM_TITLE, _NEW_VICTIM_TAG), tail=_slack_tail('Open the victim in Watcher')),
+        'citadel': Layout(head=_citadel_head(_NEW_VICTIM_TITLE, _NEW_VICTIM_TAG), tail=_citadel_tail('Open the victim in Watcher')),
         'thehive': Layout(
             head=_table_head("New Ransomware Victim Detected"), tail=_TH_TAIL,
             title="New Ransomware Victim - {victim_name} | {group_name} | {sector}"),
@@ -406,8 +414,8 @@ CYBER_WATCH_VICTIM_HIT = NotificationType(
               citadel=_item('Matched Keyword', 'keyword'), thehive=_row('Matched keyword', 'keyword')),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_VICTIM_HIT_TITLE, _VICTIM_HIT_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_VICTIM_HIT_TITLE, _VICTIM_HIT_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_VICTIM_HIT_TITLE, _VICTIM_HIT_TAG), tail=_slack_tail('Open the victim in Watcher')),
+        'citadel': Layout(head=_citadel_head(_VICTIM_HIT_TITLE, _VICTIM_HIT_TAG), tail=_citadel_tail('Open the victim in Watcher')),
         'thehive': Layout(
             head=_table_head("Ransomware Victim Watch Rule Triggered"), tail=_TH_TAIL,
             title="Victim Rule Hit - {rule_name} matched {victim_name} ({group_name})"),
@@ -430,8 +438,8 @@ UDRP_DECISION = NotificationType(
         Field('source', 'Source', slack="• *Source:* udrpsearch.com\n", citadel="<strong>Source</strong>: udrpsearch.com<br>"),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_UDRP_TITLE, _UDRP_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_UDRP_TITLE, _UDRP_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_UDRP_TITLE, _UDRP_TAG), tail=_slack_tail('Open the decision in Watcher')),
+        'citadel': Layout(head=_citadel_head(_UDRP_TITLE, _UDRP_TAG), tail=_citadel_tail('Open the decision in Watcher')),
     },
     email=EmailSpec('[UDRP DECISION] {domain_name_sanitized}', samples.email_udrp_decision),
 )
@@ -450,8 +458,8 @@ PAGE_CHANGE = NotificationType(
         _field('removed', 'Removed', 'removed_text', optional=True),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_PAGE_TITLE, _PAGE_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_PAGE_TITLE, _PAGE_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_PAGE_TITLE, _PAGE_TAG), tail=_slack_tail('Open the page in Watcher')),
+        'citadel': Layout(head=_citadel_head(_PAGE_TITLE, _PAGE_TAG), tail=_citadel_tail('Open the page in Watcher')),
     },
     email=EmailSpec('[PAGE CHANGE] {page_name}', samples.email_page_change),
 )
@@ -469,8 +477,8 @@ ARTICLE_RULE_HIT = NotificationType(
         _field('words', 'Words found', 'matched_words'),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_RULE_TITLE, _RULE_TAG), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_RULE_TITLE, _RULE_TAG), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_RULE_TITLE, _RULE_TAG), tail=_slack_tail('Open the article in Watcher')),
+        'citadel': Layout(head=_citadel_head(_RULE_TITLE, _RULE_TAG), tail=_citadel_tail('Open the article in Watcher')),
     },
     email=EmailSpec('[KEYWORD RULE] {rule_name}', samples.email_article_rule_hit),
 )
@@ -490,8 +498,8 @@ LEGITIMATE_DOMAIN_EXPIRING = NotificationType(
         _field('checked', 'Checked with the registry', 'checked'),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_EXPIRING_TITLE, _EXPIRING_TAG, _EXPIRING_INTRO), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_EXPIRING_TITLE, _EXPIRING_TAG, _EXPIRING_INTRO), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_EXPIRING_TITLE, _EXPIRING_TAG, _EXPIRING_INTRO), tail=_slack_tail('Open the domain in Watcher')),
+        'citadel': Layout(head=_citadel_head(_EXPIRING_TITLE, _EXPIRING_TAG, _EXPIRING_INTRO), tail=_citadel_tail('Open the domain in Watcher')),
     },
     email=EmailSpec('[DOMAIN EXPIRY] {domain_name_sanitized} expires {days_text}', samples.email_legitimate_domain_expiring),
 )
@@ -511,8 +519,8 @@ LEGITIMATE_DOMAIN_EXPIRY_REGRESSION = NotificationType(
         _field('status', 'Now', 'status_text'),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_REGRESSION_TITLE, _REGRESSION_TAG, _REGRESSION_INTRO), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_REGRESSION_TITLE, _REGRESSION_TAG, _REGRESSION_INTRO), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_REGRESSION_TITLE, _REGRESSION_TAG, _REGRESSION_INTRO), tail=_slack_tail('Open the domain in Watcher')),
+        'citadel': Layout(head=_citadel_head(_REGRESSION_TITLE, _REGRESSION_TAG, _REGRESSION_INTRO), tail=_citadel_tail('Open the domain in Watcher')),
     },
     email=EmailSpec('[DOMAIN EXPIRY] {domain_name_sanitized}: earlier expiry date', samples.email_legitimate_domain_expiry_regression),
 )
@@ -538,8 +546,8 @@ SITE_DOMAIN_EXPIRING = NotificationType(
         _field('checked', 'Checked with the registry', 'checked'),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_SITE_EXPIRING_TITLE, _SITE_EXPIRING_TAG, _SITE_EXPIRING_INTRO), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_SITE_EXPIRING_TITLE, _SITE_EXPIRING_TAG, _SITE_EXPIRING_INTRO), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_SITE_EXPIRING_TITLE, _SITE_EXPIRING_TAG, _SITE_EXPIRING_INTRO), tail=_slack_tail('Open the website in Watcher')),
+        'citadel': Layout(head=_citadel_head(_SITE_EXPIRING_TITLE, _SITE_EXPIRING_TAG, _SITE_EXPIRING_INTRO), tail=_citadel_tail('Open the website in Watcher')),
     },
     email=EmailSpec('[SITE EXPIRY] {domain_name_sanitized} expires {days_text}', samples.email_site_domain_expiring),
 )
@@ -564,8 +572,8 @@ SITE_DOMAIN_AVAILABLE = NotificationType(
         _field('checked', 'Checked with the registry', 'checked'),
     ),
     layouts={
-        'slack': Layout(head=_slack_head(_SITE_AVAILABLE_TITLE, _SITE_AVAILABLE_TAG, _SITE_AVAILABLE_INTRO), tail=SLACK_TAIL),
-        'citadel': Layout(head=_citadel_head(_SITE_AVAILABLE_TITLE, _SITE_AVAILABLE_TAG, _SITE_AVAILABLE_INTRO), tail=CITADEL_LIST_TAIL),
+        'slack': Layout(head=_slack_head(_SITE_AVAILABLE_TITLE, _SITE_AVAILABLE_TAG, _SITE_AVAILABLE_INTRO), tail=_slack_tail('Open the website in Watcher')),
+        'citadel': Layout(head=_citadel_head(_SITE_AVAILABLE_TITLE, _SITE_AVAILABLE_TAG, _SITE_AVAILABLE_INTRO), tail=_citadel_tail('Open the website in Watcher')),
     },
     email=EmailSpec('[SITE AVAILABLE] {domain_name_sanitized} is no longer registered', samples.email_site_domain_available),
 )

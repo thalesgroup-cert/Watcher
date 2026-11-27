@@ -16,6 +16,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import Close from '@mui/icons-material/Close';
@@ -135,7 +136,21 @@ export function ThreatDrawer({ open, id, initial, onClose, previous, next, onNav
                         sx={{ flexWrap: 'wrap' }}
                     >
                         {STATUSES.map((s) => (
-                            <ToggleButton key={s.value} value={s.value} sx={{ px: 1.25, fontSize: 12 }}>
+                            <ToggleButton
+                                key={s.value}
+                                value={s.value}
+                                sx={(theme) => {
+                                    // The colour of the status chip of the table: a dot on each choice, the whole choice once selected
+                                    const main = s.color === 'default' ? theme.palette.text.secondary : theme.palette[s.color].main;
+                                    return {
+                                        px: 1.25,
+                                        fontSize: 12,
+                                        gap: 0.75,
+                                        '&::before': { content: '""', width: 8, height: 8, borderRadius: '50%', bgcolor: main },
+                                        '&.Mui-selected, &.Mui-selected:hover': { color: main, bgcolor: alpha(main, 0.18), borderColor: main },
+                                    };
+                                }}
+                            >
                                 {s.label}
                             </ToggleButton>
                         ))}

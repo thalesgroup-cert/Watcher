@@ -3,6 +3,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable
 
+from django.utils import timezone
+
 from .template import has_value, resolve
 
 CHANNELS = ('slack', 'citadel', 'thehive', 'email')
@@ -88,11 +90,16 @@ def _is_blank(line, ctx):
     return True
 
 
+def stamp():
+    """The time shown under the headline of a Slack or Citadel message (server time), e.g. 27 Nov 16:42."""
+    return timezone.now().strftime('%d %b %H:%M')
+
+
 def render_text(ntype, channel, ctx, selected=None):
     """Message of a type on a text channel. `selected` are the field ids to show (None: every field)."""
     layout = ntype.layouts[channel]
     # Without a link to the object itself, a message links to the page of its module
-    ctx = {'object_url': ctx.get('details_url'), **ctx}
+    ctx = {'object_url': ctx.get('details_url'), 'sent_at': stamp(), **ctx}
     ids = ntype.default_fields(channel) if selected is None else selected
     lines = ''.join(f.line(channel) for f in ntype.fields_for(channel)
                     if f.id in ids and not (f.optional and _is_blank(f.line(channel), ctx)))

@@ -1300,7 +1300,7 @@ class ChatMessagesTest(TestCase):
                     continue
                 with self.subTest(type=ntype.id, channel=channel):
                     message = render_text(ntype, channel, ntype.sample())
-                    self.assertIn('Open in Watcher', message)
+                    self.assertIn(' in Watcher', message)
                     self.assertNotIn('Dear team', message)
                     self.assertNotIn('find more details', message)
 
@@ -1316,15 +1316,15 @@ class ChatMessagesTest(TestCase):
     def test_a_slack_message_is_a_list_of_bullets(self):
         message = render_text(get_type('dns_finder'), 'slack', get_type('dns_finder').sample())
         bullets = [line for line in message.split('\n') if line.startswith('• ')]
-        self.assertEqual(len(bullets), 4)
+        self.assertEqual(len(bullets), 5)
         self.assertIn('• *Matches corporate domain:* example[.]com', bullets)
 
     def test_a_citadel_message_is_a_headline_and_a_line_per_fact(self):
         message = render_text(get_type('data_leak'), 'citadel', get_type('data_leak').sample())
-        self.assertTrue(message.startswith('<h4>🔔 Data leak detected: example.com</h4><p><em>Data Leak · alert #42</em></p>'))
+        self.assertTrue(message.startswith('<h4>🔔 Data leak detected: example.com</h4><p><em>Data Leak · alert #42 · '))
         self.assertNotIn('<table>', message)
         self.assertIn('<strong>Source</strong>: https://pastebin.com/abc123<br>', message)
-        self.assertTrue(message.endswith("<p><a href='https://watcher.example.com/#data_leak'>Open in Watcher</a></p>"))
+        self.assertTrue(message.endswith("<p><a href='https://watcher.example.com/#data_leak'>Open the leak alert in Watcher</a></p>"))
 
     def test_the_link_goes_to_the_object_when_it_is_known(self):
         ctx = dict(get_type('data_leak').sample(), object_url='https://w.example/#/data_leak?alert=7')
@@ -4090,7 +4090,7 @@ class ChatDigestTest(TestCase):
         self.assertIn('• bad9[.]com', text)
         self.assertNotIn('bad10[.]com', text)
         self.assertIn('… and 2 more', text)
-        self.assertIn('Open in Watcher', text)
+        self.assertIn('Open the alerts in Watcher', text)
 
     @patch('common.core.send_slack_message')
     def test_below_the_threshold_the_messages_go_one_by_one(self, slack, *_):
@@ -4142,4 +4142,36 @@ class ChatDigestTest(TestCase):
                     rendered = render_digest(type_id, channel, contexts)
                     text = rendered if channel == 'slack' else rendered[0]
                     self.assertIn('4', text)
-                    self.assertIn('Open in Watcher', text)
+                    self.assertIn(' in Watcher', text)
+
+
+class DnsAlertSourceTest(SimpleTestCase):
+    """A suspicious-domain alert says where it comes from (Look-alike, Certificate) on every channel."""
+
+    def _alert(self, source):
+        from connectors.notifications.samples import _dns_alert
+        alert = _dns_alert()
+        alert.source = source
+        return alert
+
+    def test_the_email_of_a_look_alike_names_its_source(self):
+        from common.mail_template.dns_finder_template import get_dns_finder_template
+        self.assertIn('Look-alike', get_dns_finder_template(self._alert('dnstwist')))
+
+    def test_the_email_of_a_certificate_names_its_source(self):
+        from common.mail_template.dns_finder_cert_transparency import get_dns_finder_cert_transparency_template
+        self.assertIn('Certificate', get_dns_finder_cert_transparency_template(self._alert('certstream_keyword')))
+
+    def test_an_unknown_source_adds_no_line(self):
+        from common.mail_template.base import dns_source
+        self.assertEqual(dns_source(self._alert('something_else')), '')
+
+    def test_slack_citadel_and_thehive_show_the_source(self):
+        ntype = get_type('dns_finder')
+        ctx = ntype.sample()
+        for channel, expected in (('slack', '*Source:* Look-alike'), ('citadel', '<strong>Source</strong>: Look-alike'),
+                                  ('thehive', '| **Source** | Look-alike |')):
+            with self.subTest(channel=channel):
+                self.assertIn(expected, render_text(ntype, channel, ctx))
+        ctx['source_label'] = ''
+        self.assertNotIn('Source', render_text(ntype, 'slack', ctx))

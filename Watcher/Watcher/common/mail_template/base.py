@@ -18,6 +18,15 @@ def has_value(value):
     return value is not None and str(value).strip().lower() not in _NO_VALUE
 
 
+# What a suspicious-domain alert was found by, in the words of the DNS Threats page
+DNS_SOURCES = {'dnstwist': 'Look-alike', 'check_dnstwist': 'Look-alike', 'certstream_keyword': 'Certificate'}
+
+
+def dns_source(alert):
+    """Where the alert comes from (Look-alike, Certificate), empty when it is not known."""
+    return DNS_SOURCES.get(getattr(alert, 'source', None), '')
+
+
 def defang(value):
     """A domain written so that no mail client turns it into a link: example[.]com. None when there is none."""
     text = '' if value is None else str(value).strip()
