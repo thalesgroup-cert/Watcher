@@ -1205,6 +1205,8 @@ The **Notifications** tab lists every notification Watcher can send, by module, 
 - Each module heading says how many of its notifications are sent somewhere (`3/5 active`) and folds away with a click (**Collapse all** / **Expand all** for the whole list).
 - **Search a notification** and **Active only** narrow the list; both are kept in the address.
 - Click the name of a notification to choose what its message says and to see a preview.
+- **Send a test to Slack / Citadel** (in the same panel) posts the saved message with fictional data, marked **[TEST]**, and notes it in the Deliveries tab of the connector.
+- **Many alerts at once**: when a job run produces **4 or more** alerts of the same notification (suspicious domains, website changes, CVE or victim rule hits, new CVEs or victims), Slack and Citadel get **one message that lists them** (10 lines, then `... and N more`) instead of one each. Set `NOTIFICATION_DIGEST_THRESHOLD` in the `.env` file to change the number (`0` never groups). TheHive and the e-mail are not grouped.
 
 ### Connector Panel and Deliveries
 

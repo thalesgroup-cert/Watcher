@@ -121,6 +121,8 @@ SCREENSHOT_KEEP = int(os.environ.get('SCREENSHOT_KEEP', '10'))
 CYBER_WATCH_CVE_RETENTION_DAYS = int(os.environ.get('CYBER_WATCH_CVE_RETENTION_DAYS', '365'))
 CYBER_WATCH_VICTIM_RETENTION_DAYS = int(os.environ.get('CYBER_WATCH_VICTIM_RETENTION_DAYS', '365'))
 # The AI summaries (one more at each Regenerate) and the activity journal (every change made in the modules); 0 keeps everything
+# From this many alerts of one notification in a job run, Slack and Citadel get one message that lists them (0 = never group)
+NOTIFICATION_DIGEST_THRESHOLD = int(os.environ.get('NOTIFICATION_DIGEST_THRESHOLD', '4'))
 SUMMARY_RETENTION_DAYS = int(os.environ.get('SUMMARY_RETENTION_DAYS', '90'))
 TIMELINE_RETENTION_DAYS = int(os.environ.get('TIMELINE_RETENTION_DAYS', '365'))
 # Computing threads the entity model (Threats Watcher) may use while it reads the titles; 0 leaves torch free to take every core

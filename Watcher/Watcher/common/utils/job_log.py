@@ -31,6 +31,33 @@ _SENDERS_LOGGER = 'watcher.common'
 _CHANNEL_ORDER = ('slack', 'citadel', 'thehive', 'email')
 
 
+# Slack and Citadel messages kept until the job ends, to be sent as one when there are many (connectors.notifications.digest)
+_digest_sender = None
+
+
+def set_digest_sender(func):
+    """Register what sends the messages kept during a job: func(key, [(context, send), ...])."""
+    global _digest_sender
+    _digest_sender = func
+
+
+def defer_digest(key, context, send):
+    """Keep a message for the end of the job running in this thread. False (nothing kept) outside of a job."""
+    pending = getattr(_local, 'pending', None)
+    if pending is None:
+        return False
+    pending.setdefault(key, []).append((context, send))
+    return True
+
+
+def _flush_digests(pending):
+    for key, items in pending.items():
+        try:
+            _digest_sender(key, items)
+        except Exception as exc:
+            _logger.error(f"Could not send the grouped notifications {key[0]} on {key[1]}: {exc}")
+
+
 def job_count(key, n=1):
     """Count something in the scheduled job running in this thread. Does nothing outside of a job."""
     run = getattr(_local, 'run', None)
@@ -86,6 +113,8 @@ def logged_job(name, logger):
             run, previous, started = Counter(), getattr(_local, 'run', None), time.monotonic()
             started_at = timezone.now()
             _local.run = run
+            pending, previous_pending = {}, getattr(_local, 'pending', None)
+            _local.pending = pending
             with _running_lock:
                 _running[key] = started_at
             failed, error = False, ''
@@ -95,6 +124,9 @@ def logged_job(name, logger):
                 failed, error = True, f"{type(exc).__name__}: {exc}"
                 raise
             finally:
+                _local.pending = previous_pending
+                if pending and _digest_sender:
+                    _flush_digests(pending)
                 _local.run = previous
                 duration = time.monotonic() - started
                 with _running_lock:

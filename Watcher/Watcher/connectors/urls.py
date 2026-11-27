@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .api import ConnectorViewSet, NotificationListView, NotificationPreviewView, NotificationSettingView
+from .api import ConnectorViewSet, NotificationListView, NotificationPreviewView, NotificationSettingView, NotificationTestView
 
 router = DefaultRouter()
 router.register('api/connectors', ConnectorViewSet, basename='connectors')
@@ -10,4 +10,5 @@ urlpatterns = [
     path('api/connectors/notifications/', NotificationListView.as_view()),
     path('api/connectors/notifications/<str:type_id>/<str:channel>/', NotificationSettingView.as_view()),
     path('api/connectors/notifications/<str:type_id>/<str:channel>/preview/', NotificationPreviewView.as_view()),
+    path('api/connectors/notifications/<str:type_id>/<str:channel>/test/', NotificationTestView.as_view()),
 ] + router.urls

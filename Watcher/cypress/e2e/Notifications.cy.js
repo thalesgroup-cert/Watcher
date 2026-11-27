@@ -154,6 +154,29 @@ describe('Connectors - Notifications tab', () => {
     cy.wait('@save').its('request.body').should('deep.equal', { fields: ['url'] });
   });
 
+  it('sends a test of the message to Slack, says how it went, and offers none on e-mail', () => {
+    cy.intercept('POST', '/api/connectors/notifications/data_leak/slack/test/', { statusCode: 200, body: { success: true, message: 'Test sent to Slack.' } }).as('sentTest');
+    visitTab();
+    cy.contains('button', 'Data leak alert', { timeout: 20000 }).click();
+    cy.get('[role="complementary"]').within(() => {
+      cy.wait('@preview');
+      cy.contains('button', 'Send a test to Slack').click();
+    });
+    cy.wait('@sentTest');
+    cy.contains('Test sent to Slack.').should('be.visible');
+    // A failure is said too
+    cy.intercept('POST', '/api/connectors/notifications/data_leak/slack/test/', { statusCode: 200, body: { success: false, message: 'The test was not sent to Slack: 429.' } }).as('refused');
+    cy.get('[role="complementary"]').contains('button', 'Send a test to Slack').click();
+    cy.wait('@refused');
+    cy.contains('The test was not sent to Slack: 429.').should('be.visible');
+  });
+
+  it('has no test on the e-mail channel', () => {
+    visitTab('/#/connectors?tab=notifications&ntype=data_leak&nchannel=email');
+    cy.get('[role="complementary"]', { timeout: 20000 }).contains('The layout of the email is fixed').should('be.visible');
+    cy.get('[role="complementary"]').contains('button', /Send a test/).should('not.exist');
+  });
+
   it('shows the email preview in a sandboxed frame, without field choice', () => {
     visitTab('/#/connectors?tab=notifications&ntype=data_leak&nchannel=email');
     cy.get('[role="complementary"]', { timeout: 20000 }).within(() => {

@@ -712,6 +712,54 @@ class NotificationAPITest(APITestCase):
         self.assertEqual(self.client.patch(BASE + 'data_leak/sms/', {'enabled': True}, format='json').status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(self.client.post(BASE + 'nope/slack/preview/', {}, format='json').status_code, status.HTTP_404_NOT_FOUND)
 
+    @patch('common.utils.send_citadel_messages.send_citadel_message')
+    def test_a_test_goes_to_citadel_marked_as_a_test(self, send):
+        send.return_value = (True, '')
+        self._auth(self.super_token)
+        resp = self.client.post(BASE + 'cyber_watch_cve_hit/citadel/test/')
+        self.assertEqual((resp.status_code, resp.data['success']), (status.HTTP_200_OK, True))
+        content = send.call_args.args[0]
+        self.assertTrue(content['body'].startswith('[TEST] '))
+        self.assertTrue(content['formatted_body'].startswith('<strong>[TEST]</strong>'))
+        self.assertIn('CVE-2026-12345', content['body'])
+
+    @patch('common.utils.send_slack_messages.send_slack_message')
+    def test_a_test_goes_to_slack_marked_as_a_test(self, send):
+        send.return_value = (True, '')
+        self._auth(self.super_token)
+        resp = self.client.post(BASE + 'data_leak/slack/test/')
+        self.assertTrue(resp.data['success'])
+        self.assertTrue(send.call_args.args[0].startswith('[TEST] '))
+
+    @patch('common.utils.send_citadel_messages.send_citadel_message')
+    def test_a_test_that_fails_says_why_and_is_kept_in_the_deliveries(self, send):
+        from connectors.models import ConnectorEvent
+        send.return_value = (False, '429')
+        self._auth(self.super_token)
+        resp = self.client.post(BASE + 'data_leak/citadel/test/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(resp.data['success'])
+        self.assertIn('429', resp.data['message'])
+        event = ConnectorEvent.objects.filter(connector_id='citadel').first()
+        self.assertEqual((event.ok, event.subject), (False, 'data_leak (test)'))
+
+    def test_a_test_is_only_for_slack_and_citadel_and_for_a_superuser(self):
+        self._auth(self.super_token)
+        self.assertEqual(self.client.post(BASE + 'data_leak/thehive/test/').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(BASE + 'data_leak/email/test/').status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(BASE + 'nope/slack/test/').status_code, status.HTTP_404_NOT_FOUND)
+        self._auth(self.user_token)
+        self.assertEqual(self.client.post(BASE + 'data_leak/slack/test/').status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_the_words_of_threats_watcher_are_a_valid_paragraph_on_citadel(self):
+        from common.core import citadel_content
+        from connectors.notifications import get_type
+        content = citadel_content('threats_watcher', get_type('threats_watcher').sample())
+        self.assertNotIn('<ul>', content['formatted_body'])
+        self.assertIn('<p><strong>ransomware<br>phishing kit</strong></p>', content['formatted_body'])
+        # The link is on its own line in the text version
+        self.assertIn('phishing kit\n\nOpen in Watcher', content['body'])
+
     def test_preview_of_a_text_channel_uses_the_fields_sent(self):
         self._auth(self.super_token)
         resp = self.client.post(BASE + 'data_leak/slack/preview/', {'fields': ['url']}, format='json')
@@ -731,7 +779,7 @@ class NotificationAPITest(APITestCase):
         self._auth(self.super_token)
         citadel = self.client.post(BASE + 'data_leak/citadel/preview/', {}, format='json').data
         self.assertEqual(citadel['kind'], 'html')
-        self.assertIn('<tr><td><strong>Source</strong></td><td>https://pastebin.com/abc123</td></tr>', citadel['content'])
+        self.assertIn('<strong>Source</strong>: https://pastebin.com/abc123<br>', citadel['content'])
         thehive = self.client.post(BASE + 'data_leak/thehive/preview/', {}, format='json').data
         self.assertEqual(thehive['kind'], 'text')
         self.assertTrue(thehive['title'].startswith('New Data Leakage - Alert #'))

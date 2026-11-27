@@ -12,7 +12,7 @@ from .core import (
     reset_connector_field,
     test_connector,
 )
-from .notifications import UNSET, describe, describe_all, preview, save_setting
+from .notifications import UNSET, describe, describe_all, get_type, preview, save_setting
 
 logger = logging.getLogger('watcher.connectors')
 
@@ -193,3 +193,45 @@ class NotificationPreviewView(APIView):
         except Exception as exc:
             logger.error("Error building the preview of '%s' on '%s': %s", type_id, channel, exc)
             return Response({'error': 'Failed to build the preview'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class NotificationTestView(APIView):
+    """
+    POST /api/connectors/notifications/<type>/<channel>/test/ - send the saved message, built from the fictional sample and
+    marked [TEST], to Slack or Citadel (the two chat channels: a test on TheHive would open a case, on e-mail it would write
+    to people). Answers `{success, message}`.
+    """
+    permission_classes = [IsSuperUser]
+    CHANNELS = ('slack', 'citadel')
+
+    def post(self, request, type_id, channel):
+        from common.core import citadel_content
+        from common.utils.send_citadel_messages import send_citadel_message
+        from common.utils.send_slack_messages import send_slack_message
+        from .core import get_citadel_config, get_slack_config, record_event
+        from .notifications.store import render_message
+        try:
+            ntype = get_type(type_id)
+        except KeyError as exc:
+            return Response({'error': exc.args[0]}, status=status.HTTP_404_NOT_FOUND)
+        if channel not in self.CHANNELS or channel not in ntype.channels:
+            return Response({'error': 'A test can be sent to Slack or Citadel, when the notification has a message there'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ctx = ntype.sample()
+            if channel == 'citadel':
+                content = citadel_content(type_id, ctx)
+                content['body'] = '[TEST] ' + content['body']
+                content['formatted_body'] = '<strong>[TEST]</strong> ' + content['formatted_body']
+                sent, reason = send_citadel_message(content, get_citadel_config()['room_id'], f'{type_id} (test)')
+            else:
+                text = '[TEST] ' + render_message(type_id, 'slack', ctx)
+                sent, reason = send_slack_message(text, get_slack_config()['channel'], f'{type_id} (test)')
+        except Exception as exc:
+            logger.error("Error sending the test of '%s' on '%s': %s", type_id, channel, exc)
+            sent, reason = False, 'Unexpected error'
+        record_event(channel, 'notification', sent, '' if sent else f'test failed ({reason})', subject=f'{type_id} (test)')
+        label = 'Citadel' if channel == 'citadel' else 'Slack'
+        if sent:
+            return Response({'success': True, 'message': f'Test sent to {label}.'})
+        return Response({'success': False, 'message': f'The test was not sent to {label}: {reason}. See the Deliveries tab of the connector.'})

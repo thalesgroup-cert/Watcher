@@ -817,6 +817,42 @@ class SendCitadelMessageTest(TestCase):
         self._send({'body': 'Plain'})
         self.assertIsNone(mock_post.call_args.kwargs['json']['formatted_body'])
 
+    @patch('common.utils.send_citadel_messages.time.sleep')
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_a_message_refused_with_too_many_requests_is_sent_again_after_the_wait_the_server_asks(self, _config, mock_post, sleep):
+        slow = MagicMock(status_code=429, text='{"errcode":"M_LIMIT_EXCEEDED"}')
+        slow.json.return_value = {'errcode': 'M_LIMIT_EXCEEDED', 'retry_after_ms': 1500}
+        mock_post.side_effect = [slow, MagicMock(status_code=200)]
+        self.assertEqual(self._send(), (True, ''))
+        self.assertEqual(mock_post.call_count, 2)
+        self.assertIn(1.5, [c.args[0] for c in sleep.call_args_list])
+
+    @patch('common.utils.send_citadel_messages.time.sleep')
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_a_message_still_refused_after_the_attempts_is_reported_as_failed(self, _config, mock_post, _sleep):
+        from common.utils.send_citadel_messages import MAX_ATTEMPTS
+        slow = MagicMock(status_code=429, text='Too Many Requests')
+        slow.json.return_value = {'retry_after_ms': 100}
+        mock_post.return_value = slow
+        with self.assertLogs('watcher.common', level='ERROR') as logs:
+            sent, reason = self._send()
+        self.assertEqual((sent, reason), (False, '429'))
+        self.assertEqual(mock_post.call_count, MAX_ATTEMPTS)
+        self.assertIn('429', logs.output[0])
+
+    @patch('common.utils.send_citadel_messages.time.sleep')
+    @patch('common.utils.send_citadel_messages.requests.post')
+    @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
+    def test_the_wait_asked_by_the_server_is_never_longer_than_the_limit(self, _config, mock_post, sleep):
+        from common.utils.send_citadel_messages import MAX_WAIT
+        slow = MagicMock(status_code=429, text='x')
+        slow.json.return_value = {'retry_after_ms': 10 * 60 * 1000}
+        mock_post.side_effect = [slow, MagicMock(status_code=200)]
+        self._send()
+        self.assertLessEqual(max(c.args[0] for c in sleep.call_args_list), MAX_WAIT)
+
     @patch('common.utils.send_citadel_messages.requests.post')
     @patch('common.utils.send_citadel_messages.get_citadel_config', return_value=CONFIG)
     def test_network_error_is_logged_not_raised(self, _config, mock_post):
@@ -1283,10 +1319,11 @@ class ChatMessagesTest(TestCase):
         self.assertEqual(len(bullets), 4)
         self.assertIn('• *Matches corporate domain:* example[.]com', bullets)
 
-    def test_a_citadel_message_is_a_table_of_facts(self):
+    def test_a_citadel_message_is_a_headline_and_a_line_per_fact(self):
         message = render_text(get_type('data_leak'), 'citadel', get_type('data_leak').sample())
-        self.assertIn('<table>', message)
-        self.assertIn('<tr><td><strong>Source</strong></td><td>https://pastebin.com/abc123</td></tr>', message)
+        self.assertTrue(message.startswith('<h4>🔔 Data leak detected: example.com</h4><p><em>Data Leak · alert #42</em></p>'))
+        self.assertNotIn('<table>', message)
+        self.assertIn('<strong>Source</strong>: https://pastebin.com/abc123<br>', message)
         self.assertTrue(message.endswith("<p><a href='https://watcher.example.com/#data_leak'>Open in Watcher</a></p>"))
 
     def test_the_link_goes_to_the_object_when_it_is_known(self):
@@ -1296,7 +1333,7 @@ class ChatMessagesTest(TestCase):
     def test_the_plain_text_of_a_citadel_message_is_readable(self):
         content = citadel_content('data_leak', get_type('data_leak').sample())
         self.assertEqual(content['format'], 'org.matrix.custom.html')
-        self.assertIn('<table>', content['formatted_body'])
+        self.assertNotIn('<table>', content['formatted_body'])
         self.assertNotIn('<', content['body'])
         self.assertIn('Keyword: example.com', content['body'])
         self.assertIn('Source: https://pastebin.com/abc123', content['body'])
@@ -4020,3 +4057,89 @@ class AdminPagesTest(TestCase):
         response = self.client.get('/admin/site_monitoring/alert/')
         self.assertContains(response, 'By type')
         self.assertEqual(self.client.get('/admin/site_monitoring/alert/', {'type': 'IP'}).status_code, 200)
+
+
+@patch('common.core._keep_delivery')
+@patch('common.core.get_citadel_config', return_value={'room_id': '!room'})
+@patch('common.core.get_slack_config', return_value={'channel': 'C1'})
+@patch('common.core.is_enabled', return_value=True)
+class ChatDigestTest(TestCase):
+    """Many alerts of one notification in a job run: one message in Slack and Citadel, the others are untouched."""
+
+    def _run(self, count, type_id='dns_finder', channel='slack', **ctx):
+        from common.core import _send_channel
+        sent = []
+        sample = get_type(type_id).sample()
+
+        @logged_job("Digest job", log)
+        def job():
+            for i in range(count):
+                _send_channel(type_id, channel, type_id, lambda i=i: sent.append(i),
+                              context=dict(sample, dns_domain_name_sanitized=f'bad{i}[.]com', **ctx))
+        job()
+        return sent
+
+    @patch('common.core.send_slack_message')
+    def test_from_the_threshold_one_message_lists_the_alerts(self, slack, *_):
+        sent = self._run(12)
+        self.assertEqual(sent, [])
+        self.assertEqual(slack.call_count, 1)
+        text = slack.call_args.args[0]
+        self.assertIn('*🚨 12 suspicious domains*', text)
+        self.assertIn('• bad0[.]com', text)
+        self.assertIn('• bad9[.]com', text)
+        self.assertNotIn('bad10[.]com', text)
+        self.assertIn('… and 2 more', text)
+        self.assertIn('Open in Watcher', text)
+
+    @patch('common.core.send_slack_message')
+    def test_below_the_threshold_the_messages_go_one_by_one(self, slack, *_):
+        self.assertEqual(self._run(3), [0, 1, 2])
+        slack.assert_not_called()
+
+    @override_settings(NOTIFICATION_DIGEST_THRESHOLD=0)
+    @patch('common.core.send_slack_message')
+    def test_a_threshold_of_zero_never_groups(self, slack, *_):
+        self.assertEqual(len(self._run(12)), 12)
+
+    @override_settings(NOTIFICATION_DIGEST_THRESHOLD=2)
+    @patch('common.core.send_slack_message')
+    def test_the_threshold_is_the_setting(self, slack, *_):
+        self._run(2)
+        self.assertEqual(slack.call_count, 1)
+
+    @patch('common.core.send_citadel_message')
+    def test_citadel_gets_html_and_a_plain_text(self, citadel, *_):
+        self._run(5, channel='citadel')
+        content = citadel.call_args.kwargs['content']
+        self.assertEqual(content['format'], 'org.matrix.custom.html')
+        self.assertIn('<h4>🚨 5 suspicious domains</h4>', content['formatted_body'])
+        self.assertIn('bad4[.]com (example - homoglyph)<br>', content['formatted_body'])
+        self.assertNotIn('<', content['body'])
+        self.assertIn('bad4[.]com', content['body'])
+
+    def test_a_notification_outside_of_a_job_is_sent_at_once(self, is_enabled, *_):
+        from common.core import _send_channel
+        sent = []
+        _send_channel('dns_finder', 'slack', 'dns_finder', lambda: sent.append(1), context={})
+        self.assertEqual(sent, [1])
+
+    def test_a_channel_that_is_off_keeps_nothing(self, is_enabled, *_):
+        is_enabled.return_value = False
+        self.assertEqual(self._run(12), [])
+
+    @patch('common.core.send_slack_message')
+    def test_notifications_that_are_not_grouped_go_one_by_one(self, slack, *_):
+        self.assertEqual(len(self._run(12, type_id='data_leak')), 12)
+
+    @patch('common.core.send_slack_message')
+    def test_every_grouped_notification_has_a_message(self, slack, *_):
+        from connectors.notifications.digest import DIGESTS, render_digest
+        for type_id in DIGESTS:
+            contexts = [get_type(type_id).sample()] * 4
+            for channel in ('slack', 'citadel'):
+                with self.subTest(type=type_id, channel=channel):
+                    rendered = render_digest(type_id, channel, contexts)
+                    text = rendered if channel == 'slack' else rendered[0]
+                    self.assertIn('4', text)
+                    self.assertIn('Open in Watcher', text)

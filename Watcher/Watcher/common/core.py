@@ -23,12 +23,13 @@ from .mail_template.dns_finder_group_template import get_dns_finder_group_templa
 from .mail_template.dns_finder_dangling_template import get_dns_finder_dangling_template
 from .mail_template.cyber_watch_template import get_cyber_watch_template
 from .utils.send_thehive_alerts import send_thehive_alert
+from .utils import job_log
 from .utils.job_log import job_count, logged_job, note_channel, report_channel, reported_notification, run_channel
 from .utils import expiry_alerts, expiry_check, registration_actions
 from .utils.update_thehive import search_thehive_for_ticket_id, update_existing_alert_case, create_new_alert, search_thehive_for_observable
 from connectors.core import get_thehive_config, get_slack_config, get_citadel_config
 from connectors.core import record_event
-from connectors.notifications import email_subject, find_type, is_enabled, render_message, render_per_alert, render_thehive_title, thehive_meta
+from connectors.notifications import digest, email_subject, find_type, is_enabled, render_message, render_per_alert, render_thehive_title, thehive_meta
 import tldextract
 from apscheduler.schedulers.background import BackgroundScheduler
 import tzlocal
@@ -208,10 +209,16 @@ def _defang(value):
     return text.replace('.', '[.]') if text else None
 
 
+# The severity at a glance, in front of the title of a CVE message
+_SEVERITY_DOT = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}
+
+
 def _cve_title_parts(severity, cvss_score=None):
     """The pieces of a CVE title that exist: a severity or a score the source does not give is left out."""
     severity, cvss_score = _clean(severity), _clean(cvss_score)
+    dot = _SEVERITY_DOT.get(str(severity or '').upper())
     return {
+        'severity_dot': f"{dot} " if dot else '',
         'severity_suffix': f" ({severity})" if severity else '',
         'severity_bracket': f" [{severity}]" if severity else '',
         'severity_part': f" | Severity: {severity}" if severity else '',
@@ -673,10 +680,22 @@ def _keep_delivery(type_id, channel, status, duration):
     record_event(connector, 'notification', not failed, status if status != 'ok' else '', subject=type_id, duration=duration)
 
 
-def _send_channel(type_id, channel, app_name, send):
+def _deliver(type_id, channel, app_name, send):
+    """Send one message on its channel and keep how it went (Deliveries tab). A failure is logged, not raised."""
+    try:
+        started = time.monotonic()
+        status = run_channel(channel, send)
+        _keep_delivery(type_id, channel, status, time.monotonic() - started)
+    except Exception as exc:
+        _keep_delivery(type_id, channel, f"failed ({str(exc)[:110]})", None)
+        logger.error(f"Could not send the {type_id} notification on {channel} for {app_name}: {exc}")
+
+
+def _send_channel(type_id, channel, app_name, send, context=None):
     """
     Run `send` when the instance has `channel` switched on for this notification (Connectors > Notifications).
-    A failing channel is logged and does not stop the next one.
+    A failing channel is logged and does not stop the next one. A Slack or Citadel message of a job (`context` given) that
+    can be grouped waits for the end of the job: see `_send_digest`.
     """
     try:
         # The gate is inside the try: before the notification tables are migrated the query fails, and that must not
@@ -684,12 +703,36 @@ def _send_channel(type_id, channel, app_name, send):
         if not is_enabled(type_id, channel):
             report_channel(channel, 'off')
             return
-        started = time.monotonic()
-        status = run_channel(channel, send)
-        _keep_delivery(type_id, channel, status, time.monotonic() - started)
+        if context is not None and digest.is_digestable(type_id) and job_log.defer_digest((type_id, channel, app_name), context, send):
+            report_channel(channel, 'kept for the end of the job')
+            return
     except Exception as exc:
         _keep_delivery(type_id, channel, f"failed ({str(exc)[:110]})", None)
         logger.error(f"Could not read the setting or send the {type_id} notification on {channel} for {app_name}: {exc}")
+        return
+    _deliver(type_id, channel, app_name, send)
+
+
+def _send_digest(key, items):
+    """End of a job: the messages kept for a channel go one by one, or as a single one from the threshold on."""
+    type_id, channel, app_name = key
+    if len(items) < digest.threshold():
+        for _context, send in items:
+            _deliver(type_id, channel, app_name, send)
+        return
+    contexts = [context for context, _send in items]
+    if channel == 'slack':
+        text = digest.render_digest(type_id, 'slack', contexts)
+        send = lambda: send_slack_message(text, get_slack_config()['channel'], app_name)
+    else:
+        html, text = digest.render_digest(type_id, 'citadel', contexts)
+        content = {'msgtype': 'm.text', 'format': 'org.matrix.custom.html', 'body': text, 'formatted_body': html}
+        send = lambda: send_citadel_message(content=content, room_id=get_citadel_config()['room_id'], app_name=app_name)
+    job_count('notifications_grouped', len(items))
+    _deliver(type_id, channel, app_name, send)
+
+
+job_log.set_digest_sender(_send_digest)
 
 
 @reported_notification(_notification_label, logger)
@@ -1129,13 +1172,13 @@ def send_app_specific_notifications(app_name, context_data, subscribers):
 
     _send_channel(template_key, 'slack', app_name, lambda: send_slack_message(
         render_message(template_key, 'slack', slack_data), get_slack_config()['channel'], app_name,
-        attachments=slack_attachments))
+        attachments=slack_attachments), context=slack_data)
 
     _send_channel(template_key, 'citadel', app_name, lambda: send_citadel_message(
         content=citadel_content(template_key, citadel_data),
         room_id=get_citadel_config()['room_id'],
         app_name=common_data.get('app_name')
-    ))
+    ), context=citadel_data)
 
     def send_thehive():
         formatted_title = render_thehive_title(template_key, common_data)

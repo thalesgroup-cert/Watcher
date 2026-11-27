@@ -107,7 +107,7 @@ def _cyber_watch(notification_type):
         'description': 'Remote code execution in the example product.', 'rule_name': 'Our stack',
         'keyword': 'example', 'victim_name': 'Example Corp', 'group_name': 'LockBit', 'country': 'FR',
         'sector': 'Manufacturing', 'details_url': URL + '#/cyber_watch', 'app_name': 'cyber_watch',
-        'severity_suffix': ' (CRITICAL)', 'severity_bracket': ' [CRITICAL]', 'severity_part': ' | Severity: CRITICAL',
+        'severity_dot': '🔴 ', 'severity_suffix': ' (CRITICAL)', 'severity_bracket': ' [CRITICAL]', 'severity_part': ' | Severity: CRITICAL',
         'cvss_part': ' | CVSS: 9.8', 'epss': '94 %', 'fix_by': '2026-12-01', 'ransomware': 'Known to be used by ransomware groups',
     }
 

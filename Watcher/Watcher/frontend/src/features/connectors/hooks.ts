@@ -102,6 +102,15 @@ export function useUpdateNotification() {
     });
 }
 
+/** Sends a test of a notification to its channel; the answer is said in a message, success or not. */
+export function useTestNotification() {
+    return useMutation({
+        mutationFn: ({ typeId, channel }: { typeId: string; channel: NotificationChannel }) => api.testNotification(typeId, channel),
+        onSuccess: (result) => (result.success ? notifySuccess(result.message) : notifyError(new Error(result.message))),
+        onError: notifyError,
+    });
+}
+
 /** Preview of one message; a key left out of `draft` shows what is saved. */
 export function useNotificationPreview(typeId: string, channel: NotificationChannel, draft: api.NotificationDraft) {
     return useQuery({

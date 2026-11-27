@@ -15,12 +15,15 @@ def send_slack_message(content, channel, app_name, attachments=None):
         channel (str): The Slack channel where the message will be sent.
         app_name (str): The module the message comes from, for the log.
         attachments (list, optional): JSON array for rich formatting (Block Kit).
+
+    Returns:
+        (sent, reason): whether the message was accepted, and why not (empty when it was).
     """
 
     slack = get_slack_config()
     if not slack['token'] or not slack['channel']:
         logger.warning("No configuration for Slack, notifications disabled. Configure it in the '.env' file or the Connectors page.")
-        return
+        return False, 'Slack is not configured'
 
     url = 'https://slack.com/api/chat.postMessage'
     headers = {
@@ -43,5 +46,6 @@ def send_slack_message(content, channel, app_name, attachments=None):
 
     if accepted:
         logger.info(f"Message sent to Slack successfully for {app_name}.")
-    else:
-        logger.error(f"Failed to send message to Slack: {response.status_code} - {response.text}")
+        return True, ''
+    logger.error(f"Failed to send message to Slack: {response.status_code} - {response.text}")
+    return False, str(response.status_code)

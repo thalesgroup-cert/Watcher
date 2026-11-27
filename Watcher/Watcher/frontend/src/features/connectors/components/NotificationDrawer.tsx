@@ -20,11 +20,12 @@ import {
     Typography,
 } from '@mui/material';
 import Close from '@mui/icons-material/Close';
+import SendOutlined from '@mui/icons-material/SendOutlined';
 import { getErrorMessage } from '../../../api/client';
 import { notifySuccess } from '../../../lib/notify';
 import { SideDrawer } from '../../../ui/SideDrawer';
 import type { NotificationDraft } from '../api';
-import { useNotificationPreview, useUpdateNotification } from '../hooks';
+import { useNotificationPreview, useTestNotification, useUpdateNotification } from '../hooks';
 import { CHANNELS, CHANNEL_LABELS, connectorProblem } from '../notifications';
 import type { NotificationChannel, NotificationChannelSetting, NotificationType } from '../types';
 import { MessagePreview } from './MessagePreview';
@@ -144,6 +145,7 @@ const orNull = (value: string) => (value.trim() ? value.trim() : null);
 /** One channel of a notification. Keyed by its saved values, so a save starts it again from what is stored. */
 function ChannelPanel({ type, channel, setting }: { type: NotificationType; channel: NotificationChannel; setting: NotificationChannelSetting }) {
     const update = useUpdateNotification();
+    const test = useTestNotification();
     const [draft, setDraft] = useState<string[]>(setting.fields);
     // null: the catalogue message built from the boxes. A string: a message written by hand.
     const [template, setTemplate] = useState<string | null>(setting.template);
@@ -276,9 +278,26 @@ function ChannelPanel({ type, channel, setting }: { type: NotificationType; chan
             </Box>
             <Divider />
             <Box component="section" sx={{ px: 2.5, py: 2 }}>
-                <Typography variant="overline" color="text.secondary" component="h3" sx={{ display: 'block', mb: 1 }}>
-                    Preview (fictional data)
-                </Typography>
+                <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+                    <Typography variant="overline" color="text.secondary" component="h3">
+                        Preview (fictional data)
+                    </Typography>
+                    {(channel === 'slack' || channel === 'citadel') && (
+                        <Tooltip title={problem ?? `Sends the saved message, marked [TEST], to ${name}`}>
+                            <span>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<SendOutlined />}
+                                    disabled={!!problem || test.isPending}
+                                    onClick={() => test.mutate({ typeId: type.id, channel })}
+                                >
+                                    {test.isPending ? 'Sending...' : `Send a test to ${name}`}
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    )}
+                </Stack>
                 <Preview typeId={type.id} channel={channel} draft={previewDraft} />
             </Box>
         </>

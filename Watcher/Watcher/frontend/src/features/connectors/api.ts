@@ -46,3 +46,7 @@ export const previewNotification = (typeId: string, channel: NotificationChannel
     api
         .post<NotificationPreview>(`/api/connectors/notifications/${typeId}/${channel}/preview/`, body)
         .then((res) => res.data);
+
+/** Sends the saved message of a notification, built from the fictional sample and marked [TEST], to Slack or Citadel. */
+export const testNotification = (typeId: string, channel: NotificationChannel) =>
+    api.post<TestResult>(`/api/connectors/notifications/${typeId}/${channel}/test/`).then((res) => res.data);
